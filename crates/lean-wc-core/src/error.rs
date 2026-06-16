@@ -14,8 +14,8 @@ pub enum CompilerError {
         /// Joined parser diagnostics.
         messages: String,
     },
-    /// No supported `component()` call could be found.
-    #[error("No lean-wc component() call was found in {filename}.")]
+    /// No supported component declaration could be found.
+    #[error("No lean-wc component declaration was found in {filename}.")]
     ComponentNotFound {
         /// Module filename being analyzed.
         filename: String,

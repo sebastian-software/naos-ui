@@ -2,7 +2,11 @@ use std::fmt::Write as _;
 
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
-    ComponentModule, EventDefinition, PropDefinition, PropKind, StateDefinition, TransformResult,
+    ComponentModule, EventDefinition, PropAccess, PropDefinition, PropKind, StateDefinition,
+    TransformResult,
+};
+use crate::naming::{
+    custom_element_tag_for_component, is_pascal_case_identifier, kebab_case_identifier,
 };
 use crate::parse::analyze_component_module;
 
@@ -295,6 +299,7 @@ impl<'a> CodeGenerator<'a> {
             .push(format!("this.#root.append({root_variable});"));
 
         let mut code = String::new();
+        self.emit_component_imports(&mut code)?;
         writeln!(
             code,
             "class {} extends HTMLElement {{",
@@ -314,12 +319,35 @@ impl<'a> CodeGenerator<'a> {
         Ok(code)
     }
 
+    fn emit_component_imports(&self, code: &mut String) -> CompilerResult<()> {
+        let mut sources = Vec::new();
+        for component_import in &self.module.component_imports {
+            if sources
+                .iter()
+                .any(|source| source == &component_import.source)
+            {
+                continue;
+            }
+            sources.push(component_import.source.clone());
+            writeln!(
+                code,
+                "import \"{}\";",
+                escape_js_string(&component_import.source)
+            )
+            .map_err(format_error)?;
+        }
+        if !sources.is_empty() {
+            writeln!(code).map_err(format_error)?;
+        }
+        Ok(())
+    }
+
     fn emit_observed_attributes(&self, code: &mut String) -> CompilerResult<()> {
         let attributes = self
             .module
             .props
             .iter()
-            .map(|prop| format!("\"{}\"", prop.prop_name))
+            .map(|prop| format!("\"{}\"", prop.attribute_name))
             .collect::<Vec<_>>()
             .join(", ");
         writeln!(code, "  static get observedAttributes() {{").map_err(format_error)?;
@@ -389,7 +417,7 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "    if (oldValue === newValue) return;").map_err(format_error)?;
         writeln!(code, "    switch (name) {{").map_err(format_error)?;
         for prop in &self.module.props {
-            writeln!(code, "      case \"{}\":", prop.prop_name).map_err(format_error)?;
+            writeln!(code, "      case \"{}\":", prop.attribute_name).map_err(format_error)?;
             writeln!(
                 code,
                 "        this.#props.{} = {};",
@@ -433,25 +461,29 @@ impl<'a> CodeGenerator<'a> {
                 writeln!(
                     code,
                     "      this.setAttribute(\"{}\", \"\");",
-                    prop.prop_name
+                    prop.attribute_name
                 )
                 .map_err(format_error)?;
                 writeln!(code, "    }} else {{").map_err(format_error)?;
-                writeln!(code, "      this.removeAttribute(\"{}\");", prop.prop_name)
-                    .map_err(format_error)?;
+                writeln!(
+                    code,
+                    "      this.removeAttribute(\"{}\");",
+                    prop.attribute_name
+                )
+                .map_err(format_error)?;
                 writeln!(code, "    }}").map_err(format_error)?;
             }
             PropKind::Number | PropKind::String => {
                 writeln!(
                     code,
                     "    if (this.getAttribute(\"{}\") !== String(nextValue)) {{",
-                    prop.prop_name
+                    prop.attribute_name
                 )
                 .map_err(format_error)?;
                 writeln!(
                     code,
                     "      this.setAttribute(\"{}\", String(nextValue));",
-                    prop.prop_name
+                    prop.attribute_name
                 )
                 .map_err(format_error)?;
                 writeln!(code, "    }}").map_err(format_error)?;
@@ -483,24 +515,36 @@ impl<'a> CodeGenerator<'a> {
     fn emit_bindings(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  #createBindings() {{").map_err(format_error)?;
         for prop in &self.module.props {
-            writeln!(
-                code,
-                "    const {} = () => this.#props.{};",
-                prop.local_name, prop.local_name
-            )
-            .map_err(format_error)?;
-            writeln!(
-                code,
-                "    {}.set = (value) => {{ this.{} = value; }};",
-                prop.local_name, prop.prop_name
-            )
-            .map_err(format_error)?;
-            writeln!(
-                code,
-                "    {}.update = (updater) => {{ {}.set(updater({}())); }};",
-                prop.local_name, prop.local_name, prop.local_name
-            )
-            .map_err(format_error)?;
+            match prop.access {
+                PropAccess::Accessor => {
+                    writeln!(
+                        code,
+                        "    const {} = () => this.#props.{};",
+                        prop.local_name, prop.local_name
+                    )
+                    .map_err(format_error)?;
+                    writeln!(
+                        code,
+                        "    {}.set = (value) => {{ this.{} = value; }};",
+                        prop.local_name, prop.prop_name
+                    )
+                    .map_err(format_error)?;
+                    writeln!(
+                        code,
+                        "    {}.update = (updater) => {{ {}.set(updater({}())); }};",
+                        prop.local_name, prop.local_name, prop.local_name
+                    )
+                    .map_err(format_error)?;
+                }
+                PropAccess::Value => {
+                    writeln!(
+                        code,
+                        "    const {} = this.#props.{};",
+                        prop.local_name, prop.local_name
+                    )
+                    .map_err(format_error)?;
+                }
+            }
         }
         for state in &self.module.states {
             self.emit_state_binding(code, state)?;
@@ -577,12 +621,8 @@ impl<'a> CodeGenerator<'a> {
             .map_err(format_error)?;
             writeln!(code, "}}").map_err(format_error)?;
         } else {
-            writeln!(
-                code,
-                "export function define{}() {{",
-                self.module.class_name
-            )
-            .map_err(format_error)?;
+            writeln!(code, "export function {}() {{", self.define_function_name())
+                .map_err(format_error)?;
             writeln!(
                 code,
                 "  if (!customElements.get(\"{}\")) {{",
@@ -598,9 +638,26 @@ impl<'a> CodeGenerator<'a> {
             writeln!(code, "  }}").map_err(format_error)?;
             writeln!(code, "}}").map_err(format_error)?;
         }
-        writeln!(code, "export {{ {} }};", self.module.class_name).map_err(format_error)?;
+        if let Some(export_name) = &self.module.export_name {
+            writeln!(
+                code,
+                "export {{ {} as {} }};",
+                self.module.class_name, export_name
+            )
+            .map_err(format_error)?;
+        } else {
+            writeln!(code, "export {{ {} }};", self.module.class_name).map_err(format_error)?;
+        }
         writeln!(code, "export default {};", self.module.class_name).map_err(format_error)?;
         Ok(())
+    }
+
+    fn define_function_name(&self) -> String {
+        self.module
+            .export_name
+            .as_ref()
+            .map(|export_name| format!("define{export_name}"))
+            .unwrap_or_else(|| format!("define{}", self.module.class_name))
     }
 
     fn emit_element(&mut self, element: &TemplateElement) -> CompilerResult<String> {
@@ -608,17 +665,25 @@ impl<'a> CodeGenerator<'a> {
         self.next_node_index += 1;
         let variable = format!("node{index}");
         let field = format!("node{index}");
+        let tag_name = self.element_tag_name(&element.tag_name);
+        let is_component_element = is_pascal_case_identifier(&element.tag_name);
         self.node_fields.push(field.clone());
         self.mount_lines.push(format!(
             "const {variable} = document.createElement(\"{}\");",
-            element.tag_name
+            escape_js_string(&tag_name)
         ));
         self.mount_lines
             .push(format!("this.#{field} = {variable};"));
 
         let field_reference = format!("this.#{field}");
         for attribute in &element.attributes {
-            self.emit_attribute(&variable, &field_reference, &field, attribute)?;
+            self.emit_attribute(
+                &variable,
+                &field_reference,
+                &field,
+                attribute,
+                is_component_element,
+            )?;
         }
 
         for child in &element.children {
@@ -637,12 +702,27 @@ impl<'a> CodeGenerator<'a> {
         Ok(variable)
     }
 
+    fn element_tag_name(&self, tag_name: &str) -> String {
+        if !is_pascal_case_identifier(tag_name) {
+            return tag_name.to_owned();
+        }
+        let component_name = self
+            .module
+            .component_imports
+            .iter()
+            .find(|component_import| component_import.local_name == tag_name)
+            .map(|component_import| component_import.imported_name.as_str())
+            .unwrap_or(tag_name);
+        custom_element_tag_for_component(component_name)
+    }
+
     fn emit_attribute(
         &mut self,
         variable: &str,
         field_reference: &str,
         field_name: &str,
         attribute: &TemplateAttribute,
+        is_component_element: bool,
     ) -> CompilerResult<()> {
         if let Some(event_name) = event_name_from_attribute(&attribute.name) {
             let AttributeValue::Expression(expression) = &attribute.value else {
@@ -667,17 +747,18 @@ impl<'a> CodeGenerator<'a> {
             return Ok(());
         }
 
+        let attribute_name = attribute_name_for_element(&attribute.name, is_component_element);
         match &attribute.value {
             AttributeValue::Boolean => {
                 self.mount_lines.push(format!(
                     "{variable}.setAttribute(\"{}\", \"\");",
-                    attribute.name
+                    attribute_name
                 ));
             }
             AttributeValue::Static(value) => {
                 self.mount_lines.push(format!(
                     "{variable}.setAttribute(\"{}\", \"{}\");",
-                    attribute.name,
+                    attribute_name,
                     escape_js_string(value)
                 ));
             }
@@ -685,7 +766,7 @@ impl<'a> CodeGenerator<'a> {
                 self.update_lines.push(dynamic_attribute_update(
                     field_reference,
                     field_name,
-                    &attribute.name,
+                    &attribute_name,
                     expression,
                 ));
             }
@@ -845,7 +926,7 @@ fn event_name_from_attribute(name: &str) -> Option<String> {
     if event_name.is_empty() {
         return None;
     }
-    Some(event_name.to_ascii_lowercase())
+    Some(kebab_case_identifier(event_name))
 }
 
 fn handler_body(expression: &str) -> String {
@@ -877,6 +958,13 @@ fn escape_js_string(value: &str) -> String {
         .replace('"', "\\\"")
         .replace('\n', "\\n")
         .replace('\r', "\\r")
+}
+
+fn attribute_name_for_element(name: &str, is_component_element: bool) -> String {
+    if is_component_element && !name.starts_with("data-") && !name.starts_with("aria-") {
+        return kebab_case_identifier(name);
+    }
+    name.to_owned()
 }
 
 fn format_error(error: std::fmt::Error) -> CompilerError {

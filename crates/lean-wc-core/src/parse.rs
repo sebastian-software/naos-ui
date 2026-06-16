@@ -5,17 +5,24 @@ use regex::Regex;
 
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
-    ComponentModule, ComponentOptions, EventDefinition, PropDefinition, PropKind, StateDefinition,
+    ComponentImport, ComponentModule, ComponentOptions, EventDefinition, PropAccess,
+    PropDefinition, PropKind, StateDefinition,
 };
+use crate::naming::{custom_element_tag_for_component, kebab_case_identifier};
 
-/// Analyzes a TSX module containing a lean-wc `component()` call.
+/// Analyzes a TSX module containing a lean-wc component definition.
 ///
 /// # Errors
 ///
 /// Returns [`CompilerError`] when the source does not parse as TSX or when no
-/// supported `component()` call can be found.
+/// supported function component or `component()` call can be found.
 pub fn analyze_component_module(source: &str, filename: &str) -> CompilerResult<ComponentModule> {
     parse_with_oxc(source, filename)?;
+
+    let component_imports = capture_component_imports(source)?;
+    if let Some(function_component) = capture_function_component(source)? {
+        return analyze_function_component(source, function_component, component_imports);
+    }
 
     let component_call = extract_component_call(source, filename)?;
     let tag_name = capture_tag_name(component_call, filename)?;
@@ -26,11 +33,41 @@ pub fn analyze_component_module(source: &str, filename: &str) -> CompilerResult<
     Ok(ComponentModule {
         class_name: class_name_for_tag(&tag_name),
         tag_name,
+        export_name: None,
         options,
+        component_imports,
         props: capture_props(callback_body)?,
         states: capture_states(callback_body)?,
         events: capture_events(callback_body)?,
         template_source,
+    })
+}
+
+struct FunctionComponent<'a> {
+    name: &'a str,
+    params: &'a str,
+    body: &'a str,
+}
+
+fn analyze_function_component(
+    source: &str,
+    function_component: FunctionComponent<'_>,
+    component_imports: Vec<ComponentImport>,
+) -> CompilerResult<ComponentModule> {
+    let tag_name = custom_element_tag_for_component(function_component.name);
+    let class_name = format!("{}Element", function_component.name);
+    let options = capture_exported_component_options(source)?;
+
+    Ok(ComponentModule {
+        class_name,
+        tag_name,
+        export_name: Some(function_component.name.to_owned()),
+        options,
+        component_imports,
+        props: capture_function_props(function_component.params)?,
+        states: capture_states(function_component.body)?,
+        events: capture_events(function_component.body)?,
+        template_source: capture_template_source(function_component.body)?,
     })
 }
 
@@ -68,6 +105,89 @@ fn extract_component_call<'a>(source: &'a str, filename: &str) -> CompilerResult
     Ok(&source[start..=end])
 }
 
+fn capture_function_component(source: &str) -> CompilerResult<Option<FunctionComponent<'_>>> {
+    let regex = compile_regex(r#"export\s+(?:default\s+)?function\s+([A-Z][A-Za-z0-9_$]*)\s*\("#)?;
+    let Some(captures) = regex.captures(source) else {
+        return Ok(None);
+    };
+    let Some(full_match) = captures.get(0) else {
+        return Ok(None);
+    };
+    let Some(name) = captures.get(1) else {
+        return Ok(None);
+    };
+
+    let params_open = full_match.end() - 1;
+    let params_close = find_matching_delimiter(source, params_open, '(', ')')?;
+    let after_params = &source[params_close + 1..];
+    let Some(body_open_relative) = after_params.find('{') else {
+        return Err(unsupported(
+            "Function component must use a block body in the current compiler milestone.",
+        ));
+    };
+    let body_open = params_close + 1 + body_open_relative;
+    let body_close = find_matching_delimiter(source, body_open, '{', '}')?;
+
+    Ok(Some(FunctionComponent {
+        name: name.as_str(),
+        params: &source[params_open + 1..params_close],
+        body: &source[body_open + 1..body_close],
+    }))
+}
+
+fn capture_component_imports(source: &str) -> CompilerResult<Vec<ComponentImport>> {
+    let named_regex = compile_regex(r#"import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']"#)?;
+    let default_regex =
+        compile_regex(r#"import\s+([A-Z][A-Za-z0-9_$]*)\s+from\s*["']([^"']+)["']"#)?;
+    let mut imports = Vec::new();
+
+    for captures in named_regex.captures_iter(source) {
+        let specifier = capture_str(&captures, 2)?;
+        if !is_component_import_source(specifier) {
+            continue;
+        }
+        for import_name in capture_str(&captures, 1)?.split(',') {
+            let trimmed = import_name.trim();
+            if trimmed.is_empty() || trimmed.starts_with("type ") {
+                continue;
+            }
+            let (imported_name, local_name) = parse_named_import(trimmed);
+            imports.push(ComponentImport {
+                imported_name,
+                local_name,
+                source: specifier.to_owned(),
+            });
+        }
+    }
+
+    for captures in default_regex.captures_iter(source) {
+        let specifier = capture_str(&captures, 2)?;
+        if !is_component_import_source(specifier) {
+            continue;
+        }
+        let local_name = capture_str(&captures, 1)?.to_owned();
+        imports.push(ComponentImport {
+            imported_name: local_name.clone(),
+            local_name,
+            source: specifier.to_owned(),
+        });
+    }
+
+    Ok(imports)
+}
+
+fn is_component_import_source(specifier: &str) -> bool {
+    specifier.contains(".wc")
+}
+
+fn parse_named_import(value: &str) -> (String, String) {
+    if let Some((imported, local)) = value.split_once(" as ") {
+        return (imported.trim().to_owned(), local.trim().to_owned());
+    }
+    let name = value.trim().to_owned();
+    (name.clone(), name)
+}
+
 fn capture_tag_name(component_call: &str, filename: &str) -> CompilerResult<String> {
     let regex = compile_regex(r#"component\s*\(\s*"([^"]+)""#)?;
     let Some(captures) = regex.captures(component_call) else {
@@ -89,6 +209,19 @@ fn capture_component_options(component_call: &str) -> CompilerResult<ComponentOp
         define: !component_call.contains("define: false"),
         styles: capture_style_expressions(component_call)?,
     })
+}
+
+fn capture_exported_component_options(source: &str) -> CompilerResult<ComponentOptions> {
+    let Some(options_start) = source.find("export const options") else {
+        return Ok(ComponentOptions::default());
+    };
+    let after_options = &source[options_start..];
+    let Some(open_relative) = after_options.find('{') else {
+        return Ok(ComponentOptions::default());
+    };
+    let open = options_start + open_relative;
+    let close = find_matching_delimiter(source, open, '{', '}')?;
+    capture_component_options(&source[open..=close])
 }
 
 fn capture_style_expressions(component_call: &str) -> CompilerResult<Vec<String>> {
@@ -160,8 +293,10 @@ fn capture_props(callback_body: &str) -> CompilerResult<Vec<PropDefinition>> {
         props.push(PropDefinition {
             local_name: capture_str(&captures, 1)?.to_owned(),
             prop_name: capture_str(&captures, 3)?.to_owned(),
+            attribute_name: capture_str(&captures, 3)?.to_owned(),
             default_value: optional_capture(&captures, 4).unwrap_or_else(|| default_for_kind(kind)),
             kind,
+            access: PropAccess::Accessor,
         });
     }
 
@@ -173,12 +308,128 @@ fn capture_props(callback_body: &str) -> CompilerResult<Vec<PropDefinition>> {
         props.push(PropDefinition {
             local_name: local_name.to_owned(),
             prop_name: capture_str(&captures, 2)?.to_owned(),
+            attribute_name: capture_str(&captures, 2)?.to_owned(),
             default_value: optional_capture(&captures, 3).unwrap_or_else(|| "\"\"".to_owned()),
             kind: PropKind::String,
+            access: PropAccess::Accessor,
         });
     }
 
     Ok(props)
+}
+
+fn capture_function_props(params: &str) -> CompilerResult<Vec<PropDefinition>> {
+    let Some(open) = params.find('{') else {
+        return Ok(Vec::new());
+    };
+    let close = find_matching_delimiter(params, open, '{', '}')?;
+    let destructured = &params[open + 1..close];
+    let mut props = Vec::new();
+
+    for prop_source in split_top_level_commas(destructured) {
+        let prop_source = prop_source.trim();
+        if prop_source.is_empty() {
+            continue;
+        }
+        if prop_source.starts_with("...") {
+            return Err(unsupported(
+                "Function component rest props are not supported in the current compiler milestone.",
+            ));
+        }
+        props.push(parse_function_prop(prop_source)?);
+    }
+
+    Ok(props)
+}
+
+fn parse_function_prop(prop_source: &str) -> CompilerResult<PropDefinition> {
+    let (binding_source, default_value) = prop_source
+        .split_once('=')
+        .map(|(binding, default_value)| (binding.trim(), default_value.trim()))
+        .unwrap_or((prop_source.trim(), ""));
+    let (prop_name_source, local_name_source) = binding_source
+        .split_once(':')
+        .map(|(prop_name, local_name)| (prop_name.trim(), local_name.trim()))
+        .unwrap_or((binding_source, binding_source));
+    let local_name = local_name_source
+        .split_whitespace()
+        .next()
+        .ok_or_else(|| unsupported("Function component prop binding is missing a local name."))?;
+
+    if local_name.is_empty() || prop_name_source.is_empty() {
+        return Err(unsupported(
+            "Function component prop binding must have a name.",
+        ));
+    }
+
+    let kind = prop_kind_for_default(default_value);
+    Ok(PropDefinition {
+        local_name: local_name.to_owned(),
+        prop_name: prop_name_source.to_owned(),
+        attribute_name: kebab_case_identifier(prop_name_source),
+        kind,
+        default_value: if default_value.is_empty() {
+            default_for_kind(kind)
+        } else {
+            default_value.to_owned()
+        },
+        access: PropAccess::Value,
+    })
+}
+
+fn split_top_level_commas(source: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0usize;
+    let mut in_string: Option<char> = None;
+    let mut escaped = false;
+
+    for (index, ch) in source.char_indices() {
+        if let Some(quote) = in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if ch == '\\' {
+                escaped = true;
+                continue;
+            }
+            if ch == quote {
+                in_string = None;
+            }
+            continue;
+        }
+
+        if matches!(ch, '"' | '\'' | '`') {
+            in_string = Some(ch);
+            continue;
+        }
+
+        if matches!(ch, '(' | '[' | '{') {
+            depth += 1;
+        } else if matches!(ch, ')' | ']' | '}') {
+            depth = depth.saturating_sub(1);
+        } else if ch == ',' && depth == 0 {
+            parts.push(&source[start..index]);
+            start = index + ch.len_utf8();
+        }
+    }
+
+    if start <= source.len() {
+        parts.push(&source[start..]);
+    }
+    parts
+}
+
+fn prop_kind_for_default(default_value: &str) -> PropKind {
+    let trimmed = default_value.trim();
+    if matches!(trimmed, "true" | "false") {
+        PropKind::Boolean
+    } else if trimmed.parse::<f64>().is_ok() {
+        PropKind::Number
+    } else {
+        PropKind::String
+    }
 }
 
 fn capture_states(callback_body: &str) -> CompilerResult<Vec<StateDefinition>> {

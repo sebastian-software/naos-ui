@@ -8,13 +8,14 @@
 mod codegen;
 mod error;
 mod model;
+mod naming;
 mod parse;
 
 pub use codegen::transform_component_module;
 pub use error::{CompilerError, CompilerResult};
 pub use model::{
-    ComponentModule, ComponentOptions, EventDefinition, PropDefinition, PropKind, StateDefinition,
-    TransformResult,
+    ComponentImport, ComponentModule, ComponentOptions, EventDefinition, PropAccess,
+    PropDefinition, PropKind, StateDefinition, TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -65,6 +66,43 @@ mod tests {
     }
 
     #[test]
+    fn analyze_component_module_should_extract_function_component_model() {
+        let source = r#"
+            import { event, state, type ComponentOptions } from "lean-wc";
+
+            export const options = {
+              shadow: true,
+              styles: [":host { display: block; }"],
+            } satisfies ComponentOptions;
+
+            export function Counter({ label = "Count", enabled = true, step = 1 }: CounterProps = {}) {
+              const count = state(0);
+              const change = event<number>("change");
+
+              return (
+                <button disabled={!enabled} onClick={() => change.emit(count())}>
+                  {label}: {count()}
+                </button>
+              );
+            }
+        "#;
+
+        let module = match analyze_component_module(source, "counter.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+
+        assert_eq!(module.tag_name, "x-counter");
+        assert_eq!(module.class_name, "CounterElement");
+        assert_eq!(module.export_name.as_deref(), Some("Counter"));
+        assert_eq!(module.props.len(), 3);
+        assert_eq!(module.props[0].prop_name, "label");
+        assert_eq!(module.props[1].attribute_name, "enabled");
+        assert_eq!(module.props[2].attribute_name, "step");
+        assert_eq!(module.options.styles, vec!["\":host { display: block; }\""]);
+    }
+
+    #[test]
     fn transform_component_module_should_generate_custom_element() {
         let source = r#"
             import { component, event, prop, state } from "lean-wc";
@@ -103,6 +141,83 @@ mod tests {
         );
         assert!(result.code.contains("new CustomEvent(\"change\""));
         assert!(result.code.contains("this.#text0.data"));
+    }
+
+    #[test]
+    fn transform_component_module_should_generate_function_component_element() {
+        let source = r#"
+            import { event, state } from "lean-wc";
+
+            export function Counter({ label = "Count" }: CounterProps = {}) {
+              const count = state(0);
+              const change = event<number>("change");
+
+              return (
+                <button
+                  part="button"
+                  onClick={() => {
+                    count.set(count() + 1);
+                    change.emit(count());
+                  }}
+                >
+                  {label}: {count()}
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "counter.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            result
+                .code
+                .contains("class CounterElement extends HTMLElement")
+        );
+        assert!(
+            result
+                .code
+                .contains("customElements.define(\"x-counter\", CounterElement)")
+        );
+        assert!(result.code.contains("const label = this.#props.label;"));
+        assert!(
+            result
+                .code
+                .contains("export { CounterElement as Counter };")
+        );
+    }
+
+    #[test]
+    fn transform_component_module_should_rewrite_nested_pascal_components() {
+        let source = r#"
+            import { Counter as BaseCounter } from "./counter.wc.tsx";
+
+            export function Dashboard() {
+              return (
+                <section>
+                  <BaseCounter initialCount={1} onValueChange={(event) => {
+                    console.log(event.detail);
+                  }} />
+                </section>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "dashboard.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("import \"./counter.wc.tsx\";"));
+        assert!(
+            result
+                .code
+                .contains("document.createElement(\"x-counter\")")
+        );
+        assert!(result.code.contains("initial-count"));
+        assert!(result.code.contains("addEventListener(\"value-change\""));
     }
 
     #[test]

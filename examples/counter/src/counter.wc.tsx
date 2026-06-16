@@ -1,7 +1,14 @@
-import { component, event, prop, state } from "lean-wc"
+import { event, state, type ComponentOptions } from "lean-wc"
 
-export default component("x-counter", { shadow: true }, () => {
-  const label = prop.string("label", "Count")
+export type CounterProps = {
+  label?: string
+}
+
+export const options = {
+  shadow: true,
+} satisfies ComponentOptions
+
+export function Counter({ label = "Count" }: CounterProps = {}) {
   const count = state(0)
   const change = event<number>("change")
 
@@ -14,8 +21,7 @@ export default component("x-counter", { shadow: true }, () => {
         change.emit(count())
       }}
     >
-      {label()}: {count()}
+      {label}: {count()}
     </button>
   )
-})
-
+}

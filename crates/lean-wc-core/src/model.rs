@@ -7,9 +7,13 @@ pub struct ComponentModule {
     pub tag_name: String,
     /// JavaScript class name derived from the tag name.
     pub class_name: String,
-    /// Component options captured from the `component()` call.
+    /// Public authoring export name, when the source used function component syntax.
+    pub export_name: Option<String>,
+    /// Component options captured from the component declaration.
     pub options: ComponentOptions,
-    /// Public props declared through `prop.*()`.
+    /// Component imports that should be preserved for nested Custom Element registration.
+    pub component_imports: Vec<ComponentImport>,
+    /// Public props declared through function parameters or `prop.*()`.
     pub props: Vec<PropDefinition>,
     /// Internal state declarations.
     pub states: Vec<StateDefinition>,
@@ -17,6 +21,17 @@ pub struct ComponentModule {
     pub events: Vec<EventDefinition>,
     /// Raw JSX template returned by the component callback.
     pub template_source: String,
+}
+
+/// Imported component used as a PascalCase JSX element.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ComponentImport {
+    /// Imported export name from the source module.
+    pub imported_name: String,
+    /// Local binding name used in the current module.
+    pub local_name: String,
+    /// Import source specifier.
+    pub source: String,
 }
 
 /// Component-level compile options.
@@ -51,6 +66,15 @@ pub enum PropKind {
     Number,
 }
 
+/// How a prop is exposed inside the authored template.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PropAccess {
+    /// Legacy `prop.*()` declarations expose accessor functions.
+    Accessor,
+    /// Function component parameters expose plain local values.
+    Value,
+}
+
 /// Public prop declaration.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PropDefinition {
@@ -58,10 +82,14 @@ pub struct PropDefinition {
     pub local_name: String,
     /// Public prop name.
     pub prop_name: String,
+    /// Observed HTML attribute name.
+    pub attribute_name: String,
     /// Attribute conversion kind.
     pub kind: PropKind,
     /// Source text for the default value.
     pub default_value: String,
+    /// Whether the authored template reads this prop as a value or accessor.
+    pub access: PropAccess,
 }
 
 /// Internal state declaration.
