@@ -30,6 +30,14 @@ Die Architektur folgt diesen Leitplanken:
   Erstellung, Update-Scheduling, Style-Adoption und Define-Guards sind erlaubt;
   Render-Diffing, VDOM und Framework-Abstraktionen sind ausgeschlossen.
 
+## Project Language Policy
+
+English is the project language. All future public interfaces, package names,
+API types, generated diagnostics, code comments, examples, README content,
+guides, ADRs, and implementation documentation must be written in English.
+Existing German planning notes do not need to be translated before the next
+implementation milestones begin.
+
 ## Commit-Regeln
 
 Alle Commits verwenden Conventional Commits. Ein Meilenstein darf mehrere
