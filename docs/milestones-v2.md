@@ -416,7 +416,7 @@ and reviewable before implementation pressure blurs tradeoffs.
 ```sh
 rg -n "TO""DO|TB""D|FIX""ME|PLACE""HOLDER" docs README.md
 rg -n "^Weight:" docs/adrs
-rg -n "^Related Milestones:" docs/adrs
+rg -n "^## Related Milestones" docs/adrs
 ```
 
 ### Planned Commits
