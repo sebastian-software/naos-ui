@@ -34,13 +34,201 @@ pub fn core_version() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{
-        StateKind, analyze_component_module, core_version, render_declarative_shadow_dom_module,
+        DiagnosticSeverity, StateKind, analyze_component_module, core_version,
+        render_declarative_shadow_dom_module,
         render_declarative_shadow_dom_module_with_inline_styles, transform_component_module,
+    };
+    use crate::error::{
+        DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED, DIAGNOSTIC_CODE_DSD_INPUT,
+        DIAGNOSTIC_CODE_REMOVED_AUTHORING_API, DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
+        DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
+        DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS, DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+        DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
     };
 
     #[test]
     fn core_version_should_match_crate_version() {
         assert_eq!(core_version(), env!("CARGO_PKG_VERSION"));
+    }
+
+    fn assert_diagnostic<T: std::fmt::Debug>(
+        result: Result<T, super::CompilerError>,
+        filename: &str,
+        code: &str,
+        message: &str,
+        hint: &str,
+    ) {
+        let error = result.expect_err("fixture should fail with a diagnostic");
+        let diagnostics = error.diagnostics(filename);
+        let diagnostic = diagnostics
+            .first()
+            .expect("compiler error should expose diagnostics");
+
+        assert_eq!(diagnostic.code, code, "{filename}");
+        assert_eq!(diagnostic.severity, DiagnosticSeverity::Error, "{filename}");
+        assert_eq!(diagnostic.filename, filename);
+        assert!(
+            diagnostic.message.contains(message),
+            "{filename} message should contain {message:?}, got {:?}",
+            diagnostic.message
+        );
+        assert_eq!(
+            diagnostic.span, None,
+            "{filename} should document that spans are not yet available"
+        );
+        let diagnostic_hint = diagnostic.hint.as_deref().expect("hint should be present");
+        assert!(
+            diagnostic_hint.contains(hint),
+            "{filename} hint should contain {hint:?}, got {diagnostic_hint:?}"
+        );
+    }
+
+    #[test]
+    fn compiler_diagnostics_should_use_catalog_codes_and_hints() {
+        let cases = [
+            (
+                "removed-signal.wc.tsx",
+                r#"
+                    import { signal } from "@iktia/core";
+
+                    export function RemovedSignal() {
+                      const count = signal(0);
+                      return <button>{count()}</button>;
+                    }
+                "#,
+                DIAGNOSTIC_CODE_REMOVED_AUTHORING_API,
+                "signal() was removed",
+                "function component authoring API",
+            ),
+            (
+                "unsupported-options.wc.tsx",
+                r#"
+                    import { state, type ComponentOptions } from "@iktia/core";
+
+                    export const options = {
+                      shadow: false,
+                    } satisfies ComponentOptions;
+
+                    export function UnsupportedOptions() {
+                      const count = state(0);
+                      return <button>{count()}</button>;
+                    }
+                "#,
+                DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
+                "Component options only support `styles`",
+                "export const options",
+            ),
+            (
+                "rest-props.wc.tsx",
+                r#"
+                    export function RestProps({ label = "Count", ...rest }: RestProps = {}) {
+                      return <button>{label}</button>;
+                    }
+                "#,
+                DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
+                "rest props are not supported",
+                "Declare explicit destructured props",
+            ),
+            (
+                "missing-template.wc.tsx",
+                r#"
+                    import { state } from "@iktia/core";
+
+                    export function MissingTemplate() {
+                      const count = state(0);
+                      count.set(1);
+                    }
+                "#,
+                DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
+                "must return a TSX template",
+                "parenthesized TSX return",
+            ),
+            (
+                "computed-block.wc.tsx",
+                r#"
+                    import { computed, state } from "@iktia/core";
+
+                    export function ComputedBlock() {
+                      const count = state(0);
+                      const doubled = computed(() => {
+                        return count() * 2;
+                      });
+                      return <button>{doubled()}</button>;
+                    }
+                "#,
+                DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK,
+                "computed() must use an expression body",
+                "authoring limitations",
+            ),
+            (
+                "unkeyed-map.wc.tsx",
+                r#"
+                    import { computed } from "@iktia/core";
+
+                    export function UnkeyedMap() {
+                      const items = computed(() => ["One", "Two"]);
+                      return <ul>{items().map((item) => <li>{item}</li>)}</ul>;
+                    }
+                "#,
+                DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+                "require a key attribute",
+                "keyed .map()",
+            ),
+            (
+                "conditional-jsx.wc.tsx",
+                r#"
+                    import { state } from "@iktia/core";
+
+                    export function ConditionalJsx() {
+                      const ready = state(false);
+                      return <section>{ready() ? <span>Ready</span> : <span>Waiting</span>}</section>;
+                    }
+                "#,
+                DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
+                "Conditional JSX expressions are not supported",
+                "<Show",
+            ),
+            (
+                "show-fallback.wc.tsx",
+                r#"
+                    import { Show, state } from "@iktia/core";
+
+                    export function ShowFallback() {
+                      const ready = state(false);
+                      return <Show when={ready()} fallback><span>Ready</span></Show>;
+                    }
+                "#,
+                DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
+                "Show fallback must have a value",
+                "<Show",
+            ),
+        ];
+
+        for (filename, source, code, message, hint) in cases {
+            assert_diagnostic(
+                transform_component_module(source, filename),
+                filename,
+                code,
+                message,
+                hint,
+            );
+        }
+
+        assert_diagnostic(
+            render_declarative_shadow_dom_module(
+                r#"
+                    export function Counter() {
+                      return <button>Count</button>;
+                    }
+                "#,
+                "counter.wc.tsx",
+                Some("[]"),
+            ),
+            "counter.wc.tsx",
+            DIAGNOSTIC_CODE_DSD_INPUT,
+            "DSD prerender props must be a JSON object",
+            "JSON objects",
+        );
     }
 
     #[test]
@@ -825,7 +1013,11 @@ mod tests {
         assert!(result.code.contains("\"pointer-move\": \"pointermove\""));
         assert!(result.code.contains("\"pointer-over\": \"pointerover\""));
         assert!(result.code.contains("\"pointer-leave\": \"pointerleave\""));
-        assert!(result.code.contains("\"pointer-cancel\": \"pointercancel\""));
+        assert!(
+            result
+                .code
+                .contains("\"pointer-cancel\": \"pointercancel\"")
+        );
         assert!(result.code.contains("\"context-menu\": \"contextmenu\""));
         assert!(result.code.contains("\"before-input\": \"beforeinput\""));
         assert!(result.code.contains("target.style[property]"));

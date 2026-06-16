@@ -169,6 +169,8 @@ loader order, source-build guidance, and generated N-API boundary types.
 Compiler API failures throw `IktiaCompilerError` with `diagnostics[]`.
 Diagnostics include a code, severity, message, filename, optional UTF-8 span,
 and optional hint. Vite and the CLI render that shared structure.
+See [Compiler diagnostics](compiler-diagnostics.md) for the current code
+catalog.
 
 Transforms return a native source-map object from Rust as `map?`. The current
 map is emitted by the native transform workflow; broader span coverage for

@@ -7,7 +7,11 @@ use oxc_ast::ast::{
 use oxc_parser::Parser;
 use oxc_span::{GetSpan, SourceType, Span};
 
-use crate::error::{CompilerError, CompilerResult};
+use crate::error::{
+    CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK,
+    DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
+    removed_authoring_api, unsupported, unsupported_with_code,
+};
 use crate::model::{
     ComponentImport, ComputedDefinition, EffectDefinition, EventDefinition, FormControlDefinition,
     LifecycleCallbackDefinition, RuntimeImport, StateDefinition, StateKind, StyleImport,
@@ -274,17 +278,17 @@ fn analyze_component_body(
     let mut semantics = AstComponentSemantics::default();
     let body_source = source_span(source, SourceSpan::from_oxc(body.span))?;
     if contains_call(body_source, "signal") {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "signal() was removed from the v0.1 authoring API. Use state() for local component state.",
         ));
     }
     if contains_prop_call(body_source) {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "prop.*() and prop() were removed from the v0.1 authoring API. Declare props with typed function parameters instead.",
         ));
     }
     if contains_call(body_source, "useHost") {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "useHost() was removed from the v0.1 authoring API. Use host() instead.",
         ));
     }
@@ -492,22 +496,22 @@ fn call_name<'a>(call: &'a CallExpression<'a>) -> Option<&'a str> {
 
 fn reject_removed_call(call: &CallExpression<'_>) -> CompilerResult<()> {
     if call_name(call) == Some("component") {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "component() was removed from the v0.1 authoring API. Export a PascalCase function component instead.",
         ));
     }
     if call_name(call) == Some("signal") {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "signal() was removed from the v0.1 authoring API. Use state() for local component state.",
         ));
     }
     if call_name(call) == Some("useHost") {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "useHost() was removed from the v0.1 authoring API. Use host() instead.",
         ));
     }
     if is_prop_call(call) {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "prop.*() and prop() were removed from the v0.1 authoring API. Declare props with typed function parameters instead.",
         ));
     }
@@ -567,14 +571,18 @@ fn capture_arrow_expression_source(
 
 fn capture_arrow_expression_source_from_str(callback_source: &str) -> CompilerResult<String> {
     let Some(arrow_index) = callback_source.find("=>") else {
-        return Err(unsupported(
-            "Iktia compiler helpers require an arrow function callback.",
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK,
+            "computed() requires an arrow function callback.",
+            DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
         ));
     };
     let body = callback_source[arrow_index + 2..].trim();
     if body.starts_with('{') {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK,
             "computed() must use an expression body in the current compiler milestone.",
+            DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
         ));
     }
     Ok(strip_wrapping_parentheses(body).to_owned())
@@ -594,7 +602,11 @@ fn capture_arrow_body_source_from_str(callback_source: &str) -> CompilerResult<S
     let body = callback_source[arrow_index + 2..].trim();
     if body.starts_with('{') {
         if !body.ends_with('}') || body.len() < 2 {
-            return Err(unsupported("effect() callback body is malformed."));
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK,
+                "effect() callback body is malformed.",
+                DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
+            ));
         }
         return Ok(body[1..body.len() - 1].trim().to_owned());
     }
@@ -707,10 +719,4 @@ fn strip_type_argument_delimiters(source: &str) -> &str {
         return trimmed[1..trimmed.len() - 1].trim();
     }
     trimmed
-}
-
-fn unsupported(message: impl Into<String>) -> CompilerError {
-    CompilerError::Unsupported {
-        message: message.into(),
-    }
 }
