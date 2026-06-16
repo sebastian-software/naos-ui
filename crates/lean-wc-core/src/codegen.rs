@@ -1,14 +1,16 @@
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
-    ComponentModule, ComputedDefinition, EffectDefinition, EventDefinition, PropAccess,
-    PropDefinition, PropKind, StateDefinition, TransformResult,
+    ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult, EffectDefinition,
+    EventDefinition, PropAccess, PropDefinition, PropKind, StateDefinition, TransformResult,
 };
 use crate::naming::{
     custom_element_tag_for_component, is_pascal_case_identifier, kebab_case_identifier,
 };
 use crate::parse::analyze_component_module;
+use serde_json::Value as JsonValue;
 
 /// Transforms a TSX module into a native Custom Element JavaScript module.
 ///
@@ -25,6 +27,28 @@ pub fn transform_component_module(source: &str, filename: &str) -> CompilerResul
         code,
         has_changed: true,
     })
+}
+
+/// Prerenders a TSX module into Declarative Shadow DOM host HTML.
+///
+/// The `props_json` argument is an optional JSON object with initial host prop
+/// values. DSD output is emitted only for `shadow: true` components; other
+/// components still return host metadata and a plain custom element host.
+///
+/// # Errors
+///
+/// Returns [`CompilerError`] when analysis fails, the template cannot be parsed,
+/// or `props_json` is not a JSON object.
+pub fn render_declarative_shadow_dom_module(
+    source: &str,
+    filename: &str,
+    props_json: Option<&str>,
+) -> CompilerResult<DeclarativeShadowDomRenderResult> {
+    let module = analyze_component_module(source, filename)?;
+    let template = TemplateParser::new(&module.template_source).parse_element()?;
+    let props = parse_prerender_props(props_json)?;
+    let mut renderer = DeclarativeShadowDomRenderer::new(&module, props)?;
+    renderer.render(&template)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -280,6 +304,7 @@ struct CodeGenerator<'a> {
     node_fields: Vec<String>,
     text_fields: Vec<String>,
     mount_lines: Vec<String>,
+    listener_lines: Vec<String>,
     update_lines: Vec<String>,
 }
 
@@ -292,6 +317,7 @@ impl<'a> CodeGenerator<'a> {
             node_fields: Vec::new(),
             text_fields: Vec::new(),
             mount_lines: Vec::new(),
+            listener_lines: Vec::new(),
             update_lines: Vec::new(),
         }
     }
@@ -315,6 +341,7 @@ impl<'a> CodeGenerator<'a> {
         self.emit_lifecycle(&mut code)?;
         self.emit_prop_accessors(&mut code)?;
         self.emit_mount(&mut code)?;
+        self.emit_hydration(&mut code)?;
         self.emit_bindings(&mut code)?;
         self.emit_effects(&mut code)?;
         self.emit_flush(&mut code)?;
@@ -364,6 +391,7 @@ impl<'a> CodeGenerator<'a> {
     fn emit_fields(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  #root;").map_err(format_error)?;
         writeln!(code, "  #mounted = false;").map_err(format_error)?;
+        writeln!(code, "  #usesDeclarativeRoot = false;").map_err(format_error)?;
         if self.module.uses_host_helpers {
             writeln!(code, "  #abortController = new AbortController();").map_err(format_error)?;
         }
@@ -400,11 +428,17 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "  constructor() {{").map_err(format_error)?;
         writeln!(code, "    super();").map_err(format_error)?;
         if self.module.options.shadow {
+            writeln!(code, "    const existingRoot = this.shadowRoot;").map_err(format_error)?;
+            writeln!(code, "    if (existingRoot) {{").map_err(format_error)?;
+            writeln!(code, "      this.#root = existingRoot;").map_err(format_error)?;
+            writeln!(code, "      this.#usesDeclarativeRoot = true;").map_err(format_error)?;
+            writeln!(code, "    }} else {{").map_err(format_error)?;
             writeln!(
                 code,
-                "    this.#root = this.attachShadow({{ mode: \"open\" }});"
+                "      this.#root = this.attachShadow({{ mode: \"open\" }});"
             )
             .map_err(format_error)?;
+            writeln!(code, "    }}").map_err(format_error)?;
         } else {
             writeln!(code, "    this.#root = this;").map_err(format_error)?;
         }
@@ -415,7 +449,11 @@ impl<'a> CodeGenerator<'a> {
     fn emit_lifecycle(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  connectedCallback() {{").map_err(format_error)?;
         writeln!(code, "    if (!this.#mounted) {{").map_err(format_error)?;
-        writeln!(code, "      this.#mount();").map_err(format_error)?;
+        writeln!(code, "      if (this.#usesDeclarativeRoot) {{").map_err(format_error)?;
+        writeln!(code, "        this.#hydrate();").map_err(format_error)?;
+        writeln!(code, "      }} else {{").map_err(format_error)?;
+        writeln!(code, "        this.#mount();").map_err(format_error)?;
+        writeln!(code, "      }}").map_err(format_error)?;
         writeln!(code, "      this.#mounted = true;").map_err(format_error)?;
         writeln!(code, "    }}").map_err(format_error)?;
         writeln!(code, "    this.#flush();").map_err(format_error)?;
@@ -531,6 +569,96 @@ impl<'a> CodeGenerator<'a> {
             writeln!(code, "    this.#root.append(style);").map_err(format_error)?;
         }
         for line in &self.mount_lines {
+            writeln!(code, "    {line}").map_err(format_error)?;
+        }
+        writeln!(code, "    this.#installEventListeners();").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        Ok(())
+    }
+
+    fn emit_hydration(&self, code: &mut String) -> CompilerResult<()> {
+        writeln!(code, "  #hydrate() {{").map_err(format_error)?;
+        writeln!(code, "    try {{").map_err(format_error)?;
+        for field in &self.node_fields {
+            writeln!(
+                code,
+                "      this.#{field} = this.#requiredHydrationElement(\"{field}\");"
+            )
+            .map_err(format_error)?;
+        }
+        for field in &self.text_fields {
+            writeln!(
+                code,
+                "      this.#{field} = this.#requiredHydrationText(\"{field}\");"
+            )
+            .map_err(format_error)?;
+        }
+        writeln!(code, "      this.#installEventListeners();").map_err(format_error)?;
+        writeln!(code, "    }} catch (error) {{").map_err(format_error)?;
+        writeln!(code, "      if (this.#isDevelopment()) {{").map_err(format_error)?;
+        writeln!(code, "        throw error;").map_err(format_error)?;
+        writeln!(code, "      }}").map_err(format_error)?;
+        writeln!(code, "      this.#remount();").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #remount() {{").map_err(format_error)?;
+        writeln!(code, "    this.#root.replaceChildren();").map_err(format_error)?;
+        writeln!(code, "    this.#mount();").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #requiredHydrationElement(marker) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "    const node = this.#root.querySelector(`[data-lean-node=\"${{marker}}\"]`);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    if (!(node instanceof Element)) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "      throw this.#hydrationError(`missing [data-lean-node=\"${{marker}}\"]`);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    return node;").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #requiredHydrationText(marker) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "    const markerElement = this.#root.querySelector(`[data-lean-text=\"${{marker}}\"]`);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    if (!(markerElement instanceof Element)) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "      throw this.#hydrationError(`missing [data-lean-text=\"${{marker}}\"]`);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    let node = markerElement.firstChild;").map_err(format_error)?;
+        writeln!(code, "    if (!node) {{").map_err(format_error)?;
+        writeln!(code, "      node = document.createTextNode(\"\");").map_err(format_error)?;
+        writeln!(code, "      markerElement.append(node);").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    if (node.nodeType !== Node.TEXT_NODE) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "      throw this.#hydrationError(`expected text for [data-lean-text=\"${{marker}}\"]`);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    return node;").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #hydrationError(reason) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "    return new Error(`lean-wc hydration mismatch for <${{this.localName}}>: ${{reason}}.`);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #isDevelopment() {{").map_err(format_error)?;
+        writeln!(code, "    return import.meta.env?.DEV ?? true;").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #installEventListeners() {{").map_err(format_error)?;
+        for line in &self.listener_lines {
             writeln!(code, "    {line}").map_err(format_error)?;
         }
         writeln!(code, "  }}").map_err(format_error)?;
@@ -1107,18 +1235,18 @@ impl<'a> CodeGenerator<'a> {
                 )));
             };
             let body = handler_body(expression);
-            self.mount_lines.push(format!(
-                "{variable}.addEventListener(\"{event_name}\", (event) => {{"
+            self.listener_lines.push(format!(
+                "{field_reference}.addEventListener(\"{event_name}\", (event) => {{"
             ));
             let names = binding_names(self.module).join(", ");
             if !names.is_empty() {
-                self.mount_lines
+                self.listener_lines
                     .push(format!("  const {{ {names} }} = this.#createBindings();"));
             }
             for line in body.lines().map(str::trim).filter(|line| !line.is_empty()) {
-                self.mount_lines.push(format!("  {line}"));
+                self.listener_lines.push(format!("  {line}"));
             }
-            self.mount_lines.push("});".to_owned());
+            self.listener_lines.push("});".to_owned());
             return Ok(());
         }
 
@@ -1189,6 +1317,693 @@ impl<'a> CodeGenerator<'a> {
             .push(format!("this.#{field}.data = String({trimmed});"));
         Ok(())
     }
+}
+
+struct DeclarativeShadowDomRenderer<'a> {
+    module: &'a ComponentModule,
+    context: StaticEvaluationContext,
+    next_node_index: usize,
+    next_text_index: usize,
+}
+
+impl<'a> DeclarativeShadowDomRenderer<'a> {
+    fn new(
+        module: &'a ComponentModule,
+        props: BTreeMap<String, StaticValue>,
+    ) -> CompilerResult<Self> {
+        Ok(Self {
+            module,
+            context: StaticEvaluationContext::for_module(module, props)?,
+            next_node_index: 0,
+            next_text_index: 0,
+        })
+    }
+
+    fn render(
+        &mut self,
+        root: &TemplateElement,
+    ) -> CompilerResult<DeclarativeShadowDomRenderResult> {
+        let host_attributes = self.host_attributes();
+        let template_html = if self.module.options.shadow {
+            let mut template_html = String::from("<template shadowrootmode=\"open\">");
+            for style in &self.module.options.styles {
+                if let Some(StaticValue::String(css)) = evaluate_expression(style, &self.context) {
+                    write!(template_html, "<style>{}</style>", escape_html_text(&css))
+                        .map_err(format_error)?;
+                }
+            }
+            template_html.push_str(&self.render_element(root, true)?);
+            template_html.push_str("</template>");
+            template_html
+        } else {
+            String::new()
+        };
+
+        let html = format!(
+            "<{}{}>{}</{}>",
+            self.module.tag_name, host_attributes, template_html, self.module.tag_name
+        );
+
+        Ok(DeclarativeShadowDomRenderResult {
+            tag_name: self.module.tag_name.clone(),
+            class_name: self.module.class_name.clone(),
+            export_name: self.module.export_name.clone(),
+            html,
+            template_html,
+            shadow: self.module.options.shadow,
+            uses_declarative_shadow_dom: self.module.options.shadow,
+        })
+    }
+
+    fn host_attributes(&self) -> String {
+        let mut attributes = String::new();
+        for prop in &self.module.props {
+            let Some(value) = self.context.values.get(&prop.local_name) else {
+                continue;
+            };
+            push_serialized_dynamic_attribute(&mut attributes, &prop.attribute_name, value, false);
+        }
+        attributes
+    }
+
+    fn render_element(
+        &mut self,
+        element: &TemplateElement,
+        is_root: bool,
+    ) -> CompilerResult<String> {
+        if element.tag_name == "Show" {
+            return self.render_show_control(element);
+        }
+        if element.tag_name == "For" {
+            return self.render_for_control();
+        }
+
+        let field = self.next_node_field();
+        let tag_name = self.element_tag_name(&element.tag_name);
+        let is_component_element = is_pascal_case_identifier(&element.tag_name);
+        let mut output = String::new();
+        write!(output, "<{tag_name}").map_err(format_error)?;
+        write!(
+            output,
+            " data-lean-node=\"{}\"",
+            escape_html_attribute(&field)
+        )
+        .map_err(format_error)?;
+        if is_root {
+            output.push_str(" data-lean-root=\"\"");
+        }
+        for attribute in &element.attributes {
+            self.render_attribute(&mut output, attribute, is_component_element)?;
+        }
+        output.push('>');
+        for child in &element.children {
+            output.push_str(&self.render_child(child)?);
+        }
+        write!(output, "</{tag_name}>").map_err(format_error)?;
+        Ok(output)
+    }
+
+    fn render_child(&mut self, child: &TemplateChild) -> CompilerResult<String> {
+        match child {
+            TemplateChild::Element(element) => self.render_element(element, false),
+            TemplateChild::Expression(expression) => self.render_expression_text(expression),
+            TemplateChild::Text(text) => self.render_text(text),
+        }
+    }
+
+    fn render_attribute(
+        &self,
+        output: &mut String,
+        attribute: &TemplateAttribute,
+        is_component_element: bool,
+    ) -> CompilerResult<()> {
+        if event_name_from_attribute(&attribute.name).is_some() {
+            return Ok(());
+        }
+
+        let attribute_name = attribute_name_for_element(&attribute.name, is_component_element);
+        match &attribute.value {
+            AttributeValue::Boolean => {
+                write!(output, " {attribute_name}").map_err(format_error)?;
+            }
+            AttributeValue::Static(value) => {
+                write!(
+                    output,
+                    " {attribute_name}=\"{}\"",
+                    escape_html_attribute(value)
+                )
+                .map_err(format_error)?;
+            }
+            AttributeValue::Expression(expression) => {
+                if let Some(value) = evaluate_expression(expression, &self.context) {
+                    push_serialized_dynamic_attribute(output, &attribute_name, &value, false);
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn render_text(&mut self, text: &str) -> CompilerResult<String> {
+        let chunks = text_chunks(text);
+        if chunks.is_empty() {
+            return Ok(String::new());
+        }
+        let value = chunks
+            .iter()
+            .map(|chunk| match chunk {
+                TextChunk::Raw(value) => value.clone(),
+                TextChunk::Expression(expression) => evaluate_expression(expression, &self.context)
+                    .map(|value| value.to_text())
+                    .unwrap_or_default(),
+            })
+            .collect::<String>();
+        Ok(self.text_marker(&value))
+    }
+
+    fn render_expression_text(&mut self, expression: &str) -> CompilerResult<String> {
+        let trimmed = expression.trim();
+        if trimmed.is_empty() {
+            return Ok(String::new());
+        }
+        validate_child_expression(trimmed)?;
+        let value = evaluate_expression(trimmed, &self.context)
+            .map(|value| value.to_text())
+            .unwrap_or_default();
+        Ok(self.text_marker(&value))
+    }
+
+    fn render_show_control(&mut self, element: &TemplateElement) -> CompilerResult<String> {
+        let when = required_expression_attribute(element, "when")?;
+        let is_visible = evaluate_expression(when, &self.context).and_then(|value| value.as_bool());
+        let container_field = self.next_node_field();
+        let content_field = format!("{container_field}Content");
+        let fallback_field = format!("{container_field}Fallback");
+        let mut output = String::new();
+        write!(
+            output,
+            "<span style=\"display: contents\" data-lean-control=\"show\" data-lean-node=\"{}\">",
+            escape_html_attribute(&container_field)
+        )
+        .map_err(format_error)?;
+        write!(
+            output,
+            "<span style=\"display: contents\" data-lean-node=\"{}\"{}>",
+            escape_html_attribute(&content_field),
+            hidden_attribute(is_visible == Some(false))
+        )
+        .map_err(format_error)?;
+        for child in &element.children {
+            output.push_str(&self.render_child(child)?);
+        }
+        output.push_str("</span>");
+        write!(
+            output,
+            "<span style=\"display: contents\" data-lean-node=\"{}\"{}>",
+            escape_html_attribute(&fallback_field),
+            hidden_attribute(is_visible == Some(true))
+        )
+        .map_err(format_error)?;
+        if let Some(fallback) = optional_attribute(element, "fallback") {
+            output.push_str(&self.render_show_fallback(fallback)?);
+        }
+        output.push_str("</span></span>");
+        Ok(output)
+    }
+
+    fn render_show_fallback(&mut self, attribute: &TemplateAttribute) -> CompilerResult<String> {
+        match &attribute.value {
+            AttributeValue::Expression(expression) => {
+                let trimmed = expression.trim();
+                if trimmed.starts_with('<') {
+                    let fallback = TemplateParser::new(trimmed).parse_element()?;
+                    self.render_element(&fallback, false)
+                } else {
+                    self.render_expression_text(trimmed)
+                }
+            }
+            AttributeValue::Static(value) => Ok(self.text_marker(value)),
+            AttributeValue::Boolean => Err(unsupported("Show fallback must have a value.")),
+        }
+    }
+
+    fn render_for_control(&mut self) -> CompilerResult<String> {
+        let field = self.next_node_field();
+        Ok(format!(
+            "<span style=\"display: contents\" data-lean-control=\"for\" data-lean-node=\"{}\"></span>",
+            escape_html_attribute(&field)
+        ))
+    }
+
+    fn text_marker(&mut self, value: &str) -> String {
+        let field = self.next_text_field();
+        format!(
+            "<span style=\"display: contents\" data-lean-text=\"{}\">{}</span>",
+            escape_html_attribute(&field),
+            escape_html_text(value)
+        )
+    }
+
+    fn next_node_field(&mut self) -> String {
+        let index = self.next_node_index;
+        self.next_node_index += 1;
+        format!("node{index}")
+    }
+
+    fn next_text_field(&mut self) -> String {
+        let index = self.next_text_index;
+        self.next_text_index += 1;
+        format!("text{index}")
+    }
+
+    fn element_tag_name(&self, tag_name: &str) -> String {
+        if !is_pascal_case_identifier(tag_name) {
+            return tag_name.to_owned();
+        }
+        let component_name = self
+            .module
+            .component_imports
+            .iter()
+            .find(|component_import| component_import.local_name == tag_name)
+            .map(|component_import| component_import.imported_name.as_str())
+            .unwrap_or(tag_name);
+        custom_element_tag_for_component(component_name)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum StaticValue {
+    Null,
+    Bool(bool),
+    Number(String),
+    String(String),
+    Array(Vec<StaticValue>),
+    Object(BTreeMap<String, StaticValue>),
+}
+
+impl StaticValue {
+    fn from_json(value: JsonValue) -> Self {
+        match value {
+            JsonValue::Null => Self::Null,
+            JsonValue::Bool(value) => Self::Bool(value),
+            JsonValue::Number(value) => Self::Number(value.to_string()),
+            JsonValue::String(value) => Self::String(value),
+            JsonValue::Array(values) => {
+                Self::Array(values.into_iter().map(Self::from_json).collect())
+            }
+            JsonValue::Object(values) => Self::Object(
+                values
+                    .into_iter()
+                    .map(|(key, value)| (key, Self::from_json(value)))
+                    .collect(),
+            ),
+        }
+    }
+
+    fn as_bool(&self) -> Option<bool> {
+        match self {
+            Self::Bool(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    fn is_truthy(&self) -> bool {
+        match self {
+            Self::Null => false,
+            Self::Bool(value) => *value,
+            Self::Number(value) => value != "0" && value != "NaN",
+            Self::String(value) => !value.is_empty(),
+            Self::Array(_) | Self::Object(_) => true,
+        }
+    }
+
+    fn to_text(&self) -> String {
+        match self {
+            Self::Null => String::new(),
+            Self::Bool(value) => value.to_string(),
+            Self::Number(value) | Self::String(value) => value.clone(),
+            Self::Array(values) => {
+                let values = values.iter().map(Self::to_json).collect::<Vec<_>>();
+                JsonValue::Array(values).to_string()
+            }
+            Self::Object(values) => {
+                let values = values
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.to_json()))
+                    .collect();
+                JsonValue::Object(values).to_string()
+            }
+        }
+    }
+
+    fn to_json(&self) -> JsonValue {
+        match self {
+            Self::Null => JsonValue::Null,
+            Self::Bool(value) => JsonValue::Bool(*value),
+            Self::Number(value) => value
+                .parse::<serde_json::Number>()
+                .map(JsonValue::Number)
+                .unwrap_or_else(|_| JsonValue::String(value.clone())),
+            Self::String(value) => JsonValue::String(value.clone()),
+            Self::Array(values) => JsonValue::Array(values.iter().map(Self::to_json).collect()),
+            Self::Object(values) => JsonValue::Object(
+                values
+                    .iter()
+                    .map(|(key, value)| (key.clone(), value.to_json()))
+                    .collect(),
+            ),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+struct StaticEvaluationContext {
+    values: BTreeMap<String, StaticValue>,
+}
+
+impl StaticEvaluationContext {
+    fn for_module(
+        module: &ComponentModule,
+        props: BTreeMap<String, StaticValue>,
+    ) -> CompilerResult<Self> {
+        let mut context = Self::default();
+        for prop in &module.props {
+            let default_value = evaluate_expression(&prop.default_value, &context)
+                .unwrap_or_else(|| fallback_static_value_for_prop(prop));
+            let value = props
+                .get(&prop.prop_name)
+                .or_else(|| props.get(&prop.attribute_name))
+                .or_else(|| props.get(&prop.local_name))
+                .cloned()
+                .unwrap_or(default_value);
+            context.values.insert(prop.local_name.clone(), value);
+        }
+        for state in &module.states {
+            if let Some(value) = evaluate_expression(&state.initial_value, &context) {
+                context.values.insert(state.local_name.clone(), value);
+            }
+        }
+        Ok(context)
+    }
+}
+
+fn parse_prerender_props(
+    props_json: Option<&str>,
+) -> CompilerResult<BTreeMap<String, StaticValue>> {
+    let Some(props_json) = props_json.filter(|value| !value.trim().is_empty()) else {
+        return Ok(BTreeMap::new());
+    };
+    let value: JsonValue =
+        serde_json::from_str(props_json).map_err(|source| CompilerError::Unsupported {
+            message: format!("DSD prerender props must be valid JSON: {source}"),
+        })?;
+    let JsonValue::Object(props) = value else {
+        return Err(unsupported("DSD prerender props must be a JSON object."));
+    };
+    Ok(props
+        .into_iter()
+        .map(|(key, value)| (key, StaticValue::from_json(value)))
+        .collect())
+}
+
+fn evaluate_expression(expression: &str, context: &StaticEvaluationContext) -> Option<StaticValue> {
+    let trimmed = strip_wrapping_parentheses(expression.trim());
+    if trimmed.is_empty() {
+        return None;
+    }
+    if let Some((condition, when_true, when_false)) = split_top_level_ternary(trimmed) {
+        let condition = evaluate_expression(condition, context)?;
+        return if condition.is_truthy() {
+            evaluate_expression(when_true, context)
+        } else {
+            evaluate_expression(when_false, context)
+        };
+    }
+    if let Some((left, right)) = split_top_level_operator(trimmed, "||") {
+        let left = evaluate_expression(left, context)?;
+        return if left.is_truthy() {
+            Some(left)
+        } else {
+            evaluate_expression(right, context)
+        };
+    }
+    if let Some((left, right)) = split_top_level_operator(trimmed, "&&") {
+        let left = evaluate_expression(left, context)?;
+        return if left.is_truthy() {
+            evaluate_expression(right, context)
+        } else {
+            Some(left)
+        };
+    }
+    if let Some(rest) = trimmed.strip_prefix('!') {
+        return evaluate_expression(rest, context)
+            .map(|value| StaticValue::Bool(!value.is_truthy()));
+    }
+    if trimmed == "true" {
+        return Some(StaticValue::Bool(true));
+    }
+    if trimmed == "false" {
+        return Some(StaticValue::Bool(false));
+    }
+    if matches!(trimmed, "null" | "undefined") {
+        return Some(StaticValue::Null);
+    }
+    if is_number_literal(trimmed) {
+        return Some(StaticValue::Number(trimmed.to_owned()));
+    }
+    if is_quoted_string(trimmed) {
+        return decode_quoted_string(trimmed).map(StaticValue::String);
+    }
+    if trimmed.starts_with('`') && trimmed.ends_with('`') {
+        return evaluate_template_string(trimmed, context).map(StaticValue::String);
+    }
+    if trimmed.starts_with('[') && trimmed.ends_with(']') {
+        return evaluate_array_literal(trimmed, context);
+    }
+    if trimmed.starts_with('{') && trimmed.ends_with('}') {
+        return evaluate_object_literal(trimmed, context);
+    }
+    if let Some(name) = trimmed.strip_suffix("()")
+        && is_identifier(name.trim())
+    {
+        return context.values.get(name.trim()).cloned();
+    }
+    if is_identifier(trimmed) {
+        return context.values.get(trimmed).cloned();
+    }
+    None
+}
+
+fn evaluate_array_literal(
+    expression: &str,
+    context: &StaticEvaluationContext,
+) -> Option<StaticValue> {
+    let inner = &expression[1..expression.len() - 1];
+    let mut values = Vec::new();
+    for part in split_top_level_commas(inner) {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        values.push(evaluate_expression(part, context)?);
+    }
+    Some(StaticValue::Array(values))
+}
+
+fn evaluate_object_literal(
+    expression: &str,
+    context: &StaticEvaluationContext,
+) -> Option<StaticValue> {
+    let inner = &expression[1..expression.len() - 1];
+    let mut values = BTreeMap::new();
+    for part in split_top_level_commas(inner) {
+        let part = part.trim();
+        if part.is_empty() {
+            continue;
+        }
+        let (key, value) = split_top_level_once(part, ':')?;
+        let key = normalize_object_key(key.trim())?;
+        let value = evaluate_expression(value.trim(), context)?;
+        values.insert(key, value);
+    }
+    Some(StaticValue::Object(values))
+}
+
+fn evaluate_template_string(expression: &str, context: &StaticEvaluationContext) -> Option<String> {
+    let mut output = String::new();
+    let mut position = 1usize;
+    let end = expression.len() - 1;
+    while position < end {
+        let rest = &expression[position..end];
+        let Some(open_relative) = rest.find("${") else {
+            output.push_str(rest);
+            break;
+        };
+        let open = position + open_relative;
+        output.push_str(&expression[position..open]);
+        let expression_start = open + 2;
+        let close = find_matching_delimiter(expression, open + 1, '{', '}').ok()?;
+        let value = evaluate_expression(&expression[expression_start..close], context)?;
+        output.push_str(&value.to_text());
+        position = close + 1;
+    }
+    Some(output)
+}
+
+fn normalize_object_key(source: &str) -> Option<String> {
+    if is_identifier(source) {
+        return Some(source.to_owned());
+    }
+    if is_quoted_string(source) {
+        return decode_quoted_string(source);
+    }
+    None
+}
+
+fn fallback_static_value_for_prop(prop: &PropDefinition) -> StaticValue {
+    match prop.kind {
+        PropKind::String => StaticValue::String(String::new()),
+        PropKind::Boolean => StaticValue::Bool(false),
+        PropKind::Number => StaticValue::Number("0".to_owned()),
+    }
+}
+
+fn push_serialized_dynamic_attribute(
+    output: &mut String,
+    name: &str,
+    value: &StaticValue,
+    force_boolean: bool,
+) {
+    if name == "disabled" || force_boolean {
+        if value.is_truthy() {
+            output.push(' ');
+            output.push_str(name);
+        }
+        return;
+    }
+    if matches!(value, StaticValue::Null)
+        || (!name.starts_with("aria-") && value == &StaticValue::Bool(false))
+    {
+        return;
+    }
+    output.push(' ');
+    output.push_str(name);
+    output.push_str("=\"");
+    output.push_str(&escape_html_attribute(&value.to_text()));
+    output.push('"');
+}
+
+fn hidden_attribute(hidden: bool) -> &'static str {
+    if hidden { " hidden" } else { "" }
+}
+
+fn is_number_literal(source: &str) -> bool {
+    !source.is_empty() && source.parse::<f64>().is_ok()
+}
+
+fn is_quoted_string(source: &str) -> bool {
+    source.len() >= 2
+        && ((source.starts_with('"') && source.ends_with('"'))
+            || (source.starts_with('\'') && source.ends_with('\'')))
+}
+
+fn decode_quoted_string(source: &str) -> Option<String> {
+    if !is_quoted_string(source) {
+        return None;
+    }
+    let mut output = String::new();
+    let inner = &source[1..source.len() - 1];
+    let mut chars = inner.chars();
+    while let Some(ch) = chars.next() {
+        if ch != '\\' {
+            output.push(ch);
+            continue;
+        }
+        let escaped = chars.next()?;
+        match escaped {
+            'n' => output.push('\n'),
+            'r' => output.push('\r'),
+            't' => output.push('\t'),
+            '"' => output.push('"'),
+            '\'' => output.push('\''),
+            '\\' => output.push('\\'),
+            other => output.push(other),
+        }
+    }
+    Some(output)
+}
+
+fn split_top_level_operator<'a>(source: &'a str, operator: &str) -> Option<(&'a str, &'a str)> {
+    let index = find_top_level_token(source, operator)?;
+    Some((&source[..index], &source[index + operator.len()..]))
+}
+
+fn split_top_level_ternary(source: &str) -> Option<(&str, &str, &str)> {
+    let question = find_top_level_token(source, "?")?;
+    let colon = find_top_level_token(&source[question + 1..], ":")? + question + 1;
+    Some((
+        &source[..question],
+        &source[question + 1..colon],
+        &source[colon + 1..],
+    ))
+}
+
+fn split_top_level_once(source: &str, delimiter: char) -> Option<(&str, &str)> {
+    let delimiter = delimiter.to_string();
+    let index = find_top_level_token(source, &delimiter)?;
+    Some((&source[..index], &source[index + delimiter.len()..]))
+}
+
+fn find_top_level_token(source: &str, token: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    let mut in_string: Option<char> = None;
+    let mut escaped = false;
+
+    for (index, ch) in source.char_indices() {
+        if let Some(quote) = in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if ch == '\\' {
+                escaped = true;
+                continue;
+            }
+            if ch == quote {
+                in_string = None;
+            }
+            continue;
+        }
+
+        if matches!(ch, '"' | '\'' | '`') {
+            in_string = Some(ch);
+            continue;
+        }
+
+        if matches!(ch, '(' | '[' | '{') {
+            depth += 1;
+            continue;
+        }
+        if matches!(ch, ')' | ']' | '}') {
+            depth = depth.saturating_sub(1);
+            continue;
+        }
+        if depth == 0 && source[index..].starts_with(token) {
+            return Some(index);
+        }
+    }
+
+    None
+}
+
+fn escape_html_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+fn escape_html_attribute(value: &str) -> String {
+    escape_html_text(value).replace('"', "&quot;")
 }
 
 fn attr_parse_expression(prop: &PropDefinition) -> String {

@@ -12,12 +12,12 @@ mod model;
 mod naming;
 mod parse;
 
-pub use codegen::transform_component_module;
+pub use codegen::{render_declarative_shadow_dom_module, transform_component_module};
 pub use error::{CompilerError, CompilerResult};
 pub use model::{
-    ComponentImport, ComponentModule, ComponentOptions, ComputedDefinition, EffectDefinition,
-    EventDefinition, PropAccess, PropDefinition, PropKind, StateDefinition, StateKind,
-    TransformResult,
+    ComponentImport, ComponentModule, ComponentOptions, ComputedDefinition,
+    DeclarativeShadowDomRenderResult, EffectDefinition, EventDefinition, PropAccess,
+    PropDefinition, PropKind, StateDefinition, StateKind, TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -29,7 +29,10 @@ pub fn core_version() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{StateKind, analyze_component_module, core_version, transform_component_module};
+    use super::{
+        StateKind, analyze_component_module, core_version, render_declarative_shadow_dom_module,
+        transform_component_module,
+    };
 
     #[test]
     fn core_version_should_match_crate_version() {
@@ -153,6 +156,43 @@ mod tests {
         );
         assert!(result.code.contains("new CustomEvent(\"change\""));
         assert!(result.code.contains("this.#text0.data"));
+    }
+
+    #[test]
+    fn transform_component_module_should_reuse_declarative_shadow_roots() {
+        let source = r#"
+            import { signal } from "lean-wc";
+
+            export function Counter() {
+              const count = signal(0);
+
+              return (
+                <button onClick={() => count.set(count() + 1)}>
+                  {count()}
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "counter.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            result
+                .code
+                .contains("const existingRoot = this.shadowRoot;")
+        );
+        assert!(result.code.contains("this.#usesDeclarativeRoot = true;"));
+        assert!(
+            result
+                .code
+                .contains("this.#root = this.attachShadow({ mode: \"open\" });")
+        );
+        assert!(result.code.contains("this.#hydrate();"));
+        assert!(result.code.contains("#requiredHydrationElement(marker)"));
+        assert!(result.code.contains("this.#remount();"));
     }
 
     #[test]
@@ -408,5 +448,93 @@ mod tests {
         assert!(result.code.contains("document.createElement(\"slot\")"));
         assert!(result.code.contains("setAttribute(\"name\", \"icon\")"));
         assert!(result.code.contains("setAttribute(\"part\", \"button\")"));
+    }
+
+    #[test]
+    fn render_declarative_shadow_dom_module_should_serialize_counter_shell() {
+        let source = r#"
+            import { event, signal, type ComponentOptions } from "lean-wc";
+
+            export const options = {
+              shadow: true,
+              styles: [":host { display: inline-block; }"],
+            } satisfies ComponentOptions;
+
+            export function Counter({ label = "Count" }: CounterProps = {}) {
+              const count = signal(0);
+              const change = event<number>("change");
+
+              return (
+                <button part="button" data-count={count()} onClick={() => change.emit(count())}>
+                  {`${label}: ${count()}`}
+                </button>
+              );
+            }
+        "#;
+
+        let result = match render_declarative_shadow_dom_module(
+            source,
+            "counter.wc.tsx",
+            Some(r#"{"label":"Clicks"}"#),
+        ) {
+            Ok(result) => result,
+            Err(error) => panic!("DSD render failed: {error}"),
+        };
+
+        assert_eq!(result.tag_name, "x-counter");
+        assert!(result.uses_declarative_shadow_dom);
+        assert!(result.html.starts_with("<x-counter label=\"Clicks\">"));
+        assert!(
+            result
+                .template_html
+                .contains("<template shadowrootmode=\"open\">")
+        );
+        assert!(
+            result
+                .template_html
+                .contains("<style>:host { display: inline-block; }</style>")
+        );
+        assert!(result.template_html.contains("data-lean-root=\"\""));
+        assert!(result.template_html.contains("data-lean-node=\"node0\""));
+        assert!(result.template_html.contains("data-count=\"0\""));
+        assert!(result.template_html.contains("data-lean-text=\"text0\""));
+        assert!(result.template_html.contains("Clicks: 0"));
+        assert!(!result.template_html.contains("onClick"));
+    }
+
+    #[test]
+    fn render_declarative_shadow_dom_module_should_mark_unsupported_dynamic_values() {
+        let source = r#"
+            import { computed, signal } from "lean-wc";
+
+            export function Counter({ label = "Count" }: CounterProps = {}) {
+              const count = signal(0);
+              const text = computed(() => `${label}: ${count()}`);
+
+              return <button>{text()}</button>;
+            }
+        "#;
+
+        let result = match render_declarative_shadow_dom_module(source, "counter.wc.tsx", None) {
+            Ok(result) => result,
+            Err(error) => panic!("DSD render failed: {error}"),
+        };
+
+        assert!(result.template_html.contains("data-lean-text=\"text0\""));
+        assert!(!result.template_html.contains("Count: 0"));
+    }
+
+    #[test]
+    fn render_declarative_shadow_dom_module_should_reject_non_object_props() {
+        let source = r#"
+            export function Counter() {
+              return <button>Count</button>;
+            }
+        "#;
+
+        let error = render_declarative_shadow_dom_module(source, "counter.wc.tsx", Some("[]"))
+            .expect_err("non-object props should be rejected");
+
+        assert!(error.to_string().contains("DSD prerender props"));
     }
 }

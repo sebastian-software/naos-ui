@@ -153,3 +153,22 @@ pub struct TransformResult {
     /// Whether the compiler changed the input module.
     pub has_changed: bool,
 }
+
+/// Result of prerendering a component as Declarative Shadow DOM HTML.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DeclarativeShadowDomRenderResult {
+    /// Custom element tag name, for example `x-counter`.
+    pub tag_name: String,
+    /// JavaScript class name generated for the component.
+    pub class_name: String,
+    /// Public authoring export name, when the source used function syntax.
+    pub export_name: Option<String>,
+    /// Full host HTML containing the declarative shadow template when enabled.
+    pub html: String,
+    /// The serialized `<template shadowrootmode="open">` fragment, if emitted.
+    pub template_html: String,
+    /// Whether the component renders into a shadow root.
+    pub shadow: bool,
+    /// Whether this result used Declarative Shadow DOM output.
+    pub uses_declarative_shadow_dom: bool,
+}
