@@ -39,10 +39,12 @@ The remaining MVP signals are mostly productization issues:
 * The demo surface is too small to prove interop, styling, forms, and hosted
   documentation.
 
-## FerroCat Patterns To Reuse
+## Internal Reference Patterns To Reuse
 
-FerroCat is the closest internal reference for release discipline, not a
-drop-in native npm packaging template. The useful patterns are:
+### FerroCat
+
+FerroCat is the closest internal reference for Rust release discipline. The
+useful patterns are:
 
 * Separate CI jobs for docs, Rust linting, rustdoc warnings, MSRV, platform
   tests, and coverage.
@@ -57,17 +59,39 @@ drop-in native npm packaging template. The useful patterns are:
 * Dedicated conformance and benchmark crates for long-term quality signals.
 * Dependabot, issue templates, and a pull request template.
 
-Iktia needs one extra layer beyond FerroCat: a Node/N-API distribution plan with
-platform-specific optional npm packages and a loader that can resolve the right
-binary at install/runtime.
+### Palamedes
+
+Palamedes is the closest internal reference for the Node/N-API distribution
+layer. Iktia should adapt these patterns directly:
+
+* One Rust semantic core crate, one Rust `napi-rs` binding crate, one
+  platform-aware TypeScript wrapper package, and platform-specific native npm
+  packages.
+* Workflow-oriented native operations instead of many small helper calls.
+* Typed N-API request and response objects instead of JSON as the architectural
+  transport boundary.
+* Generated TypeScript declarations derived from the N-API binding crate and
+  checked in CI.
+* A wrapper loader that detects `process.platform`, `process.arch`, and Linux
+  libc, then requires the matching optional native package.
+* Native packages that are CommonJS packages with a `.node` file as `main`,
+  plus `os`, `cpu`, and Linux `libc` metadata.
+* Native package build scripts that support release/debug profiles, explicit
+  Cargo targets, `cargo-zigbuild` for musl targets, and macOS ad-hoc codesign.
+* Release automation that validates the complete package set, publishes native
+  packages in a platform matrix with a smoke test, then publishes JavaScript
+  packages only after native publishing succeeds.
+* Native transform source maps generated in Rust so OXC UTF-8 spans and source
+  maps do not drift through JavaScript UTF-16 index translation.
 
 ## Strategy
 
 1. Audit and rewrite docs before adding more product surface.
 2. Freeze the public API tiers before native package topology is implemented.
-3. Build CI and release infrastructure before broad feature expansion.
-4. Prove the tool through interop demos, not only unit fixtures.
-5. Add conformance, benchmark, and coverage gates once the public contract is
+3. Adapt Palamedes' native packaging model before broad feature expansion.
+4. Build CI and release infrastructure before broad feature expansion.
+5. Prove the tool through interop demos, not only unit fixtures.
+6. Add conformance, benchmark, and coverage gates once the public contract is
    explicit enough to measure.
 
 ## Readiness Milestones
@@ -151,7 +175,7 @@ Acceptance criteria:
 * Local verification and CI use the same command vocabulary where practical.
 * The Pages workflow can publish the current demo without manual cleanup.
 
-### R4: Native Binary Package Architecture
+### R4: Palamedes-Style Native Binary Package Architecture
 
 Purpose: Design multi-native distribution before writing release scripts.
 
@@ -161,21 +185,31 @@ Recommended package topology:
   dependencies on native packages.
 * `@iktia/compiler-darwin-arm64`
 * `@iktia/compiler-darwin-x64`
-* `@iktia/compiler-linux-x64-gnu`
 * `@iktia/compiler-linux-arm64-gnu`
+* `@iktia/compiler-linux-arm64-musl`
+* `@iktia/compiler-linux-x64-gnu`
 * `@iktia/compiler-linux-x64-musl`
+* `@iktia/compiler-win32-arm64-msvc`
 * `@iktia/compiler-win32-x64-msvc`
 
 Deliverables:
 
 * Write `docs/native-distribution.md` with target triples, package names,
   artifact names, Node version, N-API version, and fallback behavior.
-* Define loader resolution order: explicit environment override, workspace
-  local binding, installed optional package, then source-build guidance.
+* Write an Iktia ADR equivalent to the relevant Palamedes native-boundary ADRs:
+  one semantic Rust core, one N-API crate, one platform-aware TS wrapper, and
+  platform native packages.
+* Confirm that Iktia keeps the current coarse workflow boundary:
+  `transformComponent()` and `renderDeclarativeShadowDom()` are native workflow
+  operations, not collections of small helper calls.
+* Define loader resolution order: explicit environment override, installed
+  optional package, workspace local binding, then source-build guidance.
 * Decide whether source builds are supported during package install or only for
   repository contributors.
 * Define how native package versions stay locked to `@iktia/compiler`.
 * Define the minimum Tier 1 platform set for the first prerelease.
+* Define generated native TypeScript declarations from `iktia-node` as the
+  source of truth for `@iktia/compiler` boundary types.
 
 Acceptance criteria:
 
@@ -185,6 +219,7 @@ Acceptance criteria:
   recovery commands.
 * The design handles npm optional dependency behavior across macOS, Linux, and
   Windows.
+* The design states that JSON is not the long-term N-API boundary format.
 
 ### R5: Multi-Platform Native Binary Implementation
 
@@ -193,9 +228,21 @@ Purpose: Turn the native distribution design into installable packages.
 Deliverables:
 
 * Build release-profile N-API artifacts for the agreed target matrix.
-* Generate package manifests for platform packages with correct `os`, `cpu`,
-  `libc` where needed, `files`, and license metadata.
+* Generate or maintain platform package manifests with correct `os`, `cpu`,
+  Linux `libc`, `main`, `files`, `engines`, `publishConfig`, and license
+  metadata.
+* Use CommonJS native packages whose `main` points directly at
+  `./iktia-node.node`.
+* Add an Iktia equivalent of Palamedes' native package build script with:
+  debug/release profile selection, optional Cargo target override, optional
+  Cargo subcommand override, musl support through `cargo-zigbuild`, and macOS
+  ad-hoc codesigning.
 * Replace the single hard-coded native path with the loader resolution strategy.
+* Detect Linux libc through `process.report.getReport()` and choose GNU or musl
+  native packages accordingly.
+* Generate `@iktia/compiler` TypeScript boundary types from `crates/iktia-node`
+  via `napi-rs` type metadata, commit the generated file, and add a
+  `check-native-types` command.
 * Add tests for successful loading, missing binary errors, explicit native path
   overrides, and local workspace fallback.
 * Upload native artifacts from CI before publish jobs consume them.
@@ -207,6 +254,8 @@ Acceptance criteria:
 * Repository development still supports `pnpm build:native`.
 * The native binding exposes version metadata that can be checked against the JS
   package version.
+* Native loader tests cover unsupported platform messages and missing optional
+  dependency messages.
 
 ### R6: Release Automation
 
@@ -216,8 +265,14 @@ Deliverables:
 
 * Add Release-Please configuration for the pnpm workspace and native platform
   packages.
+* Add a release-set checker like Palamedes' `check-release-set.mjs` so all
+  public package versions, release metadata, Cargo manifests, Cargo lockfile
+  entries, publish workflow filters, and native matrix entries stay aligned.
 * Add npm publish jobs with provenance and a dry-run mode.
-* Add GitHub release artifact uploads for native binaries.
+* Publish native packages first in a platform matrix, smoke-test the generated
+  `.node` artifact on each runner, then publish JavaScript packages.
+* Add GitHub release artifact uploads for native binaries if they are useful for
+  debugging or non-npm consumers.
 * Decide whether `iktia-core` is published to crates.io immediately or kept
   repository-internal until the Rust API is stable.
 * Keep `iktia-node` unpublished as a crate unless there is a direct Rust use
@@ -230,6 +285,8 @@ Acceptance criteria:
 * A release PR shows all package version changes and changelog entries.
 * Publish jobs run tests before publishing and stop on version skew.
 * A failed native package publish cannot silently produce a broken JS package.
+* The JS wrapper package is not published until all required Tier 1 native
+  packages have built, smoke-tested, and published.
 
 ### R7: Compiler Diagnostics And Source Maps
 
@@ -243,6 +300,8 @@ Deliverables:
 * Add source maps for transformed modules in the Rust transform workflow.
 * Preserve UTF-8/OXC span correctness instead of translating spans in the JS
   wrapper.
+* Follow the Palamedes source-map model: the native transform owns final code
+  and source map output because OXC spans are UTF-8 byte offsets.
 * Add fixture coverage for each accepted and rejected syntax path.
 * Update Vite errors to surface diagnostic codes and source locations.
 
@@ -364,7 +423,8 @@ Acceptance criteria:
 
 1. R1 and R2: documentation and API decisions.
 2. R3: repository hygiene and CI, including the existing Pages workflow cleanup.
-3. R4 and R5: native package design and multi-platform implementation.
+3. R4 and R5: Palamedes-style native package design and multi-platform
+   implementation.
 4. R6: release automation once packages can be installed from artifacts.
 5. R7 and R8: diagnostics, source maps, and output contract hardening.
 6. R9 and R10: docs site and interop demos.
