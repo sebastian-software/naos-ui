@@ -18,4 +18,3 @@ pub fn get_native_info() -> NativeInfo {
         core_version: lean_wc_core::core_version().to_string(),
     }
 }
-
