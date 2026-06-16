@@ -16,6 +16,24 @@ export type TransformComponentResult = {
   hasChanged: boolean
 }
 
+export type DeclarativeShadowDomProps = Record<string, unknown>
+
+export type RenderDeclarativeShadowDomRequest = {
+  source: string
+  filename: string
+  props?: DeclarativeShadowDomProps
+}
+
+export type RenderDeclarativeShadowDomResult = {
+  tagName: string
+  className: string
+  exportName?: string | null
+  html: string
+  templateHtml: string
+  shadow: boolean
+  usesDeclarativeShadowDom: boolean
+}
+
 type NativeTransformComponentRequest = {
   source: string
   filename: string
@@ -26,9 +44,18 @@ type NativeTransformComponentResult = {
   hasChanged: boolean
 }
 
+type NativeDeclarativeShadowDomRequest = {
+  source: string
+  filename: string
+  propsJson?: string
+}
+
 type NativeBindings = {
   getNativeInfo(): NativeInfo
   transformComponent(request: NativeTransformComponentRequest): NativeTransformComponentResult
+  renderDeclarativeShadowDom(
+    request: NativeDeclarativeShadowDomRequest
+  ): RenderDeclarativeShadowDomResult
 }
 
 let loadedBindings: NativeBindings | null = null
@@ -42,6 +69,16 @@ export function transformComponent(
   request: TransformComponentRequest
 ): TransformComponentResult {
   return loadNativeBindings().transformComponent(request)
+}
+
+export function renderDeclarativeShadowDom(
+  request: RenderDeclarativeShadowDomRequest
+): RenderDeclarativeShadowDomResult {
+  return loadNativeBindings().renderDeclarativeShadowDom({
+    filename: request.filename,
+    propsJson: request.props ? JSON.stringify(request.props) : undefined,
+    source: request.source,
+  })
 }
 
 export function setNativeBindingsForTesting(bindings: NativeBindings | null): void {
