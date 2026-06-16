@@ -1,0 +1,19 @@
+[package]
+name = "lean-wc-core"
+description = "Rust compiler core for lean-wc TSX-to-Web-Component transforms."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.18"
+
+[lints]
+workspace = true
+
