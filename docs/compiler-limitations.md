@@ -147,17 +147,17 @@ Currently unsupported:
 
 ## Native Binding Boundary
 
-The Node package is a thin typed adapter around the Rust N-API module. It expects
-the native binding to exist at `packages/compiler/native/iktia_node.node` in
-local workspace development.
+The Node package is a thin typed adapter around the Rust N-API module. Published
+installs resolve platform-specific optional native packages. Local workspace
+development falls back to `packages/compiler/native/iktia-node.node`.
 
 ```sh
 pnpm -w build:native
+pnpm check-native-types
 ```
 
-The package is not yet prepared for published multi-platform native artifacts.
-Release packaging, target triples, CI build matrices, and install-time fallback
-strategy are release-preparation work.
+See [Native distribution](native-distribution.md) for the package matrix,
+loader order, source-build guidance, and generated N-API boundary types.
 
 ## Error Model
 

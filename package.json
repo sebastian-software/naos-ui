@@ -12,6 +12,7 @@
     "build": "pnpm -r --filter './packages/**' --if-present build",
     "build:examples": "pnpm -r --filter './examples/**' --if-present build",
     "build:native": "cargo build -p iktia-node && node scripts/copy-native-binding.mjs",
+    "check-native-types": "pnpm --filter @iktia/compiler check-native-types",
     "check": "pnpm check-types && pnpm check:rust",
     "check-types": "pnpm -r --filter './packages/**' --if-present check-types",
     "check:rust": "cargo check --workspace",

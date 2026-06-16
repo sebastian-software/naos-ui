@@ -16,7 +16,7 @@ if (!sourceFileName) {
 
 const sourcePath = join(rootDir, "target", "debug", sourceFileName)
 const targetDir = join(rootDir, "packages", "compiler", "native")
-const targetPath = join(targetDir, "iktia_node.node")
+const targetPath = join(targetDir, "iktia-node.node")
 
 mkdirSync(targetDir, { recursive: true })
 copyFileSync(sourcePath, targetPath)

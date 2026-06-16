@@ -54,6 +54,47 @@ importers:
       vitest:
         specifier: ^4.1.6
         version: 4.1.8(@types/node@25.9.3)(vite@8.0.16(@types/node@25.9.3)(jiti@2.7.0))
+    optionalDependencies:
+      '@iktia/compiler-darwin-arm64':
+        specifier: workspace:^
+        version: link:../compiler-darwin-arm64
+      '@iktia/compiler-darwin-x64':
+        specifier: workspace:^
+        version: link:../compiler-darwin-x64
+      '@iktia/compiler-linux-arm64-gnu':
+        specifier: workspace:^
+        version: link:../compiler-linux-arm64-gnu
+      '@iktia/compiler-linux-arm64-musl':
+        specifier: workspace:^
+        version: link:../compiler-linux-arm64-musl
+      '@iktia/compiler-linux-x64-gnu':
+        specifier: workspace:^
+        version: link:../compiler-linux-x64-gnu
+      '@iktia/compiler-linux-x64-musl':
+        specifier: workspace:^
+        version: link:../compiler-linux-x64-musl
+      '@iktia/compiler-win32-arm64-msvc':
+        specifier: workspace:^
+        version: link:../compiler-win32-arm64-msvc
+      '@iktia/compiler-win32-x64-msvc':
+        specifier: workspace:^
+        version: link:../compiler-win32-x64-msvc
+
+  packages/compiler-darwin-arm64: {}
+
+  packages/compiler-darwin-x64: {}
+
+  packages/compiler-linux-arm64-gnu: {}
+
+  packages/compiler-linux-arm64-musl: {}
+
+  packages/compiler-linux-x64-gnu: {}
+
+  packages/compiler-linux-x64-musl: {}
+
+  packages/compiler-win32-arm64-msvc: {}
+
+  packages/compiler-win32-x64-msvc: {}
 
   packages/core:
     devDependencies:

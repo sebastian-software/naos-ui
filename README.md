@@ -231,6 +231,7 @@ For details, see [docs/authoring.md](docs/authoring.md).
 @iktia/core       Authoring API and JSX runtime types
 @iktia/runtime    Tiny platform helpers for generated elements
 @iktia/compiler   Node wrapper around the Rust compiler
+@iktia/compiler-* Platform-specific optional native compiler bindings
 @iktia/vite       Vite transform and optional DSD manifest plugin
 ```
 
@@ -245,6 +246,7 @@ runtime.
 .wc.tsx source
   -> Vite plugin filter
   -> @iktia/compiler typed wrapper
+  -> optional @iktia/compiler-* native package
   -> iktia-node N-API module
   -> iktia-core Rust compiler
   -> OXC TSX parse validation
@@ -309,6 +311,7 @@ Build and test from the workspace root.
 ```sh
 pnpm install
 pnpm build:native
+pnpm check-native-types
 pnpm check
 pnpm test
 pnpm --filter @iktia/example-counter type-check
@@ -320,7 +323,8 @@ Workspace layout:
 
 * `crates/iktia-core`: Rust compiler analysis and code generation
 * `crates/iktia-node`: N-API wrapper around the Rust core
-* `packages/compiler`: typed Node loader for the native binding
+* `packages/compiler`: typed Node loader for optional native bindings
+* `packages/compiler-*`: platform-specific native compiler packages
 * `packages/core`: authoring API and JSX types
 * `packages/runtime`: runtime helper surface
 * `packages/vite`: Vite plugin and DSD manifest integration
@@ -331,6 +335,7 @@ Useful references:
 * [Authoring guide](docs/authoring.md)
 * [Compiler limitations](docs/compiler-limitations.md)
 * [Declarative Shadow DOM plan](docs/declarative-shadow-dom-plan.md)
+* [Native distribution](docs/native-distribution.md)
 * [MDN Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
 
 ## License

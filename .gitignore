@@ -1,8 +1,10 @@
 node_modules/
+.pnpm-store/
 target/
 dist/
 packages/core-node/native/*.node
 packages/compiler/native/*.node
+packages/compiler-*/iktia-node.node
 test-results/
 *.log
 .DS_Store

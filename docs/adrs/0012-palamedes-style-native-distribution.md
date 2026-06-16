@@ -6,8 +6,8 @@ Weight: P1
 
 ## Context
 
-Iktia's compiler is Rust-first and currently reaches Node through a local
-N-API binding copied to `packages/compiler/native/iktia_node.node`. That is
+Iktia's compiler is Rust-first and initially reached Node through a local
+N-API binding copied to `packages/compiler/native/iktia-node.node`. That is
 enough for repository development, but it is not a publishable distribution
 model.
 

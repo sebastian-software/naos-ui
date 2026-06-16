@@ -15,14 +15,26 @@
   "module": "./dist/index.mjs",
   "types": "./src/index.ts",
   "sideEffects": false,
-  "files": ["dist/", "native/"],
+  "files": ["dist/"],
   "scripts": {
     "build": "unbuild",
     "check-types": "tsc --noEmit -p tsconfig.json",
+    "check-native-types": "node ./scripts/generate-native-types.mjs --check",
+    "generate-native-types": "node ./scripts/generate-native-types.mjs",
     "test": "vitest run --globals src/*.test.ts"
   },
   "engines": {
     "node": ">=22.0.0"
+  },
+  "optionalDependencies": {
+    "@iktia/compiler-darwin-arm64": "workspace:^",
+    "@iktia/compiler-darwin-x64": "workspace:^",
+    "@iktia/compiler-linux-arm64-gnu": "workspace:^",
+    "@iktia/compiler-linux-arm64-musl": "workspace:^",
+    "@iktia/compiler-linux-x64-gnu": "workspace:^",
+    "@iktia/compiler-linux-x64-musl": "workspace:^",
+    "@iktia/compiler-win32-arm64-msvc": "workspace:^",
+    "@iktia/compiler-win32-x64-msvc": "workspace:^"
   },
   "devDependencies": {
     "@types/node": "^25.0.0",

@@ -73,10 +73,12 @@ The package exposes:
 * `@iktia/core`: authoring functions and JSX types.
 * `@iktia/runtime`: runtime helpers.
 * `@iktia/compiler`: native compiler wrapper.
+* `@iktia/compiler-*`: platform-specific optional native packages.
 * `@iktia/vite`: Vite transform plugin.
 
 ## Vite Setup
 
+Installed packages resolve the matching optional native package automatically.
 Build the local native binding before running Vite in this workspace:
 
 ```sh

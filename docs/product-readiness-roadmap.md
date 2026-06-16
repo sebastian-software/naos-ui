@@ -30,15 +30,14 @@ Iktia already proves the core vertical slice:
 
 The remaining MVP signals are mostly productization issues:
 
-* Native bindings are local-development artifacts copied into
-  `packages/compiler/native/iktia_node.node`.
-* Published multi-platform native binary packages are not designed yet.
+* Native package topology exists, but CI must still build and publish every
+  matrix artifact.
 * The only GitHub workflow is the Pages workflow, and it still contains stale
   package filters from the previous project name.
 * There is no CI matrix for Rust, Node packages, examples, docs, or native
   binary builds.
 * There is no release automation for npm packages, release notes, GitHub
-  releases, or optional Rust crate publishing.
+  releases, or native publish ordering.
 * Diagnostics are still plain strings rather than span-rich messages with
   source-map context.
 * The demo surface is too small to prove interop, styling, forms, and hosted
