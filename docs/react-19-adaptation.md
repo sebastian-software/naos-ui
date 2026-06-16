@@ -371,7 +371,12 @@ controls that participate in forms.
 
 ## Proposed Roadmap Extension
 
-### M18: Native Form Actions
+This review originally proposed the form sequence as M18-M21. After the
+Declarative Shadow DOM review, DSD should take the M18 slot because it affects
+generated Shadow DOM lifecycle, hydration, and future form-associated element
+output. The form sequence therefore shifts to M19-M22.
+
+### M19: Native Form Actions
 
 Purpose: add HTML-first form action management for native forms in compiled
 components.
@@ -391,7 +396,7 @@ Acceptance criteria:
 * Native URL form submission remains unchanged when `action` is a string.
 * Browser smoke tests cover success, validation error, and async pending state.
 
-### M19: Form Status And Submit Primitives
+### M20: Form Status And Submit Primitives
 
 Purpose: make reusable submit/status primitives possible without prop drilling.
 
@@ -407,7 +412,7 @@ Acceptance criteria:
 * Shadow DOM and slot behavior is documented.
 * Unsupported form-context lookups fail with clear diagnostics.
 
-### M20: Optimistic Actions
+### M21: Optimistic Actions
 
 Purpose: support optimistic UI during action lifetimes.
 
@@ -423,7 +428,7 @@ Acceptance criteria:
 * State reconciles or rolls back after success or failure.
 * Repeated submissions have deterministic ordering.
 
-### M21: Form-Associated Custom Elements
+### M22: Form-Associated Custom Elements
 
 Purpose: let generated Web Components act as real form controls when requested.
 

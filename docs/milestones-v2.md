@@ -444,10 +444,16 @@ V2 is complete when:
 The next planning layer should evaluate form and lifecycle ideas inspired by
 React 19 and React 19.2 without adopting React as a runtime. The current review
 is documented in [docs/react-19-adaptation.md](react-19-adaptation.md).
+Declarative Shadow DOM should be evaluated ahead of that broader form work
+because it affects the generated Shadow DOM lifecycle, hydration strategy, demo
+publishing, and future form-associated custom element output. The DSD plan is
+documented in
+[docs/declarative-shadow-dom-plan.md](declarative-shadow-dom-plan.md).
 
 Candidate follow-up milestones:
 
-* M18: Native Form Actions
-* M19: Form Status And Submit Primitives
-* M20: Optimistic Actions
-* M21: Form-Associated Custom Elements
+* M18: Declarative Shadow DOM Root Adoption And Hydration
+* M19: Native Form Actions
+* M20: Form Status And Submit Primitives
+* M21: Optimistic Actions
+* M22: Form-Associated Custom Elements
