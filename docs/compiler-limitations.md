@@ -11,7 +11,7 @@ A component module should contain one exported PascalCase function component:
 
 ```tsx
 export function Counter({ label = "Label" }: CounterProps = {}) {
-  const count = signal(0)
+  const count = state(0)
 
   return (
     <button onClick={on("click", () => count.update((value) => value + 1))}>
@@ -27,24 +27,22 @@ Current analysis expects:
 * A deterministic inferred Custom Element tag name.
 * Destructured function props when props are needed.
 * A `return (...)` TSX template.
-* `const` declarations for `signal()`, `computed()`, `effect()`, and `event()`.
+* `const` declarations for `state()`, `computed()`, `effect()`, and `event()`.
 * A single root TSX element.
 
-The legacy `component(tagName, options?, render)` form is still supported for
-compatibility. That path expects a string literal tag name, an arrow function
-callback with a block body, and `const` declarations for `prop.*()`, `prop()`,
-`state()`, `signal()`, `computed()`, `effect()`, and `event()`.
+The legacy `component(tagName, options?, render)` and `prop.*()` forms are not
+part of the v0.1 public authoring API. The compiler should reject them with a
+direct diagnostic instead of lowering them.
 
 OXC validates that the module parses as TSX before transform-specific analysis
 runs. The primary component analyzer uses OXC AST facts for `.wc` imports,
-function component discovery, legacy `component()` call discovery, local
-`signal()`, `state()`, `computed()`, `effect()`, and `event()` declarations,
-host helper usage, and returned TSX template spans.
+function component discovery, local `state()`, `computed()`, `effect()`, and
+`event()` declarations, host helper usage, removed API detection, and returned
+TSX template spans.
 
 Some MVP detail parsers remain intentionally conservative: function prop
-destructuring, legacy `prop.*()` declarations, component options, inline style
-arrays, and generated-template parsing still use narrow source-slice analysis
-fed by AST-selected regions.
+destructuring, component options, inline style arrays, and generated-template
+parsing still use narrow source-slice analysis fed by AST-selected regions.
 
 ## Template Support
 
@@ -99,7 +97,7 @@ The DSD serializer supports:
 * `shadow: true` components with `shadowrootmode="open"`.
 * Static elements, static attributes, text, slots, and inline style strings.
 * Prop defaults and JSON-provided prerender props.
-* `signal()` / `state()` initializers when they are supported literals.
+* `state()` initializers when they are supported literals.
 * Literal arrays and objects for initial values.
 * Simple template strings, identifier reads, accessor reads, boolean negation,
   and simple boolean conditionals over supported values.
@@ -129,7 +127,8 @@ Currently unsupported:
 * Imported CSS object access such as `styles.button`.
 * Rest props in function component parameter destructuring.
 * Non-`const` authoring declarations.
-* Dynamic `component()` tag names.
+* Removed v0.1 APIs: `component()`, `prop.*()`, `prop()`, `signal()`, and
+  `useHost()`.
 * Callback expression bodies such as `() => <button />`.
 * Return values not wrapped in parentheses.
 * Event option code generation from `event(name, options)`.

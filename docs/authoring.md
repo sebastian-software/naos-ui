@@ -20,7 +20,7 @@ Component source files should use the `.wc.tsx` extension so the Vite plugin can
 select them with its default include filter.
 
 ```tsx
-import { computed, event, on, signal, type ComponentOptions } from "@iktia/core"
+import { computed, event, on, state, type ComponentOptions } from "@iktia/core"
 
 export type CounterProps = {
   label?: string
@@ -31,7 +31,7 @@ export const options = {
 } satisfies ComponentOptions
 
 export function Counter({ label = "Count" }: CounterProps = {}) {
-  const count = signal(0)
+  const count = state(0)
   const text = computed(() => `${label}: ${count()}`)
   const change = event<number>("change")
 
@@ -228,42 +228,24 @@ The compiler infers the MVP conversion kind from the default value:
 * numeric defaults become number props.
 * props without defaults currently fall back to string conversion.
 
-The legacy `component()` API can still declare accessor props inside the
-component callback.
-
-```ts
-const label = prop.string("label", "Count")
-const disabled = prop.boolean("disabled", false)
-const value = prop.number("value", 0)
-```
-
-Each prop is available as a typed accessor:
-
-```ts
-label()
-label.set("Next")
-label.update((current) => `${current}!`)
-```
-
 The compiler generates property getters/setters and observed attribute handling.
 String and number props synchronize as string attributes. Boolean props
 synchronize through attribute presence.
 
-## Signals
+## State
 
-Signals are local to the generated element instance. `signal()` is the preferred
-v2 API. `state()` remains available as a legacy alias for older examples and the
-low-level `component()` path.
+State values are local to the generated element instance. `state()` is the
+public writable local state primitive for v0.1.
 
 ```ts
-const count = signal(0)
+const count = state(0)
 
 count()
 count.set(count() + 1)
 count.update((current) => current + 1)
 ```
 
-Signal writes trigger an update pass for generated text, dynamic attributes,
+State writes trigger an update pass for generated text, dynamic attributes,
 control-flow containers, and effects.
 
 ## Computed Values
@@ -271,7 +253,7 @@ control-flow containers, and effects.
 Computed values are read-only derived accessors.
 
 ```ts
-const count = signal(0)
+const count = state(0)
 const doubled = computed(() => count() * 2)
 
 doubled()
@@ -301,7 +283,7 @@ effect(() => {
 })
 ```
 
-`host()` and `useHost()` return a typed lifecycle handle:
+`host()` returns a typed lifecycle handle:
 
 * `element`: the generated custom element instance.
 * `root`: the render root, either the shadow root or the host element.
@@ -415,9 +397,13 @@ than framework-specific class conventions:
 
 ## Legacy Component API
 
-The original `component(tagName, options?, render)` form remains available as a
-low-level compatibility path. New component files should prefer exported
-PascalCase functions.
+## Removed Authoring APIs
+
+The v0.1 public authoring surface removed the old `component()`, `prop.*()`,
+`prop()`, `signal()`, and `useHost()` APIs. Source files using those names
+should fail during compiler analysis with a direct diagnostic and should be
+updated to exported PascalCase functions, typed function props, `state()`, and
+`host()`.
 
 ## Verification Commands
 

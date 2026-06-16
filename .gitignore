@@ -2,6 +2,7 @@ node_modules/
 target/
 dist/
 packages/core-node/native/*.node
+packages/compiler/native/*.node
 test-results/
 *.log
 .DS_Store

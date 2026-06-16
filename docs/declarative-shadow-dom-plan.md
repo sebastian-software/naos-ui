@@ -134,7 +134,7 @@ export const options = {
 } satisfies ComponentOptions
 
 export function Counter({ label = "Count" }: CounterProps = {}) {
-  const count = signal(0)
+  const count = state(0)
   const text = computed(() => `${label}: ${count()}`)
 
   return (
@@ -244,9 +244,9 @@ contract.
 Recommended boundary:
 
 * Serialize static elements, static attributes, text, slots, and styles first.
-* Evaluate prop defaults and `signal()` / `state()` initializers when they are
-  primitive literals, literal arrays, literal objects, or simple template
-  strings over other supported initial values.
+* Evaluate prop defaults and `state()` initializers when they are primitive
+  literals, literal arrays, literal objects, or simple template strings over
+  other supported initial values.
 * Do not evaluate function calls, arbitrary identifiers, computed callbacks,
   effects, event handlers, control-flow callbacks, imports, or browser APIs.
 * Mark dynamic text and dynamic attributes with hydration IDs.

@@ -6,17 +6,6 @@ export type ComponentOptions = {
   define?: boolean
 }
 
-export type ComponentRender = () => JSX.Element
-
-export type ComponentDefinition<TagName extends string = string> = {
-  readonly kind: "iktia.component"
-  readonly tagName: TagName
-}
-
-export type PropOptions = {
-  attribute?: string | false
-}
-
 export type Accessor<T> = {
   (): T
 }
@@ -26,13 +15,7 @@ export type WritableAccessor<T> = Accessor<T> & {
   update(updater: (value: T) => T): void
 }
 
-export type PropAccessor<T> = WritableAccessor<T> & {
-  readonly propName: string
-}
-
 export type StateAccessor<T> = WritableAccessor<T>
-
-export type SignalAccessor<T> = WritableAccessor<T>
 
 export type ComputedAccessor<T> = Accessor<T>
 
@@ -66,74 +49,15 @@ export type EventOptions = {
   composed?: boolean
 }
 
+export type ListenerOptions = AddEventListenerOptions
+
 export type EventEmitter<Detail> = {
   readonly eventName: string
   emit: [Detail] extends [void] ? (detail?: void) => void : (detail: Detail) => void
 }
 
-export type PropFactory = {
-  <T>(name: string, defaultValue: T, options?: PropOptions): PropAccessor<T>
-  string(name: string, defaultValue?: string, options?: PropOptions): PropAccessor<string>
-  boolean(name: string, defaultValue?: boolean, options?: PropOptions): PropAccessor<boolean>
-  number(name: string, defaultValue?: number, options?: PropOptions): PropAccessor<number>
-}
-
-export function component<TagName extends string>(
-  tagName: TagName,
-  render: ComponentRender
-): ComponentDefinition<TagName>
-export function component<TagName extends string>(
-  tagName: TagName,
-  options: ComponentOptions,
-  render: ComponentRender
-): ComponentDefinition<TagName>
-export function component(
-  tagName: string,
-  optionsOrRender?: ComponentOptions | ComponentRender,
-  render?: ComponentRender
-): never {
-  return authoringRuntimeError("component")
-}
-
-export const prop: PropFactory = Object.assign(
-  function genericProp<T>(
-    name: string,
-    defaultValue: T,
-    options?: PropOptions
-  ): PropAccessor<T> {
-    return authoringRuntimeError("prop")
-  },
-  {
-    string(
-      name: string,
-      defaultValue = "",
-      options?: PropOptions
-    ): PropAccessor<string> {
-      return authoringRuntimeError("prop")
-    },
-    boolean(
-      name: string,
-      defaultValue = false,
-      options?: PropOptions
-    ): PropAccessor<boolean> {
-      return authoringRuntimeError("prop")
-    },
-    number(
-      name: string,
-      defaultValue = 0,
-      options?: PropOptions
-    ): PropAccessor<number> {
-      return authoringRuntimeError("prop")
-    },
-  }
-)
-
 export function state<T>(initialValue: T): StateAccessor<T> {
   return authoringRuntimeError("state")
-}
-
-export function signal<T>(initialValue: T): SignalAccessor<T> {
-  return authoringRuntimeError("signal")
 }
 
 export function computed<T>(derive: () => T): ComputedAccessor<T> {
@@ -154,11 +78,13 @@ export function For<Item>(props: ForProps<Item>): JSX.Element {
 
 export function on<Name extends keyof KnownDomEventMap & string>(
   name: Name,
-  handler: (event: KnownDomEventMap[Name]) => void
+  handler: (event: KnownDomEventMap[Name]) => void,
+  options?: ListenerOptions
 ): (event: KnownDomEventMap[Name] & { currentTarget: EventTarget }) => void
 export function on<Name extends string, EventType extends Event = Event>(
   name: Name extends keyof KnownDomEventMap ? never : Name,
-  handler: (event: EventType) => void
+  handler: (event: EventType) => void,
+  options?: ListenerOptions
 ): (event: EventType & { currentTarget: EventTarget }) => void
 export function on(): never {
   return authoringRuntimeError("on")
@@ -166,10 +92,6 @@ export function on(): never {
 
 export function host(): HostHandle {
   return authoringRuntimeError("host")
-}
-
-export function useHost(): HostHandle {
-  return authoringRuntimeError("useHost")
 }
 
 export function event<Detail = void>(

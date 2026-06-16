@@ -26,7 +26,7 @@
           <p class="case-kicker">Use case 01</p>
           <h2 id="counter-title">Reactive counter</h2>
           <p>
-            A focused component that combines <code>signal()</code>,
+            A focused component that combines <code>state()</code>,
             <code>computed()</code>, <code>effect()</code>, and a typed native
             <code>CustomEvent</code>.
           </p>
@@ -39,7 +39,7 @@
         <div class="case-surface">
           <x-counter label="Count"></x-counter>
           <output id="counter-event">Last counter event: none</output>
-          <pre><code>const count = signal(0)
+          <pre><code>const count = state(0)
 const text = computed(() =&gt; `Count: ${count()}`)</code></pre>
         </div>
       </section>

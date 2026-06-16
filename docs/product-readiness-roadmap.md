@@ -136,11 +136,10 @@ turns it into a published contract.
 Deliverables:
 
 * Write ADRs for API stability tiers and package topology.
-* Decide whether legacy `component()` and `prop.*()` stay indefinitely, become
-  deprecated, or move behind compatibility docs.
-* Freeze the first public shape of `signal()`, `computed()`, `effect()`,
-  `event()`, `on()`, `host()` / `useHost()`, `<Show>`, `<For>`, and
-  `ComponentOptions`.
+* Implement the v0.1 decision that legacy `component()`, `prop.*()`, `prop()`,
+  `signal()`, and `useHost()` are removed from the public authoring API.
+* Freeze the first public shape of `state()`, `computed()`, `effect()`,
+  `event()`, `on()`, `host()`, `<Show>`, `<For>`, and `ComponentOptions`.
 * Decide whether event options belong in `event(name, options)`, `on(type,
   handler, options)`, both, or neither for the first release.
 * Define the public DSD API boundary for `renderDeclarativeShadowDom()` and Vite

@@ -10,7 +10,7 @@ No React runtime. No virtual DOM. Just typed components shaped into native
 elements.
 
 ```tsx
-import { computed, event, on, signal, type ComponentOptions } from "@iktia/core"
+import { computed, event, on, state, type ComponentOptions } from "@iktia/core"
 
 export type CounterProps = {
   label?: string
@@ -21,7 +21,7 @@ export const options = {
 } satisfies ComponentOptions
 
 export function Counter({ label = "Count" }: CounterProps = {}) {
-  const count = signal(0)
+  const count = state(0)
   const text = computed(() => `${label}: ${count()}`)
   const change = event<number>("change")
 
@@ -51,7 +51,7 @@ release. The current implementation proves the vertical slice:
 
 * typed TypeScript authoring API and JSX surface
 * PascalCase function component authoring with kebab-case Custom Element output
-* `signal()`, `computed()`, and `effect()` authoring primitives
+* `state()`, `computed()`, and `effect()` authoring primitives
 * explicit `<Show>` and `<For>` compile-time control flow
 * Rust/OXC TSX parse validation and compiler analysis
 * native Custom Element code generation
@@ -160,7 +160,7 @@ compiler detail. `Counter` compiles to `x-counter`, while multi-word names such
 as `CounterButton` compile to `counter-button`.
 
 ```tsx
-import { Show, computed, event, on, signal, type ComponentOptions } from "@iktia/core"
+import { Show, computed, event, on, state, type ComponentOptions } from "@iktia/core"
 
 export type ButtonProps = {
   label?: string
@@ -173,7 +173,7 @@ export const options = {
 } satisfies ComponentOptions
 
 export function Button({ label = "Save" }: ButtonProps = {}) {
-  const pressed = signal(false)
+  const pressed = state(false)
   const stateLabel = computed(() => (pressed() ? "Pressed" : "Idle"))
   const submit = event<{ label: string }>("submit")
 
@@ -213,15 +213,14 @@ Current APIs:
 
 * exported PascalCase functions with typed props
 * `export const options satisfies ComponentOptions`
-* `signal(initialValue)` for writable local state
+* `state(initialValue)` for writable local state
 * `computed(() => value)` for read-only derived values
 * `effect(() => cleanup?)` for lifecycle side effects
 * `event<Detail>(name)`
 * `on(name, handler)` for typed DOM event composition
-* `host()` / `useHost()` for element, root, update, and abort-signal access
+* `host()` for element, root, update, and abort-signal access
 * `<Show>` and `<For>` as explicit compile-time control flow
 * typed JSX intrinsic elements and common DOM/event attributes
-* legacy `component(tagName, options?, render)` and `prop.*()` accessors
 
 For details, see [docs/authoring.md](docs/authoring.md).
 

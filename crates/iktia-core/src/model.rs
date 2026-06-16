@@ -13,7 +13,7 @@ pub struct ComponentModule {
     pub options: ComponentOptions,
     /// Component imports that should be preserved for nested Custom Element registration.
     pub component_imports: Vec<ComponentImport>,
-    /// Public props declared through function parameters or `prop.*()`.
+    /// Public props declared through function parameters.
     pub props: Vec<PropDefinition>,
     /// Internal state declarations.
     pub states: Vec<StateDefinition>,
@@ -21,7 +21,7 @@ pub struct ComponentModule {
     pub computed: Vec<ComputedDefinition>,
     /// Lifecycle side effect declarations.
     pub effects: Vec<EffectDefinition>,
-    /// Whether the component body references `host()` or `useHost()`.
+    /// Whether the component body references `host()`.
     pub uses_host_helpers: bool,
     /// Custom event declarations.
     pub events: Vec<EventDefinition>,
@@ -75,8 +75,6 @@ pub enum PropKind {
 /// How a prop is exposed inside the authored template.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PropAccess {
-    /// Legacy `prop.*()` declarations expose accessor functions.
-    Accessor,
     /// Function component parameters expose plain local values.
     Value,
 }
@@ -109,13 +107,11 @@ pub struct StateDefinition {
     pub kind: StateKind,
 }
 
-/// State-like reactive authoring declaration.
+/// Local reactive authoring declaration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StateKind {
-    /// Legacy `state()` declaration.
+    /// Public `state()` declaration.
     State,
-    /// Preferred v2 `signal()` declaration.
-    Signal,
 }
 
 /// Pure derived value declaration.

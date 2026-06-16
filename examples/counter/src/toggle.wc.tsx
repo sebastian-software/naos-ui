@@ -6,7 +6,7 @@ import {
   event,
   host,
   on,
-  signal,
+  state,
   type ComponentOptions,
 } from "@iktia/core"
 
@@ -26,7 +26,7 @@ export const options = {
 } satisfies ComponentOptions
 
 export function Toggle({ disabled = false, label = "Toggle" }: ToggleProps = {}) {
-  const pressed = signal(false)
+  const pressed = state(false)
   const stateLabel = computed(() => (pressed() ? "On" : "Off"))
   const indicators = computed(() => (pressed() ? ["Pressed", "Active"] : ["Idle"]))
   const changed = event<boolean>("toggle-change")

@@ -25,24 +25,23 @@ pnpm --filter @iktia/example-counter test
 Rust core:
 
 * OXC rejects invalid TSX before transform-specific analysis.
-* Function component analysis infers tag name, props, signals, computed values,
+* Function component analysis infers tag name, props, state, computed values,
   effects, events, host helper usage, options, imports, and the returned TSX
   template.
-* Legacy `component()` analysis still extracts tag name, props, state, signals,
-  computed values, effects, events, options, and the returned TSX template.
+* Removed v0.1 APIs (`component()`, `prop.*()`, `prop()`, `signal()`, and
+  `useHost()`) produce clear compiler errors.
 * The OXC AST analyzer owns `.wc` import discovery, component entrypoint
   discovery, local authoring declarations, host helper detection, and return
   template spans.
 * Codegen emits native `HTMLElement` classes without a framework runtime.
 * Props synchronize with attributes.
-* Signal writes update generated text, dynamic attributes, control-flow
+* State writes update generated text, dynamic attributes, control-flow
   containers, and effects.
 * Computed values are generated as read-only derived bindings.
 * Effects run after mount/update and clean up on disconnect.
 * Events dispatch native `CustomEvent` instances.
 * `on()` compiles away to a native `addEventListener()` handler body.
-* `host()` / `useHost()` expose a generated lifecycle handle with an
-  `AbortSignal`.
+* `host()` exposes a generated lifecycle handle with an `AbortSignal`.
 * `<Show>` and `<For>` compile as explicit control-flow containers.
 * Unsupported JSX `.map()` and conditional expression children produce
   deterministic diagnostics pointing to `<For>` and `<Show>`.
@@ -59,7 +58,7 @@ Rust core:
 
 TypeScript packages:
 
-* Authoring APIs expose typed function props, signals, computed values, effects,
+* Authoring APIs expose typed function props, state, computed values, effects,
   DOM event helpers, host helpers, events, component options, and JSX.
 * Authoring runtime stubs throw when used without the compiler.
 * The Node wrapper exposes a typed native boundary.

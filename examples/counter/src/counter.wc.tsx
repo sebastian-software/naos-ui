@@ -1,4 +1,4 @@
-import { computed, effect, event, signal, type ComponentOptions } from "@iktia/core"
+import { computed, effect, event, state, type ComponentOptions } from "@iktia/core"
 
 export type CounterProps = {
   label?: string
@@ -14,7 +14,7 @@ export const options = {
 } satisfies ComponentOptions
 
 export function Counter({ label = "Count" }: CounterProps = {}) {
-  const count = signal(0)
+  const count = state(0)
   const displayLabel = computed(() => `${label}: ${count()}`)
   const change = event<number>("change")
 

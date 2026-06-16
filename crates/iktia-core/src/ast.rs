@@ -46,17 +46,10 @@ pub(crate) struct AstFunctionComponent {
     pub(crate) semantics: AstComponentSemantics,
 }
 
-#[derive(Debug, Clone)]
-pub(crate) struct AstLegacyComponent {
-    pub(crate) call: SourceSpan,
-    pub(crate) semantics: Option<AstComponentSemantics>,
-}
-
 #[derive(Debug, Default)]
 pub(crate) struct AstModuleFacts {
     pub(crate) component_imports: Vec<ComponentImport>,
     pub(crate) function_components: Vec<AstFunctionComponent>,
-    pub(crate) legacy_component: Option<AstLegacyComponent>,
 }
 
 pub(crate) fn analyze_module(source: &str, filename: &str) -> CompilerResult<AstModuleFacts> {
@@ -117,14 +110,12 @@ impl<'a, 'program> AstAnalyzer<'a, 'program> {
                 ExportDefaultDeclarationKind::FunctionDeclaration(function) => {
                     push_function_component(self.source, function, facts)?;
                 }
-                ExportDefaultDeclarationKind::CallExpression(call) => {
-                    capture_legacy_component_call(self.source, call, facts)?;
-                }
+                ExportDefaultDeclarationKind::CallExpression(call) => reject_removed_call(call)?,
                 _ => {}
             },
             Statement::ExpressionStatement(statement) => {
                 if let Expression::CallExpression(call) = &statement.expression {
-                    capture_legacy_component_call(self.source, call, facts)?;
+                    reject_removed_call(call)?;
                 }
             }
             _ => {}
@@ -208,44 +199,28 @@ fn push_function_component(
     Ok(())
 }
 
-fn capture_legacy_component_call(
-    source: &str,
-    call: &CallExpression<'_>,
-    facts: &mut AstModuleFacts,
-) -> CompilerResult<()> {
-    let Expression::Identifier(callee) = &call.callee else {
-        return Ok(());
-    };
-    if callee.name.as_str() != "component" {
-        return Ok(());
-    }
-    facts.legacy_component = Some(AstLegacyComponent {
-        call: SourceSpan::from_oxc(call.span),
-        semantics: capture_component_callback(source, call)?,
-    });
-    Ok(())
-}
-
-fn capture_component_callback(
-    source: &str,
-    call: &CallExpression<'_>,
-) -> CompilerResult<Option<AstComponentSemantics>> {
-    let Some(callback) = call.arguments.get(2) else {
-        return Ok(None);
-    };
-    let Argument::ArrowFunctionExpression(callback) = callback else {
-        return Ok(None);
-    };
-    Ok(Some(analyze_component_body(source, &callback.body)?))
-}
-
 fn analyze_component_body(
     source: &str,
     body: &FunctionBody<'_>,
 ) -> CompilerResult<AstComponentSemantics> {
     let mut semantics = AstComponentSemantics::default();
     let body_source = source_span(source, SourceSpan::from_oxc(body.span))?;
-    semantics.uses_host_helpers = body_source.contains("host(") || body_source.contains("useHost(");
+    if contains_call(body_source, "signal") {
+        return Err(unsupported(
+            "signal() was removed from the v0.1 authoring API. Use state() for local component state.",
+        ));
+    }
+    if contains_prop_call(body_source) {
+        return Err(unsupported(
+            "prop.*() and prop() were removed from the v0.1 authoring API. Declare props with typed function parameters instead.",
+        ));
+    }
+    if contains_call(body_source, "useHost") {
+        return Err(unsupported(
+            "useHost() was removed from the v0.1 authoring API. Use host() instead.",
+        ));
+    }
+    semantics.uses_host_helpers = contains_call(body_source, "host");
 
     for statement in &body.statements {
         capture_body_statement(source, statement, &mut semantics)?;
@@ -301,8 +276,9 @@ fn capture_authoring_const(
     call: &CallExpression<'_>,
     semantics: &mut AstComponentSemantics,
 ) -> CompilerResult<()> {
+    reject_removed_call(call)?;
     match call_name(call) {
-        Some("state") | Some("signal") => {
+        Some("state") => {
             let Some(initial_value) = call.arguments.first() else {
                 return Ok(());
             };
@@ -311,11 +287,7 @@ fn capture_authoring_const(
                 initial_value: source_span(source, SourceSpan::from_oxc(initial_value.span()))?
                     .trim()
                     .to_owned(),
-                kind: if call_name(call) == Some("signal") {
-                    StateKind::Signal
-                } else {
-                    StateKind::State
-                },
+                kind: StateKind::State,
             });
         }
         Some("computed") => {
@@ -362,6 +334,66 @@ fn call_name<'a>(call: &'a CallExpression<'a>) -> Option<&'a str> {
         Expression::Identifier(identifier) => Some(identifier.name.as_str()),
         _ => None,
     }
+}
+
+fn reject_removed_call(call: &CallExpression<'_>) -> CompilerResult<()> {
+    if call_name(call) == Some("component") {
+        return Err(unsupported(
+            "component() was removed from the v0.1 authoring API. Export a PascalCase function component instead.",
+        ));
+    }
+    if call_name(call) == Some("signal") {
+        return Err(unsupported(
+            "signal() was removed from the v0.1 authoring API. Use state() for local component state.",
+        ));
+    }
+    if call_name(call) == Some("useHost") {
+        return Err(unsupported(
+            "useHost() was removed from the v0.1 authoring API. Use host() instead.",
+        ));
+    }
+    if is_prop_call(call) {
+        return Err(unsupported(
+            "prop.*() and prop() were removed from the v0.1 authoring API. Declare props with typed function parameters instead.",
+        ));
+    }
+    Ok(())
+}
+
+fn is_prop_call(call: &CallExpression<'_>) -> bool {
+    if call_name(call) == Some("prop") {
+        return true;
+    }
+    let Expression::StaticMemberExpression(member) = &call.callee else {
+        return false;
+    };
+    matches!(&member.object, Expression::Identifier(identifier) if identifier.name.as_str() == "prop")
+}
+
+fn contains_call(source: &str, name: &str) -> bool {
+    let mut offset = 0;
+    while let Some(relative_index) = source[offset..].find(name) {
+        let index = offset + relative_index;
+        let before = source[..index].chars().next_back();
+        let after_name = index + name.len();
+        let after = source[after_name..].chars().next();
+        if !before.is_some_and(is_identifier_char) && !after.is_some_and(is_identifier_char) {
+            let rest = source[after_name..].trim_start();
+            if rest.starts_with('(') {
+                return true;
+            }
+        }
+        offset = after_name;
+    }
+    false
+}
+
+fn contains_prop_call(source: &str) -> bool {
+    contains_call(source, "prop") || source.contains("prop.")
+}
+
+fn is_identifier_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || matches!(ch, '_' | '$')
 }
 
 fn argument_string_literal<'a>(argument: &'a Argument<'a>) -> Option<&'a str> {

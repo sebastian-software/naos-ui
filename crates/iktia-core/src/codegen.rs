@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
     ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult, EffectDefinition,
-    EventDefinition, PropAccess, PropDefinition, PropKind, StateDefinition, TransformResult,
+    EventDefinition, PropDefinition, PropKind, StateDefinition, TransformResult,
 };
 use crate::naming::{
     custom_element_tag_for_component, is_pascal_case_identifier, kebab_case_identifier,
@@ -668,36 +668,12 @@ impl<'a> CodeGenerator<'a> {
     fn emit_bindings(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  #createBindings() {{").map_err(format_error)?;
         for prop in &self.module.props {
-            match prop.access {
-                PropAccess::Accessor => {
-                    writeln!(
-                        code,
-                        "    const {} = () => this.#props.{};",
-                        prop.local_name, prop.local_name
-                    )
-                    .map_err(format_error)?;
-                    writeln!(
-                        code,
-                        "    {}.set = (value) => {{ this.{} = value; }};",
-                        prop.local_name, prop.prop_name
-                    )
-                    .map_err(format_error)?;
-                    writeln!(
-                        code,
-                        "    {}.update = (updater) => {{ {}.set(updater({}())); }};",
-                        prop.local_name, prop.local_name, prop.local_name
-                    )
-                    .map_err(format_error)?;
-                }
-                PropAccess::Value => {
-                    writeln!(
-                        code,
-                        "    const {} = this.#props.{};",
-                        prop.local_name, prop.local_name
-                    )
-                    .map_err(format_error)?;
-                }
-            }
+            writeln!(
+                code,
+                "    const {} = this.#props.{};",
+                prop.local_name, prop.local_name
+            )
+            .map_err(format_error)?;
         }
         for state in &self.module.states {
             self.emit_state_binding(code, state)?;
@@ -715,7 +691,6 @@ impl<'a> CodeGenerator<'a> {
             writeln!(code, "      signal: this.#abortController.signal,").map_err(format_error)?;
             writeln!(code, "      update: () => this.#flush(),").map_err(format_error)?;
             writeln!(code, "    }});").map_err(format_error)?;
-            writeln!(code, "    const useHost = host;").map_err(format_error)?;
         }
         let names = binding_names(self.module).join(", ");
         writeln!(code, "    return {{ {names} }};").map_err(format_error)?;
@@ -2434,7 +2409,6 @@ fn binding_names(module: &ComponentModule) -> Vec<String> {
         .collect::<Vec<_>>();
     if module.uses_host_helpers {
         names.push("host".to_owned());
-        names.push("useHost".to_owned());
     }
     names
 }

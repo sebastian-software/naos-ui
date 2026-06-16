@@ -42,19 +42,18 @@ mod tests {
     #[test]
     fn analyze_component_module_should_extract_counter_model() {
         let source = r#"
-            import { component, event, prop, state } from "@iktia/core";
+            import { event, state } from "@iktia/core";
 
-            export default component("x-counter", { shadow: true }, () => {
-              const label = prop.string("label", "Count");
+            export function Counter({ label = "Count" }: CounterProps = {}) {
               const count = state(0);
               const change = event<number>("change");
 
               return (
                 <button onClick={() => change.emit(count())}>
-                  {label()}: {count()}
+                  {label}: {count()}
                 </button>
               );
-            });
+            }
         "#;
 
         let module = match analyze_component_module(source, "counter.wc.tsx") {
@@ -74,7 +73,7 @@ mod tests {
     #[test]
     fn analyze_component_module_should_extract_function_component_model() {
         let source = r#"
-            import { event, state, type ComponentOptions } from "@iktia/core";
+            import { computed, effect, event, state, type ComponentOptions } from "@iktia/core";
 
             export const options = {
               shadow: true,
@@ -82,7 +81,7 @@ mod tests {
             } satisfies ComponentOptions;
 
             export function Counter({ label = "Count", enabled = true, step = 1 }: CounterProps = {}) {
-              const count = signal(0);
+              const count = state(0);
               const doubled = computed(() => count() * 2);
               effect(() => {
                 console.log(doubled());
@@ -110,7 +109,7 @@ mod tests {
         assert_eq!(module.props[0].prop_name, "label");
         assert_eq!(module.props[1].attribute_name, "enabled");
         assert_eq!(module.props[2].attribute_name, "step");
-        assert_eq!(module.states[0].kind, StateKind::Signal);
+        assert_eq!(module.states[0].kind, StateKind::State);
         assert_eq!(module.computed.len(), 1);
         assert_eq!(module.computed[0].local_name, "doubled");
         assert_eq!(module.effects.len(), 1);
@@ -118,12 +117,84 @@ mod tests {
     }
 
     #[test]
+    fn analyze_component_module_should_reject_removed_component_api() {
+        let source = r#"
+            import { component } from "@iktia/core";
+
+            export default component("x-counter", () => {
+              return <button>Count</button>;
+            });
+        "#;
+
+        let error = analyze_component_module(source, "counter.wc.tsx")
+            .expect_err("component() should be rejected");
+
+        assert!(error.to_string().contains("component() was removed"));
+    }
+
+    #[test]
+    fn analyze_component_module_should_reject_removed_signal_api() {
+        let source = r#"
+            import { signal } from "@iktia/core";
+
+            export function Counter() {
+              const count = signal(0);
+              return <button>{count()}</button>;
+            }
+        "#;
+
+        let error = analyze_component_module(source, "counter.wc.tsx")
+            .expect_err("signal() should be rejected");
+
+        assert!(error.to_string().contains("signal() was removed"));
+    }
+
+    #[test]
+    fn analyze_component_module_should_reject_removed_host_alias() {
+        let source = r#"
+            import { effect, useHost } from "@iktia/core";
+
+            export function Counter() {
+              effect(() => {
+                useHost().update();
+              });
+              return <button>Count</button>;
+            }
+        "#;
+
+        let error = analyze_component_module(source, "counter.wc.tsx")
+            .expect_err("useHost() should be rejected");
+
+        assert!(error.to_string().contains("useHost() was removed"));
+    }
+
+    #[test]
+    fn analyze_component_module_should_reject_removed_prop_api() {
+        let source = r#"
+            import { prop } from "@iktia/core";
+
+            export function Counter() {
+              const label = prop.string("label", "Count");
+              return <button>{label()}</button>;
+            }
+        "#;
+
+        let error = analyze_component_module(source, "counter.wc.tsx")
+            .expect_err("prop.*() should be rejected");
+
+        assert!(
+            error
+                .to_string()
+                .contains("prop.*() and prop() were removed")
+        );
+    }
+
+    #[test]
     fn transform_component_module_should_generate_custom_element() {
         let source = r#"
-            import { component, event, prop, state } from "@iktia/core";
+            import { event, state } from "@iktia/core";
 
-            export default component("x-counter", { shadow: true }, () => {
-              const label = prop.string("label", "Count");
+            export function Counter({ label = "Count" }: CounterProps = {}) {
               const count = state(0);
               const change = event<number>("change");
 
@@ -136,10 +207,10 @@ mod tests {
                     change.emit(count());
                   }}
                 >
-                  {label()}: {count()}
+                  {label}: {count()}
                 </button>
               );
-            });
+            }
         "#;
 
         let result = match transform_component_module(source, "counter.wc.tsx") {
@@ -148,11 +219,15 @@ mod tests {
         };
 
         assert!(result.has_changed);
-        assert!(result.code.contains("class XCounter extends HTMLElement"));
         assert!(
             result
                 .code
-                .contains("customElements.define(\"x-counter\", XCounter)")
+                .contains("class CounterElement extends HTMLElement")
+        );
+        assert!(
+            result
+                .code
+                .contains("customElements.define(\"x-counter\", CounterElement)")
         );
         assert!(result.code.contains("new CustomEvent(\"change\""));
         assert!(result.code.contains("this.#text0.data"));
@@ -161,10 +236,10 @@ mod tests {
     #[test]
     fn transform_component_module_should_reuse_declarative_shadow_roots() {
         let source = r#"
-            import { signal } from "@iktia/core";
+            import { state } from "@iktia/core";
 
             export function Counter() {
-              const count = signal(0);
+              const count = state(0);
 
               return (
                 <button onClick={() => count.set(count() + 1)}>
@@ -242,12 +317,12 @@ mod tests {
     }
 
     #[test]
-    fn transform_component_module_should_generate_signals_computed_and_effects() {
+    fn transform_component_module_should_generate_state_computed_and_effects() {
         let source = r#"
-            import { computed, effect, event, signal } from "@iktia/core";
+            import { computed, effect, event, state } from "@iktia/core";
 
             export function Counter({ label = "Count" }: CounterProps = {}) {
-              const count = signal(0);
+              const count = state(0);
               const doubled = computed(() => count() * 2);
               const change = event<number>("change");
 
@@ -287,10 +362,10 @@ mod tests {
     #[test]
     fn transform_component_module_should_generate_control_flow_and_web_composition_helpers() {
         let source = r#"
-            import { For, Show, computed, effect, event, host, on, signal } from "@iktia/core";
+            import { For, Show, computed, effect, event, host, on, state } from "@iktia/core";
 
             export function ToggleList({ visible = true }: ToggleListProps = {}) {
-              const pressed = signal(false);
+              const pressed = state(false);
               const items = computed(() => pressed() ? ["On"] : ["Off"]);
               const toggled = event<boolean>("toggle-change");
 
@@ -349,7 +424,7 @@ mod tests {
     #[test]
     fn transform_component_module_should_reject_map_jsx_children() {
         let source = r#"
-            import { computed, signal } from "@iktia/core";
+            import { computed } from "@iktia/core";
 
             export function List() {
               const items = computed(() => ["One", "Two"]);
@@ -371,10 +446,10 @@ mod tests {
     #[test]
     fn transform_component_module_should_reject_conditional_jsx_children() {
         let source = r#"
-            import { signal } from "@iktia/core";
+            import { state } from "@iktia/core";
 
             export function Status() {
-              const ready = signal(false);
+              const ready = state(false);
 
               return (
                 <section>
@@ -424,19 +499,21 @@ mod tests {
     #[test]
     fn transform_component_module_should_generate_slots_and_shadow_styles() {
         let source = r#"
-            import { component } from "@iktia/core";
+            import { type ComponentOptions } from "@iktia/core";
 
-            export default component("x-button", {
+            export const options = {
               shadow: true,
               styles: [":host { display: inline-block; }", "button { color: red; }"],
-            }, () => {
+            } satisfies ComponentOptions;
+
+            export function Button() {
               return (
                 <button part="button">
                   <slot name="icon" />
                   <slot />
                 </button>
               );
-            });
+            }
         "#;
 
         let result = match transform_component_module(source, "button.wc.tsx") {
@@ -453,7 +530,7 @@ mod tests {
     #[test]
     fn render_declarative_shadow_dom_module_should_serialize_counter_shell() {
         let source = r#"
-            import { event, signal, type ComponentOptions } from "@iktia/core";
+            import { event, state, type ComponentOptions } from "@iktia/core";
 
             export const options = {
               shadow: true,
@@ -461,7 +538,7 @@ mod tests {
             } satisfies ComponentOptions;
 
             export function Counter({ label = "Count" }: CounterProps = {}) {
-              const count = signal(0);
+              const count = state(0);
               const change = event<number>("change");
 
               return (
@@ -505,10 +582,10 @@ mod tests {
     #[test]
     fn render_declarative_shadow_dom_module_should_mark_unsupported_dynamic_values() {
         let source = r#"
-            import { computed, signal } from "@iktia/core";
+            import { computed, state } from "@iktia/core";
 
             export function Counter({ label = "Count" }: CounterProps = {}) {
-              const count = signal(0);
+              const count = state(0);
               const text = computed(() => `${label}: ${count()}`);
 
               return <button>{text()}</button>;
@@ -527,12 +604,12 @@ mod tests {
     #[test]
     fn render_declarative_shadow_dom_module_should_evaluate_literal_initial_values() {
         let source = r#"
-            import { signal, state } from "@iktia/core";
+            import { state } from "@iktia/core";
 
             export function Snapshot({ label = "Count" }: SnapshotProps = {}) {
-              const items = signal(["A", label]);
+              const items = state(["A", label]);
               const meta = state({ name: label, count: 0 });
-              const unsupported = signal(makeValue());
+              const unsupported = state(makeValue());
 
               return (
                 <section data-items={items()} data-meta={meta()}>

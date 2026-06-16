@@ -2,52 +2,27 @@
 import {
   For,
   Show,
-  component,
   computed,
   effect,
   event,
   host,
   on,
-  prop,
-  signal,
   state,
-  useHost,
 } from "@iktia/core"
 
-component("x-counter", { shadow: true }, () => {
-  const label = prop.string("label", "Count")
-  const enabled = prop.boolean("enabled", true)
-  const count = state(0)
-  const change = event<number>("change")
-  const ready = event<void>("ready")
+type IktiaCore = typeof import("@iktia/core")
 
-  label.set("Next")
-  enabled.update((value) => !value)
-  count.update((value) => value + 1)
-  change.emit(count())
-  ready.emit()
+// @ts-expect-error component() is not part of the v0.1 public API
+type RemovedComponentApi = IktiaCore["component"]
 
-  // @ts-expect-error numeric events require numeric detail
-  change.emit("wrong")
+// @ts-expect-error prop.*() is not part of the v0.1 public API
+type RemovedPropApi = IktiaCore["prop"]
 
-  // @ts-expect-error boolean props reject string values
-  enabled.set("true")
+// @ts-expect-error signal() is not part of the v0.1 public API
+type RemovedSignalApi = IktiaCore["signal"]
 
-  return (
-    <button
-      class="counter"
-      data-count={count()}
-      disabled={!enabled()}
-      onClick={() => {
-        count.set(count() + 1)
-        change.emit(count())
-      }}
-    >
-      <slot name="icon" />
-      {label()}: {count()}
-    </button>
-  )
-})
+// @ts-expect-error useHost() is not part of the v0.1 public API
+type RemovedUseHostApi = IktiaCore["useHost"]
 
 type FunctionCounterProps = {
   enabled?: boolean
@@ -60,14 +35,19 @@ function FunctionCounter({
   label = "Count",
   onChange,
 }: FunctionCounterProps = {}) {
-  const count = signal(0)
+  const count = state(0)
   const doubled = computed(() => count() * 2)
   const items = computed(() => [label, String(doubled())] as const)
   const change = event<number>("change")
+  const ready = event<void>("ready", { bubbles: false })
 
   count.set(1)
   count.update((value) => value + 1)
   const doubledValue: number = doubled()
+  ready.emit()
+
+  // @ts-expect-error numeric events require numeric detail
+  change.emit("wrong")
 
   // @ts-expect-error computed values are read-only
   doubled.set(1)
@@ -85,11 +65,13 @@ function FunctionCounter({
   // @ts-expect-error effects may only return cleanup functions
   effect(() => "wrong")
 
-  const hostHandle = useHost()
+  const hostHandle = host()
   hostHandle.update()
 
   // @ts-expect-error click handlers receive MouseEvent, not KeyboardEvent
   on("click", (event: KeyboardEvent) => event.key)
+
+  on("click", (event) => event.preventDefault(), { once: true })
 
   return (
     <button
