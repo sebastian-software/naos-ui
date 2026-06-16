@@ -438,3 +438,16 @@ V2 is complete when:
 * OXC AST analysis is the primary semantic path.
 * Weighted ADRs explain the design ideals and major decisions behind the
   project.
+
+## Post-v2 Research Queue
+
+The next planning layer should evaluate form and lifecycle ideas inspired by
+React 19 and React 19.2 without adopting React as a runtime. The current review
+is documented in [docs/react-19-adaptation.md](react-19-adaptation.md).
+
+Candidate follow-up milestones:
+
+* M18: Native Form Actions
+* M19: Form Status And Submit Primitives
+* M20: Optimistic Actions
+* M21: Form-Associated Custom Elements
