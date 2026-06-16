@@ -2,7 +2,7 @@
   "name": "iktia-workspace",
   "private": true,
   "description": "Rust/OXC-powered TSX compiler for Iktia native interface elements.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "packageManager": "pnpm@11.6.0",
   "engines": {

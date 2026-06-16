@@ -4,7 +4,7 @@ resolver = "2"
 
 [workspace.package]
 edition = "2024"
-license = "MIT"
+license = "Apache-2.0"
 repository = "https://github.com/sebastian-software/iktia"
 rust-version = "1.93"
 version = "0.0.0"

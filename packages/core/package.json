@@ -2,7 +2,7 @@
   "name": "@iktia/core",
   "version": "0.0.0",
   "description": "Authoring API and JSX types for Iktia native interface elements.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

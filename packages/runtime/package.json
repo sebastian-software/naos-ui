@@ -2,7 +2,7 @@
   "name": "@iktia/runtime",
   "version": "0.0.0",
   "description": "Runtime helpers for Iktia generated native interface elements.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {

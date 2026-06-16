@@ -314,3 +314,7 @@ Useful references:
 * [Compiler limitations](docs/compiler-limitations.md)
 * [Declarative Shadow DOM plan](docs/declarative-shadow-dom-plan.md)
 * [MDN Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
+
+## License
+
+Apache-2.0

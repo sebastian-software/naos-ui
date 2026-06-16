@@ -2,7 +2,7 @@
   "name": "@iktia/compiler",
   "version": "0.0.0",
   "description": "Thin Node.js wrapper around the Iktia native compiler.",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "type": "module",
   "exports": {
     ".": {
