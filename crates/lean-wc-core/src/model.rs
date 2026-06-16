@@ -80,3 +80,12 @@ pub struct EventDefinition {
     /// TypeScript detail type source, when provided.
     pub detail_type: Option<String>,
 }
+
+/// Result of transforming a source module.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TransformResult {
+    /// Generated JavaScript module source.
+    pub code: String,
+    /// Whether the compiler changed the input module.
+    pub has_changed: bool,
+}

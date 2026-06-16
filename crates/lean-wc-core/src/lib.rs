@@ -5,13 +5,16 @@
 //! this crate through a thin Node binding and keep bundler integration outside
 //! the semantic pipeline.
 
+mod codegen;
 mod error;
 mod model;
 mod parse;
 
+pub use codegen::transform_component_module;
 pub use error::{CompilerError, CompilerResult};
 pub use model::{
     ComponentModule, ComponentOptions, EventDefinition, PropDefinition, PropKind, StateDefinition,
+    TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -23,7 +26,7 @@ pub fn core_version() -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use super::{analyze_component_module, core_version};
+    use super::{analyze_component_module, core_version, transform_component_module};
 
     #[test]
     fn core_version_should_match_crate_version() {
@@ -59,5 +62,46 @@ mod tests {
         assert_eq!(module.states.len(), 1);
         assert_eq!(module.events.len(), 1);
         assert!(module.template_source.contains("<button"));
+    }
+
+    #[test]
+    fn transform_component_module_should_generate_custom_element() {
+        let source = r#"
+            import { component, event, prop, state } from "lean-wc";
+
+            export default component("x-counter", { shadow: true }, () => {
+              const label = prop.string("label", "Count");
+              const count = state(0);
+              const change = event<number>("change");
+
+              return (
+                <button
+                  part="button"
+                  data-count={count()}
+                  onClick={() => {
+                    count.set(count() + 1);
+                    change.emit(count());
+                  }}
+                >
+                  {label()}: {count()}
+                </button>
+              );
+            });
+        "#;
+
+        let result = match transform_component_module(source, "counter.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.has_changed);
+        assert!(result.code.contains("class XCounter extends HTMLElement"));
+        assert!(
+            result
+                .code
+                .contains("customElements.define(\"x-counter\", XCounter)")
+        );
+        assert!(result.code.contains("new CustomEvent(\"change\""));
+        assert!(result.code.contains("this.#text0.data"));
     }
 }
