@@ -26,5 +26,5 @@ export default defineConfig({
       },
     },
   },
-  plugins: [iktia({ prerender: true })],
+  plugins: [iktia()],
 })

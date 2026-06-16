@@ -194,10 +194,10 @@ function manifestComponentPath(filename: string): string {
 function normalizePrerenderOptions(
   options: IktiaVitePluginOptions["prerender"]
 ): IktiaDeclarativeShadowDomPrerenderOptions | null {
-  if (!options) {
+  if (options === false) {
     return null
   }
-  if (options === true) {
+  if (options === undefined || options === true) {
     return {
       manifestFile: "iktia-manifest.json",
     }

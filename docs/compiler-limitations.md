@@ -30,15 +30,11 @@ Current analysis expects:
 * `const` declarations for `state()`, `computed()`, `effect()`, and `event()`.
 * A single root TSX element.
 
-The legacy `component(tagName, options?, render)` and `prop.*()` forms are not
-part of the v0.1 public authoring API. The compiler should reject them with a
-direct diagnostic instead of lowering them.
-
 OXC validates that the module parses as TSX before transform-specific analysis
 runs. The primary component analyzer uses OXC AST facts for `.wc` imports,
 function component discovery, local `state()`, `computed()`, `effect()`, and
-`event()` declarations, host helper usage, removed API detection, and returned
-TSX template spans.
+`event()` declarations, host helper usage, unsupported syntax detection, and
+returned TSX template spans.
 
 Some MVP detail parsers remain intentionally conservative: function prop
 destructuring, component options, inline style arrays, and generated-template
@@ -93,9 +89,9 @@ properties are the v0.1 theming mechanism.
 
 ## Declarative Shadow DOM Boundary
 
-Declarative Shadow DOM is generated only through the explicit prerender API.
-Normal client builds keep the imperative Custom Element path and do not add a
-public `ComponentOptions.dsd` flag.
+Declarative Shadow DOM is generated through the explicit prerender API. Normal
+client builds keep the imperative Custom Element path. Once a component enters
+the prerender path, `shadow: true` emits DSD host HTML by default.
 
 The DSD serializer supports:
 
@@ -136,8 +132,6 @@ Currently unsupported:
 * Imported CSS object access such as `styles.button`.
 * Rest props in function component parameter destructuring.
 * Non-`const` authoring declarations.
-* Removed v0.1 APIs: `component()`, `prop.*()`, `prop()`, `signal()`, and
-  `useHost()`.
 * Callback expression bodies such as `() => <button />`.
 * Return values not wrapped in parentheses.
 * Event option code generation from `event(name, options)`.

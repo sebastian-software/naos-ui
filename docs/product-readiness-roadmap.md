@@ -3,9 +3,8 @@
 Status: 2026-06-16
 
 This roadmap describes the work needed to move Iktia from a strong compiler MVP
-to a product-grade public tool. It extends `docs/milestones.md`,
-`docs/milestones-v2.md`, and `docs/mvp-verification.md`; it does not replace
-them.
+to a product-grade public tool. It extends `docs/v0.1-milestone-plan.md` and
+`docs/mvp-verification.md`; it does not replace them.
 
 The decision-complete execution plan for the first public prerelease is
 [`docs/v0.1-milestone-plan.md`](v0.1-milestone-plan.md). When this roadmap and
@@ -132,8 +131,9 @@ turns it into a published contract.
 Deliverables:
 
 * Write ADRs for API stability tiers and package topology.
-* Implement the v0.1 decision that legacy `component()`, `prop.*()`, `prop()`,
-  `signal()`, and `useHost()` are removed from the public authoring API.
+* Keep the public authoring API focused on exported PascalCase functions,
+  typed function props, `state()`, `computed()`, `effect()`, `event()`, `on()`,
+  `host()`, `<Show>`, and keyed `.map()`.
 * Freeze the first public shape of `state()`, `computed()`, `effect()`,
   `event()`, `on()`, `host()`, `<Show>`, keyed `.map()`, and
   `ComponentOptions`.
@@ -455,8 +455,6 @@ The v0.1 planning interview resolved the previously open API and release
 questions. The accepted decisions are recorded in
 [`docs/v0.1-milestone-plan.md`](v0.1-milestone-plan.md) and ADRs 0011-0016:
 
-* `component()`, `prop.*()`, `prop()`, `signal()`, and `useHost()` are removed
-  before v0.1.
 * `state()` is the public writable local state primitive.
 * `event()` owns `CustomEvent` options; `on()` owns listener options.
 * Native distribution uses the full Palamedes-style Tier 1 matrix.

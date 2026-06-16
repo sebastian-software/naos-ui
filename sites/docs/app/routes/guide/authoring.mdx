@@ -6,8 +6,9 @@ order: 2
 
 # Authoring Surface
 
-v0.1 keeps the public authoring API intentionally small. Unsupported legacy
-syntax is rejected with structured diagnostics instead of compatibility paths.
+v0.1 keeps the public authoring API intentionally small. The compiler accepts a
+narrow TSX subset and reports structured diagnostics for patterns outside that
+subset.
 
 ## Public Primitives
 
@@ -21,8 +22,8 @@ syntax is rejected with structured diagnostics instead of compatibility paths.
 | `host()` | Current custom element and abort signal inside lifecycle work. |
 | `Show` | Static-analysis-friendly conditional rendering. |
 
-Removed before v0.1: `component()`, `prop.*()`, `signal()`, and `useHost()`.
-Public docs and examples should use `state()` for writable local state.
+Use `state()` for writable local state. Function props, component options, and
+host lifecycle access use normal TypeScript exports and the primitives above.
 
 ## Events And Listeners
 

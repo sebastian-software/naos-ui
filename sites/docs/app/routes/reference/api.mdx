@@ -20,10 +20,7 @@ not published to crates.io for v0.1.
 | `on()` | Public | Typed DOM listener helper with listener options. |
 | `host()` | Public | Current custom element plus abort signal. |
 | `Show` | Public | Static conditional rendering primitive. |
-| `ComponentOptions` | Public | `shadow` and flat `styles` for v0.1. |
-
-`component()`, `prop.*()`, `signal()`, `useHost()`, and public `<For>` authoring
-are intentionally absent.
+| `ComponentOptions` | Public | `shadow`, `define`, and flat `styles`. |
 
 ## `@iktia/runtime`
 
@@ -46,8 +43,9 @@ change flag. Compiler failures throw structured errors with `diagnostics[]`.
 
 ## `@iktia/vite`
 
-`iktia(options)` installs the Vite transform and optional prerender metadata
-path. Vite owns module graph, chunks, CSS imports, assets, and invalidation.
+`iktia(options)` installs the Vite transform and emits prerender metadata by
+default for DSD workflows. Set `prerender: false` to disable metadata emission.
+Vite owns module graph, chunks, CSS imports, assets, and invalidation.
 
 ## `@iktia/cli`
 

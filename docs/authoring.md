@@ -5,9 +5,9 @@ TypeScript packages provide authoring types, JSX runtime types, runtime helpers,
 and Vite integration. Compiler semantics live in Rust and are exposed to Node
 through the native `@iktia/compiler` wrapper.
 
-This guide describes the current MVP authoring model. The authoring functions
-are compile-time APIs. They throw if a `.wc.tsx` source file is executed without
-the compiler transform.
+This guide describes the v0.1 authoring model. The authoring functions are
+compile-time APIs. They throw if a `.wc.tsx` source file is executed without the
+compiler transform.
 
 ## Project Language
 
@@ -106,25 +106,25 @@ iktia({
 })
 ```
 
-Declarative Shadow DOM is an explicit prerender/static-HTML path, not a new
-component authoring option. Enable the optional Vite manifest only when a build
-step needs DSD metadata.
+Declarative Shadow DOM is a prerender/static-HTML path, not a component
+authoring option. The Vite plugin emits prerender metadata by default so static
+site builds can discover compiled Iktia components.
 
 ```ts
 iktia({
   prerender: {
-    include: /\.wc\.tsx$/,
-    exclude: /node_modules/,
     manifestFile: "iktia-manifest.json",
   },
 })
 ```
 
-For direct prerendering, call the Node wrapper with source text and optional
-initial props. If the source uses `?inline` CSS imports outside the Vite plugin,
-pass resolved CSS text through `inlineStyles` keyed by local import name. The
-Rust core serializes `shadow: true` components as host HTML with
-`<template shadowrootmode="open">`.
+Set `prerender: false` only for builds that never need static HTML metadata.
+
+For direct prerendering, call the Node wrapper with source text and initial
+props. If the source uses `?inline` CSS imports outside the Vite plugin, pass
+resolved CSS text through `inlineStyles` keyed by local import name. Once a
+component enters the prerender path, the Rust core serializes `shadow: true`
+components as host HTML with `<template shadowrootmode="open">`.
 
 ```ts
 import { renderDeclarativeShadowDom } from "@iktia/compiler"
@@ -410,16 +410,6 @@ than framework-specific class conventions:
   <slot />
 </button>
 ```
-
-## Legacy Component API
-
-## Removed Authoring APIs
-
-The v0.1 public authoring surface removed the old `component()`, `prop.*()`,
-`prop()`, `signal()`, and `useHost()` APIs. Source files using those names
-should fail during compiler analysis with a direct diagnostic and should be
-updated to exported PascalCase functions, typed function props, `state()`, and
-`host()`.
 
 ## Verification Commands
 

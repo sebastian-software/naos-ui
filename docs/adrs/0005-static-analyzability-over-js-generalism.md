@@ -24,8 +24,8 @@ diagnostics until a dedicated compiler feature exists.
 
 ## Consequences
 
-* Features such as `<Show>` and `<For>` are preferred over arbitrary
-  conditional or list expressions.
+* Dedicated compiler constructs are preferred over arbitrary conditional or
+  list expressions.
 * The compiler can generate direct DOM updates instead of VDOM reconciliation.
 * Authors get a smaller language, but clearer failure modes.
 * The accepted syntax boundary must be documented and tested.
@@ -33,4 +33,3 @@ diagnostics until a dedicated compiler feature exists.
 ## Related Milestones
 
 M3, M4, M13, M16
-

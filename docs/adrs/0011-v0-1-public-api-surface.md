@@ -7,12 +7,11 @@ Weight: P1
 ## Context
 
 The MVP intentionally kept early compatibility paths while the compiler proved
-its vertical slice. That left multiple ways to describe the same idea:
-function components and legacy `component()`, destructured props and `prop.*()`,
-`state()` and `signal()`, plus both `host()` and `useHost()`.
+its vertical slice. Before v0.1, Iktia is still free to reduce that surface to
+one public authoring path.
 
-Before v0.1, Iktia is still free to remove this early surface. Keeping it would
-turn experimental vocabulary into a public compatibility burden.
+Keeping experimental vocabulary would turn implementation history into a public
+compatibility burden.
 
 ## Decision
 
@@ -29,13 +28,6 @@ v0.1 keeps one public authoring path:
 * `Show` for explicit conditional control flow;
 * narrow typed `.map()` list authoring.
 
-Remove these APIs from the public v0.1 surface:
-
-* `component()`;
-* `prop.*()` and `prop()`;
-* `signal()`;
-* `useHost()`.
-
 `state()` is the public component-state name. Compiler internals may keep signal
 or reactive naming, but public docs, examples, diagnostics, and types must use
 `state()`.
@@ -47,18 +39,19 @@ Event options are split by purpose:
 
 ## Alternatives
 
-* Keep legacy and new APIs as equally supported.
-* Keep `signal()` as the preferred public primitive.
-* Keep both `host()` and `useHost()`.
+* Keep all experimental aliases as equally supported.
+* Prefer a broader reactive vocabulary in the public API.
+* Expose multiple host-access helpers.
 * Remove `Show` and require JavaScript conditionals.
 
 ## Consequences
 
 * v0.1 has a smaller public contract.
 * Existing local examples must be migrated before prerelease.
-* Removed APIs need clear diagnostics while old docs are being updated.
-* ADR 0006 remains useful for the reactive model, but its public `signal()`
-  naming is superseded by this v0.1 decision.
+* Unsupported aliases need clear diagnostics while public docs stay focused on
+  the stable vocabulary.
+* ADR 0006 remains useful for the reactive model and now uses the same public
+  state vocabulary.
 
 ## Related Milestones
 

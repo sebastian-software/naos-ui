@@ -22,9 +22,9 @@ export default function HomePage() {
         <p className="iktia-eyebrow">v0.1 prerelease docs</p>
         <h1>React-like TSX authoring. Native Custom Element output.</h1>
         <p>
-          Iktia compiles a narrow, typed TSX surface to platform-native Web
-          Components. The generated elements do not ship React, Vue, a virtual
-          DOM, or an Iktia component runtime.
+          Write typed component functions. Ship platform-native Web Components
+          with Shadow DOM, events, slots, and static HTML output when you
+          prerender.
         </p>
         <div className="iktia-actions">
           <a className="iktia-action" data-primary="true" href={withBase("guide/getting-started")}>
@@ -52,7 +52,8 @@ export default function HomePage() {
           <h2>Native output</h2>
           <p>
             The public result is Custom Elements with Shadow DOM, parts, slots,
-            CSS custom properties, and explicit Declarative Shadow DOM output.
+            CSS custom properties, and Declarative Shadow DOM in prerendered
+            HTML.
           </p>
         </article>
         <article className="iktia-card">

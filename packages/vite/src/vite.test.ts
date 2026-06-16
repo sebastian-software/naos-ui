@@ -139,7 +139,7 @@ describe("iktia", () => {
     )
   })
 
-  it("emits a DSD manifest only when prerendering is enabled", async () => {
+  it("emits a DSD manifest by default", async () => {
     const emitted: unknown[] = []
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "test" }),
@@ -158,11 +158,7 @@ describe("iktia", () => {
       }),
     })
 
-    const plugin = iktia({
-      prerender: {
-        manifestFile: "components.json",
-      },
-    })
+    const plugin = iktia()
     const transform = plugin.transform
     const generateBundle = plugin.generateBundle
     if (typeof transform !== "function" || typeof generateBundle !== "function") {
@@ -184,12 +180,58 @@ describe("iktia", () => {
 
     expect(emitted).toEqual([
       {
-        fileName: "components.json",
+        fileName: "iktia-manifest.json",
         source:
           '{\n  "components": [\n    {\n      "className": "CounterElement",\n      "clientModule": "/src/counter.wc.tsx",\n      "exportName": "Counter",\n      "importPath": "/src/counter.wc.tsx",\n      "shadow": true,\n      "tagName": "x-counter",\n      "usesDeclarativeShadowDom": true\n    }\n  ]\n}\n',
         type: "asset",
       },
     ])
+  })
+
+  it("does not prerender when prerendering is disabled", async () => {
+    const emitted: unknown[] = []
+    let prerenderCalls = 0
+    setNativeBindingsForTesting({
+      getNativeInfo: () => ({ coreVersion: "test" }),
+      renderDeclarativeShadowDom: () => {
+        prerenderCalls += 1
+        return {
+          className: "CounterElement",
+          html: "",
+          shadow: true,
+          tagName: "x-counter",
+          templateHtml: "",
+          usesDeclarativeShadowDom: true,
+        }
+      },
+      transformComponent: () => ({
+        code: "compiled",
+        hasChanged: true,
+      }),
+    })
+
+    const plugin = iktia({ prerender: false })
+    const transform = plugin.transform
+    const generateBundle = plugin.generateBundle
+    if (typeof transform !== "function" || typeof generateBundle !== "function") {
+      throw new Error("Expected transform and generateBundle hooks")
+    }
+
+    await transform.call(mockPluginContext(), "source", "/src/counter.wc.tsx")
+    await generateBundle.call(
+      {
+        emitFile(file: unknown) {
+          emitted.push(file)
+          return "asset-id"
+        },
+      } as never,
+      {} as never,
+      {} as never,
+      false
+    )
+
+    expect(prerenderCalls).toBe(0)
+    expect(emitted).toEqual([])
   })
 
   it("passes resolved inline CSS imports to DSD prerendering", async () => {
@@ -219,7 +261,7 @@ describe("iktia", () => {
         }),
       })
 
-      const plugin = iktia({ prerender: true })
+      const plugin = iktia()
       const transform = plugin.transform
       if (typeof transform !== "function") {
         throw new Error("Expected transform hook")

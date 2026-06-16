@@ -45,7 +45,7 @@ Declarative Shadow DOM is public only through explicit prerender entry points:
 
 * `renderDeclarativeShadowDom()` in `@iktia/compiler`;
 * `iktia prerender` in `@iktia/cli`;
-* optional Vite metadata needed by static demo builds.
+* default Vite metadata for static site and demo builds.
 
 Normal client builds do not use a public `ComponentOptions.dsd` flag.
 `data-iktia-*` hydration markers are internal generated markup and are not
@@ -64,7 +64,8 @@ diagnostics. Production hydration mismatches remount imperatively.
 
 * Styling stays aligned with Vite instead of inventing a new asset model.
 * CSS features not handled by Vite `?inline` remain outside the v0.1 contract.
-* DSD remains an explicit static/prerender workflow.
+* DSD remains an explicit static/prerender workflow, with Vite metadata enabled
+  by default and `prerender: false` as the opt-out.
 * Generated markers can change without semver impact as long as behavior holds.
 
 ## Related Milestones

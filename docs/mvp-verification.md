@@ -28,8 +28,7 @@ Rust core:
 * Function component analysis infers tag name, props, state, computed values,
   effects, events, host helper usage, options, imports, and the returned TSX
   template.
-* Removed v0.1 APIs (`component()`, `prop.*()`, `prop()`, `signal()`, and
-  `useHost()`) produce clear compiler errors.
+* Unsupported public-authoring aliases produce clear compiler errors.
 * The OXC AST analyzer owns `.wc` import discovery, component entrypoint
   discovery, local authoring declarations, host helper detection, and return
   template spans.

@@ -1,10 +1,10 @@
 # Iktia
 
-Iktia is a lean TSX compiler for native interface elements.
+Iktia is a TSX compiler for native interface elements.
 
-Write declarative TypeScript and TSX. Iktia compiles your components into
-lightweight Web Components that work across frameworks, CMS pages, and classic
-web applications.
+Write declarative TypeScript and TSX. Iktia compiles that source into
+lightweight Web Components for design systems, embedded widgets, CMS pages, and
+classic web applications.
 
 No React runtime. No virtual DOM. Just typed components shaped into native
 elements.
@@ -46,8 +46,8 @@ attributes, updates text and dynamic attributes, dispatches native
 
 ## Status
 
-This repository is an MVP and compiler architecture spike, not a production
-release. The current implementation proves the vertical slice:
+This repository is a prerelease compiler toolchain, not a production release.
+The current implementation proves the vertical slice:
 
 * typed TypeScript authoring API and JSX surface
 * PascalCase function component authoring with kebab-case Custom Element output
@@ -103,7 +103,15 @@ It is not trying to be:
 
 ## Quick Start
 
-Install dependencies from the workspace root.
+For package consumers, install the public packages:
+
+```sh
+pnpm add @iktia/core @iktia/runtime
+pnpm add -D @iktia/compiler @iktia/vite @iktia/cli
+```
+
+For repository development, install dependencies and build the local native
+binding from the workspace root.
 
 ```sh
 pnpm install
@@ -131,6 +139,10 @@ export default defineConfig({
   plugins: [iktia()],
 })
 ```
+
+The Vite plugin emits prerender metadata by default for static HTML and DSD
+workflows. Use `iktia({ prerender: false })` only for builds that never need
+that metadata.
 
 Create a `.wc.tsx` file and import it from your app.
 
@@ -233,7 +245,7 @@ For details, see [docs/authoring.md](docs/authoring.md).
 @iktia/compiler   Node wrapper around the Rust compiler
 @iktia/compiler-* Platform-specific optional native compiler bindings
 @iktia/cli        Minimal compile, prerender, and info commands
-@iktia/vite       Vite transform and optional DSD manifest plugin
+@iktia/vite       Vite transform and prerender metadata integration
 ```
 
 `@iktia/runtime` is intentionally not a component runtime. It may expose small
@@ -272,13 +284,13 @@ export const options = {
 Iktia treats CSS as flat text for v0.1. Vite owns CSS loading; CSS custom
 properties are the supported theming boundary.
 
-The normal Vite transform emits imperative Custom Element modules. The separate
-`renderDeclarativeShadowDom()` path prerenders compiler-known `shadow: true`
-components as `<template shadowrootmode="open">` host HTML. The generated client
+The normal Vite transform emits imperative Custom Element modules. When a build
+uses an explicit prerender entry point, Declarative Shadow DOM is the default
+HTML output for compiler-known `shadow: true` components. The generated client
 class adopts an existing declarative shadow root before any `attachShadow()`
-fallback, binds `data-iktia-*` hydration markers, throws a clear development
-mismatch diagnostic, and remounts imperatively in production when a stale
-prerender artifact cannot be hydrated.
+fallback, binds internal `data-iktia-*` hydration markers, throws a clear
+development mismatch diagnostic, and remounts imperatively in production when a
+stale prerender artifact cannot be hydrated.
 
 ## Landscape
 
@@ -330,7 +342,7 @@ Workspace layout:
 * `packages/cli`: minimal compile, prerender, and info commands
 * `packages/core`: authoring API and JSX types
 * `packages/runtime`: runtime helper surface
-* `packages/vite`: Vite plugin and DSD manifest integration
+* `packages/vite`: Vite plugin and prerender metadata integration
 * `examples/counter`: browser smoke-test example and static DSD output
 * `sites/docs`: Ardo documentation site for v0.1 docs and API content
 

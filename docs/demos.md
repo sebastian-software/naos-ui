@@ -27,7 +27,7 @@ browser page.
 | Primitive toggle | `Toggle` / `x-toggle` | `part`, `slot`, `data-state`, ARIA, `<Show>`, keyed `.map()`, `on()`, `host()`, cleanup-aware lifecycle work |
 | PascalCase composition | `Toolbar` / `x-toolbar` | TypeScript component imports, PascalCase JSX nesting, compiler-owned kebab-case Custom Element output |
 | CSS variable theming | `Counter` and `Toggle` | Host-provided CSS custom properties crossing Shadow DOM, with parts and state attributes as styling hooks |
-| Declarative Shadow DOM | `Counter` and `Toggle` | Explicit prerender output, `<template shadowrootmode="open">`, DSD-only hydration markers, delayed custom-element upgrade, post-upgrade interactivity |
+| Declarative Shadow DOM | `Counter` and `Toggle` | Prerendered static HTML, `<template shadowrootmode="open">`, DSD-only hydration markers, delayed custom-element upgrade, post-upgrade interactivity |
 
 The examples intentionally use the generated Custom Elements from regular
 HTML. That keeps the demo honest: the public output is platform-native DOM, not
@@ -83,9 +83,8 @@ pnpm --filter @iktia/docs dev
 9. uploads `sites/docs/build/client`;
 10. deploys the uploaded artifact to GitHub Pages.
 
-Repository maintainers still need to set the GitHub Pages source to
-`GitHub Actions` in the repository settings. No generated `dist` files are
-committed to the repository.
+GitHub Pages must use the `GitHub Actions` source. This repository is already
+configured that way. No generated `dist` files are committed to the repository.
 
 The Ardo docs config reads `IKTIA_GITHUB_PAGES=true` and derives the public
 base path from the git remote. The demo Vite config reads the same environment

@@ -6,9 +6,9 @@ order: 1
 
 # Getting Started
 
-Iktia v0.1 is a prerelease compiler toolchain for authoring native Custom
-Elements in a React-like TSX subset. The generated output is browser platform
-code, not React runtime code.
+Iktia v0.1 is a prerelease compiler toolchain for building native Custom
+Elements from a React-like TSX subset. You write typed component functions; the
+browser receives platform code.
 
 ## Install
 
@@ -19,6 +19,18 @@ pnpm add -D @iktia/compiler @iktia/vite @iktia/cli
 
 `@iktia/compiler` installs one optional native package for the current platform.
 There is no npm source-build fallback in v0.1.
+
+## Configure TypeScript
+
+```json
+{
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "@iktia/core",
+    "types": ["vite/client"]
+  }
+}
+```
 
 ## Configure Vite
 
@@ -76,5 +88,55 @@ iktia prerender src/counter.wc.tsx --props '{"label":"Static"}'
 iktia info
 ```
 
-Use the CLI for smoke tests, standalone transforms, and explicit Declarative
-Shadow DOM prerender output. Application builds should use the Vite plugin.
+Use the CLI for smoke tests, standalone transforms, and static HTML output.
+Application builds should use the Vite plugin.
+
+## Static HTML And DSD
+
+Declarative Shadow DOM is the default HTML output for `shadow: true` components
+inside the prerender path:
+
+```sh
+iktia prerender src/counter.wc.tsx --props '{"label":"Static"}' -o dist/counter.html
+```
+
+In Vite builds, prerender metadata is on by default so a static site or demo
+build can discover compiled Iktia components:
+
+```ts
+iktia({
+  prerender: {
+    manifestFile: "iktia-manifest.json",
+  },
+})
+```
+
+The snippet above only customizes the manifest path. `iktia()` already uses
+`iktia-manifest.json`. Use `prerender: false` only when a build should not emit
+static HTML metadata.
+
+There is no component-level DSD switch. If you prerender a `shadow: true`
+component, Iktia emits `<template shadowrootmode="open">` host HTML and the
+client module hydrates it on upgrade.
+
+## Native Install Checks
+
+If the compiler cannot load its native binding, run:
+
+```sh
+iktia info
+```
+
+The output shows the detected platform and native package. Published installs
+should load the matching `@iktia/compiler-*` package. Repository development
+uses a local binding built with:
+
+```sh
+pnpm -w build:native
+```
+
+## What Iktia Is Not
+
+Iktia is not a React compatibility layer, a virtual DOM renderer, a bundler, or
+a framework adapter. Vite owns modules, chunks, assets, and CSS loading. Iktia
+only compiles accepted `.wc.tsx` modules into native Custom Elements.
