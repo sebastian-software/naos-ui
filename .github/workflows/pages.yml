@@ -55,8 +55,11 @@ jobs:
       - name: Install Playwright Chromium
         run: pnpm --filter @iktia/example-counter exec playwright install --with-deps chromium
 
+      - name: Prepare demo DSD
+        run: pnpm --filter @iktia/example-counter prepare:dsd
+
       - name: Test demo
-        run: pnpm --filter @iktia/example-counter test -- --project=chromium
+        run: pnpm --filter @iktia/example-counter exec playwright test --project=chromium
 
       - name: Build docs site
         run: pnpm build:docs

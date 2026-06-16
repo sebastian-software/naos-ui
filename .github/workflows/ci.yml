@@ -130,8 +130,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build local native binding
+        run: pnpm build:native
+
+      - name: Prepare demo DSD
+        run: pnpm --filter @iktia/example-counter prepare:dsd
+
       - name: Install Playwright browser
         run: pnpm --filter @iktia/example-counter exec playwright install --with-deps ${{ matrix.browser }}
 
       - name: Run example browser tests
-        run: pnpm --filter @iktia/example-counter test -- --project=${{ matrix.browser }}
+        run: pnpm --filter @iktia/example-counter exec playwright test --project=${{ matrix.browser }}
