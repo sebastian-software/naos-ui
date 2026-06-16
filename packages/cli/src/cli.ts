@@ -18,16 +18,63 @@ export type CliIo = {
 }
 
 type ParsedArgs = {
+  help: boolean
   input?: string
+  json: boolean
   output?: string
+  pretty: boolean
   props?: string
   stdout: boolean
 }
 
 const helpText = `Usage:
-  iktia compile <input> [-o output] [--stdout]
-  iktia prerender <input> [-o output] [--props json]
-  iktia info
+  iktia compile <input> [-o output] [--stdout] [--json] [--pretty]
+  iktia prerender <input> [-o output] [--props json] [--json] [--pretty]
+  iktia info [--json] [--pretty]
+
+Examples:
+  iktia compile src/counter.wc.tsx -o dist/counter.js
+  iktia compile src/counter.wc.tsx -o dist/counter.js --json
+  iktia prerender src/counter.wc.tsx --props '{"label":"Count"}' --stdout
+  iktia info --pretty
+`
+
+const compileHelpText = `Usage:
+  iktia compile <input> [-o output] [--stdout] [--json] [--pretty]
+
+Compile one .wc.tsx module to JavaScript.
+
+Options:
+  -o, --out, --output <file>  Write JavaScript to a file.
+  --stdout                   Print JavaScript to stdout instead of writing files.
+  --json                     Print a deterministic JSON summary. Requires -o.
+  --pretty                   Pretty-print JSON output.
+  -h, --help                 Show this help.
+`
+
+const prerenderHelpText = `Usage:
+  iktia prerender <input> [-o output] [--props json] [--stdout] [--json] [--pretty]
+
+Prerender one .wc.tsx module to host HTML with Declarative Shadow DOM.
+
+Options:
+  -o, --out, --output <file>  Write HTML to a file.
+  --stdout                   Print HTML to stdout instead of writing files.
+  --props <json>             JSON object used as initial prerender props.
+  --json                     Print a deterministic JSON summary. Requires -o.
+  --pretty                   Pretty-print JSON output.
+  -h, --help                 Show this help.
+`
+
+const infoHelpText = `Usage:
+  iktia info [--json] [--pretty]
+
+Print Node platform metadata and native compiler version metadata as JSON.
+
+Options:
+  --json     Print JSON. This is the default output format.
+  --pretty   Pretty-print JSON output. This is the default for info.
+  -h, --help Show this help.
 `
 
 export async function runCli(
@@ -47,7 +94,7 @@ export async function runCli(
       case "prerender":
         return await prerenderCommand(args, cwd, io)
       case "info":
-        return infoCommand(io)
+        return infoCommand(args, io)
       case "-h":
       case "--help":
       case undefined:
@@ -75,19 +122,39 @@ async function compileCommand(
   io: CliIo
 ): Promise<number> {
   const parsed = parseArgs(args, { props: false })
+  if (parsed.help) {
+    io.stdout.write(compileHelpText)
+    return 0
+  }
   const input = requireInput(parsed, "compile")
   const filename = resolve(cwd, input)
-  const source = await readFile(filename, "utf8")
+  validateJsonSummaryMode(parsed, "compile")
+  const source = await readInputFile(filename)
   const result = transformComponent({ filename, source })
+  const outputPath = parsed.output ? resolve(cwd, parsed.output) : undefined
 
-  if (parsed.output && !parsed.stdout) {
-    const outputPath = resolve(cwd, parsed.output)
+  if (outputPath && !parsed.stdout) {
     const code = result.map
       ? `${result.code}\n//# sourceMappingURL=${basename(outputPath)}.map\n`
       : result.code
     await writeFile(outputPath, code)
+    let mapPath: string | null = null
     if (result.map) {
-      await writeFile(`${outputPath}.map`, `${JSON.stringify(result.map, null, 2)}\n`)
+      mapPath = `${outputPath}.map`
+      await writeFile(mapPath, `${JSON.stringify(result.map, null, 2)}\n`)
+    }
+    if (parsed.json) {
+      writeJson(
+        io,
+        {
+          command: "compile",
+          hasChanged: result.hasChanged,
+          input: filename,
+          map: mapPath,
+          output: outputPath,
+        },
+        parsed.pretty
+      )
     }
     return 0
   }
@@ -105,9 +172,14 @@ async function prerenderCommand(
   io: CliIo
 ): Promise<number> {
   const parsed = parseArgs(args, { props: true })
+  if (parsed.help) {
+    io.stdout.write(prerenderHelpText)
+    return 0
+  }
   const input = requireInput(parsed, "prerender")
   const filename = resolve(cwd, input)
-  const source = await readFile(filename, "utf8")
+  validateJsonSummaryMode(parsed, "prerender")
+  const source = await readInputFile(filename)
   const props = parsed.props ? parseProps(parsed.props) : undefined
   const inlineStyles = await resolveInlineStyles(source, filename)
   const result = renderDeclarativeShadowDom({
@@ -116,9 +188,24 @@ async function prerenderCommand(
     props,
     source,
   })
+  const outputPath = parsed.output ? resolve(cwd, parsed.output) : undefined
 
-  if (parsed.output && !parsed.stdout) {
-    await writeFile(resolve(cwd, parsed.output), `${result.html}\n`)
+  if (outputPath && !parsed.stdout) {
+    await writeFile(outputPath, `${result.html}\n`)
+    if (parsed.json) {
+      writeJson(
+        io,
+        {
+          command: "prerender",
+          input: filename,
+          output: outputPath,
+          shadow: result.shadow,
+          tagName: result.tagName,
+          usesDeclarativeShadowDom: result.usesDeclarativeShadowDom,
+        },
+        parsed.pretty
+      )
+    }
     return 0
   }
 
@@ -126,19 +213,25 @@ async function prerenderCommand(
   return 0
 }
 
-function infoCommand(io: CliIo): number {
+function infoCommand(args: readonly string[], io: CliIo): number {
+  const parsed = parseArgs(args, { props: false })
+  if (parsed.help) {
+    io.stdout.write(infoHelpText)
+    return 0
+  }
+  if (parsed.input || parsed.output || parsed.stdout) {
+    throw new Error("iktia info does not accept input, output, or --stdout")
+  }
   const native = getNativeInfo()
-  io.stdout.write(
-    `${JSON.stringify(
-      {
-        arch: process.arch,
-        native,
-        node: process.versions.node,
-        platform: process.platform,
-      },
-      null,
-      2
-    )}\n`
+  writeJson(
+    io,
+    {
+      arch: process.arch,
+      native,
+      node: process.versions.node,
+      platform: process.platform,
+    },
+    parsed.pretty || !parsed.json
   )
   return 0
 }
@@ -147,13 +240,25 @@ function parseArgs(
   args: readonly string[],
   options: { props: boolean }
 ): ParsedArgs {
-  const parsed: ParsedArgs = { stdout: false }
+  const parsed: ParsedArgs = { help: false, json: false, pretty: false, stdout: false }
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index]
+    if (arg === "-h" || arg === "--help") {
+      parsed.help = true
+      continue
+    }
     if (arg === "-o" || arg === "--out" || arg === "--output") {
       parsed.output = readOptionValue(args, index, arg)
       index += 1
+      continue
+    }
+    if (arg === "--json") {
+      parsed.json = true
+      continue
+    }
+    if (arg === "--pretty") {
+      parsed.pretty = true
       continue
     }
     if (arg === "--stdout") {
@@ -175,6 +280,37 @@ function parseArgs(
   }
 
   return parsed
+}
+
+async function readInputFile(filename: string): Promise<string> {
+  try {
+    return await readFile(filename, "utf8")
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT") {
+      throw new Error(`Input file not found: ${filename}`)
+    }
+    throw error
+  }
+}
+
+function validateJsonSummaryMode(parsed: ParsedArgs, command: string): void {
+  if (!parsed.json) {
+    return
+  }
+  if (parsed.stdout) {
+    throw new Error(`iktia ${command} --json cannot be combined with --stdout`)
+  }
+  if (!parsed.output) {
+    throw new Error(`iktia ${command} --json requires -o or --output`)
+  }
+}
+
+function writeJson(io: CliIo, value: unknown, pretty: boolean): void {
+  io.stdout.write(`${JSON.stringify(value, null, pretty ? 2 : 0)}\n`)
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error
 }
 
 function readOptionValue(args: readonly string[], index: number, option: string): string {
