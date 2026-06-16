@@ -7,6 +7,11 @@ to a product-grade public tool. It extends `docs/milestones.md`,
 `docs/milestones-v2.md`, and `docs/mvp-verification.md`; it does not replace
 them.
 
+The decision-complete execution plan for the first public prerelease is
+[`docs/v0.1-milestone-plan.md`](v0.1-milestone-plan.md). When this roadmap and
+the v0.1 plan differ, the v0.1 plan is the implementation source of truth for
+that prerelease.
+
 The main sequencing principle is documentation first. Reading and tightening the
 docs should expose mismatches in the API, compiler boundary, native packaging,
 and demo story before larger implementation work starts.
@@ -355,24 +360,28 @@ Acceptance criteria:
 
 ### R10: Demo And Interop Suite
 
-Purpose: Prove that Iktia outputs native elements that survive real host
-applications.
+Purpose: Prove that Iktia outputs native elements that work as static,
+framework-free interface units before expanding into broader host-framework
+interop.
 
 Deliverables:
 
 * Keep the counter/toggle demo as the minimal smoke path.
 * Add a design-system primitive demo with parts, slots, `data-state`, and
   typed events.
-* Add a form demo that exercises native form semantics once form work lands.
-* Add plain HTML, Vite, React host, and at least one non-React host integration
-  demo.
+* Add linked static demo pages for static/DSD output, Vite build, delayed
+  hydration, state, events, slots/parts, and CSS variables.
 * Add Playwright tests that exercise compiled elements from host pages rather
   than only package-level tests.
+* Keep React, Vue, and Angular host demos out of the v0.1 launch-proof path.
+  They may become a later interoperability appendix if product positioning
+  needs them.
 
 Acceptance criteria:
 
 * Demos show why native Custom Elements are the output target.
-* Host apps consume Iktia elements through DOM APIs, not framework adapters.
+* Static demo pages consume Iktia elements through DOM APIs, not framework
+  adapters.
 * Demo tests run in CI and fail on broken bundling, events, or hydration.
 
 ### R11: Product-Grade Feature Completion
@@ -435,23 +444,22 @@ This sequence intentionally puts release mechanics before broad feature
 expansion. Iktia already has enough compiler capability to reveal packaging,
 documentation, and API-contract problems.
 
-## API Planning Questions For The Next Interview
+## Resolved v0.1 Decisions
 
-These questions should be answered before R4/R5 implementation begins:
+The v0.1 planning interview resolved the previously open API and release
+questions. The accepted decisions are recorded in
+[`docs/v0.1-milestone-plan.md`](v0.1-milestone-plan.md) and ADRs 0011-0016:
 
-* Is `component()` a permanent compatibility API or a legacy bridge?
-* Are `prop.*()` helpers still part of the preferred API, or should function
-  props be the only documented path?
-* Should `host()` and `useHost()` both remain public?
-* Which event API owns event listener options?
-* Which platforms are Tier 1 for the first public prerelease?
-* Should npm installs ever compile from source, or should source builds be
-  contributor-only?
-* Is `data-iktia-*` a stable hydration/debug contract or internal generated
-  markup?
-* Which demos count as launch proof: vanilla, React host, Vue host, Angular
-  host, static HTML, or CMS-style embed?
-* Should `iktia-core` be public on crates.io before the Rust API is stable?
+* `component()`, `prop.*()`, `prop()`, `signal()`, and `useHost()` are removed
+  before v0.1.
+* `state()` is the public writable local state primitive.
+* `event()` owns `CustomEvent` options; `on()` owns listener options.
+* Native distribution uses the full Palamedes-style Tier 1 matrix.
+* Source builds are contributor-only, not npm install fallbacks.
+* `data-iktia-*` markers are internal generated markup.
+* Rust crates remain unpublished to crates.io for v0.1.
+* v0.1 demos are linked static Iktia demos, not a React/Vue/Angular host
+  matrix.
 
 ## Commit Discipline
 

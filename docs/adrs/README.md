@@ -26,10 +26,16 @@ than chronological trivia.
 * [ADR 0007: Remix v3 Web Composition Inspiration](0007-remix-v3-web-composition-inspiration.md)
 * [ADR 0009: OXC AST Analysis Before API Expansion](0009-oxc-ast-analysis-before-api-expansion.md)
 * [ADR 0010: Declarative Shadow DOM Output And Hydration](0010-declarative-shadow-dom-output-and-hydration.md)
+* [ADR 0011: v0.1 Public API Surface](0011-v0-1-public-api-surface.md)
+* [ADR 0012: Palamedes-Style Native Distribution](0012-palamedes-style-native-distribution.md)
+* [ADR 0013: Tiny Runtime Boundary](0013-tiny-runtime-boundary.md)
+* [ADR 0015: CSS And Declarative Shadow DOM Contract](0015-css-and-dsd-contract.md)
+* [ADR 0016: Diagnostics And Source Maps](0016-diagnostics-and-source-maps.md)
 
 ### P2: Conventions And Implementation Guidance
 
 * [ADR 0008: Primitive Contracts With Parts, Slots, And Data State](0008-primitive-contracts-parts-slots-data-state.md)
+* [ADR 0014: Minimal CLI Scope](0014-minimal-cli-scope.md)
 
 ## ADR Template
 
