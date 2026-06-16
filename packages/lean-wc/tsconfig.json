@@ -9,7 +9,8 @@
     "paths": {
       "lean-wc": ["src/index.ts"],
       "lean-wc/jsx-runtime": ["src/jsx-runtime.ts"],
-      "lean-wc/runtime": ["src/runtime.ts"]
+      "lean-wc/runtime": ["src/runtime.ts"],
+      "lean-wc/vite": ["src/vite.ts"]
     },
     "rootDir": "src",
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"

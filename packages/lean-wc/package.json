@@ -24,6 +24,11 @@
       "types": "./dist/runtime.d.ts",
       "import": "./dist/runtime.mjs",
       "require": "./dist/runtime.cjs"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.mjs",
+      "require": "./dist/vite.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -39,10 +44,17 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "dependencies": {
+    "@lean-wc/core-node": "workspace:^"
+  },
+  "peerDependencies": {
+    "vite": "^6 || ^7 || ^8"
+  },
   "devDependencies": {
     "@types/node": "^25.0.0",
     "typescript": "^6.0.3",
     "unbuild": "^3.6.1",
+    "vite": "^8.0.16",
     "vitest": "^4.1.6"
   }
 }
