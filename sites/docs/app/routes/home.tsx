@@ -33,6 +33,9 @@ export default function HomePage() {
           <a className="iktia-action" href={withBase("reference/api")}>
             API reference
           </a>
+          <a className="iktia-action" href={withBase("guide/styling-and-dsd")}>
+            Styling and DSD
+          </a>
           <a className="iktia-action" href={withBase("demos/")}>
             Static demos
           </a>
@@ -40,6 +43,13 @@ export default function HomePage() {
       </section>
 
       <section className="iktia-grid" aria-label="Iktia documentation areas">
+        <article className="iktia-card">
+          <h2>Learning path</h2>
+          <p>
+            Start with install and Vite setup, then move through authoring,
+            styling, Declarative Shadow DOM, packages, demos, and API details.
+          </p>
+        </article>
         <article className="iktia-card">
           <h2>Authoring</h2>
           <p>

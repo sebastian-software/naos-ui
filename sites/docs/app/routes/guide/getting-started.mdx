@@ -10,6 +10,14 @@ Iktia v0.1 is a prerelease compiler toolchain for building native Custom
 Elements from a React-like TSX subset. You write typed component functions; the
 browser receives platform code.
 
+Read the docs in this order when you are new to the project:
+
+1. Getting Started for install, TypeScript, Vite, and the first component.
+2. Authoring Surface for props, state, events, control flow, and composition.
+3. Styling And DSD for CSS, theming, prerendering, and hydration behavior.
+4. Packages and API Reference for package boundaries and callable APIs.
+5. Demos for the browser proof and local verification commands.
+
 ## Install
 
 ```sh
@@ -59,7 +67,7 @@ export const options = {
 export function Counter({ label = "Count" } = {}) {
   const count = state(0)
   const text = computed(() => `${label}: ${count()}`)
-  const change = event<number>("change", { bubbles: true })
+  const change = event<number>("change")
 
   return (
     <button
