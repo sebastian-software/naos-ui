@@ -1,0 +1,22 @@
+---
+title: Static Demos
+description: Linked public demos for v0.1 without inline Ardo demos.
+order: 4
+---
+
+# Static Demos
+
+The v0.1 docs intentionally do not embed live demos inline. The public demo
+surface is built as a separate Vite site and linked from Ardo.
+
+| Demo | Link | Proves |
+| --- | --- | --- |
+| Vite build | [Open demos](../../demos/) | `.wc.tsx` modules compile through `@iktia/vite` into native Custom Elements. |
+| State and events | [Reactive counter](../../demos/#counter-case) | `state()`, `computed()`, `effect()`, and typed native `CustomEvent` dispatch. |
+| Slots and parts | [Primitive toggle](../../demos/#toggle-case) | `part`, `slot`, `data-state`, ARIA, `Show`, keyed `.map()`, `on()`, and `host()`. |
+| CSS variables | [Theming](../../demos/#theme-case) | Host-provided CSS custom properties cross the Shadow DOM boundary. |
+| Static DSD | [DSD page](../../demos/dsd.html) | Explicit prerender output with `<template shadowrootmode="open">`. |
+| Hydration behavior | [Delayed upgrade](../../demos/dsd.html?delayUpgrade=1) | Static DOM is useful before upgrade and hydrates after the client module loads. |
+
+The demos consume generated elements from regular HTML. There is no React, Vue,
+Angular, Solid, or Remix host adapter in the v0.1 launch proof.

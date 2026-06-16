@@ -59,7 +59,7 @@ release. The current implementation proves the vertical slice:
   HTML paths
 * typed N-API boundary and Node wrapper
 * Vite transform plugin
-* counter/toggle examples with Playwright browser smoke tests
+* Ardo-rendered docs plus linked static demos with Playwright browser gates
 * Shadow DOM style injection and default/named slots
 
 See [docs/compiler-limitations.md](docs/compiler-limitations.md) for the current
@@ -145,12 +145,12 @@ pnpm --filter @iktia/example-counter build
 pnpm --filter @iktia/example-counter test
 ```
 
-The demo site is designed as a small public proof surface. It currently covers
-reactive state, primitive contracts, PascalCase component composition, and a
-generated Declarative Shadow DOM page with delayed custom-element upgrade. It
-is published through GitHub Pages from the `main` branch. See
-[docs/demos.md](docs/demos.md) for the demo matrix, local commands, and Pages
-workflow details.
+The public site is split into Ardo-rendered docs at the root and linked static
+Iktia demos under `/demos/`. The demos cover reactive state, events, primitive
+parts/slots/state attributes, PascalCase composition, CSS variables, and a
+generated Declarative Shadow DOM page with delayed custom-element upgrade. See
+[docs/demos.md](docs/demos.md) for the docs/demo matrix, local commands, and
+Pages workflow details.
 
 ## Authoring Model
 
@@ -312,6 +312,7 @@ Build and test from the workspace root.
 ```sh
 pnpm install
 pnpm build:native
+pnpm build:docs
 pnpm check-native-types
 pnpm check
 pnpm test
@@ -331,6 +332,7 @@ Workspace layout:
 * `packages/runtime`: runtime helper surface
 * `packages/vite`: Vite plugin and DSD manifest integration
 * `examples/counter`: browser smoke-test example and static DSD output
+* `sites/docs`: Ardo documentation site for v0.1 docs and API content
 
 Useful references:
 
@@ -339,6 +341,7 @@ Useful references:
 * [CLI](docs/cli.md)
 * [Declarative Shadow DOM plan](docs/declarative-shadow-dom-plan.md)
 * [Native distribution](docs/native-distribution.md)
+* [Docs and demos](docs/demos.md)
 * [MDN Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
 
 ## License

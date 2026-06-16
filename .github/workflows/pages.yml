@@ -1,4 +1,4 @@
-name: Deploy demos to GitHub Pages
+name: Deploy docs and demos to GitHub Pages
 
 on:
   push:
@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   build:
-    name: Build demo site
+    name: Build docs and demo site
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,6 +46,9 @@ jobs:
       - name: Check TypeScript packages
         run: pnpm check-types
 
+      - name: Check docs types
+        run: pnpm check:docs
+
       - name: Check demo types
         run: pnpm --filter @iktia/example-counter type-check
 
@@ -55,21 +58,31 @@ jobs:
       - name: Test demo
         run: pnpm --filter @iktia/example-counter test -- --project=chromium
 
+      - name: Build docs site
+        run: pnpm build:docs
+        env:
+          IKTIA_GITHUB_PAGES: "true"
+
       - name: Build demo site
         run: pnpm --filter @iktia/example-counter build
         env:
           IKTIA_GITHUB_PAGES: "true"
 
+      - name: Copy demo into docs artifact
+        run: |
+          mkdir -p sites/docs/build/client/demos
+          cp -R examples/counter/dist/. sites/docs/build/client/demos/
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload demo artifact
+      - name: Upload pages artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: examples/counter/dist
+          path: sites/docs/build/client
 
   deploy:
-    name: Deploy demo site
+    name: Deploy docs and demo site
     needs: build
     runs-on: ubuntu-latest
     environment:

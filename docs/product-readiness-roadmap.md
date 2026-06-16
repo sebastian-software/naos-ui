@@ -28,20 +28,17 @@ Iktia already proves the core vertical slice:
 * A Vite plugin and a browser-tested counter/toggle example.
 * ADRs covering the major compiler and platform decisions.
 
-The remaining MVP signals are mostly productization issues:
+The remaining MVP signals are mostly feature-depth and hardening issues:
 
-* Native package topology exists, but CI must still build and publish every
-  matrix artifact.
-* The only GitHub workflow is the Pages workflow, and it still contains stale
-  package filters from the previous project name.
-* There is no CI matrix for Rust, Node packages, examples, docs, or native
-  binary builds.
-* There is no release automation for npm packages, release notes, GitHub
-  releases, or native publish ordering.
+* Native package topology and release automation exist for v0.1, but the first
+  public release still needs a real publish dry-run and hosted CI observation.
+* CI now covers Rust, Node packages, examples, docs, native builds, release-set
+  checks, and browser gates; the next step is tightening failures discovered in
+  hosted Actions.
 * Diagnostics are structured, but span coverage is still incomplete across all
   rejected syntax paths.
-* The demo surface is too small to prove interop, styling, forms, and hosted
-  documentation.
+* The demo surface now covers the v0.1 launch proof. Broader interop and forms
+  remain post-v0.1 work.
 
 ## Internal Reference Patterns To Reuse
 
@@ -341,9 +338,14 @@ Acceptance criteria:
 
 Purpose: Replace scattered markdown reading with a product-grade learning path.
 
+Status: A first Ardo docs site exists in `sites/docs`, builds in CI, and is
+deployed as the root of the GitHub Pages artifact. Further work should deepen
+the learning path rather than create the site from scratch.
+
 Deliverables:
 
-* Add a docs site that builds in CI, inspired by FerroCat's separate docs build.
+* Extend the Ardo docs site that builds in CI, inspired by FerroCat's separate
+  docs build.
 * Start with a small information architecture: Introduction, Quickstart,
   Authoring, Compiler Limits, DSD, Vite, Native Distribution, API Reference,
   Demos, Troubleshooting.
@@ -362,6 +364,10 @@ Acceptance criteria:
 Purpose: Prove that Iktia outputs native elements that work as static,
 framework-free interface units before expanding into broader host-framework
 interop.
+
+Status: The v0.1 static demo set exists under `examples/counter` and is copied
+under `/demos/` in the Pages artifact. It covers Vite build output, DSD,
+delayed hydration, state, events, slots/parts, and CSS variables.
 
 Deliverables:
 

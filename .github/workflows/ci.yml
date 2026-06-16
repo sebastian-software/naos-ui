@@ -47,6 +47,9 @@ jobs:
       - name: Check TypeScript
         run: pnpm check-types
 
+      - name: Check docs types
+        run: pnpm check:docs
+
       - name: Check Rust formatting
         run: cargo fmt --check
 
@@ -61,6 +64,9 @@ jobs:
 
       - name: Build example
         run: pnpm --filter @iktia/example-counter build
+
+      - name: Build docs
+        run: pnpm build:docs
 
   native:
     name: Native Build (${{ matrix.os }})

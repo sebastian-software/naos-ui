@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node", "react", "react-dom", "vite/client", "ardo/virtual"]
+  },
+  "include": ["app/**/*.ts", "app/**/*.tsx", "app/**/*.md", "app/**/*.mdx", "vite.config.ts", "react-router.config.ts"]
+}

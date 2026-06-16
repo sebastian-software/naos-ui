@@ -1,0 +1,57 @@
+---
+title: Styling And DSD
+description: CSS, theming, Declarative Shadow DOM, and hydration policy.
+order: 3
+---
+
+# Styling And DSD
+
+v0.1 keeps styling flat and bundler-owned. There is no Iktia CSS graph, Sass
+contract, CSS Modules contract, PostCSS contract, or constructable stylesheet
+contract.
+
+## Inline CSS Text
+
+```tsx
+import css from "./button.css?inline"
+
+export const options = {
+  shadow: true,
+  styles: [css],
+}
+```
+
+Vite resolves `?inline` CSS imports to strings. Iktia injects those strings into
+imperative Shadow DOM and explicit Declarative Shadow DOM output as `<style>`.
+
+## Theming
+
+CSS custom properties are the v0.1 theming mechanism:
+
+```css
+button {
+  border-color: var(--iktia-control-border, #2563eb);
+  background: var(--iktia-control-bg, #eff6ff);
+}
+```
+
+Host pages set variables on the custom element or any ancestor. Parts, slots,
+ARIA, and `data-state` attributes are the stable styling and state contracts.
+
+## Declarative Shadow DOM
+
+DSD is public only through explicit prerender entry points:
+
+```sh
+iktia prerender src/counter.wc.tsx --props '{"label":"Static"}'
+```
+
+The Vite plugin can emit build-time metadata for static demo workflows, but
+there is no `ComponentOptions.dsd`. Visible `data-iktia-*` markers are internal
+hydration markers and are not semver-protected.
+
+## Hydration Mismatches
+
+In development, hydration mismatches throw structured diagnostics with filename,
+span, code, severity, message, and hint when available. In production, stale DSD
+is remounted imperatively so published static pages keep working.

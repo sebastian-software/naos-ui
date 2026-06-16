@@ -84,6 +84,11 @@ const html = `<!doctype html>
         client demo. The browser parses the shadow roots, scoped styles, slots,
         and supported initial values before the custom elements are defined.
       </p>
+      <nav class="demo-nav" aria-label="Demo pages">
+        <a href="./">Vite build</a>
+        <a href="./dsd.html">Static DSD</a>
+        <a href="./dsd.html?delayUpgrade=1">Delayed upgrade</a>
+      </nav>
     </header>
 
     <main class="demo-layout">

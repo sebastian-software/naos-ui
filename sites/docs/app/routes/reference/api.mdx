@@ -1,0 +1,60 @@
+---
+title: API Reference
+description: Public v0.1 API surface by package.
+order: 1
+---
+
+# API Reference
+
+This page records the v0.1 public API shape. Rust crates remain internal and are
+not published to crates.io for v0.1.
+
+## `@iktia/core`
+
+| Export | Stability | Notes |
+| --- | --- | --- |
+| `state()` | Public | Writable local state primitive. |
+| `computed()` | Public | Derived read-only value. |
+| `effect()` | Public | Lifecycle-aware effect and cleanup. |
+| `event()` | Public | Typed `CustomEvent` dispatch helper. |
+| `on()` | Public | Typed DOM listener helper with listener options. |
+| `host()` | Public | Current custom element plus abort signal. |
+| `Show` | Public | Static conditional rendering primitive. |
+| `ComponentOptions` | Public | `shadow` and flat `styles` for v0.1. |
+
+`component()`, `prop.*()`, `signal()`, `useHost()`, and public `<For>` authoring
+are intentionally absent.
+
+## `@iktia/runtime`
+
+Tiny platform helper runtime for generated output: events, scheduling, and
+hydration helpers. It is not a reconciler, virtual DOM, component runtime, or
+framework adapter.
+
+## `@iktia/compiler`
+
+```ts
+type TransformResult = {
+  code: string
+  hasChanged: boolean
+  map?: unknown
+}
+```
+
+`transformComponent()` returns transformed code, optional source map data, and a
+change flag. Compiler failures throw structured errors with `diagnostics[]`.
+
+## `@iktia/vite`
+
+`iktia(options)` installs the Vite transform and optional prerender metadata
+path. Vite owns module graph, chunks, CSS imports, assets, and invalidation.
+
+## `@iktia/cli`
+
+The `iktia` binary exposes:
+
+| Command | Purpose |
+| --- | --- |
+| `iktia compile` | Transform a `.wc.tsx` component. |
+| `iktia prerender` | Emit explicit Declarative Shadow DOM host HTML. |
+| `iktia info` | Print compiler, package, native target, and platform details. |

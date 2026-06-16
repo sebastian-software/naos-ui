@@ -1,20 +1,32 @@
-# Demos
+# Docs And Demos
 
-The demo site is the public proof surface for the current compiler milestone.
-It should stay small, explicit, and focused on one use case per section instead
-of becoming a general playground.
+The Ardo docs site is the public documentation surface for v0.1. The demo site
+is built separately and linked from those docs; Ardo pages do not embed live
+interactive demos for v0.1.
 
-## Current Demo Site
+## Current Public Site
 
-The first published site is `examples/counter`. It is a Vite app that imports
-`.wc.tsx` modules through the Iktia Vite plugin and renders the generated
-native Custom Elements in a normal browser page.
+The published Pages artifact has two parts:
+
+| Path | Source | Purpose |
+| --- | --- | --- |
+| `/` | `sites/docs` | Ardo-rendered documentation and API content. |
+| `/demos/` | `examples/counter` | Static Vite demo site with compiled Iktia elements. |
+
+`sites/docs` is a private Ardo workspace package. It documents install,
+authoring, styling, DSD, packages, and API shape. Demo links point to static
+pages under `/demos/`.
+
+`examples/counter` is a Vite app that imports `.wc.tsx` modules through the
+Iktia Vite plugin and renders the generated native Custom Elements in a normal
+browser page.
 
 | Section | Component | Demonstrates |
 | --- | --- | --- |
 | Reactive counter | `Counter` / `x-counter` | `state()`, `computed()`, `effect()`, typed `CustomEvent` emission, Shadow DOM output |
 | Primitive toggle | `Toggle` / `x-toggle` | `part`, `slot`, `data-state`, ARIA, `<Show>`, keyed `.map()`, `on()`, `host()`, cleanup-aware lifecycle work |
 | PascalCase composition | `Toolbar` / `x-toolbar` | TypeScript component imports, PascalCase JSX nesting, compiler-owned kebab-case Custom Element output |
+| CSS variable theming | `Counter` and `Toggle` | Host-provided CSS custom properties crossing Shadow DOM, with parts and state attributes as styling hooks |
 | Declarative Shadow DOM | `Counter` and `Toggle` | Explicit prerender output, `<template shadowrootmode="open">`, DSD-only hydration markers, delayed custom-element upgrade, post-upgrade interactivity |
 
 The examples intentionally use the generated Custom Elements from regular
@@ -36,6 +48,7 @@ Run these commands from the workspace root.
 ```sh
 pnpm install
 pnpm build:native
+pnpm build:docs
 pnpm --filter @iktia/example-counter prepare:dsd
 pnpm --filter @iktia/example-counter type-check
 pnpm --filter @iktia/example-counter build
@@ -48,27 +61,36 @@ Use the Vite dev server when iterating on the demo copy or visual structure.
 pnpm --filter @iktia/example-counter vite --host 127.0.0.1
 ```
 
+Use the Ardo dev server when iterating on documentation content.
+
+```sh
+pnpm --filter @iktia/docs dev
+```
+
 ## GitHub Pages Deployment
 
-`.github/workflows/pages.yml` publishes the demo site on pushes to `main` and
-through manual `workflow_dispatch` runs. The workflow:
+`.github/workflows/pages.yml` publishes the docs and demo site on pushes to
+`main` and through manual `workflow_dispatch` runs. The workflow:
 
 1. installs the pinned pnpm and Node.js toolchain;
 2. installs a stable Rust toolchain;
 3. builds the native compiler binding;
-4. type-checks the TypeScript packages and demo;
+4. type-checks the TypeScript packages, Ardo docs, and demo;
 5. runs the Playwright browser smoke tests for the demo;
-6. builds the Vite static site with a GitHub Pages base path;
-7. uploads `examples/counter/dist`;
-8. deploys the uploaded artifact to GitHub Pages.
+6. builds the Ardo docs site with a GitHub Pages base path;
+7. builds the Vite demo site with a `/demos/` base path;
+8. copies `examples/counter/dist` into `sites/docs/build/client/demos`;
+9. uploads `sites/docs/build/client`;
+10. deploys the uploaded artifact to GitHub Pages.
 
 Repository maintainers still need to set the GitHub Pages source to
 `GitHub Actions` in the repository settings. No generated `dist` files are
 committed to the repository.
 
-The demo Vite config reads `IKTIA_GITHUB_PAGES=true` and derives the public
-base path from `GITHUB_REPOSITORY`, so project pages are served from
-`/<repository>/` while local development keeps `/`.
+The Ardo docs config reads `IKTIA_GITHUB_PAGES=true` and derives the public
+base path from the git remote. The demo Vite config reads the same environment
+and serves assets from `/<repository>/demos/`. Local development keeps `/`,
+unless `IKTIA_DEMO_BASE` is set explicitly.
 
 ## Demo Expansion Rules
 

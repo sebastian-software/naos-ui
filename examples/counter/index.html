@@ -18,6 +18,11 @@
         authoring primitives, Web Component primitive contracts, and PascalCase
         composition that compiles to native Custom Elements.
       </p>
+      <nav class="demo-nav" aria-label="Demo pages">
+        <a href="./">Vite build</a>
+        <a href="./dsd.html">Static DSD</a>
+        <a href="./dsd.html?delayUpgrade=1">Delayed upgrade</a>
+      </nav>
     </header>
 
     <main class="demo-layout">
@@ -91,6 +96,47 @@ const text = computed(() =&gt; `Count: ${count()}`)</code></pre>
           <pre><code>import { Counter } from "./counter.wc.tsx"
 
 return &lt;Counter label="Nested count" /&gt;</code></pre>
+        </div>
+      </section>
+
+      <section class="demo-case" id="theme-case" aria-labelledby="theme-title">
+        <div class="case-copy">
+          <p class="case-kicker">Use case 04</p>
+          <h2 id="theme-title">CSS variable theming</h2>
+          <p>
+            v0.1 keeps CSS flat and bundler-owned. Host pages theme generated
+            elements through custom properties rather than an Iktia CSS graph.
+          </p>
+          <ul>
+            <li>CSS text arrives from Vite <code>?inline</code> imports.</li>
+            <li>Custom properties cross the Shadow DOM boundary naturally.</li>
+            <li>Parts and state attributes remain the stable styling hooks.</li>
+          </ul>
+        </div>
+        <div class="case-surface theme-surface">
+          <x-counter
+            label="Themed"
+            style="
+              --iktia-control-border: #7c3aed;
+              --iktia-control-bg: #f5f3ff;
+              --iktia-control-bg-hover: #ede9fe;
+              --iktia-control-fg: #2e1065;
+            "
+          ></x-counter>
+          <x-toggle
+            label="Theme"
+            style="
+              --iktia-toggle-border: #0f766e;
+              --iktia-toggle-bg: #f0fdfa;
+              --iktia-toggle-fg: #134e4a;
+              --iktia-toggle-on-bg: #ccfbf1;
+              --iktia-toggle-on-border: #0d9488;
+              --iktia-toggle-muted: #0f766e;
+            "
+          >
+            themed slot
+          </x-toggle>
+          <pre><code>style="--iktia-control-bg: #f5f3ff"</code></pre>
         </div>
       </section>
     </main>

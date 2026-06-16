@@ -64,6 +64,21 @@ test("compiled toolbar composes nested PascalCase components", async ({ page }) 
   await expect(page.locator("body")).toHaveAttribute("data-last-toggle", "true")
 })
 
+test("compiled elements accept host-provided css custom properties", async ({
+  page,
+}) => {
+  await page.goto("/")
+
+  const counter = page.locator("#theme-case x-counter")
+  const toggle = page.locator("#theme-case x-toggle")
+
+  await expect(counter.locator("button")).toHaveCSS("background-color", "rgb(245, 243, 255)")
+  await expect(counter.locator("button")).toHaveCSS("color", "rgb(46, 16, 101)")
+  await expect(toggle.locator("button")).toHaveCSS("background-color", "rgb(240, 253, 250)")
+  await toggle.locator("button").click()
+  await expect(toggle.locator("button")).toHaveCSS("background-color", "rgb(204, 251, 241)")
+})
+
 test("declarative shadow dom renders useful DOM before upgrade and hydrates after upgrade", async ({
   page,
 }) => {

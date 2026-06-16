@@ -1,0 +1,73 @@
+---
+title: Authoring Surface
+description: Public v0.1 TSX primitives and list syntax.
+order: 2
+---
+
+# Authoring Surface
+
+v0.1 keeps the public authoring API intentionally small. Unsupported legacy
+syntax is rejected with structured diagnostics instead of compatibility paths.
+
+## Public Primitives
+
+| Primitive | Purpose |
+| --- | --- |
+| `state()` | Writable local state with accessor, setter, and updater methods. |
+| `computed()` | Read-only derived value tracked by the compiler/runtime helpers. |
+| `effect()` | Lifecycle-aware side effect with cleanup support. |
+| `event()` | Typed `CustomEvent` dispatch helper. |
+| `on()` | Typed DOM listener helper with listener options. |
+| `host()` | Current custom element and abort signal inside lifecycle work. |
+| `Show` | Static-analysis-friendly conditional rendering. |
+
+Removed before v0.1: `component()`, `prop.*()`, `signal()`, and `useHost()`.
+Public docs and examples should use `state()` for writable local state.
+
+## Events And Listeners
+
+Dispatch options and listener options are split:
+
+```tsx
+const changed = event<boolean>("toggle-change", {
+  bubbles: true,
+  composed: true,
+})
+
+return (
+  <button
+    onClick={on(
+      "click",
+      () => changed.emit(true),
+      { passive: true }
+    )}
+  />
+)
+```
+
+`event(name, customEventOptions)` configures emitted events. `on(type, handler,
+listenerOptions)` configures DOM listeners.
+
+## Keyed Lists
+
+Dynamic lists use a narrow typed `.map()` form:
+
+```tsx
+return (
+  <ul>
+    {items().map((item) => (
+      <li key={item.id}>{item.label}</li>
+    ))}
+  </ul>
+)
+```
+
+`key` is required. The compiler lowers accepted map expressions into keyed list
+IR and rejects unsupported block bodies, arbitrary list expressions, unkeyed
+maps, and non-JSX map returns.
+
+## Component Composition
+
+Imported PascalCase component references compile to native kebab-case Custom
+Element tags. The public output remains platform DOM; Iktia does not install a
+component runtime or virtual DOM reconciler.

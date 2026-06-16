@@ -1,0 +1,80 @@
+---
+title: Getting Started
+description: Install Iktia packages and compile TSX Web Components.
+order: 1
+---
+
+# Getting Started
+
+Iktia v0.1 is a prerelease compiler toolchain for authoring native Custom
+Elements in a React-like TSX subset. The generated output is browser platform
+code, not React runtime code.
+
+## Install
+
+```sh
+pnpm add @iktia/core @iktia/runtime
+pnpm add -D @iktia/compiler @iktia/vite @iktia/cli
+```
+
+`@iktia/compiler` installs one optional native package for the current platform.
+There is no npm source-build fallback in v0.1.
+
+## Configure Vite
+
+```ts
+import { defineConfig } from "vite"
+import { iktia } from "@iktia/vite"
+
+export default defineConfig({
+  plugins: [iktia()],
+})
+```
+
+Vite owns modules, chunks, assets, cache invalidation, and CSS imports. Iktia
+only transforms accepted `.wc.tsx` component modules.
+
+## Author A Component
+
+```tsx
+import { computed, event, state, type ComponentOptions } from "@iktia/core"
+import css from "./counter.css?inline"
+
+export const options = {
+  shadow: true,
+  styles: [css],
+} satisfies ComponentOptions
+
+export function Counter({ label = "Count" } = {}) {
+  const count = state(0)
+  const text = computed(() => `${label}: ${count()}`)
+  const change = event<number>("change", { bubbles: true })
+
+  return (
+    <button
+      part="button"
+      data-count={count()}
+      onClick={() => {
+        count.update((value) => value + 1)
+        change.emit(count())
+      }}
+    >
+      {text()}
+    </button>
+  )
+}
+```
+
+The compiler infers the native Custom Element tag from the file and export. Host
+pages consume the result with regular DOM APIs.
+
+## CLI
+
+```sh
+iktia compile src/counter.wc.tsx -o dist/counter.js
+iktia prerender src/counter.wc.tsx --props '{"label":"Static"}'
+iktia info
+```
+
+Use the CLI for smoke tests, standalone transforms, and explicit Declarative
+Shadow DOM prerender output. Application builds should use the Vite plugin.
