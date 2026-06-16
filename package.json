@@ -17,7 +17,7 @@
     "check:docs": "pnpm --filter @iktia/docs type-check",
     "check-native-types": "pnpm --filter @iktia/compiler check-native-types",
     "check": "pnpm check-release-set && pnpm check-types && pnpm check:docs && pnpm check:rust",
-    "check-types": "pnpm -r --filter './packages/**' --if-present check-types",
+    "check-types": "pnpm build && pnpm -r --filter './packages/**' --if-present check-types",
     "check:rust": "cargo check --workspace",
     "lint": "pnpm lint:rust",
     "lint:rust": "cargo clippy --all-targets --all-features -- -D warnings",
