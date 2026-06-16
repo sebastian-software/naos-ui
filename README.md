@@ -232,6 +232,7 @@ For details, see [docs/authoring.md](docs/authoring.md).
 @iktia/runtime    Tiny platform helpers for generated elements
 @iktia/compiler   Node wrapper around the Rust compiler
 @iktia/compiler-* Platform-specific optional native compiler bindings
+@iktia/cli        Minimal compile, prerender, and info commands
 @iktia/vite       Vite transform and optional DSD manifest plugin
 ```
 
@@ -325,6 +326,7 @@ Workspace layout:
 * `crates/iktia-node`: N-API wrapper around the Rust core
 * `packages/compiler`: typed Node loader for optional native bindings
 * `packages/compiler-*`: platform-specific native compiler packages
+* `packages/cli`: minimal compile, prerender, and info commands
 * `packages/core`: authoring API and JSX types
 * `packages/runtime`: runtime helper surface
 * `packages/vite`: Vite plugin and DSD manifest integration
@@ -334,6 +336,7 @@ Useful references:
 
 * [Authoring guide](docs/authoring.md)
 * [Compiler limitations](docs/compiler-limitations.md)
+* [CLI](docs/cli.md)
 * [Declarative Shadow DOM plan](docs/declarative-shadow-dom-plan.md)
 * [Native distribution](docs/native-distribution.md)
 * [MDN Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)

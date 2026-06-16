@@ -1,4 +1,4 @@
-import { setNativeBindingsForTesting } from "@iktia/compiler"
+import { IktiaCompilerError, setNativeBindingsForTesting } from "@iktia/compiler"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -53,6 +53,90 @@ describe("iktia", () => {
       code: "compiled:/src/counter.wc.tsx:source",
       map: null,
     })
+  })
+
+  it("passes native source maps through to Vite", async () => {
+    setNativeBindingsForTesting({
+      getNativeInfo: () => ({ coreVersion: "test" }),
+      renderDeclarativeShadowDom: () => ({
+        className: "CounterElement",
+        html: "",
+        shadow: true,
+        tagName: "x-counter",
+        templateHtml: "",
+        usesDeclarativeShadowDom: true,
+      }),
+      transformComponent: (request) => ({
+        code: "compiled",
+        hasChanged: true,
+        map: {
+          file: request.filename,
+          mappings: "AAAA",
+          names: [],
+          sources: [request.filename],
+          sourcesContent: [request.source],
+          version: 3,
+        },
+      }),
+    })
+
+    const plugin = iktia()
+    const transform = plugin.transform
+    if (typeof transform !== "function") {
+      throw new Error("Expected transform hook")
+    }
+
+    const result = await transform.call(mockPluginContext(), "source", "/src/counter.wc.tsx")
+
+    expect(result).toEqual({
+      code: "compiled",
+      map: {
+        file: "/src/counter.wc.tsx",
+        mappings: "AAAA",
+        names: [],
+        sources: ["/src/counter.wc.tsx"],
+        sourcesContent: ["source"],
+        version: 3,
+      },
+    })
+  })
+
+  it("renders structured diagnostics through the Vite error channel", async () => {
+    setNativeBindingsForTesting({
+      getNativeInfo: () => ({ coreVersion: "test" }),
+      renderDeclarativeShadowDom: () => ({
+        className: "CounterElement",
+        html: "",
+        shadow: true,
+        tagName: "x-counter",
+        templateHtml: "",
+        usesDeclarativeShadowDom: true,
+      }),
+      transformComponent: () => {
+        throw new IktiaCompilerError("Unsupported JSX", [
+          {
+            code: "IKTIA_UNSUPPORTED_SYNTAX",
+            filename: "/src/counter.wc.tsx",
+            hint: "Use supported syntax.",
+            message: "Unsupported JSX",
+            severity: "error",
+            span: { end: 12, start: 4 },
+          },
+        ])
+      },
+    })
+
+    const plugin = iktia()
+    const transform = plugin.transform
+    if (typeof transform !== "function") {
+      throw new Error("Expected transform hook")
+    }
+
+    await expect(
+      transform.call(mockPluginContext(), "source", "/src/counter.wc.tsx")
+    ).rejects.toThrow(
+      "/src/counter.wc.tsx:4-12 error IKTIA_UNSUPPORTED_SYNTAX: Unsupported JSX\nhint: Use supported syntax."
+    )
   })
 
   it("emits a DSD manifest only when prerendering is enabled", async () => {

@@ -2,6 +2,7 @@
   "extends": "./tsconfig.base.json",
   "files": [],
   "references": [
+    { "path": "./packages/cli" },
     { "path": "./packages/compiler" },
     { "path": "./packages/core" },
     { "path": "./packages/runtime" },

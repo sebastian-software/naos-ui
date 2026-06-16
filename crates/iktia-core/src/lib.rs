@@ -18,9 +18,10 @@ pub use codegen::{
 };
 pub use error::{CompilerError, CompilerResult};
 pub use model::{
-    ComponentImport, ComponentModule, ComponentOptions, ComputedDefinition,
-    DeclarativeShadowDomRenderResult, EffectDefinition, EventDefinition, PropAccess,
-    PropDefinition, PropKind, StateDefinition, StateKind, StyleImport, TransformResult,
+    CompilerDiagnostic, ComponentImport, ComponentModule, ComponentOptions, ComputedDefinition,
+    DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan, EffectDefinition,
+    EventDefinition, PropAccess, PropDefinition, PropKind, SourceMap, StateDefinition, StateKind,
+    StyleImport, TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -222,6 +223,10 @@ mod tests {
         };
 
         assert!(result.has_changed);
+        let source_map = result.map.as_ref().expect("source map should be emitted");
+        assert_eq!(source_map.version, 3);
+        assert_eq!(source_map.sources, vec!["counter.wc.tsx"]);
+        assert_eq!(source_map.sources_content, vec![source.to_owned()]);
         assert!(
             result
                 .code

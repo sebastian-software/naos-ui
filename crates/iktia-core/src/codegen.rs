@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
     ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult, EffectDefinition,
-    EventDefinition, PropDefinition, PropKind, StateDefinition, TransformResult,
+    EventDefinition, PropDefinition, PropKind, SourceMap, StateDefinition, TransformResult,
 };
 use crate::naming::{
     custom_element_tag_for_component, is_pascal_case_identifier, kebab_case_identifier,
@@ -23,8 +23,10 @@ pub fn transform_component_module(source: &str, filename: &str) -> CompilerResul
     let template = TemplateParser::new(&module.template_source).parse_element()?;
     let mut generator = CodeGenerator::new(&module);
     let code = generator.generate(&template)?;
+    let map = Some(source_map_for_transform(source, filename, &code));
     Ok(TransformResult {
         code,
+        map,
         has_changed: true,
     })
 }
@@ -2612,4 +2614,22 @@ fn unsupported(message: impl Into<String>) -> CompilerError {
     CompilerError::Unsupported {
         message: message.into(),
     }
+}
+
+fn source_map_for_transform(source: &str, filename: &str, code: &str) -> SourceMap {
+    SourceMap {
+        file: filename.to_owned(),
+        mappings: source_map_line_mappings(code),
+        names: Vec::new(),
+        sources: vec![filename.to_owned()],
+        sources_content: vec![source.to_owned()],
+        version: 3,
+    }
+}
+
+fn source_map_line_mappings(code: &str) -> String {
+    let line_count = code.lines().count().max(1);
+    std::iter::repeat_n("AAAA", line_count)
+        .collect::<Vec<_>>()
+        .join(";")
 }

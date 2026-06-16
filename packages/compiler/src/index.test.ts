@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import {
   getNativeInfo,
+  IktiaCompilerError,
   renderDeclarativeShadowDom,
   setNativeBindingsForTesting,
   transformComponent,
@@ -36,6 +37,14 @@ describe("@iktia/compiler wrapper", () => {
       transformComponent: (request) => ({
         code: `compiled:${request.filename}:${request.source.length}`,
         hasChanged: true,
+        map: {
+          file: request.filename,
+          mappings: "AAAA",
+          names: [],
+          sources: [request.filename],
+          sourcesContent: [request.source],
+          version: 3,
+        },
       }),
       renderDeclarativeShadowDom: () => ({
         className: "CounterElement",
@@ -56,7 +65,61 @@ describe("@iktia/compiler wrapper", () => {
     ).toEqual({
       code: "compiled:counter.wc.tsx:6",
       hasChanged: true,
+      map: {
+        file: "counter.wc.tsx",
+        mappings: "AAAA",
+        names: [],
+        sources: ["counter.wc.tsx"],
+        sourcesContent: ["source"],
+        version: 3,
+      },
     })
+  })
+
+  it("throws structured compiler errors from native diagnostic payloads", () => {
+    setNativeBindingsForTesting({
+      getNativeInfo: () => ({ coreVersion: "1.2.3" }),
+      transformComponent: () => {
+        throw new Error(
+          'IKTIA_COMPILER_DIAGNOSTICS:{"message":"Unsupported JSX","diagnostics":[{"code":"IKTIA_UNSUPPORTED_SYNTAX","severity":"error","message":"Unsupported JSX","filename":"counter.wc.tsx","span":null,"hint":"Use supported syntax."}]}'
+        )
+      },
+      renderDeclarativeShadowDom: () => ({
+        className: "CounterElement",
+        exportName: "Counter",
+        html: "",
+        shadow: true,
+        tagName: "x-counter",
+        templateHtml: "",
+        usesDeclarativeShadowDom: true,
+      }),
+    })
+
+    expect(() =>
+      transformComponent({
+        filename: "counter.wc.tsx",
+        source: "source",
+      })
+    ).toThrow(IktiaCompilerError)
+
+    try {
+      transformComponent({
+        filename: "counter.wc.tsx",
+        source: "source",
+      })
+    } catch (error) {
+      expect(error).toBeInstanceOf(IktiaCompilerError)
+      expect((error as IktiaCompilerError).diagnostics).toEqual([
+        {
+          code: "IKTIA_UNSUPPORTED_SYNTAX",
+          filename: "counter.wc.tsx",
+          hint: "Use supported syntax.",
+          message: "Unsupported JSX",
+          severity: "error",
+          span: null,
+        },
+      ])
+    }
   })
 
   it("serializes prerender props and inline styles before forwarding DSD requests", () => {

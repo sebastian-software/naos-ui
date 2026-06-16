@@ -2,8 +2,10 @@ import { readFile } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve } from "node:path"
 
 import {
+  isIktiaCompilerError,
   renderDeclarativeShadowDom,
   transformComponent,
+  type IktiaDiagnostic,
   type RenderDeclarativeShadowDomRequest,
   type RenderDeclarativeShadowDomResult,
 } from "@iktia/compiler"
@@ -86,9 +88,12 @@ export function iktia(options: IktiaVitePluginOptions = {}): Plugin {
 
         return {
           code: result.code,
-          map: null,
+          map: result.map ?? null,
         }
       } catch (error) {
+        if (isIktiaCompilerError(error)) {
+          this.error(formatIktiaDiagnostics(error.diagnostics, filename))
+        }
         const message = error instanceof Error ? error.message : String(error)
         this.error(`Iktia transform failed in ${filename}: ${message}`)
       }
@@ -111,6 +116,22 @@ export function iktia(options: IktiaVitePluginOptions = {}): Plugin {
       })
     },
   }
+}
+
+export function formatIktiaDiagnostics(
+  diagnostics: readonly IktiaDiagnostic[],
+  fallbackFilename: string
+): string {
+  return diagnostics
+    .map((diagnostic) => {
+      const filename = diagnostic.filename || fallbackFilename
+      const span = diagnostic.span
+        ? `:${diagnostic.span.start}-${diagnostic.span.end}`
+        : ""
+      const hint = diagnostic.hint ? `\nhint: ${diagnostic.hint}` : ""
+      return `${filename}${span} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${hint}`
+    })
+    .join("\n")
 }
 
 export function renderIktiaDeclarativeShadowDom(

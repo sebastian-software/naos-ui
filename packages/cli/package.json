@@ -1,0 +1,39 @@
+{
+  "name": "@iktia/cli",
+  "version": "0.0.0",
+  "description": "Command line tools for compiling and prerendering Iktia components.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "iktia": "./dist/cli.mjs"
+  },
+  "exports": {
+    ".": {
+      "types": "./src/cli.ts",
+      "import": "./src/cli.ts",
+      "require": "./dist/cli.cjs"
+    }
+  },
+  "main": "./dist/cli.cjs",
+  "module": "./dist/cli.mjs",
+  "types": "./src/cli.ts",
+  "sideEffects": false,
+  "files": ["dist/"],
+  "scripts": {
+    "build": "unbuild",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --globals src/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@iktia/compiler": "workspace:^"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "typescript": "^6.0.3",
+    "unbuild": "^3.6.1",
+    "vitest": "^4.1.6"
+  }
+}

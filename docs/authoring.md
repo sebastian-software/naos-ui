@@ -74,6 +74,7 @@ The package exposes:
 * `@iktia/runtime`: runtime helpers.
 * `@iktia/compiler`: native compiler wrapper.
 * `@iktia/compiler-*`: platform-specific optional native packages.
+* `@iktia/cli`: `iktia compile`, `iktia prerender`, and `iktia info`.
 * `@iktia/vite`: Vite transform plugin.
 
 ## Vite Setup

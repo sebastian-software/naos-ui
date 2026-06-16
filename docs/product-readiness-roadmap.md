@@ -20,7 +20,7 @@ and demo story before larger implementation work starts.
 
 Iktia already proves the core vertical slice:
 
-* TypeScript authoring APIs for function components, signals, computed values,
+* TypeScript authoring APIs for function components, state, computed values,
   effects, events, host helpers, slots, parts, and explicit control flow.
 * Rust/OXC analysis and native Custom Element code generation.
 * Declarative Shadow DOM prerendering and hydration.
@@ -38,8 +38,8 @@ The remaining MVP signals are mostly productization issues:
   binary builds.
 * There is no release automation for npm packages, release notes, GitHub
   releases, or native publish ordering.
-* Diagnostics are still plain strings rather than span-rich messages with
-  source-map context.
+* Diagnostics are structured, but span coverage is still incomplete across all
+  rejected syntax paths.
 * The demo surface is too small to prove interop, styling, forms, and hosted
   documentation.
 

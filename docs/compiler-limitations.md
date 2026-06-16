@@ -141,7 +141,6 @@ Currently unsupported:
 * Callback expression bodies such as `() => <button />`.
 * Return values not wrapped in parentheses.
 * Event option code generation from `event(name, options)`.
-* Source maps.
 * `closed` declarative shadow roots and `shadowrootserializable`.
 * A core Declarative Shadow DOM polyfill.
 
@@ -161,11 +160,13 @@ loader order, source-build guidance, and generated N-API boundary types.
 
 ## Error Model
 
-Current errors are intentionally plain and early:
+Compiler API failures throw `IktiaCompilerError` with `diagnostics[]`.
+Diagnostics include a code, severity, message, filename, optional UTF-8 span,
+and optional hint. Vite and the CLI render that shared structure.
 
-* TSX parse errors come from OXC.
-* Missing or unsupported component shapes return compiler errors.
-* Vite wraps transform failures with the source filename.
+Transforms return a native source-map object from Rust as `map?`. The current
+map is emitted by the native transform workflow; broader span coverage for
+every rejection path remains future hardening work.
 
-Future work should add spans, source-map-aware diagnostics, and fixture coverage
-for every supported rejection path.
+Future work should add span-rich diagnostics and fixture coverage for every
+supported rejection path.
