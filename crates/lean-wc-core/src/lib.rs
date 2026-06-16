@@ -525,6 +525,48 @@ mod tests {
     }
 
     #[test]
+    fn render_declarative_shadow_dom_module_should_evaluate_literal_initial_values() {
+        let source = r#"
+            import { signal, state } from "lean-wc";
+
+            export function Snapshot({ label = "Count" }: SnapshotProps = {}) {
+              const items = signal(["A", label]);
+              const meta = state({ name: label, count: 0 });
+              const unsupported = signal(makeValue());
+
+              return (
+                <section data-items={items()} data-meta={meta()}>
+                  {`${label}: ${items()}`}
+                  {unsupported()}
+                </section>
+              );
+            }
+        "#;
+
+        let result = match render_declarative_shadow_dom_module(source, "snapshot.wc.tsx", None) {
+            Ok(result) => result,
+            Err(error) => panic!("DSD render failed: {error}"),
+        };
+
+        assert!(
+            result
+                .template_html
+                .contains("data-items=\"[&quot;A&quot;,&quot;Count&quot;]\"")
+        );
+        assert!(
+            result
+                .template_html
+                .contains("data-meta=\"{&quot;count&quot;:0,&quot;name&quot;:&quot;Count&quot;}\"")
+        );
+        assert!(result.template_html.contains("Count: [\"A\",\"Count\"]"));
+        assert!(
+            result
+                .template_html
+                .contains("data-lean-text=\"text1\"></span>")
+        );
+    }
+
+    #[test]
     fn render_declarative_shadow_dom_module_should_reject_non_object_props() {
         let source = r#"
             export function Counter() {
