@@ -26,6 +26,9 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "optionalDependencies": {
     "@iktia/compiler-darwin-arm64": "workspace:^",
     "@iktia/compiler-darwin-x64": "workspace:^",

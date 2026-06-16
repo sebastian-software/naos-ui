@@ -47,18 +47,18 @@ jobs:
         run: pnpm check-types
 
       - name: Check demo types
-        run: pnpm --filter @lean-wc/example-counter type-check
+        run: pnpm --filter @iktia/example-counter type-check
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @lean-wc/example-counter exec playwright install --with-deps chromium
+        run: pnpm --filter @iktia/example-counter exec playwright install --with-deps chromium
 
       - name: Test demo
-        run: pnpm --filter @lean-wc/example-counter test
+        run: pnpm --filter @iktia/example-counter test -- --project=chromium
 
       - name: Build demo site
-        run: pnpm --filter @lean-wc/example-counter build
+        run: pnpm --filter @iktia/example-counter build
         env:
-          LEAN_WC_GITHUB_PAGES: "true"
+          IKTIA_GITHUB_PAGES: "true"
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

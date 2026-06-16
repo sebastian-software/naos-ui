@@ -1,0 +1,71 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": false,
+  "packages": {
+    "packages/core": {
+      "component": "core",
+      "package-name": "@iktia/core",
+      "release-type": "node"
+    },
+    "packages/runtime": {
+      "component": "runtime",
+      "package-name": "@iktia/runtime",
+      "release-type": "node"
+    },
+    "packages/compiler": {
+      "component": "compiler",
+      "package-name": "@iktia/compiler",
+      "release-type": "node"
+    },
+    "packages/vite": {
+      "component": "vite",
+      "package-name": "@iktia/vite",
+      "release-type": "node"
+    },
+    "packages/cli": {
+      "component": "cli",
+      "package-name": "@iktia/cli",
+      "release-type": "node"
+    },
+    "packages/compiler-darwin-arm64": {
+      "component": "compiler-darwin-arm64",
+      "package-name": "@iktia/compiler-darwin-arm64",
+      "release-type": "node"
+    },
+    "packages/compiler-darwin-x64": {
+      "component": "compiler-darwin-x64",
+      "package-name": "@iktia/compiler-darwin-x64",
+      "release-type": "node"
+    },
+    "packages/compiler-linux-arm64-gnu": {
+      "component": "compiler-linux-arm64-gnu",
+      "package-name": "@iktia/compiler-linux-arm64-gnu",
+      "release-type": "node"
+    },
+    "packages/compiler-linux-arm64-musl": {
+      "component": "compiler-linux-arm64-musl",
+      "package-name": "@iktia/compiler-linux-arm64-musl",
+      "release-type": "node"
+    },
+    "packages/compiler-linux-x64-gnu": {
+      "component": "compiler-linux-x64-gnu",
+      "package-name": "@iktia/compiler-linux-x64-gnu",
+      "release-type": "node"
+    },
+    "packages/compiler-linux-x64-musl": {
+      "component": "compiler-linux-x64-musl",
+      "package-name": "@iktia/compiler-linux-x64-musl",
+      "release-type": "node"
+    },
+    "packages/compiler-win32-arm64-msvc": {
+      "component": "compiler-win32-arm64-msvc",
+      "package-name": "@iktia/compiler-win32-arm64-msvc",
+      "release-type": "node"
+    },
+    "packages/compiler-win32-x64-msvc": {
+      "component": "compiler-win32-x64-msvc",
+      "package-name": "@iktia/compiler-win32-x64-msvc",
+      "release-type": "node"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "packages/core": "0.0.0",
+  "packages/runtime": "0.0.0",
+  "packages/compiler": "0.0.0",
+  "packages/vite": "0.0.0",
+  "packages/cli": "0.0.0",
+  "packages/compiler-darwin-arm64": "0.0.0",
+  "packages/compiler-darwin-x64": "0.0.0",
+  "packages/compiler-linux-arm64-gnu": "0.0.0",
+  "packages/compiler-linux-arm64-musl": "0.0.0",
+  "packages/compiler-linux-x64-gnu": "0.0.0",
+  "packages/compiler-linux-x64-musl": "0.0.0",
+  "packages/compiler-win32-arm64-msvc": "0.0.0",
+  "packages/compiler-win32-x64-msvc": "0.0.0"
+}

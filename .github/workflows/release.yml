@@ -1,0 +1,205 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run npm publish as a dry run"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    name: Validate Release Set
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check release set
+        run: pnpm check-release-set
+
+      - name: Check native types
+        run: pnpm check-native-types
+
+  native:
+    name: Native Package (${{ matrix.package }})
+    needs: validate
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - package: "@iktia/compiler-linux-x64-gnu"
+            path: packages/compiler-linux-x64-gnu
+            os: ubuntu-latest
+            rust_target: x86_64-unknown-linux-gnu
+          - package: "@iktia/compiler-linux-arm64-gnu"
+            path: packages/compiler-linux-arm64-gnu
+            os: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-gnu
+          - package: "@iktia/compiler-linux-x64-musl"
+            path: packages/compiler-linux-x64-musl
+            os: ubuntu-latest
+            rust_target: x86_64-unknown-linux-musl
+          - package: "@iktia/compiler-linux-arm64-musl"
+            path: packages/compiler-linux-arm64-musl
+            os: ubuntu-24.04-arm
+            rust_target: aarch64-unknown-linux-musl
+          - package: "@iktia/compiler-darwin-x64"
+            path: packages/compiler-darwin-x64
+            os: macos-13
+            rust_target: x86_64-apple-darwin
+          - package: "@iktia/compiler-darwin-arm64"
+            path: packages/compiler-darwin-arm64
+            os: macos-14
+            rust_target: aarch64-apple-darwin
+          - package: "@iktia/compiler-win32-x64-msvc"
+            path: packages/compiler-win32-x64-msvc
+            os: windows-latest
+            rust_target: x86_64-pc-windows-msvc
+          - package: "@iktia/compiler-win32-arm64-msvc"
+            path: packages/compiler-win32-arm64-msvc
+            os: windows-11-arm
+            rust_target: aarch64-pc-windows-msvc
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Zig for musl
+        if: contains(matrix.package, 'musl')
+        uses: goto-bus-stop/setup-zig@v2
+
+      - name: Install cargo-zigbuild for musl
+        if: contains(matrix.package, 'musl')
+        run: cargo install cargo-zigbuild
+
+      - name: Build native package
+        run: pnpm --filter ${{ matrix.package }} build
+        env:
+          IKTIA_CARGO_TARGET: ${{ matrix.rust_target }}
+          IKTIA_RUST_PROFILE: release
+
+      - name: Smoke test native package
+        run: node -e "const native = require('./${{ matrix.path }}'); console.log(native.getNativeInfo())"
+
+      - name: Publish native package
+        shell: bash
+        run: |
+          args=(--access public --provenance)
+          should_dry_run=true
+          if [[ "${{ github.event_name }}" == "release" || "${{ inputs.dry_run }}" == "false" ]]; then
+            should_dry_run=false
+          fi
+          if [[ "$should_dry_run" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          npm publish "${args[@]}"
+        working-directory: ${{ matrix.path }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  js:
+    name: JavaScript Packages
+    needs: native
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.6.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build local native binding
+        run: pnpm build:native
+
+      - name: Verify
+        run: pnpm check && pnpm test
+
+      - name: Build packages
+        run: pnpm build
+
+      - name: Publish JavaScript packages
+        shell: bash
+        run: |
+          packages=(
+            packages/core
+            packages/runtime
+            packages/compiler
+            packages/vite
+            packages/cli
+          )
+          args=(--access public --provenance)
+          should_dry_run=true
+          if [[ "${{ github.event_name }}" == "release" || "${{ inputs.dry_run }}" == "false" ]]; then
+            should_dry_run=false
+          fi
+          if [[ "$should_dry_run" == "true" ]]; then
+            args+=(--dry-run)
+          fi
+          for package in "${packages[@]}"; do
+            npm publish "$package" "${args[@]}"
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

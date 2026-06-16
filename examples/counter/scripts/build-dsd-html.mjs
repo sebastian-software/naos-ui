@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url"
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, "../../..")
 const native = createRequire(import.meta.url)(
-  resolve(root, "packages/compiler/native/iktia_node.node")
+  resolve(root, "packages/compiler/native/iktia-node.node")
 )
 
 const components = [
