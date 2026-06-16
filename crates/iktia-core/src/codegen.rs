@@ -44,10 +44,30 @@ pub fn render_declarative_shadow_dom_module(
     filename: &str,
     props_json: Option<&str>,
 ) -> CompilerResult<DeclarativeShadowDomRenderResult> {
+    render_declarative_shadow_dom_module_with_inline_styles(source, filename, props_json, None)
+}
+
+/// Prerenders a TSX module with explicit inline style values.
+///
+/// The `inline_styles_json` argument is an optional JSON object keyed by local
+/// `?inline` style import binding names.
+///
+/// # Errors
+///
+/// Returns [`CompilerError`] when analysis fails, the template cannot be parsed,
+/// `props_json` is not a JSON object, or `inline_styles_json` is not a string
+/// object.
+pub fn render_declarative_shadow_dom_module_with_inline_styles(
+    source: &str,
+    filename: &str,
+    props_json: Option<&str>,
+    inline_styles_json: Option<&str>,
+) -> CompilerResult<DeclarativeShadowDomRenderResult> {
     let module = analyze_component_module(source, filename)?;
     let template = TemplateParser::new(&module.template_source).parse_element()?;
     let props = parse_prerender_props(props_json)?;
-    let mut renderer = DeclarativeShadowDomRenderer::new(&module, props)?;
+    let inline_styles = parse_inline_styles(inline_styles_json)?;
+    let mut renderer = DeclarativeShadowDomRenderer::new(&module, props, inline_styles)?;
     renderer.render(&template)
 }
 
@@ -328,6 +348,7 @@ impl<'a> CodeGenerator<'a> {
             .push(format!("this.#root.append({root_variable});"));
 
         let mut code = String::new();
+        self.emit_style_imports(&mut code)?;
         self.emit_component_imports(&mut code)?;
         writeln!(
             code,
@@ -369,6 +390,22 @@ impl<'a> CodeGenerator<'a> {
             .map_err(format_error)?;
         }
         if !sources.is_empty() {
+            writeln!(code).map_err(format_error)?;
+        }
+        Ok(())
+    }
+
+    fn emit_style_imports(&self, code: &mut String) -> CompilerResult<()> {
+        for style_import in &self.module.style_imports {
+            writeln!(
+                code,
+                "import {} from \"{}\";",
+                style_import.local_name,
+                escape_js_string(&style_import.source)
+            )
+            .map_err(format_error)?;
+        }
+        if !self.module.style_imports.is_empty() {
             writeln!(code).map_err(format_error)?;
         }
         Ok(())
@@ -1325,10 +1362,11 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
     fn new(
         module: &'a ComponentModule,
         props: BTreeMap<String, StaticValue>,
+        inline_styles: BTreeMap<String, StaticValue>,
     ) -> CompilerResult<Self> {
         Ok(Self {
             module,
-            context: StaticEvaluationContext::for_module(module, props)?,
+            context: StaticEvaluationContext::for_module(module, props, inline_styles)?,
             next_node_index: 0,
             next_text_index: 0,
         })
@@ -1691,8 +1729,10 @@ impl StaticEvaluationContext {
     fn for_module(
         module: &ComponentModule,
         props: BTreeMap<String, StaticValue>,
+        inline_styles: BTreeMap<String, StaticValue>,
     ) -> CompilerResult<Self> {
         let mut context = Self::default();
+        context.values.extend(inline_styles);
         for prop in &module.props {
             let default_value = evaluate_expression(&prop.default_value, &context)
                 .unwrap_or_else(|| fallback_static_value_for_prop(prop));
@@ -1730,6 +1770,32 @@ fn parse_prerender_props(
         .into_iter()
         .map(|(key, value)| (key, StaticValue::from_json(value)))
         .collect())
+}
+
+fn parse_inline_styles(
+    inline_styles_json: Option<&str>,
+) -> CompilerResult<BTreeMap<String, StaticValue>> {
+    let Some(inline_styles_json) = inline_styles_json.filter(|value| !value.trim().is_empty())
+    else {
+        return Ok(BTreeMap::new());
+    };
+    let value: JsonValue =
+        serde_json::from_str(inline_styles_json).map_err(|source| CompilerError::Unsupported {
+            message: format!("DSD inline styles must be valid JSON: {source}"),
+        })?;
+    let JsonValue::Object(styles) = value else {
+        return Err(unsupported("DSD inline styles must be a JSON object."));
+    };
+    let mut output = BTreeMap::new();
+    for (key, value) in styles {
+        let JsonValue::String(css) = value else {
+            return Err(unsupported(
+                "DSD inline style values must be strings keyed by local import name.",
+            ));
+        };
+        output.insert(key, StaticValue::String(css));
+    }
+    Ok(output)
 }
 
 fn evaluate_expression(expression: &str, context: &StaticEvaluationContext) -> Option<StaticValue> {

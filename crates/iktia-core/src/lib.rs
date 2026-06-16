@@ -12,12 +12,15 @@ mod model;
 mod naming;
 mod parse;
 
-pub use codegen::{render_declarative_shadow_dom_module, transform_component_module};
+pub use codegen::{
+    render_declarative_shadow_dom_module, render_declarative_shadow_dom_module_with_inline_styles,
+    transform_component_module,
+};
 pub use error::{CompilerError, CompilerResult};
 pub use model::{
     ComponentImport, ComponentModule, ComponentOptions, ComputedDefinition,
     DeclarativeShadowDomRenderResult, EffectDefinition, EventDefinition, PropAccess,
-    PropDefinition, PropKind, StateDefinition, StateKind, TransformResult,
+    PropDefinition, PropKind, StateDefinition, StateKind, StyleImport, TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -31,7 +34,7 @@ pub fn core_version() -> &'static str {
 mod tests {
     use super::{
         StateKind, analyze_component_module, core_version, render_declarative_shadow_dom_module,
-        transform_component_module,
+        render_declarative_shadow_dom_module_with_inline_styles, transform_component_module,
     };
 
     #[test]
@@ -540,10 +543,11 @@ mod tests {
     fn transform_component_module_should_generate_slots_and_shadow_styles() {
         let source = r#"
             import { type ComponentOptions } from "@iktia/core";
+            import css from "./button.css?inline";
 
             export const options = {
               shadow: true,
-              styles: [":host { display: inline-block; }", "button { color: red; }"],
+              styles: [css],
             } satisfies ComponentOptions;
 
             export function Button() {
@@ -561,7 +565,13 @@ mod tests {
             Err(error) => panic!("transform failed: {error}"),
         };
 
+        assert!(
+            result
+                .code
+                .contains("import css from \"./button.css?inline\";")
+        );
         assert!(result.code.contains("style.textContent"));
+        assert!(result.code.contains("[css].join(\"\\n\")"));
         assert!(result.code.contains("document.createElement(\"slot\")"));
         assert!(result.code.contains("setAttribute(\"name\", \"icon\")"));
         assert!(result.code.contains("setAttribute(\"part\", \"button\")"));
@@ -617,6 +627,39 @@ mod tests {
         assert!(result.template_html.contains("data-iktia-text=\"text0\""));
         assert!(result.template_html.contains("Clicks: 0"));
         assert!(!result.template_html.contains("onClick"));
+    }
+
+    #[test]
+    fn render_declarative_shadow_dom_module_should_serialize_resolved_inline_css() {
+        let source = r#"
+            import { type ComponentOptions } from "@iktia/core";
+            import css from "./counter.css?inline";
+
+            export const options = {
+              shadow: true,
+              styles: [css],
+            } satisfies ComponentOptions;
+
+            export function Counter() {
+              return <button>Count</button>;
+            }
+        "#;
+
+        let result = match render_declarative_shadow_dom_module_with_inline_styles(
+            source,
+            "counter.wc.tsx",
+            None,
+            Some(r#"{"css":":host { display: block; }"}"#),
+        ) {
+            Ok(result) => result,
+            Err(error) => panic!("DSD render failed: {error}"),
+        };
+
+        assert!(
+            result
+                .template_html
+                .contains("<style>:host { display: block; }</style>")
+        );
     }
 
     #[test]

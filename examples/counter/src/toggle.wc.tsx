@@ -8,6 +8,7 @@ import {
   state,
   type ComponentOptions,
 } from "@iktia/core"
+import css from "./toggle.wc.css?inline"
 
 export type ToggleProps = {
   disabled?: boolean
@@ -16,12 +17,7 @@ export type ToggleProps = {
 
 export const options = {
   shadow: true,
-  styles: [
-    ":host { display: inline-block; font-family: system-ui, sans-serif; }",
-    "button { display: inline-flex; align-items: center; gap: 0.5rem; border: 1px solid #888; border-radius: 0.375rem; padding: 0.5rem 0.75rem; background: white; color: #111; }",
-    "button[data-state='on'] { border-color: #0f766e; background: #ecfdf5; }",
-    "[part~='indicator'] { font-size: 0.75rem; color: #475569; }",
-  ],
+  styles: [css],
 } satisfies ComponentOptions
 
 export function Toggle({ disabled = false, label = "Toggle" }: ToggleProps = {}) {

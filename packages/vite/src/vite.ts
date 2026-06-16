@@ -1,4 +1,5 @@
-import { isAbsolute, relative } from "node:path"
+import { readFile } from "node:fs/promises"
+import { dirname, isAbsolute, relative, resolve } from "node:path"
 
 import {
   renderDeclarativeShadowDom,
@@ -48,7 +49,7 @@ export function iktia(options: IktiaVitePluginOptions = {}): Plugin {
   return {
     name: "iktia:transform",
     enforce: "pre",
-    transform(code, id) {
+    async transform(code, id) {
       const filename = stripQuery(id)
       if (!filter(filename)) {
         return null
@@ -65,8 +66,10 @@ export function iktia(options: IktiaVitePluginOptions = {}): Plugin {
         }
 
         if (prerenderFilter?.(filename)) {
+          const inlineStyles = await resolveInlineStyles(code, filename)
           const prerendered = renderIktiaDeclarativeShadowDom({
             filename,
+            inlineStyles,
             source: code,
           })
           const manifestPath = manifestComponentPath(filename)
@@ -114,6 +117,41 @@ export function renderIktiaDeclarativeShadowDom(
   request: RenderDeclarativeShadowDomRequest
 ): RenderDeclarativeShadowDomResult {
   return renderDeclarativeShadowDom(request)
+}
+
+async function resolveInlineStyles(
+  source: string,
+  filename: string
+): Promise<Record<string, string> | undefined> {
+  const imports = inlineCssImports(source)
+  if (imports.length === 0) {
+    return undefined
+  }
+
+  const inlineStyles: Record<string, string> = {}
+  for (const styleImport of imports) {
+    const cssPath = resolve(dirname(filename), stripQuery(styleImport.source))
+    inlineStyles[styleImport.localName] = await readFile(cssPath, "utf8")
+  }
+  return inlineStyles
+}
+
+type InlineCssImport = {
+  localName: string
+  source: string
+}
+
+function inlineCssImports(source: string): InlineCssImport[] {
+  const imports: InlineCssImport[] = []
+  const regex =
+    /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline(?:&[^"']*)?)["']/g
+  for (const match of source.matchAll(regex)) {
+    const [, localName, importSource] = match
+    if (localName && importSource) {
+      imports.push({ localName, source: importSource })
+    }
+  }
+  return imports
 }
 
 function stripQuery(id: string): string {

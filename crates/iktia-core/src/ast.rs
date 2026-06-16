@@ -10,7 +10,7 @@ use oxc_span::{GetSpan, SourceType, Span};
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
     ComponentImport, ComputedDefinition, EffectDefinition, EventDefinition, StateDefinition,
-    StateKind,
+    StateKind, StyleImport,
 };
 use crate::naming::is_pascal_case_identifier;
 
@@ -49,6 +49,7 @@ pub(crate) struct AstFunctionComponent {
 #[derive(Debug, Default)]
 pub(crate) struct AstModuleFacts {
     pub(crate) component_imports: Vec<ComponentImport>,
+    pub(crate) style_imports: Vec<StyleImport>,
     pub(crate) function_components: Vec<AstFunctionComponent>,
 }
 
@@ -100,6 +101,7 @@ impl<'a, 'program> AstAnalyzer<'a, 'program> {
         match statement {
             Statement::ImportDeclaration(import) => {
                 capture_component_imports(import, facts);
+                capture_style_imports(import, facts);
             }
             Statement::ExportNamedDeclaration(export) => {
                 if let Some(Declaration::FunctionDeclaration(function)) = &export.declaration {
@@ -163,6 +165,33 @@ fn capture_component_imports(
             ImportDeclarationSpecifier::ImportNamespaceSpecifier(_) => {}
         }
     }
+}
+
+fn capture_style_imports(import: &oxc_ast::ast::ImportDeclaration<'_>, facts: &mut AstModuleFacts) {
+    let source = import.source.value.as_str();
+    if !is_inline_css_source(source) {
+        return;
+    }
+
+    let Some(specifiers) = &import.specifiers else {
+        return;
+    };
+
+    for specifier in specifiers {
+        if let ImportDeclarationSpecifier::ImportDefaultSpecifier(specifier) = specifier {
+            facts.style_imports.push(StyleImport {
+                local_name: specifier.local.name.as_str().to_owned(),
+                source: source.to_owned(),
+            });
+        }
+    }
+}
+
+fn is_inline_css_source(source: &str) -> bool {
+    let Some((path, query)) = source.split_once('?') else {
+        return false;
+    };
+    path.ends_with(".css") && query.split('&').any(|part| part == "inline")
 }
 
 fn module_export_name(name: &ModuleExportName<'_>) -> Option<String> {

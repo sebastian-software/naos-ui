@@ -168,6 +168,10 @@ test("declarative shadow dom remounts on production hydration mismatches", async
     const response = await fetch("/src/counter.wc.tsx")
     let code = await response.text()
     code = code.replace("return import.meta.env?.DEV ?? true;", "return false;")
+    code = code.replaceAll(
+      "/src/counter.wc.css?inline",
+      "data:text/javascript,export default %22%22"
+    )
     const url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }))
     try {
       await import(url)

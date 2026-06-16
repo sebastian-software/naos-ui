@@ -70,12 +70,14 @@ container on update; keyed diffing is not part of the current MVP.
 ## Styling Boundary
 
 `styles: [...]` injects string expressions into a generated `<style>` element
-when `shadow: true`.
+when `shadow: true`. Public v0.1 component CSS uses Vite `?inline` imports.
 
 ```tsx
+import css from "./button.css?inline"
+
 export const options = {
   shadow: true,
-  styles: [":host { display: inline-block; }", "button { color: red; }"],
+  styles: [css],
 } satisfies ComponentOptions
 
 export function Button() {
@@ -83,9 +85,11 @@ export function Button() {
 }
 ```
 
-The current MVP is designed for inline string expressions. CSS module imports,
-Vanilla Extract integration, constructable stylesheets, CSS asset bundling, and
-source-map-aware CSS diagnostics are later milestones.
+The current MVP is designed for flat CSS text. Vite owns the import, asset, and
+invalidation behavior; Iktia does not implement a CSS graph. CSS module
+contracts, Sass, recursive CSS imports, constructable stylesheets, CSS asset
+bundling, and source-map-aware CSS diagnostics are later milestones. CSS custom
+properties are the v0.1 theming mechanism.
 
 ## Declarative Shadow DOM Boundary
 
@@ -96,7 +100,8 @@ public `ComponentOptions.dsd` flag.
 The DSD serializer supports:
 
 * `shadow: true` components with `shadowrootmode="open"`.
-* Static elements, static attributes, text, slots, and inline style strings.
+* Static elements, static attributes, text, slots, and resolved `?inline` CSS
+  text.
 * Prop defaults and JSON-provided prerender props.
 * `state()` initializers when they are supported literals.
 * Literal arrays and objects for initial values.

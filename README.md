@@ -161,6 +161,7 @@ as `CounterButton` compile to `counter-button`.
 
 ```tsx
 import { Show, computed, event, on, state, type ComponentOptions } from "@iktia/core"
+import css from "./button.css?inline"
 
 export type ButtonProps = {
   label?: string
@@ -169,7 +170,7 @@ export type ButtonProps = {
 export const options = {
   shadow: true,
   define: true,
-  styles: [":host { display: inline-block; }"],
+  styles: [css],
 } satisfies ComponentOptions
 
 export function Button({ label = "Save" }: ButtonProps = {}) {
@@ -228,10 +229,15 @@ For details, see [docs/authoring.md](docs/authoring.md).
 
 ```txt
 @iktia/core       Authoring API and JSX runtime types
-@iktia/runtime    Runtime helpers used by generated elements
+@iktia/runtime    Tiny platform helpers for generated elements
 @iktia/compiler   Node wrapper around the Rust compiler
 @iktia/vite       Vite transform and optional DSD manifest plugin
 ```
+
+`@iktia/runtime` is intentionally not a component runtime. It may expose small
+platform helpers such as event creation, scheduling, or hydration helpers, but
+it must not grow into a reconciler, virtual DOM, hook system, or framework
+runtime.
 
 ## Architecture
 
@@ -249,6 +255,19 @@ For details, see [docs/authoring.md](docs/authoring.md).
 The TypeScript packages stay thin. They provide types, authoring stubs, runtime
 helpers, and bundler integration. The Rust crates own parsing, analysis, and
 output decisions.
+
+Component styles use Vite `?inline` CSS text imports:
+
+```tsx
+import css from "./button.css?inline"
+
+export const options = {
+  styles: [css],
+} satisfies ComponentOptions
+```
+
+Iktia treats CSS as flat text for v0.1. Vite owns CSS loading; CSS custom
+properties are the supported theming boundary.
 
 The normal Vite transform emits imperative Custom Element modules. The separate
 `renderDeclarativeShadowDom()` path prerenders compiler-known `shadow: true`

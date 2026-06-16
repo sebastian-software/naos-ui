@@ -59,14 +59,14 @@ describe("@iktia/compiler wrapper", () => {
     })
   })
 
-  it("serializes prerender props before forwarding DSD requests", () => {
+  it("serializes prerender props and inline styles before forwarding DSD requests", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
       transformComponent: () => ({ code: "", hasChanged: false }),
       renderDeclarativeShadowDom: (request) => ({
         className: "CounterElement",
         exportName: "Counter",
-        html: `props:${request.propsJson}`,
+        html: `props:${request.propsJson};styles:${request.inlineStylesJson}`,
         shadow: true,
         tagName: "x-counter",
         templateHtml: "<template shadowrootmode=\"open\"></template>",
@@ -77,13 +77,14 @@ describe("@iktia/compiler wrapper", () => {
     expect(
       renderDeclarativeShadowDom({
         filename: "counter.wc.tsx",
+        inlineStyles: { css: ":host { display: block; }" },
         props: { label: "Count" },
         source: "source",
       })
     ).toEqual({
       className: "CounterElement",
       exportName: "Counter",
-      html: 'props:{"label":"Count"}',
+      html: 'props:{"label":"Count"};styles:{"css":":host { display: block; }"}',
       shadow: true,
       tagName: "x-counter",
       templateHtml: '<template shadowrootmode="open"></template>',

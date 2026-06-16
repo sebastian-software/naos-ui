@@ -118,14 +118,17 @@ iktia({
 ```
 
 For direct prerendering, call the Node wrapper with source text and optional
-initial props. The Rust core serializes `shadow: true` components as host HTML
-with `<template shadowrootmode="open">`.
+initial props. If the source uses `?inline` CSS imports outside the Vite plugin,
+pass resolved CSS text through `inlineStyles` keyed by local import name. The
+Rust core serializes `shadow: true` components as host HTML with
+`<template shadowrootmode="open">`.
 
 ```ts
 import { renderDeclarativeShadowDom } from "@iktia/compiler"
 
 const rendered = renderDeclarativeShadowDom({
   filename: "counter.wc.tsx",
+  inlineStyles: { css },
   props: { label: "Count" },
   source,
 })
@@ -135,8 +138,9 @@ console.log(rendered.html)
 
 The generated client module reuses an existing declarative shadow root before
 falling back to `attachShadow()`. Hydration markers are emitted only in DSD
-HTML. Development builds throw clear mismatch diagnostics; production builds
-remount imperatively if the prerendered structure is stale.
+HTML and are internal generated markup, not semver-protected selectors.
+Development builds throw clear mismatch diagnostics; production builds remount
+imperatively if the prerendered structure is stale.
 
 ## Function Components
 
@@ -184,10 +188,12 @@ Function components can export an `options` constant. It uses the defaults shown
 below.
 
 ```ts
+import css from "./text-field.css?inline"
+
 export const options = {
   shadow: true,
   define: true,
-  styles: [":host { display: block; }"],
+  styles: [css],
 } satisfies ComponentOptions
 ```
 
@@ -196,9 +202,14 @@ export const options = {
 * `define`: when `true`, the generated module registers the element. When
   `false`, the module exports a generated `defineXName()` function instead.
 * `styles`: string expressions injected into a generated `<style>` element at
-  the start of the shadow root. The MVP supports simple inline expressions.
-  DSD prerender serializes supported style strings into the declarative shadow
-  template.
+  the start of the shadow root. Public v0.1 CSS should come from Vite
+  `?inline` text imports, for example `import css from "./x.css?inline"`.
+  Declarative Shadow DOM prerender serializes resolved inline CSS text into the
+  declarative shadow template.
+
+CSS stays flat in v0.1: no Iktia CSS graph, CSS Modules contract, Sass
+contract, or CSS helper. Use CSS custom properties for theming across component
+boundaries.
 
 ## Props
 

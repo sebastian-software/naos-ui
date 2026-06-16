@@ -13,6 +13,8 @@ pub struct ComponentModule {
     pub options: ComponentOptions,
     /// Component imports that should be preserved for nested Custom Element registration.
     pub component_imports: Vec<ComponentImport>,
+    /// Inline CSS imports referenced by component styles.
+    pub style_imports: Vec<StyleImport>,
     /// Public props declared through function parameters.
     pub props: Vec<PropDefinition>,
     /// Internal state declarations.
@@ -35,6 +37,15 @@ pub struct ComponentImport {
     /// Imported export name from the source module.
     pub imported_name: String,
     /// Local binding name used in the current module.
+    pub local_name: String,
+    /// Import source specifier.
+    pub source: String,
+}
+
+/// Imported `?inline` style text binding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StyleImport {
+    /// Local binding name used in `ComponentOptions.styles`.
     pub local_name: String,
     /// Import source specifier.
     pub source: String,

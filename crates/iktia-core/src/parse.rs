@@ -4,6 +4,7 @@ use crate::ast::{
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
     ComponentImport, ComponentModule, ComponentOptions, PropAccess, PropDefinition, PropKind,
+    StyleImport,
 };
 use crate::naming::{custom_element_tag_for_component, kebab_case_identifier};
 
@@ -17,8 +18,14 @@ pub fn analyze_component_module(source: &str, filename: &str) -> CompilerResult<
     let ast_facts = analyze_module(source, filename)?;
 
     let component_imports = ast_facts.component_imports.clone();
+    let style_imports = ast_facts.style_imports.clone();
     if let Some(function_component) = capture_function_component(source, &ast_facts)? {
-        return analyze_function_component(source, function_component, component_imports);
+        return analyze_function_component(
+            source,
+            function_component,
+            component_imports,
+            style_imports,
+        );
     }
 
     reject_removed_module_apis(source)?;
@@ -37,6 +44,7 @@ fn analyze_function_component(
     source: &str,
     function_component: FunctionComponent<'_>,
     component_imports: Vec<ComponentImport>,
+    style_imports: Vec<StyleImport>,
 ) -> CompilerResult<ComponentModule> {
     let tag_name = custom_element_tag_for_component(&function_component.name);
     let class_name = format!("{}Element", function_component.name);
@@ -48,6 +56,7 @@ fn analyze_function_component(
         export_name: Some(function_component.name),
         options,
         component_imports,
+        style_imports,
         props: capture_function_props(function_component.params)?,
         states: function_component.semantics.states,
         computed: function_component.semantics.computed,

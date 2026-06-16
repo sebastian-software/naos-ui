@@ -29,6 +29,7 @@ function renderComponent(component) {
   const source = readFileSync(component.filename, "utf8")
   const rendered = native.renderDeclarativeShadowDom({
     filename: component.filename,
+    inlineStylesJson: JSON.stringify(resolveInlineStyles(source, component.filename)),
     propsJson: JSON.stringify(component.props),
     source,
   })
@@ -44,6 +45,18 @@ function renderComponent(component) {
     ...rendered,
     html,
   }
+}
+
+function resolveInlineStyles(source, filename) {
+  const inlineStyles = {}
+  const regex =
+    /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline(?:&[^"']*)?)["']/g
+  for (const match of source.matchAll(regex)) {
+    const [, localName, importSource] = match
+    const cssPath = resolve(dirname(filename), importSource.split("?")[0])
+    inlineStyles[localName] = readFileSync(cssPath, "utf8")
+  }
+  return inlineStyles
 }
 
 const renderedComponents = components.map(renderComponent)

@@ -50,6 +50,8 @@ pub struct NativeDeclarativeShadowDomRequest {
     pub filename: String,
     /// Optional JSON object containing initial prop values.
     pub props_json: Option<String>,
+    /// Optional JSON object containing resolved `?inline` CSS text by local import name.
+    pub inline_styles_json: Option<String>,
 }
 
 /// Result returned by the native Declarative Shadow DOM prerender workflow.
@@ -97,10 +99,11 @@ pub fn transform_component(request: NativeTransformRequest) -> napi::Result<Nati
 pub fn render_declarative_shadow_dom(
     request: NativeDeclarativeShadowDomRequest,
 ) -> napi::Result<NativeDeclarativeShadowDomResult> {
-    iktia_core::render_declarative_shadow_dom_module(
+    iktia_core::render_declarative_shadow_dom_module_with_inline_styles(
         &request.source,
         &request.filename,
         request.props_json.as_deref(),
+        request.inline_styles_json.as_deref(),
     )
     .map(|result| NativeDeclarativeShadowDomResult {
         tag_name: result.tag_name,

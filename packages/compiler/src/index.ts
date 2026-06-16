@@ -22,6 +22,7 @@ export type RenderDeclarativeShadowDomRequest = {
   source: string
   filename: string
   props?: DeclarativeShadowDomProps
+  inlineStyles?: Record<string, string>
 }
 
 export type RenderDeclarativeShadowDomResult = {
@@ -48,6 +49,7 @@ type NativeDeclarativeShadowDomRequest = {
   source: string
   filename: string
   propsJson?: string
+  inlineStylesJson?: string
 }
 
 type NativeBindings = {
@@ -76,6 +78,9 @@ export function renderDeclarativeShadowDom(
 ): RenderDeclarativeShadowDomResult {
   return loadNativeBindings().renderDeclarativeShadowDom({
     filename: request.filename,
+    inlineStylesJson: request.inlineStyles
+      ? JSON.stringify(request.inlineStyles)
+      : undefined,
     propsJson: request.props ? JSON.stringify(request.props) : undefined,
     source: request.source,
   })

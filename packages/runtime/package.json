@@ -1,7 +1,7 @@
 {
   "name": "@iktia/runtime",
   "version": "0.0.0",
-  "description": "Runtime helpers for Iktia generated native interface elements.",
+  "description": "Tiny platform helpers for Iktia generated native interface elements.",
   "license": "Apache-2.0",
   "type": "module",
   "exports": {

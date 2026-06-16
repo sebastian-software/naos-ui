@@ -128,9 +128,11 @@ the runtime hydrates.
 For a component like:
 
 ```tsx
+import css from "./counter.css?inline"
+
 export const options = {
   shadow: true,
-  styles: [":host { display: inline-block; }"],
+  styles: [css],
 } satisfies ComponentOptions
 
 export function Counter({ label = "Count" }: CounterProps = {}) {
