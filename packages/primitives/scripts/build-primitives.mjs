@@ -48,6 +48,8 @@ const components = [
   "tabs",
   "tags-input",
   "tooltip",
+  "toast",
+  "toast-root",
   "toggle",
   "toggle-group",
   "toggle-item",
@@ -82,6 +84,7 @@ const zagFiles = [
   "tabs",
   "tags-input",
   "tooltip",
+  "toast",
   "toggle",
   "toggle-group",
 ]

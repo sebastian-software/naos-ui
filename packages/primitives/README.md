@@ -49,6 +49,7 @@ import "@iktia/primitives/toggle"
 | `<iktia-tabs>` / `<iktia-tab>` / `<iktia-tab-panel>` | Zag-backed tab collection with subcomponent tabs, panels, roving focus, and a legacy three-panel fallback. | Experimental |
 | `<iktia-tags-input>` | Zag-backed token input with delimiter entry, paste handling, delete controls, and native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-tooltip>` | Zag-backed hover/focus tooltip with positioned content, Escape close, and open events. | Experimental overlay MVP |
+| `<iktia-toast>` / `<iktia-toast-root>` | Zag-backed toast trigger and notification root with store lifecycle, dismiss behavior, parts, and CSS custom properties. | Experimental feedback MVP |
 | `<iktia-toggle>` | Pressed/on-off button primitive with native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-toggle-group>` / `<iktia-toggle-item>` | Zag-backed single or multiple toggle collection with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
 

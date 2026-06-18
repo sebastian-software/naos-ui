@@ -171,6 +171,14 @@
       "types": "./dist/tooltip.d.mts",
       "import": "./dist/tooltip.mjs"
     },
+    "./toast": {
+      "types": "./dist/toast.d.mts",
+      "import": "./dist/toast.mjs"
+    },
+    "./toast-root": {
+      "types": "./dist/toast-root.d.mts",
+      "import": "./dist/toast-root.mjs"
+    },
     "./toggle": {
       "types": "./dist/toggle.d.mts",
       "import": "./dist/toggle.mjs"

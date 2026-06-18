@@ -56,6 +56,8 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./tabs.mjs\"")
     expect(index).toContain("export * from \"./tags-input.mjs\"")
     expect(index).toContain("export * from \"./tooltip.mjs\"")
+    expect(index).toContain("export * from \"./toast.mjs\"")
+    expect(index).toContain("export * from \"./toast-root.mjs\"")
     expect(index).toContain("export * from \"./toggle.mjs\"")
     expect(index).toContain("export * from \"./toggle-group.mjs\"")
     expect(index).toContain("export * from \"./toggle-item.mjs\"")
@@ -98,6 +100,7 @@ describe("@iktia/primitives build output", () => {
     const tabs = readFileSync(join(distRoot, "internal", "zag", "tabs.js"), "utf8")
     const tagsInput = readFileSync(join(distRoot, "internal", "zag", "tags-input.js"), "utf8")
     const tooltip = readFileSync(join(distRoot, "internal", "zag", "tooltip.js"), "utf8")
+    const toast = readFileSync(join(distRoot, "internal", "zag", "toast.js"), "utf8")
     const toggle = readFileSync(join(distRoot, "internal", "zag", "toggle.js"), "utf8")
     const toggleGroup = readFileSync(join(distRoot, "internal", "zag", "toggle-group.js"), "utf8")
 
@@ -139,6 +142,8 @@ describe("@iktia/primitives build output", () => {
     expect(tabs).toContain("syncIktiaTabsItems")
     expect(tagsInput).toContain("@zag-js/tags-input")
     expect(tooltip).toContain("@zag-js/tooltip")
+    expect(toast).toContain("@zag-js/toast")
+    expect(toast).toContain("createIktiaZagToastGroupService")
     expect(toggle).toContain("@zag-js/toggle")
     expect(toggleGroup).toContain("@zag-js/toggle-group")
     expect(toggleGroup).toContain("syncIktiaToggleGroupItems")
@@ -390,6 +395,21 @@ describe("@iktia/primitives build output", () => {
     expect(tooltip).toContain("#applySpreadAttributes")
     expect(tooltip).not.toContain("@iktia/core")
     expect(tooltip).not.toContain("type IktiaZagTooltipService")
+  })
+
+  it("backs toast primitives with the private Zag adapter", () => {
+    const toast = readFileSync(join(distRoot, "toast.mjs"), "utf8")
+    const toastRoot = readFileSync(join(distRoot, "toast-root.mjs"), "utf8")
+
+    expect(toast).toContain("from \"./internal/zag/toast.js\"")
+    expect(toast).toContain("createIktiaToast")
+    expect(toast).not.toContain("@iktia/core")
+    expect(toastRoot).toContain("from \"./internal/zag/toast.js\"")
+    expect(toastRoot).toContain("createIktiaZagToastGroupService")
+    expect(toastRoot).toContain("syncIktiaToastServices")
+    expect(toastRoot).toContain("#applySpreadAttributes")
+    expect(toastRoot).not.toContain("@iktia/core")
+    expect(toastRoot).not.toContain("type IktiaZagToastGroupService")
   })
 
   it("backs hover card with the private Zag adapter", () => {

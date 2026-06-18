@@ -32,6 +32,19 @@ async function expectPrimitiveEvent(
     .toBe(true)
 }
 
+async function expectPrimitiveEventType(page: Page, type: string) {
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        (type) =>
+          window.__iktiaPrimitiveEvents?.some((event) => event.type === type) ??
+          false,
+        type
+      )
+    )
+    .toBe(true)
+}
+
 test("compiled counter renders, updates, and emits detail", async ({ page }) => {
   await page.goto("/")
 
@@ -175,10 +188,12 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
     for (const type of [
       "iktia-cancel",
       "iktia-change",
+      "iktia-create",
       "iktia-edit-change",
       "iktia-open-change",
       "iktia-press",
       "iktia-select",
+      "iktia-status-change",
       "iktia-submit",
     ]) {
       document.addEventListener(type, (event) => {
@@ -293,6 +308,11 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   const avatarRoot = avatar.locator("[part~='root']")
   const avatarImage = avatar.locator("[part~='image']")
   const avatarFallback = avatar.locator("[part~='fallback']")
+  const toast = section.locator("iktia-toast")
+  const toastTrigger = toast.locator("[part~='trigger']")
+  const toastRoot = section.locator("iktia-toast-root")
+  const toastRegion = toastRoot.locator("[part~='root']")
+  const toastItems = toastRoot.locator("[part~='toast']")
   const tabs = section.locator("iktia-tabs")
   const tabItems = tabs.locator("iktia-tab")
   const tabPanels = tabs.locator("iktia-tab-panel")
@@ -457,6 +477,9 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(avatarImage).toHaveAttribute("alt", "Operations")
   await expect(avatarImage).toBeVisible()
   await expect(avatarFallback).toBeHidden()
+  await expect(toastTrigger).toHaveAttribute("data-type", "success")
+  await expect(toastRegion).toHaveAttribute("role", "region")
+  await expect(toastRegion).toHaveAttribute("data-count", "0")
   await expect(tabItems).toHaveCount(3)
   await expect(tabItems.nth(0)).toHaveAttribute("role", "tab")
   await expect(tabItems.nth(0)).toHaveAttribute("data-state", "selected")
@@ -1004,6 +1027,20 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
     }))
   })
   await expect(hoverCardContent).toBeHidden()
+
+  await toastTrigger.click()
+  await expectPrimitiveEventType(page, "iktia-create")
+  await expect(toastRegion).toHaveAttribute("data-count", "1")
+  await expect(toastItems).toHaveCount(1)
+  await expect(toastItems.nth(0)).toHaveAttribute("data-type", "success")
+  await expect(toastItems.nth(0).locator("[part~='title']")).toHaveText(
+    "Release queued"
+  )
+  await expect(toastItems.nth(0).locator("[part~='description']")).toContainText(
+    "managed by the Zag toast store"
+  )
+  await toastItems.nth(0).locator("[part~='close']").click()
+  await expect(toastRegion).toHaveAttribute("data-count", "0")
 })
 
 test("form-associated primitive controls receive disabled fieldset state", async ({
