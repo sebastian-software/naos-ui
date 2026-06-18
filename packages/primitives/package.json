@@ -43,6 +43,14 @@
       "types": "./dist/radio-group.d.mts",
       "import": "./dist/radio-group.mjs"
     },
+    "./segmented-control": {
+      "types": "./dist/segmented-control.d.mts",
+      "import": "./dist/segmented-control.mjs"
+    },
+    "./segmented-item": {
+      "types": "./dist/segmented-item.d.mts",
+      "import": "./dist/segmented-item.mjs"
+    },
     "./tab": {
       "types": "./dist/tab.d.mts",
       "import": "./dist/tab.mjs"

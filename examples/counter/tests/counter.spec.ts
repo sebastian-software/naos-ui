@@ -149,6 +149,8 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   const radios = radioGroup.locator("iktia-radio")
   const toggleGroup = section.locator("iktia-toggle-group")
   const toggleItems = toggleGroup.locator("iktia-toggle-item")
+  const segmentedControl = section.locator("iktia-segmented-control")
+  const segments = segmentedControl.locator("iktia-segmented-item")
   const tabs = section.locator("iktia-tabs")
   const tabItems = tabs.locator("iktia-tab")
   const tabPanels = tabs.locator("iktia-tab-panel")
@@ -180,6 +182,14 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(toggleItems.nth(0)).toHaveAttribute("role", "button")
   await expect(toggleItems.nth(0)).toHaveAttribute("aria-pressed", "true")
   await expect(toggleItems.nth(2)).toHaveAttribute("aria-disabled", "true")
+  await expect(segmentedControl.locator("[role='radiogroup']")).toHaveAttribute(
+    "data-state",
+    "weekly"
+  )
+  await expect(segments).toHaveCount(4)
+  await expect(segments.nth(1)).toHaveAttribute("role", "radio")
+  await expect(segments.nth(1)).toHaveAttribute("data-state", "selected")
+  await expect(segments.nth(3)).toHaveAttribute("aria-disabled", "true")
   await expect(tabItems).toHaveCount(3)
   await expect(tabItems.nth(0)).toHaveAttribute("role", "tab")
   await expect(tabItems.nth(0)).toHaveAttribute("data-state", "selected")
@@ -222,13 +232,24 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
     '"value":["docs"]'
   )
 
+  await segments.nth(2).click()
+  await expect(segments.nth(2)).toHaveAttribute("data-state", "selected")
+  await expect(page.locator("#primitive-event")).toContainText('"value":"monthly"')
+  await expect(segments.nth(2)).toBeFocused()
+  await segments.nth(2).press("ArrowLeft")
+  await expect(segments.nth(1)).toHaveAttribute("data-state", "selected")
+  await expect(segments.nth(1)).toBeFocused()
+  await segments.nth(1).press("End")
+  await expect(segments.nth(2)).toHaveAttribute("data-state", "selected")
+  await expect(segments.nth(2)).toBeFocused()
+
   await form.locator("button[type='submit']").click()
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "docs:reviewed, preview:enabled, audience:stable, channels:docs"
+    "docs:reviewed, preview:enabled, audience:stable, channels:docs, cadence:monthly"
   )
   await expect(page.locator("#primitive-form-event")).toHaveText(
-    "Last primitive form data: docs:reviewed, preview:enabled, audience:stable, channels:docs"
+    "Last primitive form data: docs:reviewed, preview:enabled, audience:stable, channels:docs, cadence:monthly"
   )
 
   await form.locator("button[type='reset']").click()
@@ -237,10 +258,22 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(radios.nth(0)).toHaveAttribute("data-state", "unchecked")
   await expect(toggleItems.nth(0)).toHaveAttribute("data-state", "on")
   await expect(toggleItems.nth(1)).toHaveAttribute("data-state", "off")
+  await expect(segments.nth(1)).toHaveAttribute("data-state", "selected")
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "channels:web"
+    "channels:web, cadence:weekly"
   )
+
+  await segmentedControl.evaluate((element) => {
+    const item = document.createElement("iktia-segmented-item")
+    item.setAttribute("value", "quarterly")
+    item.setAttribute("label", "Quarterly")
+    element.append(item)
+  })
+  await expect(segments).toHaveCount(5)
+  await segments.nth(4).click()
+  await expect(segments.nth(4)).toHaveAttribute("data-state", "selected")
+  await expect(page.locator("#primitive-event")).toContainText('"value":"quarterly"')
 
   await tabItems.nth(1).click()
   await expect(contractPanel).toBeHidden()
@@ -327,6 +360,9 @@ test("form-associated primitive controls receive disabled fieldset state", async
         <iktia-toggle-group name="blocked-toggle-group" label="Blocked toggles" multiple>
           <iktia-toggle-item value="yes" label="Yes"></iktia-toggle-item>
         </iktia-toggle-group>
+        <iktia-segmented-control name="blocked-segmented" label="Blocked segmented">
+          <iktia-segmented-item value="yes" label="Yes"></iktia-segmented-item>
+        </iktia-segmented-control>
       </fieldset>
     `
     document.body.append(form)
@@ -336,11 +372,13 @@ test("form-associated primitive controls receive disabled fieldset state", async
   const radio = page.locator("form fieldset iktia-radio")
   const toggleButton = page.locator("form fieldset iktia-toggle button")
   const toggleItem = page.locator("form fieldset iktia-toggle-item")
+  const segmentedItem = page.locator("form fieldset iktia-segmented-item")
 
   await expect(checkboxButton).toBeDisabled()
   await expect(toggleButton).toBeDisabled()
   await expect(radio).toHaveAttribute("aria-disabled", "true")
   await expect(toggleItem).toHaveAttribute("aria-disabled", "true")
+  await expect(segmentedItem).toHaveAttribute("aria-disabled", "true")
   await checkboxButton.evaluate((button) =>
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
   )
@@ -353,10 +391,14 @@ test("form-associated primitive controls receive disabled fieldset state", async
   await toggleItem.evaluate((item) =>
     item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
   )
+  await segmentedItem.evaluate((item) =>
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+  )
   await expect(checkboxButton).toHaveAttribute("data-state", "unchecked")
   await expect(toggleButton).toHaveAttribute("data-state", "off")
   await expect(radio).toHaveAttribute("data-state", "unchecked")
   await expect(toggleItem).toHaveAttribute("data-state", "off")
+  await expect(segmentedItem).toHaveAttribute("data-state", "unselected")
 })
 
 test("declarative shadow dom renders useful DOM before upgrade and hydrates after upgrade", async ({
