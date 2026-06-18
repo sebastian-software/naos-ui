@@ -4,8 +4,9 @@ import {
   type Api as ZagTabsApi,
 } from "@zag-js/tabs"
 
-import { type TabsOrientation } from "./tabs.js"
-import { createZagService } from "./zag-service.js"
+import { type TabsOrientation } from "../behavior/tabs.js"
+import { normalizeZagProps } from "./props.js"
+import { createZagService } from "./service.js"
 
 type ZagTabsProbeOptions = {
   composite?: boolean
@@ -13,11 +14,6 @@ type ZagTabsProbeOptions = {
   orientation?: TabsOrientation
   value: string
   values: readonly string[]
-}
-
-const normalizeProps = {
-  button: <T extends Record<string, unknown>>(props: T) => props,
-  element: <T extends Record<string, unknown>>(props: T) => props,
 }
 
 export type ZagTabsProbe = {
@@ -31,6 +27,7 @@ type FakeTabElement = {
   dataset: { value: string }
   focus(): void
   id: string
+  matches(selector: string): boolean
 }
 
 type FakeListElement = {
@@ -56,6 +53,7 @@ export function createZagTabsProbe({
       service.send({ type: "TAB_FOCUS", value: item })
     },
     id: triggerId(item),
+    matches: () => false,
   }))
   const list: FakeListElement = {
     querySelectorAll: () => triggers,
@@ -92,7 +90,7 @@ export function createZagTabsProbe({
   void values
 
   return {
-    api: () => connect(service as never, normalizeProps as never),
+    api: () => connect(service as never, normalizeZagProps as never),
     focusedElement: () => focusedElement,
     sentEvents: () => sentEvents,
     value: () => service.context.get("value") as string | null,

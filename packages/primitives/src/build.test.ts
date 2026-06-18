@@ -37,6 +37,18 @@ describe("@iktia/primitives build output", () => {
     expect(checkbox).not.toContain("@iktia/core")
   })
 
+  it("builds private Zag adapter helpers without adding public exports", () => {
+    const index = readFileSync(join(distRoot, "index.mjs"), "utf8")
+    const service = readFileSync(join(distRoot, "internal", "zag", "service.js"), "utf8")
+    const props = readFileSync(join(distRoot, "internal", "zag", "props.js"), "utf8")
+    const scope = readFileSync(join(distRoot, "internal", "zag", "scope.js"), "utf8")
+
+    expect(service).toContain("createZagService")
+    expect(props).toContain("normalizeZagProps")
+    expect(scope).toContain("createZagScope")
+    expect(index).not.toContain("internal/zag")
+  })
+
   it("emits form-associated checkbox and toggle output", () => {
     const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
     const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")

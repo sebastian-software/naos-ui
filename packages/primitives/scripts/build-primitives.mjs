@@ -18,6 +18,7 @@ const components = [
   "toggle",
 ]
 const behaviorFiles = ["checkbox", "disclosure", "tabs", "toggle"]
+const zagFiles = ["props", "scope", "service"]
 
 await rm(distRoot, { force: true, recursive: true })
 await mkdir(distRoot, { recursive: true })
@@ -44,6 +45,7 @@ await writeFile(
 )
 
 await buildBehaviorHelpers()
+await buildZagHelpers()
 
 async function inlineCssImports(code, filename) {
   const cssImport =
@@ -66,16 +68,38 @@ async function buildBehaviorHelpers() {
   await mkdir(behaviorDistRoot, { recursive: true })
 
   for (const behavior of behaviorFiles) {
-    const source = await readFile(join(behaviorSourceRoot, `${behavior}.ts`), "utf8")
-    const output = ts.transpileModule(source, {
-      compilerOptions: {
-        module: ts.ModuleKind.ESNext,
-        target: ts.ScriptTarget.ES2023,
-      },
-      fileName: `${behavior}.ts`,
+    await buildTypeScriptFile({
+      distRoot: behaviorDistRoot,
+      filename: `${behavior}.ts`,
+      sourceRoot: behaviorSourceRoot,
     })
-    await writeFile(join(behaviorDistRoot, `${behavior}.js`), `${output.outputText}\n`)
   }
+}
+
+async function buildZagHelpers() {
+  const zagSourceRoot = join(sourceRoot, "internal", "zag")
+  const zagDistRoot = join(distRoot, "internal", "zag")
+  await mkdir(zagDistRoot, { recursive: true })
+
+  for (const helper of zagFiles) {
+    await buildTypeScriptFile({
+      distRoot: zagDistRoot,
+      filename: `${helper}.ts`,
+      sourceRoot: zagSourceRoot,
+    })
+  }
+}
+
+async function buildTypeScriptFile({ distRoot, filename, sourceRoot }) {
+  const source = await readFile(join(sourceRoot, filename), "utf8")
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.ES2023,
+    },
+    fileName: filename,
+  })
+  await writeFile(join(distRoot, filename.replace(/\.ts$/, ".js")), `${output.outputText}\n`)
 }
 
 function declarationFor(component) {

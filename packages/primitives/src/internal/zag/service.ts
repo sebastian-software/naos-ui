@@ -2,9 +2,13 @@ type Dict = Record<string, any>
 
 type ZagBindableParams<Value> = {
   defaultValue?: Value
+  sync?: boolean
   value?: Value
   onChange?: (value: Value, previous: Value | undefined) => void
 }
+
+type ZagActionList = string | string[] | ((params: Dict) => string[] | undefined)
+type ZagEffectList = string | string[] | ((params: Dict) => string[] | undefined)
 
 type ZagMachineTransition = {
   actions?: string | string[]
@@ -12,23 +16,30 @@ type ZagMachineTransition = {
   target?: string
 }
 
+type ZagMachineState = {
+  entry?: ZagActionList
+  exit?: ZagActionList
+  effects?: ZagEffectList
+  tags?: string[]
+  on?: Record<string, ZagMachineTransition | ZagMachineTransition[]>
+}
+
 type ZagMachine = {
   context?: (params: Dict) => Dict
-  entry?: string | string[]
+  computed?: Record<string, (params: Dict) => unknown>
+  entry?: ZagActionList
+  exit?: ZagActionList
+  effects?: ZagEffectList
   implementations?: {
     actions?: Record<string, (params: Dict) => void>
+    effects?: Record<string, (params: Dict) => void | VoidFunction>
     guards?: Record<string, (params: Dict) => boolean>
   }
   initialState: (params: Dict) => string
   on?: Record<string, ZagMachineTransition | ZagMachineTransition[]>
   props?: (params: Dict) => Dict
   refs?: (params: Dict) => Dict
-  states: Record<
-    string,
-    {
-      on?: Record<string, ZagMachineTransition | ZagMachineTransition[]>
-    }
-  >
+  states: Record<string, ZagMachineState>
   watch?: (params: Dict) => void
 }
 
@@ -45,6 +56,11 @@ type ZagEvent = Dict & {
 const toArray = <Value>(value: Value | Value[] | undefined): Value[] => {
   if (value == null) return []
   return Array.isArray(value) ? value : [value]
+}
+
+function resolveList(value: ZagActionList | ZagEffectList | undefined, params: () => Dict) {
+  if (typeof value === "function") return toArray(value(params()))
+  return toArray(value)
 }
 
 function createBindable<Value>({
@@ -85,8 +101,16 @@ export function createZagService({
   const props = machine.props?.({ props: inputProps, scope: inputScope }) ?? inputProps
   const prop = (key: string) => props[key]
   const cleanupCallbacks: VoidFunction[] = []
+  const rootEffectCleanups = new Map<string, VoidFunction>()
+  const stateEffectCleanups = new Map<string, VoidFunction>()
+  const trackers: {
+    callback: VoidFunction
+    reads: (() => unknown)[]
+    values: unknown[]
+  }[] = []
   let currentEvent: ZagEvent = { type: "" }
   let previousEvent: ZagEvent = { type: "" }
+  let started = true
 
   const bindable = Object.assign(
     <Value>(factory: () => ZagBindableParams<Value>) => createBindable(factory()),
@@ -124,10 +148,7 @@ export function createZagService({
       contextEntries[key]?.set(next)
     },
   }
-  const computed = (key: string) => {
-    const compute = (machine as Dict).computed?.[key]
-    return compute?.(params())
-  }
+  const computed = (key: string) => machine.computed?.[key]?.(params())
   const refsEntries = machine.refs?.({ context, prop }) ?? {}
   const refs = {
     get: (key: string) => refsEntries[key],
@@ -138,7 +159,7 @@ export function createZagService({
   let currentState = machine.initialState({ prop })
   const state = {
     get: () => currentState,
-    hasTag: () => false,
+    hasTag: (tag: string) => machine.states[currentState]?.tags?.includes(tag) ?? false,
     hash: () => currentState,
     initial: currentState,
     invoke: () => undefined,
@@ -176,7 +197,13 @@ export function createZagService({
       scope,
       send,
       state,
-      track: () => undefined,
+      track: (reads: (() => unknown)[], callback: VoidFunction) => {
+        trackers.push({
+          callback,
+          reads,
+          values: reads.map((read) => read()),
+        })
+      },
     }
   }
 
@@ -201,21 +228,72 @@ export function createZagService({
     }
   }
 
+  function runActionList(actions: ZagActionList | undefined) {
+    runActions(resolveList(actions, params))
+  }
+
+  function startRootEffects() {
+    for (const effectName of resolveList(machine.effects, params)) {
+      if (rootEffectCleanups.has(effectName)) continue
+      const cleanup = machine.implementations?.effects?.[effectName]?.(params())
+      if (typeof cleanup === "function") rootEffectCleanups.set(effectName, cleanup)
+    }
+  }
+
+  function startStateEffects(stateName: string) {
+    for (const effectName of resolveList(machine.states[stateName]?.effects, params)) {
+      if (stateEffectCleanups.has(effectName)) continue
+      const cleanup = machine.implementations?.effects?.[effectName]?.(params())
+      if (typeof cleanup === "function") stateEffectCleanups.set(effectName, cleanup)
+    }
+  }
+
+  function stopRootEffects() {
+    for (const cleanup of rootEffectCleanups.values()) cleanup()
+    rootEffectCleanups.clear()
+  }
+
+  function stopStateEffects() {
+    for (const cleanup of stateEffectCleanups.values()) cleanup()
+    stateEffectCleanups.clear()
+  }
+
+  function syncTrackers() {
+    for (const tracker of trackers) {
+      const nextValues = tracker.reads.map((read) => read())
+      const changed = nextValues.some((value, index) => !Object.is(value, tracker.values[index]))
+      if (!changed) continue
+      tracker.values = nextValues
+      tracker.callback()
+    }
+  }
+
   function findTransition(eventType: string) {
     const stateTransition = machine.states[currentState]?.on?.[eventType]
     return chooseTransition(stateTransition ?? machine.on?.[eventType])
   }
 
   function send(event: ZagEvent) {
+    if (!started) return
     previousEvent = currentEvent
     currentEvent = event
     const selectedTransition = findTransition(event.type)
     if (!selectedTransition) return
-    if (selectedTransition.target) currentState = selectedTransition.target
+    if (selectedTransition.target && selectedTransition.target !== currentState) {
+      runActionList(machine.states[currentState]?.exit)
+      stopStateEffects()
+      currentState = selectedTransition.target
+      runActionList(machine.states[currentState]?.entry)
+      startStateEffects(currentState)
+    }
     runActions(selectedTransition.actions)
+    syncTrackers()
   }
 
-  runActions(machine.entry)
+  runActionList(machine.entry)
+  runActionList(machine.states[currentState]?.entry)
+  startRootEffects()
+  startStateEffects(currentState)
   machine.watch?.(params())
 
   return {
@@ -225,14 +303,19 @@ export function createZagService({
       current: () => currentEvent,
       previous: () => previousEvent,
     }),
-    getStatus: () => "Started",
+    getStatus: () => (started ? "Started" : "Stopped"),
     prop,
     refs,
     scope,
     send,
     state,
     stop: () => {
-      runActions((machine as Dict).exit)
+      if (!started) return
+      started = false
+      runActionList(machine.states[currentState]?.exit)
+      runActionList(machine.exit)
+      stopStateEffects()
+      stopRootEffects()
       for (const cleanup of cleanupCallbacks) cleanup()
     },
   }
