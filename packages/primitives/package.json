@@ -47,6 +47,10 @@
       "types": "./dist/combobox-item.d.mts",
       "import": "./dist/combobox-item.mjs"
     },
+    "./context-menu": {
+      "types": "./dist/context-menu.d.mts",
+      "import": "./dist/context-menu.mjs"
+    },
     "./dropdown": {
       "types": "./dist/dropdown.d.mts",
       "import": "./dist/dropdown.mjs"

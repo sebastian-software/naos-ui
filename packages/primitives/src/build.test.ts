@@ -25,6 +25,7 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./collapsible.mjs\"")
     expect(index).toContain("export * from \"./combobox.mjs\"")
     expect(index).toContain("export * from \"./combobox-item.mjs\"")
+    expect(index).toContain("export * from \"./context-menu.mjs\"")
     expect(index).toContain("export * from \"./dropdown.mjs\"")
     expect(index).toContain("export * from \"./field.mjs\"")
     expect(index).toContain("export * from \"./hover-card.mjs\"")
@@ -210,6 +211,17 @@ describe("@iktia/primitives build output", () => {
     expect(menu).toContain("#applySpreadAttributes")
     expect(menu).not.toContain("@iktia/core")
     expect(menu).not.toContain("type IktiaZagMenuService")
+  })
+
+  it("backs context menu with the private Zag menu adapter", () => {
+    const contextMenu = readFileSync(join(distRoot, "context-menu.mjs"), "utf8")
+
+    expect(contextMenu).toContain("from \"./internal/zag/menu.js\"")
+    expect(contextMenu).toContain("createIktiaZagMenuService")
+    expect(contextMenu).toContain("getContextTriggerProps")
+    expect(contextMenu).toContain("#applySpreadAttributes")
+    expect(contextMenu).not.toContain("@iktia/core")
+    expect(contextMenu).not.toContain("type IktiaZagMenuService")
   })
 
   it("backs collapsible with the private Zag adapter", () => {

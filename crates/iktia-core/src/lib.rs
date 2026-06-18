@@ -559,6 +559,7 @@ mod tests {
                   onPointerOver={on("pointerover", () => {})}
                   onPointerLeave={on("pointerleave", () => {})}
                   onPointerCancel={on("pointercancel", () => {})}
+                  onContextMenu={on("contextmenu", () => {})}
                 >
                   Move
                 </button>
@@ -577,12 +578,14 @@ mod tests {
         assert!(result.code.contains("addEventListener(\"pointerover\""));
         assert!(result.code.contains("addEventListener(\"pointerleave\""));
         assert!(result.code.contains("addEventListener(\"pointercancel\""));
+        assert!(result.code.contains("addEventListener(\"contextmenu\""));
         assert!(!result.code.contains("addEventListener(\"key-down\""));
         assert!(!result.code.contains("addEventListener(\"pointer-down\""));
         assert!(!result.code.contains("addEventListener(\"pointer-move\""));
         assert!(!result.code.contains("addEventListener(\"pointer-over\""));
         assert!(!result.code.contains("addEventListener(\"pointer-leave\""));
         assert!(!result.code.contains("addEventListener(\"pointer-cancel\""));
+        assert!(!result.code.contains("addEventListener(\"context-menu\""));
     }
 
     #[test]
@@ -820,6 +823,7 @@ mod tests {
         assert!(result.code.contains("\"pointer-over\": \"pointerover\""));
         assert!(result.code.contains("\"pointer-leave\": \"pointerleave\""));
         assert!(result.code.contains("\"pointer-cancel\": \"pointercancel\""));
+        assert!(result.code.contains("\"context-menu\": \"contextmenu\""));
         assert!(result.code.contains("target.style[property]"));
         assert!(
             result

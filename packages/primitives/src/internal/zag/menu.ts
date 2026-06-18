@@ -2,6 +2,7 @@ import {
   connect,
   machine as menuMachine,
   type Api as ZagMenuApi,
+  type PositioningOptions,
 } from "@zag-js/menu"
 
 import { normalizeZagProps } from "./props.js"
@@ -23,6 +24,7 @@ type IktiaZagMenuServiceOptions = {
   label: string
   onHighlightChange(value: string | null): void
   onOpenChange(open: boolean): void
+  positioning?: PositioningOptions
   root: ParentNode
 }
 
@@ -67,6 +69,7 @@ export function createIktiaZagMenuService({
   label,
   onHighlightChange,
   onOpenChange,
+  positioning = { placement: "bottom-start", sameWidth: true },
   root,
 }: IktiaZagMenuServiceOptions): IktiaZagMenuService {
   return createZagService({
@@ -83,7 +86,7 @@ export function createIktiaZagMenuService({
       onOpenChange(details: { open: boolean }) {
         onOpenChange(details.open)
       },
-      positioning: { placement: "bottom-start", sameWidth: true },
+      positioning,
       typeahead: true,
     },
     scope: createZagScope({

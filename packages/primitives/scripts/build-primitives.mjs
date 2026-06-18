@@ -17,6 +17,7 @@ const components = [
   "collapsible",
   "combobox",
   "combobox-item",
+  "context-menu",
   "dropdown",
   "field",
   "hover-card",

@@ -25,6 +25,7 @@ import "@iktia/primitives/toggle"
 | `<iktia-checkbox>` | ARIA checkbox primitive with checked, indeterminate, and native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-collapsible>` | Zag-backed disclosure primitive with trigger/content ARIA, disabled state, and open events. | Experimental disclosure MVP |
 | `<iktia-combobox>` / `<iktia-combobox-item>` | Zag-backed autocomplete combobox with input, popup items, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<iktia-context-menu>` | Zag-backed context menu region with anchored menu positioning and item selection. | Experimental overlay MVP |
 | `<iktia-dropdown>` | Button-triggered dropdown/disclosure primitive. | Experimental |
 | `<iktia-field>` | Field composition shell for labels, controls, hints, and errors. | Experimental |
 | `<iktia-hover-card>` | Zag-backed hover/focus preview card with positioned content and open events. | Experimental overlay MVP |
