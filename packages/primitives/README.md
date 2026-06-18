@@ -26,6 +26,7 @@ import "@iktia/primitives/toggle"
 | `<iktia-field>` | Field composition shell for labels, controls, hints, and errors. | Experimental |
 | `<iktia-radio-group>` / `<iktia-radio>` | Zag-backed radio collection with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-segmented-control>` / `<iktia-segmented-item>` | Zag-backed single-selection segmented control with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
+| `<iktia-select>` / `<iktia-select-item>` | Zag-backed single-selection listbox popup with typeahead, open state, and native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-tabs>` / `<iktia-tab>` / `<iktia-tab-panel>` | Zag-backed tab collection with subcomponent tabs, panels, roving focus, and a legacy three-panel fallback. | Experimental |
 | `<iktia-toggle>` | Pressed/on-off button primitive with native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-toggle-group>` / `<iktia-toggle-item>` | Zag-backed single or multiple toggle collection with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
@@ -40,9 +41,9 @@ The primitives expose platform-readable contracts:
 * Native ARIA attributes where the current `.wc.tsx` compiler surface supports them.
 * Iktia-prefixed `CustomEvent`s such as `iktia-change` and `iktia-press`.
 
-Checkbox, radio group, segmented control, toggle, and toggle group use the
-compiler-owned `formControl()` spike to generate Form-Associated Custom Element
-output. They support `name`, `value`, submit, reset, disabled fieldset
+Checkbox, radio group, segmented control, select, toggle, and toggle group use
+the compiler-owned `formControl()` spike to generate Form-Associated Custom
+Element output. They support `name`, `value`, submit, reset, disabled fieldset
 propagation, and `FormData` in the current MVP, but remain experimental until
 label association, validation, and broader cross-browser coverage are complete.
 

@@ -51,6 +51,14 @@
       "types": "./dist/segmented-item.d.mts",
       "import": "./dist/segmented-item.mjs"
     },
+    "./select": {
+      "types": "./dist/select.d.mts",
+      "import": "./dist/select.mjs"
+    },
+    "./select-item": {
+      "types": "./dist/select-item.d.mts",
+      "import": "./dist/select-item.mjs"
+    },
     "./tab": {
       "types": "./dist/tab.d.mts",
       "import": "./dist/tab.mjs"
@@ -93,6 +101,7 @@
     "@iktia/core": "workspace:^",
     "@zag-js/checkbox": "1.41.2",
     "@zag-js/radio-group": "1.41.2",
+    "@zag-js/select": "1.41.2",
     "@zag-js/tabs": "1.41.2",
     "@zag-js/toggle": "1.41.2",
     "@zag-js/toggle-group": "1.41.2"

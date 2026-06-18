@@ -254,6 +254,17 @@ dispatch native CustomEvents.</code></pre>
                 <iktia-segmented-item value="monthly" label="Monthly"></iktia-segmented-item>
                 <iktia-segmented-item value="frozen" label="Frozen" disabled></iktia-segmented-item>
               </iktia-segmented-control>
+              <iktia-select
+                name="region"
+                label="Release region"
+                value="eu"
+                placeholder="Choose region"
+              >
+                <iktia-select-item value="us" label="United States"></iktia-select-item>
+                <iktia-select-item value="eu" label="Europe"></iktia-select-item>
+                <iktia-select-item value="apac" label="APAC"></iktia-select-item>
+                <iktia-select-item value="hold" label="On hold" disabled></iktia-select-item>
+              </iktia-select>
               <div class="primitive-row">
                 <button type="submit" class="native-action">Read FormData</button>
                 <button type="reset" class="native-action secondary">Reset</button>
