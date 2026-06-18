@@ -81,9 +81,9 @@ struct TemplateElement {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct TemplateAttribute {
-    name: String,
-    value: AttributeValue,
+enum TemplateAttribute {
+    Named { name: String, value: AttributeValue },
+    Spread { expression: String },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -172,10 +172,25 @@ impl<'a> TemplateParser<'a> {
     }
 
     fn parse_attribute(&mut self) -> CompilerResult<TemplateAttribute> {
+        if self.starts_with("{...") {
+            let expression = self.parse_braced_expression()?;
+            let Some(expression) = expression.trim().strip_prefix("...") else {
+                return Err(unsupported(
+                    "JSX spread attributes must use `{...expression}`.",
+                ));
+            };
+            let expression = expression.trim();
+            if expression.is_empty() {
+                return Err(unsupported("JSX spread attributes require an expression."));
+            }
+            return Ok(TemplateAttribute::Spread {
+                expression: expression.to_owned(),
+            });
+        }
         let name = self.parse_name()?;
         self.skip_whitespace();
         if !self.consume_char('=') {
-            return Ok(TemplateAttribute {
+            return Ok(TemplateAttribute::Named {
                 name,
                 value: AttributeValue::Boolean,
             });
@@ -190,7 +205,7 @@ impl<'a> TemplateParser<'a> {
                 )));
             }
         };
-        Ok(TemplateAttribute { name, value })
+        Ok(TemplateAttribute::Named { name, value })
     }
 
     fn parse_text(&mut self) -> String {
@@ -324,10 +339,12 @@ struct CodeGenerator<'a> {
     next_node_index: usize,
     next_text_index: usize,
     node_fields: Vec<String>,
+    spread_fields: Vec<String>,
     text_fields: Vec<String>,
     mount_lines: Vec<String>,
     listener_lines: Vec<String>,
     update_lines: Vec<String>,
+    uses_spread_attributes: bool,
 }
 
 impl<'a> CodeGenerator<'a> {
@@ -337,10 +354,12 @@ impl<'a> CodeGenerator<'a> {
             next_node_index: 0,
             next_text_index: 0,
             node_fields: Vec::new(),
+            spread_fields: Vec::new(),
             text_fields: Vec::new(),
             mount_lines: Vec::new(),
             listener_lines: Vec::new(),
             update_lines: Vec::new(),
+            uses_spread_attributes: false,
         }
     }
 
@@ -372,6 +391,7 @@ impl<'a> CodeGenerator<'a> {
         self.emit_bindings(&mut code)?;
         self.emit_effects(&mut code)?;
         self.emit_flush(&mut code)?;
+        self.emit_spread_helpers(&mut code)?;
         self.emit_update(&mut code)?;
         writeln!(code, "}}").map_err(format_error)?;
         self.emit_exports(&mut code)?;
@@ -476,6 +496,13 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "  #state = {{}};").map_err(format_error)?;
         for field in &self.node_fields {
             writeln!(code, "  #{field};").map_err(format_error)?;
+        }
+        for field in &self.spread_fields {
+            writeln!(
+                code,
+                "  #{field} = {{ names: new Set(), listeners: new Map(), styles: new Set() }};"
+            )
+            .map_err(format_error)?;
         }
         for field in &self.text_fields {
             writeln!(code, "  #{field};").map_err(format_error)?;
@@ -972,6 +999,176 @@ impl<'a> CodeGenerator<'a> {
         Ok(())
     }
 
+    fn emit_spread_helpers(&self, code: &mut String) -> CompilerResult<()> {
+        if !self.uses_spread_attributes {
+            return Ok(());
+        }
+        writeln!(code, "  #applySpreadAttributes(target, cache, values) {{")
+            .map_err(format_error)?;
+        writeln!(code, "    const next = values ?? {{}};").map_err(format_error)?;
+        writeln!(code, "    const seen = new Set();").map_err(format_error)?;
+        writeln!(
+            code,
+            "    for (const [name, value] of Object.entries(next)) {{"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      seen.add(name);").map_err(format_error)?;
+        writeln!(
+            code,
+            "      this.#applySpreadValue(target, cache, name, value);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    for (const name of Array.from(cache.names)) {{")
+            .map_err(format_error)?;
+        writeln!(
+            code,
+            "      if (!seen.has(name)) this.#removeSpreadValue(target, cache, name);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    cache.names = seen;").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #applySpreadValue(target, cache, name, value) {{")
+            .map_err(format_error)?;
+        writeln!(
+            code,
+            "    const eventName = this.#eventNameFromSpreadKey(name);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    if (eventName) {{").map_err(format_error)?;
+        writeln!(code, "      const previous = cache.listeners.get(name);")
+            .map_err(format_error)?;
+        writeln!(
+            code,
+            "      if (previous) target.removeEventListener(eventName, previous);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      if (typeof value === \"function\") {{").map_err(format_error)?;
+        writeln!(code, "        target.addEventListener(eventName, value);")
+            .map_err(format_error)?;
+        writeln!(code, "        cache.listeners.set(name, value);").map_err(format_error)?;
+        writeln!(code, "      }} else {{").map_err(format_error)?;
+        writeln!(code, "        cache.listeners.delete(name);").map_err(format_error)?;
+        writeln!(code, "      }}").map_err(format_error)?;
+        writeln!(code, "      return;").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(
+            code,
+            "    if (name === \"style\" && value && typeof value === \"object\") {{"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      this.#applySpreadStyles(target, cache, value);")
+            .map_err(format_error)?;
+        writeln!(code, "      return;").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(
+            code,
+            "    const attributeName = this.#attributeNameFromSpreadKey(name);"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "    if (value == null || (value === false && !attributeName.startsWith(\"aria-\"))) {{"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      target.removeAttribute(attributeName);").map_err(format_error)?;
+        writeln!(code, "    }} else {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "      target.setAttribute(attributeName, value === true ? \"\" : String(value));"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    if (name in target && !attributeName.startsWith(\"aria-\") && !attributeName.startsWith(\"data-\")) {{")
+            .map_err(format_error)?;
+        writeln!(
+            code,
+            "      try {{ target[name] = value == null ? \"\" : value; }} catch {{}}"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #removeSpreadValue(target, cache, name) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "    const eventName = this.#eventNameFromSpreadKey(name);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    if (eventName) {{").map_err(format_error)?;
+        writeln!(code, "      const previous = cache.listeners.get(name);")
+            .map_err(format_error)?;
+        writeln!(
+            code,
+            "      if (previous) target.removeEventListener(eventName, previous);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      cache.listeners.delete(name);").map_err(format_error)?;
+        writeln!(code, "      return;").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    if (name === \"style\") {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "      for (const property of cache.styles) target.style[property] = \"\";"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      cache.styles.clear();").map_err(format_error)?;
+        writeln!(code, "      return;").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(
+            code,
+            "    const attributeName = this.#attributeNameFromSpreadKey(name);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    target.removeAttribute(attributeName);").map_err(format_error)?;
+        writeln!(code, "    if (name in target && !attributeName.startsWith(\"aria-\") && !attributeName.startsWith(\"data-\")) {{")
+            .map_err(format_error)?;
+        writeln!(code, "      try {{ target[name] = false; }} catch {{}}").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #applySpreadStyles(target, cache, styles) {{").map_err(format_error)?;
+        writeln!(code, "    const seen = new Set();").map_err(format_error)?;
+        writeln!(
+            code,
+            "    for (const [property, value] of Object.entries(styles)) {{"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      seen.add(property);").map_err(format_error)?;
+        writeln!(
+            code,
+            "      target.style[property] = value == null ? \"\" : String(value);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(
+            code,
+            "    for (const property of Array.from(cache.styles)) {{"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "      if (!seen.has(property)) target.style[property] = \"\";"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    cache.styles = seen;").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #attributeNameFromSpreadKey(name) {{").map_err(format_error)?;
+        writeln!(code, "    if (name === \"className\") return \"class\";")
+            .map_err(format_error)?;
+        writeln!(code, "    if (name === \"htmlFor\") return \"for\";").map_err(format_error)?;
+        writeln!(code, "    return name;").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #eventNameFromSpreadKey(name) {{").map_err(format_error)?;
+        writeln!(code, "    if (!/^on[A-Z]/.test(name)) return null;").map_err(format_error)?;
+        writeln!(code, "    const eventName = name.slice(2).replace(/([A-Z])/g, \"-$1\").replace(/^-/, \"\").toLowerCase();")
+            .map_err(format_error)?;
+        writeln!(code, "    return {{ \"key-down\": \"keydown\", \"key-up\": \"keyup\", \"pointer-down\": \"pointerdown\", \"pointer-up\": \"pointerup\", \"focus-in\": \"focusin\", \"focus-out\": \"focusout\" }}[eventName] ?? eventName;")
+            .map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        Ok(())
+    }
+
     fn emit_update(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  #update() {{").map_err(format_error)?;
         writeln!(code, "    if (!this.#mounted) return;").map_err(format_error)?;
@@ -1065,6 +1262,7 @@ impl<'a> CodeGenerator<'a> {
             .push(format!("this.#{field} = {variable};"));
 
         let field_reference = format!("this.#{field}");
+        let mut follows_spread = false;
         for attribute in &element.attributes {
             self.emit_attribute(
                 &variable,
@@ -1072,7 +1270,11 @@ impl<'a> CodeGenerator<'a> {
                 &field,
                 attribute,
                 is_component_element,
+                follows_spread,
             )?;
+            if matches!(attribute, TemplateAttribute::Spread { .. }) {
+                follows_spread = true;
+            }
         }
 
         for child in &element.children {
@@ -1169,7 +1371,12 @@ impl<'a> CodeGenerator<'a> {
         fallback_variable: &str,
         attribute: &TemplateAttribute,
     ) -> CompilerResult<()> {
-        match &attribute.value {
+        let TemplateAttribute::Named { value, .. } = attribute else {
+            return Err(unsupported(
+                "Show fallback does not support JSX spread attributes.",
+            ));
+        };
+        match value {
             AttributeValue::Expression(expression) => {
                 let trimmed = expression.trim();
                 if trimmed.starts_with('<') {
@@ -1248,7 +1455,7 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_inline_element(
-        &self,
+        &mut self,
         element: &TemplateElement,
         prefix: &str,
         next_index: &mut usize,
@@ -1264,14 +1471,19 @@ impl<'a> CodeGenerator<'a> {
             escape_js_string(&tag_name)
         ));
 
+        let mut follows_spread = false;
         for attribute in &element.attributes {
             self.emit_inline_attribute(
                 &variable,
                 &variable,
                 attribute,
                 is_component_element,
+                follows_spread,
                 lines,
             )?;
+            if matches!(attribute, TemplateAttribute::Spread { .. }) {
+                follows_spread = true;
+            }
         }
 
         for child in &element.children {
@@ -1307,21 +1519,41 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_inline_attribute(
-        &self,
+        &mut self,
         variable: &str,
         target_key: &str,
         attribute: &TemplateAttribute,
         is_component_element: bool,
+        _follows_spread: bool,
         lines: &mut Vec<String>,
     ) -> CompilerResult<()> {
-        if attribute.name == "key" {
+        let TemplateAttribute::Named { name, value } = attribute else {
+            if is_component_element {
+                return Err(unsupported(
+                    "JSX spread attributes are supported only on native elements.",
+                ));
+            }
+            let TemplateAttribute::Spread { expression } = attribute else {
+                unreachable!();
+            };
+            self.uses_spread_attributes = true;
+            let spread_cache = format!("{target_key}Spread");
+            lines.push(format!(
+                "const {spread_cache} = {{ names: new Set(), listeners: new Map(), styles: new Set() }};"
+            ));
+            lines.push(format!(
+                "this.#applySpreadAttributes({variable}, {spread_cache}, {expression});"
+            ));
+            return Ok(());
+        };
+        if name == "key" {
             return Ok(());
         }
-        if let Some(event_name) = event_name_from_attribute(&attribute.name) {
-            let AttributeValue::Expression(expression) = &attribute.value else {
+        if let Some(event_name) = event_name_from_attribute(name) {
+            let AttributeValue::Expression(expression) = value else {
                 return Err(unsupported(format!(
                     "Event attribute `{}` must use a braced handler expression.",
-                    attribute.name
+                    name
                 )));
             };
             lines.push(format!(
@@ -1338,8 +1570,8 @@ impl<'a> CodeGenerator<'a> {
             return Ok(());
         }
 
-        let attribute_name = attribute_name_for_element(&attribute.name, is_component_element);
-        match &attribute.value {
+        let attribute_name = attribute_name_for_element(name, is_component_element);
+        match value {
             AttributeValue::Boolean => {
                 lines.push(format!(
                     "{variable}.setAttribute(\"{}\", \"\");",
@@ -1386,15 +1618,33 @@ impl<'a> CodeGenerator<'a> {
         field_name: &str,
         attribute: &TemplateAttribute,
         is_component_element: bool,
+        follows_spread: bool,
     ) -> CompilerResult<()> {
-        if attribute.name == "key" {
+        let TemplateAttribute::Named { name, value } = attribute else {
+            if is_component_element {
+                return Err(unsupported(
+                    "JSX spread attributes are supported only on native elements.",
+                ));
+            }
+            let TemplateAttribute::Spread { expression } = attribute else {
+                unreachable!();
+            };
+            self.uses_spread_attributes = true;
+            let spread_field = format!("{field_name}Spread{}", self.spread_fields.len());
+            self.spread_fields.push(spread_field.clone());
+            self.update_lines.push(format!(
+                "this.#applySpreadAttributes({field_reference}, this.#{spread_field}, {expression});"
+            ));
+            return Ok(());
+        };
+        if name == "key" {
             return Ok(());
         }
-        if let Some(event_name) = event_name_from_attribute(&attribute.name) {
-            let AttributeValue::Expression(expression) = &attribute.value else {
+        if let Some(event_name) = event_name_from_attribute(name) {
+            let AttributeValue::Expression(expression) = value else {
                 return Err(unsupported(format!(
                     "Event attribute `{}` must use a braced handler expression.",
-                    attribute.name
+                    name
                 )));
             };
             let body = handler_body(expression);
@@ -1413,13 +1663,19 @@ impl<'a> CodeGenerator<'a> {
             return Ok(());
         }
 
-        let attribute_name = attribute_name_for_element(&attribute.name, is_component_element);
-        match &attribute.value {
+        let attribute_name = attribute_name_for_element(name, is_component_element);
+        match value {
             AttributeValue::Boolean => {
                 self.mount_lines.push(format!(
                     "{variable}.setAttribute(\"{}\", \"\");",
                     attribute_name
                 ));
+                if follows_spread {
+                    self.update_lines.push(format!(
+                        "{field_reference}.setAttribute(\"{}\", \"\");",
+                        attribute_name
+                    ));
+                }
             }
             AttributeValue::Static(value) => {
                 self.mount_lines.push(format!(
@@ -1427,6 +1683,13 @@ impl<'a> CodeGenerator<'a> {
                     attribute_name,
                     escape_js_string(value)
                 ));
+                if follows_spread {
+                    self.update_lines.push(format!(
+                        "{field_reference}.setAttribute(\"{}\", \"{}\");",
+                        attribute_name,
+                        escape_js_string(value)
+                    ));
+                }
             }
             AttributeValue::Expression(expression) => {
                 self.update_lines.push(dynamic_attribute_update(
@@ -1606,15 +1869,23 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         attribute: &TemplateAttribute,
         is_component_element: bool,
     ) -> CompilerResult<()> {
-        if attribute.name == "key" {
+        let TemplateAttribute::Named { name, value } = attribute else {
+            if is_component_element {
+                return Err(unsupported(
+                    "JSX spread attributes are supported only on native elements.",
+                ));
+            }
+            return Ok(());
+        };
+        if name == "key" {
             return Ok(());
         }
-        if event_name_from_attribute(&attribute.name).is_some() {
+        if event_name_from_attribute(name).is_some() {
             return Ok(());
         }
 
-        let attribute_name = attribute_name_for_element(&attribute.name, is_component_element);
-        match &attribute.value {
+        let attribute_name = attribute_name_for_element(name, is_component_element);
+        match value {
             AttributeValue::Boolean => {
                 write!(output, " {attribute_name}").map_err(format_error)?;
             }
@@ -1703,7 +1974,12 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
     }
 
     fn render_show_fallback(&mut self, attribute: &TemplateAttribute) -> CompilerResult<String> {
-        match &attribute.value {
+        let TemplateAttribute::Named { value, .. } = attribute else {
+            return Err(unsupported(
+                "Show fallback does not support JSX spread attributes.",
+            ));
+        };
+        match value {
             AttributeValue::Expression(expression) => {
                 let trimmed = expression.trim();
                 if trimmed.starts_with('<') {
@@ -2233,7 +2509,13 @@ fn required_expression_attribute<'a>(
             element.tag_name
         )));
     };
-    let AttributeValue::Expression(expression) = &attribute.value else {
+    let TemplateAttribute::Named { value, .. } = attribute else {
+        return Err(unsupported(format!(
+            "<{}> attribute `{name}` must use a braced expression.",
+            element.tag_name
+        )));
+    };
+    let AttributeValue::Expression(expression) = value else {
         return Err(unsupported(format!(
             "<{}> attribute `{name}` must use a braced expression.",
             element.tag_name
@@ -2249,7 +2531,9 @@ fn optional_attribute<'a>(
     element
         .attributes
         .iter()
-        .find(|attribute| attribute.name == name)
+        .find(|attribute| {
+            matches!(attribute, TemplateAttribute::Named { name: attribute_name, .. } if attribute_name == name)
+        })
 }
 
 struct ListRenderer {
@@ -2380,7 +2664,12 @@ fn required_key_expression(element: &TemplateElement) -> CompilerResult<String> 
             "Dynamic .map() lists require a key attribute on the returned root JSX element.",
         ));
     };
-    match &attribute.value {
+    let TemplateAttribute::Named { value, .. } = attribute else {
+        return Err(unsupported(
+            "Dynamic .map() list keys do not support JSX spread attributes.",
+        ));
+    };
+    match value {
         AttributeValue::Expression(expression) if !expression.trim().is_empty() => {
             Ok(expression.trim().to_owned())
         }

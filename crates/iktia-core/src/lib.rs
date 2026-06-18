@@ -716,6 +716,92 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_generate_native_jsx_spread_attributes() {
+        let source = r#"
+            import { computed, state } from "@iktia/core";
+
+            export function SpreadButton() {
+              const active = state(false);
+              const triggerProps = computed(() => ({
+                "aria-selected": active(),
+                className: "from-spread",
+                hidden: false,
+                onKeyDown(event) {
+                  event.preventDefault();
+                },
+                style: { color: active() ? "red" : "blue" },
+                tabIndex: 0,
+              }));
+
+              return (
+                <button part="before" {...triggerProps()} part="after" data-state={active() ? "on" : "off"}>
+                  Press
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "spread-button.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains(
+            "#node0Spread0 = { names: new Set(), listeners: new Map(), styles: new Set() };"
+        ));
+        assert!(result.code.contains(
+            "this.#applySpreadAttributes(this.#node0, this.#node0Spread0, triggerProps());"
+        ));
+        assert!(
+            result
+                .code
+                .contains("removeEventListener(eventName, previous)")
+        );
+        assert!(result.code.contains("target.style[property]"));
+        assert!(
+            result
+                .code
+                .contains("if (name === \"className\") return \"class\";")
+        );
+        assert!(
+            result
+                .code
+                .contains("const { active, triggerProps } = this.#createBindings();")
+        );
+        let spread_index = result
+            .code
+            .find("this.#applySpreadAttributes(this.#node0, this.#node0Spread0, triggerProps());")
+            .expect("spread update should be generated");
+        let explicit_after_index = result.code[spread_index..]
+            .find("this.#node0.setAttribute(\"part\", \"after\");")
+            .expect("explicit attribute after spread should be re-applied during update");
+        assert!(explicit_after_index > 0);
+    }
+
+    #[test]
+    fn transform_component_module_should_reject_jsx_spread_on_pascal_components() {
+        let source = r#"
+            import { computed } from "@iktia/core";
+            import { Counter } from "./counter.wc.tsx";
+
+            export function Dashboard() {
+              const counterProps = computed(() => ({ initialCount: 1 }));
+
+              return <Counter {...counterProps()} />;
+            }
+        "#;
+
+        let error = transform_component_module(source, "dashboard.wc.tsx")
+            .expect_err("component spread should be rejected");
+
+        assert!(
+            error
+                .to_string()
+                .contains("JSX spread attributes are supported only on native elements")
+        );
+    }
+
+    #[test]
     fn transform_component_module_should_generate_slots_and_shadow_styles() {
         let source = r#"
             import { type ComponentOptions } from "@iktia/core";
