@@ -173,10 +173,13 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await page.evaluate(() => {
     window.__iktiaPrimitiveEvents = []
     for (const type of [
+      "iktia-cancel",
       "iktia-change",
+      "iktia-edit-change",
       "iktia-open-change",
       "iktia-press",
       "iktia-select",
+      "iktia-submit",
     ]) {
       document.addEventListener(type, (event) => {
         if (event instanceof CustomEvent) {
@@ -237,6 +240,13 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   const datePickerContent = datePicker.locator("[part~='content']")
   const datePickerTable = datePicker.locator("[part~='table']")
   const datePickerCells = datePicker.locator("[part~='cell-trigger']")
+  const editable = section.locator("iktia-editable")
+  const editableRoot = editable.locator("[part~='root']")
+  const editablePreview = editable.locator("[part~='preview']")
+  const editableInput = editable.locator("[part~='input']")
+  const editableEdit = editable.locator("[part~='edit']")
+  const editableSubmit = editable.locator("[part~='submit']")
+  const editableCancel = editable.locator("[part~='cancel']")
   const ratingGroup = section.locator("iktia-rating-group")
   const ratingRoot = ratingGroup.locator("[part~='root']")
   const ratingControl = ratingGroup.locator("[part~='control']")
@@ -365,6 +375,13 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(datePickerTrigger).toHaveAttribute("aria-haspopup", "grid")
   await expect(datePickerContent).toBeHidden()
   await expect(datePickerCells).toHaveCount(42)
+  await expect(editableRoot).toHaveAttribute("data-state", "preview")
+  await expect(editableRoot).toHaveAttribute("data-value", "Launch checklist")
+  await expect(editablePreview).toContainText("Launch checklist")
+  await expect(editableInput).toBeHidden()
+  await expect(editableEdit).toBeVisible()
+  await expect(editableSubmit).toBeHidden()
+  await expect(editableCancel).toBeHidden()
   await expect(ratingRoot).toHaveAttribute("data-state", "filled")
   await expect(ratingRoot).toHaveAttribute("data-value", "3")
   await expect(ratingControl).toHaveAttribute("role", "radiogroup")
@@ -560,6 +577,17 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(datePickerRoot).toHaveAttribute("data-value", "2026-06-20")
   await expectPrimitiveEvent(page, "iktia-change", { value: "2026-06-20" })
 
+  await editableEdit.click()
+  await expect(editableRoot).toHaveAttribute("data-state", "edit")
+  await expect(editableInput).toBeVisible()
+  await editableInput.fill("Launch approved")
+  await expect(editableRoot).toHaveAttribute("data-value", "Launch approved")
+  await expectPrimitiveEvent(page, "iktia-change", { value: "Launch approved" })
+  await editableSubmit.click()
+  await expect(editableRoot).toHaveAttribute("data-state", "preview")
+  await expect(editablePreview).toContainText("Launch approved")
+  await expectPrimitiveEvent(page, "iktia-submit", { value: "Launch approved" })
+
   await ratingItems.nth(3).click()
   await expect(ratingRoot).toHaveAttribute("data-value", "4")
   await expect(ratingItems.nth(3)).toHaveAttribute("data-checked", "")
@@ -595,10 +623,10 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await form.locator("button[type='submit']").click()
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-rating:3, confidence:80"
+    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-note:Launch approved, release-rating:3, confidence:80"
   )
   await expect(page.locator("#primitive-form-event")).toHaveText(
-    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-rating:3, confidence:80"
+    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-note:Launch approved, release-rating:3, confidence:80"
   )
 
   await form.locator("button[type='reset']").click()
@@ -626,12 +654,14 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(fileUploadItems).toHaveCount(0)
   await expect(datePickerRoot).toHaveAttribute("data-value", "2026-06-18")
   await expect(datePickerInput).toHaveValue("06/18/2026")
+  await expect(editableRoot).toHaveAttribute("data-value", "Launch checklist")
+  await expect(editablePreview).toContainText("Launch checklist")
   await expect(ratingRoot).toHaveAttribute("data-value", "3")
   await expect(ratingItems.nth(2)).toHaveAttribute("data-checked", "")
   await expect(sliderThumb).toHaveAttribute("aria-valuenow", "40")
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "notify:enabled, channels:web, cadence:weekly, region:eu, lane:review, owner:ops, approvals:2, release-code:123, release-tags:docs,preview, release-date:2026-06-18, release-rating:3, confidence:40"
+    "notify:enabled, channels:web, cadence:weekly, region:eu, lane:review, owner:ops, approvals:2, release-code:123, release-tags:docs,preview, release-date:2026-06-18, release-note:Launch checklist, release-rating:3, confidence:40"
   )
 
   await fileUploadInput.setInputFiles({
@@ -992,6 +1022,7 @@ test("form-associated primitive controls receive disabled fieldset state", async
         <iktia-tags-input name="blocked-tags" label="Blocked tags" value="docs,preview"></iktia-tags-input>
         <iktia-file-upload name="blocked-file" label="Blocked file"></iktia-file-upload>
         <iktia-date-picker name="blocked-date" label="Blocked date" value="2026-06-18"></iktia-date-picker>
+        <iktia-editable name="blocked-note" label="Blocked note" value="Blocked note"></iktia-editable>
         <iktia-rating-group name="blocked-rating" label="Blocked rating" value="3"></iktia-rating-group>
         <iktia-slider name="blocked-slider" label="Blocked slider" value="40"></iktia-slider>
       </fieldset>
@@ -1019,6 +1050,8 @@ test("form-associated primitive controls receive disabled fieldset state", async
   const fileUploadTrigger = page.locator("form fieldset iktia-file-upload [part~='trigger']")
   const datePickerInput = page.locator("form fieldset iktia-date-picker [part~='input']")
   const datePickerTrigger = page.locator("form fieldset iktia-date-picker [part~='trigger']")
+  const editableInput = page.locator("form fieldset iktia-editable [part~='input']")
+  const editableEdit = page.locator("form fieldset iktia-editable [part~='edit']")
   const ratingRoot = page.locator("form fieldset iktia-rating-group [part~='root']")
   const ratingItem = page.locator("form fieldset iktia-rating-group [part~='item']").nth(3)
   const sliderThumb = page.locator("form fieldset iktia-slider [part~='thumb']")
@@ -1037,6 +1070,8 @@ test("form-associated primitive controls receive disabled fieldset state", async
   await expect(fileUploadTrigger).toBeDisabled()
   await expect(datePickerInput).toBeDisabled()
   await expect(datePickerTrigger).toBeDisabled()
+  await expect(editableInput).toBeDisabled()
+  await expect(editableEdit).toBeDisabled()
   await expect(ratingItem).toHaveAttribute("aria-disabled", "")
   await expect(sliderThumb).toHaveAttribute("aria-disabled", "true")
   await expect(radio).toHaveAttribute("aria-disabled", "true")

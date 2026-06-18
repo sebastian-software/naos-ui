@@ -28,6 +28,7 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./context-menu.mjs\"")
     expect(index).toContain("export * from \"./date-picker.mjs\"")
     expect(index).toContain("export * from \"./dialog.mjs\"")
+    expect(index).toContain("export * from \"./editable.mjs\"")
     expect(index).toContain("export * from \"./dropdown.mjs\"")
     expect(index).toContain("export * from \"./field.mjs\"")
     expect(index).toContain("export * from \"./file-upload.mjs\"")
@@ -73,6 +74,7 @@ describe("@iktia/primitives build output", () => {
     const combobox = readFileSync(join(distRoot, "internal", "zag", "combobox.js"), "utf8")
     const datePicker = readFileSync(join(distRoot, "internal", "zag", "date-picker.js"), "utf8")
     const dialog = readFileSync(join(distRoot, "internal", "zag", "dialog.js"), "utf8")
+    const editable = readFileSync(join(distRoot, "internal", "zag", "editable.js"), "utf8")
     const fileUpload = readFileSync(join(distRoot, "internal", "zag", "file-upload.js"), "utf8")
     const hoverCard = readFileSync(join(distRoot, "internal", "zag", "hover-card.js"), "utf8")
     const listbox = readFileSync(join(distRoot, "internal", "zag", "listbox.js"), "utf8")
@@ -104,6 +106,8 @@ describe("@iktia/primitives build output", () => {
     expect(datePicker).toContain("@zag-js/date-picker")
     expect(datePicker).toContain("datePickerFormValue")
     expect(dialog).toContain("@zag-js/dialog")
+    expect(editable).toContain("@zag-js/editable")
+    expect(editable).toContain("editableFormValue")
     expect(fileUpload).toContain("@zag-js/file-upload")
     expect(hoverCard).toContain("@zag-js/hover-card")
     expect(listbox).toContain("@zag-js/listbox")
@@ -251,6 +255,18 @@ describe("@iktia/primitives build output", () => {
     expect(datePicker).toContain("static formAssociated = true;")
     expect(datePicker).not.toContain("@iktia/core")
     expect(datePicker).not.toContain("type IktiaZagDatePickerService")
+  })
+
+  it("backs editable with the private Zag adapter", () => {
+    const editable = readFileSync(join(distRoot, "editable.mjs"), "utf8")
+
+    expect(editable).toContain("from \"./internal/zag/editable.js\"")
+    expect(editable).toContain("createIktiaZagEditableService")
+    expect(editable).toContain("editableFormValue")
+    expect(editable).toContain("#applySpreadAttributes")
+    expect(editable).toContain("static formAssociated = true;")
+    expect(editable).not.toContain("@iktia/core")
+    expect(editable).not.toContain("type IktiaZagEditableService")
   })
 
   it("backs menu with the private Zag adapter", () => {
@@ -410,6 +426,7 @@ describe("@iktia/primitives build output", () => {
     const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
     const combobox = readFileSync(join(distRoot, "combobox.mjs"), "utf8")
     const datePicker = readFileSync(join(distRoot, "date-picker.mjs"), "utf8")
+    const editable = readFileSync(join(distRoot, "editable.mjs"), "utf8")
     const fileUpload = readFileSync(join(distRoot, "file-upload.mjs"), "utf8")
     const listbox = readFileSync(join(distRoot, "listbox.mjs"), "utf8")
     const numberInput = readFileSync(join(distRoot, "number-input.mjs"), "utf8")
@@ -424,7 +441,7 @@ describe("@iktia/primitives build output", () => {
     const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")
     const toggleGroup = readFileSync(join(distRoot, "toggle-group.mjs"), "utf8")
 
-    for (const source of [checkbox, combobox, datePicker, fileUpload, listbox, numberInput, pinInput, radioGroup, ratingGroup, segmentedControl, select, slider, switchComponent, tagsInput, toggle, toggleGroup]) {
+    for (const source of [checkbox, combobox, datePicker, editable, fileUpload, listbox, numberInput, pinInput, radioGroup, ratingGroup, segmentedControl, select, slider, switchComponent, tagsInput, toggle, toggleGroup]) {
       expect(source).toContain("static formAssociated = true")
       expect(source).toContain("this.#internals = this.attachInternals()")
       expect(source).toContain("this.#internals.setFormValue")

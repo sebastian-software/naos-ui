@@ -159,6 +159,9 @@ importers:
       '@zag-js/dialog':
         specifier: 1.41.2
         version: 1.41.2
+      '@zag-js/editable':
+        specifier: 1.41.2
+        version: 1.41.2
       '@zag-js/file-upload':
         specifier: 1.41.2
         version: 1.41.2
@@ -1638,6 +1641,9 @@ packages:
 
   '@zag-js/dom-query@1.41.2':
     resolution: {integrity: sha512-+eBk1nlJA312mNmY/GSThLRwcCRqMIL+A1pLsWvTlQLQjmH1/UxoAuv6l2yvRCT33XmC8FBlBIKnXhOCpDvIZA==}
+
+  '@zag-js/editable@1.41.2':
+    resolution: {integrity: sha512-loTM1lrHBBqYfR8SJZrYayVdWHMpXCLVir+aDTQ8/d4bb/Gfl/L8CJNs3BRj3yt9zvLoWTLO+4LOY3hLyQSR2w==}
 
   '@zag-js/file-upload@1.41.2':
     resolution: {integrity: sha512-WFwIaKvHpCUjyYMvp42VoydT1WIP5DhDlpmG/nrF4i0ro7pLGb1A4dvyBrAfGcozCB88yR1y1iZKPDY1I9/uUw==}
@@ -4313,6 +4319,15 @@ snapshots:
   '@zag-js/dom-query@1.41.2':
     dependencies:
       '@zag-js/types': 1.41.2
+
+  '@zag-js/editable@1.41.2':
+    dependencies:
+      '@zag-js/anatomy': 1.41.2
+      '@zag-js/core': 1.41.2
+      '@zag-js/dom-query': 1.41.2
+      '@zag-js/interact-outside': 1.41.2
+      '@zag-js/types': 1.41.2
+      '@zag-js/utils': 1.41.2
 
   '@zag-js/file-upload@1.41.2':
     dependencies:

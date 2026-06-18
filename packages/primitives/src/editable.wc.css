@@ -1,0 +1,106 @@
+:host {
+  display: block;
+  font: inherit;
+}
+
+[part~="root"] {
+  display: grid;
+  gap: var(--iktia-editable-gap, 0.4rem);
+  width: min(var(--iktia-editable-width, 24rem), 100%);
+  color: var(--iktia-editable-fg, #17201b);
+}
+
+[part~="label"] {
+  color: var(--iktia-editable-label-fg, #283c35);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+[part~="area"] {
+  min-width: 0;
+}
+
+[part~="preview"],
+[part~="input"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.35rem;
+  border: 1px solid var(--iktia-editable-border, #65736d);
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  background: var(--iktia-editable-bg, #ffffff);
+  color: var(--iktia-editable-fg, #17201b);
+  font: inherit;
+}
+
+[part~="preview"] {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: text;
+}
+
+[part~="preview"][data-placeholder-shown] {
+  color: var(--iktia-editable-placeholder-fg, #64748b);
+}
+
+[part~="input"] {
+  min-width: 0;
+}
+
+[part~="preview"][hidden],
+[part~="input"][hidden],
+[part~="edit"][hidden],
+[part~="submit"][hidden],
+[part~="cancel"][hidden] {
+  display: none;
+}
+
+[part~="preview"]:focus-visible,
+[part~="input"]:focus-visible,
+[part~="edit"]:focus-visible,
+[part~="submit"]:focus-visible,
+[part~="cancel"]:focus-visible {
+  outline: 2px solid var(--iktia-focus-ring, #0f766e);
+  outline-offset: 2px;
+}
+
+[part~="control"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+[part~="edit"],
+[part~="submit"],
+[part~="cancel"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  border: 1px solid var(--iktia-editable-button-border, #65736d);
+  border-radius: 6px;
+  padding: 0 0.7rem;
+  background: var(--iktia-editable-button-bg, #ffffff);
+  color: var(--iktia-editable-button-fg, #17201b);
+  font: inherit;
+  cursor: pointer;
+}
+
+[part~="edit"]:hover,
+[part~="submit"]:hover,
+[part~="cancel"]:hover {
+  background: var(--iktia-editable-button-bg-hover, #f1f5f3);
+}
+
+[part~="edit"]:disabled,
+[part~="submit"]:disabled,
+[part~="cancel"]:disabled {
+  cursor: not-allowed;
+}
+
+[part~="root"][data-disabled],
+[part~="root"][data-readonly] {
+  opacity: 0.55;
+}

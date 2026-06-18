@@ -74,6 +74,36 @@ document.addEventListener("iktia-open-change", (event) => {
   }
 })
 
+document.addEventListener("iktia-edit-change", (event) => {
+  if (event instanceof CustomEvent) {
+    const value = JSON.stringify(event.detail)
+    document.body.dataset.lastPrimitive = value
+    if (primitiveEvent) {
+      primitiveEvent.textContent = `Last primitive event: ${value}`
+    }
+  }
+})
+
+document.addEventListener("iktia-submit", (event) => {
+  if (event instanceof CustomEvent) {
+    const value = JSON.stringify(event.detail)
+    document.body.dataset.lastPrimitive = value
+    if (primitiveEvent) {
+      primitiveEvent.textContent = `Last primitive event: ${value}`
+    }
+  }
+})
+
+document.addEventListener("iktia-cancel", (event) => {
+  if (event instanceof CustomEvent) {
+    const value = JSON.stringify(event.detail)
+    document.body.dataset.lastPrimitive = value
+    if (primitiveEvent) {
+      primitiveEvent.textContent = `Last primitive event: ${value}`
+    }
+  }
+})
+
 document.addEventListener("iktia-select", (event) => {
   if (event instanceof CustomEvent) {
     const value = JSON.stringify(event.detail)

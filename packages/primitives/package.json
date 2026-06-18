@@ -59,6 +59,10 @@
       "types": "./dist/dialog.d.mts",
       "import": "./dist/dialog.mjs"
     },
+    "./editable": {
+      "types": "./dist/editable.d.mts",
+      "import": "./dist/editable.mjs"
+    },
     "./dropdown": {
       "types": "./dist/dropdown.d.mts",
       "import": "./dist/dropdown.mjs"
@@ -194,6 +198,7 @@
     "@zag-js/combobox": "1.41.2",
     "@zag-js/date-picker": "1.41.2",
     "@zag-js/dialog": "1.41.2",
+    "@zag-js/editable": "1.41.2",
     "@zag-js/file-upload": "1.41.2",
     "@zag-js/hover-card": "1.41.2",
     "@zag-js/listbox": "1.41.2",
