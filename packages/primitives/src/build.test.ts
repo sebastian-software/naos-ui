@@ -29,11 +29,9 @@ describe("@iktia/primitives build output", () => {
   it("keeps primitive behavior kernels private but available to compiled components", () => {
     const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
     const dropdown = readFileSync(join(distRoot, "dropdown.mjs"), "utf8")
-    const tabs = readFileSync(join(distRoot, "tabs.mjs"), "utf8")
 
     expect(checkbox).toContain("from \"./internal/behavior/checkbox.js\"")
     expect(dropdown).toContain("from \"./internal/behavior/disclosure.js\"")
-    expect(tabs).toContain("from \"./internal/behavior/tabs.js\"")
     expect(checkbox).not.toContain("@iktia/core")
   })
 
@@ -42,11 +40,23 @@ describe("@iktia/primitives build output", () => {
     const service = readFileSync(join(distRoot, "internal", "zag", "service.js"), "utf8")
     const props = readFileSync(join(distRoot, "internal", "zag", "props.js"), "utf8")
     const scope = readFileSync(join(distRoot, "internal", "zag", "scope.js"), "utf8")
+    const tabs = readFileSync(join(distRoot, "internal", "zag", "tabs.js"), "utf8")
 
     expect(service).toContain("createZagService")
     expect(props).toContain("normalizeZagProps")
     expect(scope).toContain("createZagScope")
+    expect(tabs).toContain("@zag-js/tabs")
     expect(index).not.toContain("internal/zag")
+  })
+
+  it("backs tabs with the private Zag adapter", () => {
+    const tabs = readFileSync(join(distRoot, "tabs.mjs"), "utf8")
+
+    expect(tabs).toContain("from \"./internal/zag/tabs.js\"")
+    expect(tabs).toContain("createIktiaZagTabsService")
+    expect(tabs).toContain("#applySpreadAttributes")
+    expect(tabs).not.toContain("from \"./internal/behavior/tabs.js\"")
+    expect(tabs).not.toContain("type IktiaZagTabsService")
   })
 
   it("emits form-associated checkbox and toggle output", () => {
@@ -67,7 +77,7 @@ describe("@iktia/primitives build output", () => {
     const tabs = readFileSync(join(distRoot, "tabs.mjs"), "utf8")
 
     expect(dropdown).toContain("addEventListener(\"keydown\"")
-    expect(tabs).toContain("addEventListener(\"keydown\"")
+    expect(tabs).toContain("\"key-down\": \"keydown\"")
     expect(dropdown).not.toContain("addEventListener(\"key-down\"")
     expect(tabs).not.toContain("addEventListener(\"key-down\"")
   })

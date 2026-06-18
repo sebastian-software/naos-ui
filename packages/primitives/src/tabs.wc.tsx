@@ -1,5 +1,18 @@
-import { event, on, state, type ComponentOptions } from "@iktia/core"
-import { tabsValueForKey } from "./internal/behavior/tabs.js"
+import {
+  computed,
+  event,
+  host,
+  onConnected,
+  onDisconnected,
+  state,
+  type ComponentOptions,
+} from "@iktia/core"
+import {
+  createIktiaZagTabsService,
+  getIktiaZagTabsApi,
+  stopIktiaZagTabsService,
+} from "./internal/zag/tabs.js"
+import type { IktiaZagTabsService } from "./internal/zag/tabs.js"
 import css from "./tabs.wc.css?inline"
 
 export type IktiaTabsProps = {
@@ -20,123 +33,81 @@ export function IktiaTabs({
   thirdLabel = "Third",
 }: IktiaTabsProps = {}) {
   const selected = state("first")
+  const tabsService = state<IktiaZagTabsService | null>(null)
+  const tabsApi = computed(() => getIktiaZagTabsApi(tabsService()))
   const changed = event<{ value: string }>("iktia-change")
 
+  onConnected(() => {
+    tabsService.set(createIktiaZagTabsService({
+      host: host().element,
+      id: "iktia-tabs",
+      onValueChange(value) {
+        if (value == null) return
+        selected.set(value)
+        changed.emit({ value })
+      },
+      orientation,
+      root: host().root,
+      value: selected(),
+    }))
+  })
+  onDisconnected(() => {
+    stopIktiaZagTabsService(tabsService())
+    tabsService.set(null)
+  })
+
   return (
-    <section part="root" data-state={selected()} data-orientation={orientation}>
-      <div part="tablist" role="tablist" aria-orientation={orientation}>
+    <section
+      {...(tabsApi()?.getRootProps() ?? {})}
+      part="root"
+      data-state={selected()}
+      data-orientation={orientation}
+    >
+      <div
+        {...(tabsApi()?.getListProps() ?? {})}
+        part="tablist"
+        aria-orientation={orientation}
+      >
         <button
-          id="iktia-tab-first"
+          {...(tabsApi()?.getTriggerProps({ value: "first" }) ?? {})}
           part="tab"
-          role="tab"
-          type="button"
-          aria-selected={selected() === "first"}
-          aria-controls="iktia-panel-first"
           data-state={selected() === "first" ? "selected" : "unselected"}
-          tabindex={selected() === "first" ? 0 : -1}
-          onKeyDown={on("keydown", (event) => {
-            const next = tabsValueForKey(selected(), event.key, ["first", "second", "third"], orientation)
-            if (next == null) return
-            event.preventDefault()
-            selected.set(next)
-            changed.emit({ value: selected() })
-            const current = event.currentTarget
-            if (!(current instanceof HTMLElement)) return
-            const root = current.getRootNode()
-            if (!(root instanceof ShadowRoot)) return
-            const tab = root.getElementById(`iktia-tab-${next}`)
-            if (tab instanceof HTMLElement) tab.focus()
-          })}
-          onClick={on("click", () => {
-            selected.set("first")
-            changed.emit({ value: selected() })
-          })}
         >
           {firstLabel}
         </button>
         <button
-          id="iktia-tab-second"
+          {...(tabsApi()?.getTriggerProps({ value: "second" }) ?? {})}
           part="tab"
-          role="tab"
-          type="button"
-          aria-selected={selected() === "second"}
-          aria-controls="iktia-panel-second"
           data-state={selected() === "second" ? "selected" : "unselected"}
-          tabindex={selected() === "second" ? 0 : -1}
-          onKeyDown={on("keydown", (event) => {
-            const next = tabsValueForKey(selected(), event.key, ["first", "second", "third"], orientation)
-            if (next == null) return
-            event.preventDefault()
-            selected.set(next)
-            changed.emit({ value: selected() })
-            const current = event.currentTarget
-            if (!(current instanceof HTMLElement)) return
-            const root = current.getRootNode()
-            if (!(root instanceof ShadowRoot)) return
-            const tab = root.getElementById(`iktia-tab-${next}`)
-            if (tab instanceof HTMLElement) tab.focus()
-          })}
-          onClick={on("click", () => {
-            selected.set("second")
-            changed.emit({ value: selected() })
-          })}
         >
           {secondLabel}
         </button>
         <button
-          id="iktia-tab-third"
+          {...(tabsApi()?.getTriggerProps({ value: "third" }) ?? {})}
           part="tab"
-          role="tab"
-          type="button"
-          aria-selected={selected() === "third"}
-          aria-controls="iktia-panel-third"
           data-state={selected() === "third" ? "selected" : "unselected"}
-          tabindex={selected() === "third" ? 0 : -1}
-          onKeyDown={on("keydown", (event) => {
-            const next = tabsValueForKey(selected(), event.key, ["first", "second", "third"], orientation)
-            if (next == null) return
-            event.preventDefault()
-            selected.set(next)
-            changed.emit({ value: selected() })
-            const current = event.currentTarget
-            if (!(current instanceof HTMLElement)) return
-            const root = current.getRootNode()
-            if (!(root instanceof ShadowRoot)) return
-            const tab = root.getElementById(`iktia-tab-${next}`)
-            if (tab instanceof HTMLElement) tab.focus()
-          })}
-          onClick={on("click", () => {
-            selected.set("third")
-            changed.emit({ value: selected() })
-          })}
         >
           {thirdLabel}
         </button>
       </div>
       <div
-        id="iktia-panel-first"
+        {...(tabsApi()?.getContentProps({ value: "first" }) ?? {})}
         part="panel"
-        role="tabpanel"
         data-value="first"
-        aria-labelledby="iktia-tab-first"
       >
         <slot name="first" />
       </div>
       <div
-        id="iktia-panel-second"
+        {...(tabsApi()?.getContentProps({ value: "second" }) ?? {})}
         part="panel"
-        role="tabpanel"
         data-value="second"
-        aria-labelledby="iktia-tab-second"
       >
         <slot name="second" />
       </div>
       <div
-        id="iktia-panel-third"
+        {...(tabsApi()?.getContentProps({ value: "third" }) ?? {})}
         part="panel"
-        role="tabpanel"
         data-value="third"
-        aria-labelledby="iktia-tab-third"
       >
         <slot name="third" />
       </div>
