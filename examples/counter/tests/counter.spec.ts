@@ -1,4 +1,36 @@
-import { expect, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
+
+type PrimitiveEventRecord = {
+  detail: unknown
+  type: string
+}
+
+declare global {
+  interface Window {
+    __iktiaPrimitiveEvents?: PrimitiveEventRecord[]
+  }
+}
+
+async function expectPrimitiveEvent(
+  page: Page,
+  type: string,
+  detail: unknown
+) {
+  const expectedDetail = JSON.stringify(detail)
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        ({ expectedDetail, type }) =>
+          window.__iktiaPrimitiveEvents?.some(
+            (event) =>
+              event.type === type &&
+              JSON.stringify(event.detail) === expectedDetail
+          ) ?? false,
+        { expectedDetail, type }
+      )
+    )
+    .toBe(true)
+}
 
 test("compiled counter renders, updates, and emits detail", async ({ page }) => {
   await page.goto("/")
@@ -138,6 +170,21 @@ test("compiled design-system primitives expose native contracts", async ({
 
 test("packaged primitives render and dispatch package events", async ({ page }) => {
   await page.goto("/")
+  await page.evaluate(() => {
+    window.__iktiaPrimitiveEvents = []
+    for (const type of [
+      "iktia-change",
+      "iktia-open-change",
+      "iktia-press",
+      "iktia-select",
+    ]) {
+      document.addEventListener(type, (event) => {
+        if (event instanceof CustomEvent) {
+          window.__iktiaPrimitiveEvents?.push({ detail: event.detail, type })
+        }
+      })
+    }
+  })
 
   const section = page.locator("#primitive-package-case")
   const checkbox = section.locator("iktia-checkbox")
@@ -183,6 +230,13 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   const fileUploadInput = fileUpload.locator("[part~='input']")
   const fileUploadItems = fileUpload.locator("[part~='item']")
   const fileUploadClear = fileUpload.locator("[part~='clear']")
+  const datePicker = section.locator("iktia-date-picker")
+  const datePickerRoot = datePicker.locator("[part~='root']")
+  const datePickerInput = datePicker.locator("[part~='input']")
+  const datePickerTrigger = datePicker.locator("[part~='trigger']")
+  const datePickerContent = datePicker.locator("[part~='content']")
+  const datePickerTable = datePicker.locator("[part~='table']")
+  const datePickerCells = datePicker.locator("[part~='cell-trigger']")
   const ratingGroup = section.locator("iktia-rating-group")
   const ratingRoot = ratingGroup.locator("[part~='root']")
   const ratingControl = ratingGroup.locator("[part~='control']")
@@ -305,6 +359,12 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(fileUploadInput).toHaveAttribute("type", "file")
   await expect(fileUploadInput).toHaveAttribute("accept", ".txt")
   await expect(fileUploadItems).toHaveCount(0)
+  await expect(datePickerRoot).toHaveAttribute("data-state", "closed")
+  await expect(datePickerRoot).toHaveAttribute("data-value", "2026-06-18")
+  await expect(datePickerInput).toHaveValue("06/18/2026")
+  await expect(datePickerTrigger).toHaveAttribute("aria-haspopup", "grid")
+  await expect(datePickerContent).toBeHidden()
+  await expect(datePickerCells).toHaveCount(42)
   await expect(ratingRoot).toHaveAttribute("data-state", "filled")
   await expect(ratingRoot).toHaveAttribute("data-value", "3")
   await expect(ratingControl).toHaveAttribute("role", "radiogroup")
@@ -486,6 +546,20 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
     '"files":["release.txt"]'
   )
 
+  await datePickerTrigger.click()
+  await expect(datePickerRoot).toHaveAttribute("data-state", "open")
+  await expect(datePickerContent).toBeVisible()
+  await expect(page.locator("#primitive-event")).toContainText('"open":true')
+  await datePickerTable.focus()
+  await datePickerTable.press("ArrowRight")
+  await datePickerTable.press("Enter")
+  await expect(datePickerRoot).toHaveAttribute("data-value", "2026-06-19")
+  await expectPrimitiveEvent(page, "iktia-change", { value: "2026-06-19" })
+  await datePickerTrigger.click()
+  await datePicker.locator("[part~='cell-trigger'][data-value='2026-06-20']").click()
+  await expect(datePickerRoot).toHaveAttribute("data-value", "2026-06-20")
+  await expectPrimitiveEvent(page, "iktia-change", { value: "2026-06-20" })
+
   await ratingItems.nth(3).click()
   await expect(ratingRoot).toHaveAttribute("data-value", "4")
   await expect(ratingItems.nth(3)).toHaveAttribute("data-checked", "")
@@ -521,10 +595,10 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await form.locator("button[type='submit']").click()
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-rating:3, confidence:80"
+    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-rating:3, confidence:80"
   )
   await expect(page.locator("#primitive-form-event")).toHaveText(
-    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-rating:3, confidence:80"
+    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-rating:3, confidence:80"
   )
 
   await form.locator("button[type='reset']").click()
@@ -550,12 +624,14 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(tagItems).toHaveCount(2)
   await expect(fileUploadRoot).toHaveAttribute("data-state", "empty")
   await expect(fileUploadItems).toHaveCount(0)
+  await expect(datePickerRoot).toHaveAttribute("data-value", "2026-06-18")
+  await expect(datePickerInput).toHaveValue("06/18/2026")
   await expect(ratingRoot).toHaveAttribute("data-value", "3")
   await expect(ratingItems.nth(2)).toHaveAttribute("data-checked", "")
   await expect(sliderThumb).toHaveAttribute("aria-valuenow", "40")
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "notify:enabled, channels:web, cadence:weekly, region:eu, lane:review, owner:ops, approvals:2, release-code:123, release-tags:docs,preview, release-rating:3, confidence:40"
+    "notify:enabled, channels:web, cadence:weekly, region:eu, lane:review, owner:ops, approvals:2, release-code:123, release-tags:docs,preview, release-date:2026-06-18, release-rating:3, confidence:40"
   )
 
   await fileUploadInput.setInputFiles({
@@ -915,6 +991,7 @@ test("form-associated primitive controls receive disabled fieldset state", async
         <iktia-pin-input name="blocked-pin" label="Blocked pin" value="12"></iktia-pin-input>
         <iktia-tags-input name="blocked-tags" label="Blocked tags" value="docs,preview"></iktia-tags-input>
         <iktia-file-upload name="blocked-file" label="Blocked file"></iktia-file-upload>
+        <iktia-date-picker name="blocked-date" label="Blocked date" value="2026-06-18"></iktia-date-picker>
         <iktia-rating-group name="blocked-rating" label="Blocked rating" value="3"></iktia-rating-group>
         <iktia-slider name="blocked-slider" label="Blocked slider" value="40"></iktia-slider>
       </fieldset>
@@ -940,6 +1017,8 @@ test("form-associated primitive controls receive disabled fieldset state", async
   const tagsInputField = page.locator("form fieldset iktia-tags-input [part~='input']")
   const fileUploadInput = page.locator("form fieldset iktia-file-upload [part~='input']")
   const fileUploadTrigger = page.locator("form fieldset iktia-file-upload [part~='trigger']")
+  const datePickerInput = page.locator("form fieldset iktia-date-picker [part~='input']")
+  const datePickerTrigger = page.locator("form fieldset iktia-date-picker [part~='trigger']")
   const ratingRoot = page.locator("form fieldset iktia-rating-group [part~='root']")
   const ratingItem = page.locator("form fieldset iktia-rating-group [part~='item']").nth(3)
   const sliderThumb = page.locator("form fieldset iktia-slider [part~='thumb']")
@@ -956,6 +1035,8 @@ test("form-associated primitive controls receive disabled fieldset state", async
   await expect(tagsInputField).toBeDisabled()
   await expect(fileUploadInput).toBeDisabled()
   await expect(fileUploadTrigger).toBeDisabled()
+  await expect(datePickerInput).toBeDisabled()
+  await expect(datePickerTrigger).toBeDisabled()
   await expect(ratingItem).toHaveAttribute("aria-disabled", "")
   await expect(sliderThumb).toHaveAttribute("aria-disabled", "true")
   await expect(radio).toHaveAttribute("aria-disabled", "true")

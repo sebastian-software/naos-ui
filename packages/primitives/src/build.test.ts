@@ -26,6 +26,7 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./combobox.mjs\"")
     expect(index).toContain("export * from \"./combobox-item.mjs\"")
     expect(index).toContain("export * from \"./context-menu.mjs\"")
+    expect(index).toContain("export * from \"./date-picker.mjs\"")
     expect(index).toContain("export * from \"./dialog.mjs\"")
     expect(index).toContain("export * from \"./dropdown.mjs\"")
     expect(index).toContain("export * from \"./field.mjs\"")
@@ -70,6 +71,7 @@ describe("@iktia/primitives build output", () => {
     const checkbox = readFileSync(join(distRoot, "internal", "zag", "checkbox.js"), "utf8")
     const collapsible = readFileSync(join(distRoot, "internal", "zag", "collapsible.js"), "utf8")
     const combobox = readFileSync(join(distRoot, "internal", "zag", "combobox.js"), "utf8")
+    const datePicker = readFileSync(join(distRoot, "internal", "zag", "date-picker.js"), "utf8")
     const dialog = readFileSync(join(distRoot, "internal", "zag", "dialog.js"), "utf8")
     const fileUpload = readFileSync(join(distRoot, "internal", "zag", "file-upload.js"), "utf8")
     const hoverCard = readFileSync(join(distRoot, "internal", "zag", "hover-card.js"), "utf8")
@@ -99,6 +101,8 @@ describe("@iktia/primitives build output", () => {
     expect(collapsible).toContain("@zag-js/collapsible")
     expect(combobox).toContain("@zag-js/combobox")
     expect(combobox).toContain("syncIktiaComboboxItems")
+    expect(datePicker).toContain("@zag-js/date-picker")
+    expect(datePicker).toContain("datePickerFormValue")
     expect(dialog).toContain("@zag-js/dialog")
     expect(fileUpload).toContain("@zag-js/file-upload")
     expect(hoverCard).toContain("@zag-js/hover-card")
@@ -235,6 +239,18 @@ describe("@iktia/primitives build output", () => {
     expect(combobox).toContain("#applySpreadAttributes")
     expect(combobox).not.toContain("@iktia/core")
     expect(combobox).not.toContain("type IktiaZagComboboxService")
+  })
+
+  it("backs date picker with the private Zag adapter", () => {
+    const datePicker = readFileSync(join(distRoot, "date-picker.mjs"), "utf8")
+
+    expect(datePicker).toContain("from \"./internal/zag/date-picker.js\"")
+    expect(datePicker).toContain("createIktiaZagDatePickerService")
+    expect(datePicker).toContain("datePickerFormValue")
+    expect(datePicker).toContain("#applySpreadAttributes")
+    expect(datePicker).toContain("static formAssociated = true;")
+    expect(datePicker).not.toContain("@iktia/core")
+    expect(datePicker).not.toContain("type IktiaZagDatePickerService")
   })
 
   it("backs menu with the private Zag adapter", () => {
@@ -393,6 +409,7 @@ describe("@iktia/primitives build output", () => {
   it("emits form-associated custom control output", () => {
     const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
     const combobox = readFileSync(join(distRoot, "combobox.mjs"), "utf8")
+    const datePicker = readFileSync(join(distRoot, "date-picker.mjs"), "utf8")
     const fileUpload = readFileSync(join(distRoot, "file-upload.mjs"), "utf8")
     const listbox = readFileSync(join(distRoot, "listbox.mjs"), "utf8")
     const numberInput = readFileSync(join(distRoot, "number-input.mjs"), "utf8")
@@ -407,7 +424,7 @@ describe("@iktia/primitives build output", () => {
     const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")
     const toggleGroup = readFileSync(join(distRoot, "toggle-group.mjs"), "utf8")
 
-    for (const source of [checkbox, combobox, fileUpload, listbox, numberInput, pinInput, radioGroup, ratingGroup, segmentedControl, select, slider, switchComponent, tagsInput, toggle, toggleGroup]) {
+    for (const source of [checkbox, combobox, datePicker, fileUpload, listbox, numberInput, pinInput, radioGroup, ratingGroup, segmentedControl, select, slider, switchComponent, tagsInput, toggle, toggleGroup]) {
       expect(source).toContain("static formAssociated = true")
       expect(source).toContain("this.#internals = this.attachInternals()")
       expect(source).toContain("this.#internals.setFormValue")

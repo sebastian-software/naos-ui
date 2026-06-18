@@ -51,6 +51,10 @@
       "types": "./dist/context-menu.d.mts",
       "import": "./dist/context-menu.mjs"
     },
+    "./date-picker": {
+      "types": "./dist/date-picker.d.mts",
+      "import": "./dist/date-picker.mjs"
+    },
     "./dialog": {
       "types": "./dist/dialog.d.mts",
       "import": "./dist/dialog.mjs"
@@ -183,10 +187,12 @@
   },
   "dependencies": {
     "@iktia/core": "workspace:^",
+    "@internationalized/date": "3.12.2",
     "@zag-js/accordion": "1.41.2",
     "@zag-js/checkbox": "1.41.2",
     "@zag-js/collapsible": "1.41.2",
     "@zag-js/combobox": "1.41.2",
+    "@zag-js/date-picker": "1.41.2",
     "@zag-js/dialog": "1.41.2",
     "@zag-js/file-upload": "1.41.2",
     "@zag-js/hover-card": "1.41.2",
