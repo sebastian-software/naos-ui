@@ -29,6 +29,7 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./listbox-item.mjs\"")
     expect(index).toContain("export * from \"./menu.mjs\"")
     expect(index).toContain("export * from \"./menu-item.mjs\"")
+    expect(index).toContain("export * from \"./popover.mjs\"")
     expect(index).toContain("export * from \"./radio.mjs\"")
     expect(index).toContain("export * from \"./radio-group.mjs\"")
     expect(index).toContain("export * from \"./segmented-control.mjs\"")
@@ -57,6 +58,7 @@ describe("@iktia/primitives build output", () => {
     const combobox = readFileSync(join(distRoot, "internal", "zag", "combobox.js"), "utf8")
     const listbox = readFileSync(join(distRoot, "internal", "zag", "listbox.js"), "utf8")
     const menu = readFileSync(join(distRoot, "internal", "zag", "menu.js"), "utf8")
+    const popover = readFileSync(join(distRoot, "internal", "zag", "popover.js"), "utf8")
     const radioGroup = readFileSync(join(distRoot, "internal", "zag", "radio-group.js"), "utf8")
     const service = readFileSync(join(distRoot, "internal", "zag", "service.js"), "utf8")
     const props = readFileSync(join(distRoot, "internal", "zag", "props.js"), "utf8")
@@ -75,6 +77,7 @@ describe("@iktia/primitives build output", () => {
     expect(listbox).toContain("syncIktiaListboxItems")
     expect(menu).toContain("@zag-js/menu")
     expect(menu).toContain("syncIktiaMenuItems")
+    expect(popover).toContain("@zag-js/popover")
     expect(radioGroup).toContain("@zag-js/radio-group")
     expect(radioGroup).toContain("syncIktiaRadioGroupItems")
     expect(service).toContain("createZagService")
@@ -195,6 +198,16 @@ describe("@iktia/primitives build output", () => {
     expect(collapsible).toContain("#applySpreadAttributes")
     expect(collapsible).not.toContain("@iktia/core")
     expect(collapsible).not.toContain("type IktiaZagCollapsibleService")
+  })
+
+  it("backs popover with the private Zag adapter", () => {
+    const popover = readFileSync(join(distRoot, "popover.mjs"), "utf8")
+
+    expect(popover).toContain("from \"./internal/zag/popover.js\"")
+    expect(popover).toContain("createIktiaZagPopoverService")
+    expect(popover).toContain("#applySpreadAttributes")
+    expect(popover).not.toContain("@iktia/core")
+    expect(popover).not.toContain("type IktiaZagPopoverService")
   })
 
   it("backs toggle group with the private Zag adapter", () => {
