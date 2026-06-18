@@ -1,8 +1,21 @@
-import { event, formControl, on, state, type ComponentOptions } from "@iktia/core"
 import {
-  nextTogglePressed,
-  toggleFormValue,
-} from "./internal/behavior/toggle.js"
+  computed,
+  event,
+  formControl,
+  host,
+  on,
+  onConnected,
+  onDisconnected,
+  state,
+  type ComponentOptions,
+} from "@iktia/core"
+import {
+  createIktiaZagToggleService,
+  getIktiaZagToggleApi,
+  stopIktiaZagToggleService,
+  withoutIktiaZagToggleClick,
+} from "./internal/zag/toggle.js"
+import type { IktiaZagToggleService } from "./internal/zag/toggle.js"
 import css from "./toggle.wc.css?inline"
 
 export type IktiaToggleProps = {
@@ -25,19 +38,44 @@ export function IktiaToggle({
   value = "on",
 }: IktiaToggleProps = {}) {
   const active = state(pressed)
+  const toggleService = state<IktiaZagToggleService | null>(null)
+  const toggleApi = computed(() => getIktiaZagToggleApi(toggleService()))
+  const rootProps = computed(() =>
+    withoutIktiaZagToggleClick(toggleApi()?.getRootProps() ?? {})
+  )
   const changed = event<{ pressed: boolean }>("iktia-change")
   const form = formControl({
-    value: () => toggleFormValue(active(), value),
+    value: () => (active() ? value : null),
     reset: () => {
       active.set(pressed)
+      toggleApi()?.setPressed(pressed)
     },
     disabled,
   })
   void form
   void name
 
+  onConnected(() => {
+    toggleService.set(createIktiaZagToggleService({
+      disabled,
+      host: host().element,
+      id: "iktia-toggle",
+      onPressedChange(nextPressed) {
+        active.set(nextPressed)
+        changed.emit({ pressed: nextPressed })
+      },
+      pressed: active(),
+      root: host().root,
+    }))
+  })
+  onDisconnected(() => {
+    stopIktiaZagToggleService(toggleService())
+    toggleService.set(null)
+  })
+
   return (
     <button
+      {...rootProps()}
       part="root control"
       type="button"
       data-state={active() ? "on" : "off"}
@@ -46,14 +84,15 @@ export function IktiaToggle({
       disabled={disabled}
       onClick={on("click", () => {
         if (disabled) return
-        active.set(nextTogglePressed(active()))
-        changed.emit({ pressed: active() })
+        toggleApi()?.setPressed(!active())
       })}
     >
       <span part="label">
         <slot>{label}</slot>
       </span>
-      <span part="indicator">{active() ? "On" : "Off"}</span>
+      <span {...(toggleApi()?.getIndicatorProps() ?? {})} part="indicator">
+        {active() ? "On" : "Off"}
+      </span>
     </button>
   )
 }

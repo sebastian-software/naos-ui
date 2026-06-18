@@ -27,26 +27,45 @@ describe("@iktia/primitives build output", () => {
   })
 
   it("keeps primitive behavior kernels private but available to compiled components", () => {
-    const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
     const dropdown = readFileSync(join(distRoot, "dropdown.mjs"), "utf8")
 
-    expect(checkbox).toContain("from \"./internal/behavior/checkbox.js\"")
     expect(dropdown).toContain("from \"./internal/behavior/disclosure.js\"")
-    expect(checkbox).not.toContain("@iktia/core")
+    expect(dropdown).not.toContain("@iktia/core")
   })
 
   it("builds private Zag adapter helpers without adding public exports", () => {
     const index = readFileSync(join(distRoot, "index.mjs"), "utf8")
+    const checkbox = readFileSync(join(distRoot, "internal", "zag", "checkbox.js"), "utf8")
     const service = readFileSync(join(distRoot, "internal", "zag", "service.js"), "utf8")
     const props = readFileSync(join(distRoot, "internal", "zag", "props.js"), "utf8")
     const scope = readFileSync(join(distRoot, "internal", "zag", "scope.js"), "utf8")
     const tabs = readFileSync(join(distRoot, "internal", "zag", "tabs.js"), "utf8")
+    const toggle = readFileSync(join(distRoot, "internal", "zag", "toggle.js"), "utf8")
 
+    expect(checkbox).toContain("@zag-js/checkbox")
     expect(service).toContain("createZagService")
     expect(props).toContain("normalizeZagProps")
     expect(scope).toContain("createZagScope")
     expect(tabs).toContain("@zag-js/tabs")
+    expect(toggle).toContain("@zag-js/toggle")
     expect(index).not.toContain("internal/zag")
+  })
+
+  it("backs checkbox and toggle with private Zag adapters", () => {
+    const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
+    const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")
+
+    expect(checkbox).toContain("from \"./internal/zag/checkbox.js\"")
+    expect(checkbox).toContain("createIktiaZagCheckboxService")
+    expect(checkbox).toContain("#applySpreadAttributes")
+    expect(checkbox).not.toContain("from \"./internal/behavior/checkbox.js\"")
+    expect(checkbox).not.toContain("type IktiaZagCheckboxService")
+
+    expect(toggle).toContain("from \"./internal/zag/toggle.js\"")
+    expect(toggle).toContain("createIktiaZagToggleService")
+    expect(toggle).toContain("#applySpreadAttributes")
+    expect(toggle).not.toContain("from \"./internal/behavior/toggle.js\"")
+    expect(toggle).not.toContain("type IktiaZagToggleService")
   })
 
   it("backs tabs with the private Zag adapter", () => {

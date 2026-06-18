@@ -3,6 +3,10 @@
   font: inherit;
 }
 
+[part~="wrapper"] {
+  display: inline-block;
+}
+
 button {
   display: inline-flex;
   align-items: center;
