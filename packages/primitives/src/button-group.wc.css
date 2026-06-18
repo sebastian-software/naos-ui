@@ -1,0 +1,20 @@
+:host {
+  display: inline-flex;
+  color: var(--iktia-button-group-fg, inherit);
+}
+
+:host([hidden]) {
+  display: none;
+}
+
+[part~="root"] {
+  display: inline-flex;
+  flex-direction: row;
+  gap: var(--iktia-button-group-gap, 0.35rem);
+  align-items: center;
+}
+
+[data-orientation="vertical"] {
+  flex-direction: column;
+  align-items: stretch;
+}

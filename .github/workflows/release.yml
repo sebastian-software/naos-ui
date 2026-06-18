@@ -186,6 +186,7 @@ jobs:
           packages=(
             packages/core
             packages/runtime
+            packages/primitives
             packages/compiler
             packages/vite
             packages/cli

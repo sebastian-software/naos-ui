@@ -4,13 +4,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "pnpm -w build:native && pnpm prepare:dsd && vite build",
+    "build": "pnpm -w build:native && pnpm --filter @iktia/primitives build && pnpm prepare:dsd && vite build",
     "prepare:dsd": "node scripts/build-dsd-html.mjs",
-    "test": "pnpm -w build:native && pnpm prepare:dsd && playwright test",
-    "type-check": "tsc --noEmit -p tsconfig.json"
+    "test": "pnpm -w build:native && pnpm --filter @iktia/primitives build && pnpm prepare:dsd && playwright test",
+    "type-check": "pnpm --filter @iktia/primitives build && tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@iktia/core": "workspace:^",
+    "@iktia/primitives": "workspace:^",
     "@iktia/vite": "workspace:^"
   },
   "devDependencies": {

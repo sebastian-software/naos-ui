@@ -251,6 +251,44 @@ count.update((current) => current + 1)
 State writes trigger an update pass for generated text, dynamic attributes,
 control-flow containers, and effects.
 
+State can be initialized from props:
+
+```ts
+export function Checkbox({ checked = false }: CheckboxProps = {}) {
+  const selected = state(checked)
+}
+```
+
+This is an uncontrolled-first contract. The prop value initializes component
+state once after initial attributes are processed and before mount or
+hydration. Later prop or attribute changes do not bind `selected` back to
+`checked`; the component owns the state after initialization.
+
+## Form Controls
+
+`formControl()` is an experimental authoring helper for custom controls that
+need to participate in a real `<form>`.
+
+```ts
+export function Toggle({ disabled = false, pressed = false, value = "on" }) {
+  const active = state(pressed)
+
+  const form = formControl({
+    value: () => (active() ? value : null),
+    reset: () => {
+      active.set(pressed)
+    },
+    disabled,
+  })
+  void form
+}
+```
+
+The helper is compiler-recognized static metadata, not a runtime hook. Generated
+output sets `static formAssociated = true`, calls `attachInternals()`, writes
+submission values with `setFormValue()`, and emits reset/disabled lifecycle
+callbacks when the source provides enough static information.
+
 ## Computed Values
 
 Computed values are read-only derived accessors.

@@ -1,0 +1,49 @@
+# `@iktia/primitives`
+
+`@iktia/primitives` is the first Iktia-authored primitive component package.
+The components are written as `.wc.tsx` modules and compiled to native Custom
+Elements for distribution.
+
+```ts
+import "@iktia/primitives"
+```
+
+Or import individual elements:
+
+```ts
+import "@iktia/primitives/button"
+import "@iktia/primitives/toggle"
+```
+
+## First Components
+
+| Element | Purpose | Status |
+| --- | --- | --- |
+| `<iktia-button>` | Shadow-DOM action button with slots, variants, parts, and `iktia-press`. | Experimental |
+| `<iktia-button-group>` | Oriented grouping for action controls. | Experimental |
+| `<iktia-checkbox>` | ARIA checkbox primitive with checked, indeterminate, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<iktia-dropdown>` | Button-triggered dropdown/disclosure primitive. | Experimental |
+| `<iktia-field>` | Field composition shell for labels, controls, hints, and errors. | Experimental |
+| `<iktia-tabs>` | Platform-style tab set for three slotted panels. | Experimental |
+| `<iktia-toggle>` | Pressed/on-off button primitive with native `FormData` behavior. | Experimental form-associated MVP |
+
+## Contracts
+
+The primitives expose platform-readable contracts:
+
+* `part` names for styling hooks.
+* `data-state`, `data-disabled`, `data-invalid`, and `data-orientation`.
+* CSS custom properties with `--iktia-*` names.
+* Native ARIA attributes where the current `.wc.tsx` compiler surface supports them.
+* Iktia-prefixed `CustomEvent`s such as `iktia-change` and `iktia-press`.
+
+Checkbox and toggle use the compiler-owned `formControl()` spike to generate
+Form-Associated Custom Element output. They support `name`, `value`, submit,
+reset, disabled fieldset propagation, and `FormData` in the current MVP, but
+remain experimental until label association, validation, and cross-browser
+coverage are complete.
+
+Shared behavior lives in private package modules under
+`src/internal/behavior`. These kernels cover deterministic checkbox/toggle
+state transitions, dropdown open/close decisions, and tabs keyboard movement.
+They are intentionally not public exports.

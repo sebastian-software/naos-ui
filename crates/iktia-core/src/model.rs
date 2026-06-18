@@ -13,12 +13,16 @@ pub struct ComponentModule {
     pub options: ComponentOptions,
     /// Component imports that should be preserved for nested Custom Element registration.
     pub component_imports: Vec<ComponentImport>,
+    /// Runtime imports preserved for helper functions used in generated code.
+    pub runtime_imports: Vec<RuntimeImport>,
     /// Inline CSS imports referenced by component styles.
     pub style_imports: Vec<StyleImport>,
     /// Public props declared through function parameters.
     pub props: Vec<PropDefinition>,
     /// Internal state declarations.
     pub states: Vec<StateDefinition>,
+    /// Form-associated custom element declaration.
+    pub form_controls: Vec<FormControlDefinition>,
     /// Pure derived value declarations.
     pub computed: Vec<ComputedDefinition>,
     /// Lifecycle side effect declarations.
@@ -39,6 +43,13 @@ pub struct ComponentImport {
     /// Local binding name used in the current module.
     pub local_name: String,
     /// Import source specifier.
+    pub source: String,
+}
+
+/// Runtime import that should be preserved in generated output.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeImport {
+    /// Raw import declaration source.
     pub source: String,
 }
 
@@ -116,6 +127,19 @@ pub struct StateDefinition {
     pub initial_value: String,
     /// Authoring function used for this reactive value.
     pub kind: StateKind,
+}
+
+/// Form-associated custom element declaration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FormControlDefinition {
+    /// Local variable name used in the component callback.
+    pub local_name: String,
+    /// Expression passed to `ElementInternals.setFormValue()`.
+    pub value_expression: String,
+    /// Optional reset callback body.
+    pub reset_body: Option<String>,
+    /// Optional prop/local expression used for disabled reflection.
+    pub disabled_expression: Option<String>,
 }
 
 /// Local reactive authoring declaration.

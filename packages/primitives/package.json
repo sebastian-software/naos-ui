@@ -1,0 +1,71 @@
+{
+  "name": "@iktia/primitives",
+  "version": "0.0.0",
+  "description": "Iktia-authored primitive Web Components for design-system baselines.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sebastian-software/iktia.git",
+    "directory": "packages/primitives"
+  },
+  "bugs": "https://github.com/sebastian-software/iktia/issues",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    },
+    "./button": {
+      "types": "./dist/button.d.mts",
+      "import": "./dist/button.mjs"
+    },
+    "./button-group": {
+      "types": "./dist/button-group.d.mts",
+      "import": "./dist/button-group.mjs"
+    },
+    "./checkbox": {
+      "types": "./dist/checkbox.d.mts",
+      "import": "./dist/checkbox.mjs"
+    },
+    "./dropdown": {
+      "types": "./dist/dropdown.d.mts",
+      "import": "./dist/dropdown.mjs"
+    },
+    "./field": {
+      "types": "./dist/field.d.mts",
+      "import": "./dist/field.mjs"
+    },
+    "./tabs": {
+      "types": "./dist/tabs.d.mts",
+      "import": "./dist/tabs.mjs"
+    },
+    "./toggle": {
+      "types": "./dist/toggle.d.mts",
+      "import": "./dist/toggle.mjs"
+    }
+  },
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "sideEffects": true,
+  "files": ["dist/", "src/", "README.md"],
+  "scripts": {
+    "build": "node scripts/build-primitives.mjs",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --globals"
+  },
+  "dependencies": {
+    "@iktia/core": "workspace:^"
+  },
+  "devDependencies": {
+    "@iktia/compiler": "workspace:^",
+    "@types/node": "^25.0.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

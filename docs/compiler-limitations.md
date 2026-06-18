@@ -27,7 +27,8 @@ Current analysis expects:
 * A deterministic inferred Custom Element tag name.
 * Destructured function props when props are needed.
 * A `return (...)` TSX template.
-* `const` declarations for `state()`, `computed()`, `effect()`, and `event()`.
+* `const` declarations for `state()`, `computed()`, `effect()`, `event()`, and
+  experimental `formControl()`.
 * A single root TSX element.
 
 OXC validates that the module parses as TSX before transform-specific analysis
@@ -39,6 +40,17 @@ returned TSX template spans.
 Some MVP detail parsers remain intentionally conservative: function prop
 destructuring, component options, inline style arrays, and generated-template
 parsing still use narrow source-slice analysis fed by AST-selected regions.
+
+`state(propName)` is supported for string, number, and boolean props. The
+compiler initializes that state once from current props after initial attributes
+are processed and before mount or hydration. This is an initial uncontrolled
+value, not a controlled binding.
+
+`formControl({ value, reset, disabled })` is supported as an experimental body
+helper when the options object is statically analyzable. `value` must be an
+arrow function expression. `reset` can be an arrow function body. `disabled`
+currently maps to a boolean prop identifier so generated
+`formDisabledCallback()` can synchronize fieldset disabled state.
 
 ## Template Support
 
@@ -98,7 +110,8 @@ The DSD serializer supports:
 * Static elements, static attributes, text, slots, and resolved `?inline` CSS
   text.
 * Prop defaults and JSON-provided prerender props.
-* `state()` initializers when they are supported literals.
+* `state()` initializers when they are supported literals or supported
+  prop-derived values.
 * Literal arrays and objects for initial values.
 * Simple template strings, identifier reads, accessor reads, boolean negation,
   and simple boolean conditionals over supported values.

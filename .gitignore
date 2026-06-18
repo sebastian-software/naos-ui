@@ -4,6 +4,7 @@ target/
 dist/
 build/
 .tsdown-types/
+.react-router/
 .tsbuildinfo/
 packages/core-node/native/*.node
 packages/compiler/native/*.node

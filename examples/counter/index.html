@@ -187,6 +187,75 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
 dispatch native CustomEvents.</code></pre>
         </div>
       </section>
+
+      <section
+        class="demo-case"
+        id="primitive-package-case"
+        aria-labelledby="primitive-package-title"
+      >
+        <div class="case-copy">
+          <p class="case-kicker">Use case 06</p>
+          <h2 id="primitive-package-title">Packaged primitives</h2>
+          <p>
+            The first <code>@iktia/primitives</code> package ships compiled
+            Iktia-authored Web Components. These are package imports, not local
+            demo fixtures.
+          </p>
+          <ul>
+            <li>Buttons, toggles, checkbox, field, tabs, and dropdown share parts and state attributes.</li>
+            <li>The package build compiles <code>.wc.tsx</code> sources before publishing.</li>
+            <li>Checkbox and toggle use the compiler-owned Form-Associated Custom Element spike.</li>
+          </ul>
+        </div>
+        <div class="case-surface package-surface">
+          <div class="primitive-stack">
+            <form id="primitive-form" class="primitive-form">
+              <iktia-field label="Release checklist">
+                <div class="primitive-row">
+                  <iktia-checkbox
+                    name="docs"
+                    value="reviewed"
+                    label="Docs reviewed"
+                  ></iktia-checkbox>
+                  <iktia-toggle
+                    name="preview"
+                    value="enabled"
+                    label="Publish preview"
+                  ></iktia-toggle>
+                </div>
+                <span slot="hint">Checkbox and toggle contribute native FormData.</span>
+              </iktia-field>
+              <div class="primitive-row">
+                <button type="submit" class="native-action">Read FormData</button>
+                <button type="reset" class="native-action secondary">Reset</button>
+              </div>
+            </form>
+            <output id="primitive-form-event">Last primitive form data: none</output>
+
+            <iktia-button-group label="Primitive actions">
+              <iktia-button variant="primary" label="Build"></iktia-button>
+              <iktia-button variant="ghost" label="Preview"></iktia-button>
+            </iktia-button-group>
+
+            <iktia-tabs
+              first-label="Contract"
+              second-label="Behavior"
+              third-label="Forms"
+            >
+              <span slot="first">Parts, slots, data-state, and CSS variables.</span>
+              <span slot="second">Behavior stays inside Iktia-authored kernels or native controls.</span>
+              <span slot="third">Checkbox and toggle submit through ElementInternals.</span>
+            </iktia-tabs>
+
+            <iktia-dropdown label="Package notes">
+              <p>Dropdown is experimental and compiler-compatible in this first pass.</p>
+            </iktia-dropdown>
+
+            <output id="primitive-event">Last primitive event: none</output>
+          </div>
+          <pre><code>import "@iktia/primitives"</code></pre>
+        </div>
+      </section>
     </main>
 
     <script type="module" src="/src/main.ts"></script>

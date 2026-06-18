@@ -4,7 +4,8 @@ use std::fmt::Write as _;
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
     ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult, EffectDefinition,
-    EventDefinition, PropDefinition, PropKind, SourceMap, StateDefinition, TransformResult,
+    EventDefinition, FormControlDefinition, PropDefinition, PropKind, SourceMap, StateDefinition,
+    TransformResult,
 };
 use crate::naming::{
     custom_element_tag_for_component, is_pascal_case_identifier, kebab_case_identifier,
@@ -349,6 +350,7 @@ impl<'a> CodeGenerator<'a> {
             .push(format!("this.#root.append({root_variable});"));
 
         let mut code = String::new();
+        self.emit_runtime_imports(&mut code)?;
         self.emit_style_imports(&mut code)?;
         self.emit_component_imports(&mut code)?;
         writeln!(
@@ -357,11 +359,14 @@ impl<'a> CodeGenerator<'a> {
             self.module.class_name
         )
         .map_err(format_error)?;
+        self.emit_form_associated_flag(&mut code)?;
         self.emit_observed_attributes(&mut code)?;
         self.emit_fields(&mut code)?;
         self.emit_constructor(&mut code)?;
         self.emit_lifecycle(&mut code)?;
         self.emit_prop_accessors(&mut code)?;
+        self.emit_state_initializer(&mut code)?;
+        self.emit_form_callbacks(&mut code)?;
         self.emit_mount(&mut code)?;
         self.emit_hydration(&mut code)?;
         self.emit_bindings(&mut code)?;
@@ -391,6 +396,16 @@ impl<'a> CodeGenerator<'a> {
             .map_err(format_error)?;
         }
         if !sources.is_empty() {
+            writeln!(code).map_err(format_error)?;
+        }
+        Ok(())
+    }
+
+    fn emit_runtime_imports(&self, code: &mut String) -> CompilerResult<()> {
+        for runtime_import in &self.module.runtime_imports {
+            writeln!(code, "{}", runtime_import.source).map_err(format_error)?;
+        }
+        if !self.module.runtime_imports.is_empty() {
             writeln!(code).map_err(format_error)?;
         }
         Ok(())
@@ -426,6 +441,14 @@ impl<'a> CodeGenerator<'a> {
         Ok(())
     }
 
+    fn emit_form_associated_flag(&self, code: &mut String) -> CompilerResult<()> {
+        if self.module.form_controls.is_empty() {
+            return Ok(());
+        }
+        writeln!(code, "  static formAssociated = true;").map_err(format_error)?;
+        Ok(())
+    }
+
     fn emit_fields(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  #root;").map_err(format_error)?;
         writeln!(code, "  #mounted = false;").map_err(format_error)?;
@@ -435,6 +458,9 @@ impl<'a> CodeGenerator<'a> {
         }
         if !self.module.effects.is_empty() {
             writeln!(code, "  #effectCleanups = [];").map_err(format_error)?;
+        }
+        if !self.module.form_controls.is_empty() {
+            writeln!(code, "  #internals;").map_err(format_error)?;
         }
         writeln!(code, "  #props = {{").map_err(format_error)?;
         for prop in &self.module.props {
@@ -447,12 +473,7 @@ impl<'a> CodeGenerator<'a> {
             .map_err(format_error)?;
         }
         writeln!(code, "  }};").map_err(format_error)?;
-        writeln!(code, "  #state = {{").map_err(format_error)?;
-        for state in &self.module.states {
-            writeln!(code, "    {}: {},", state.local_name, state.initial_value)
-                .map_err(format_error)?;
-        }
-        writeln!(code, "  }};").map_err(format_error)?;
+        writeln!(code, "  #state = {{}};").map_err(format_error)?;
         for field in &self.node_fields {
             writeln!(code, "  #{field};").map_err(format_error)?;
         }
@@ -465,6 +486,10 @@ impl<'a> CodeGenerator<'a> {
     fn emit_constructor(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  constructor() {{").map_err(format_error)?;
         writeln!(code, "    super();").map_err(format_error)?;
+        if !self.module.form_controls.is_empty() {
+            writeln!(code, "    this.#internals = this.attachInternals();")
+                .map_err(format_error)?;
+        }
         if self.module.options.shadow {
             writeln!(code, "    const existingRoot = this.shadowRoot;").map_err(format_error)?;
             writeln!(code, "    if (existingRoot) {{").map_err(format_error)?;
@@ -487,6 +512,7 @@ impl<'a> CodeGenerator<'a> {
     fn emit_lifecycle(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  connectedCallback() {{").map_err(format_error)?;
         writeln!(code, "    if (!this.#mounted) {{").map_err(format_error)?;
+        writeln!(code, "      this.#initializeState();").map_err(format_error)?;
         writeln!(code, "      if (this.#usesDeclarativeRoot) {{").map_err(format_error)?;
         writeln!(code, "        this.#hydrate();").map_err(format_error)?;
         writeln!(code, "      }} else {{").map_err(format_error)?;
@@ -552,6 +578,107 @@ impl<'a> CodeGenerator<'a> {
             writeln!(code, "    this.#flush();").map_err(format_error)?;
             writeln!(code, "  }}").map_err(format_error)?;
         }
+        Ok(())
+    }
+
+    fn emit_state_initializer(&self, code: &mut String) -> CompilerResult<()> {
+        writeln!(code, "  #initializeState() {{").map_err(format_error)?;
+        for prop in &self.module.props {
+            writeln!(
+                code,
+                "    const {} = this.#props.{};",
+                prop.local_name, prop.local_name
+            )
+            .map_err(format_error)?;
+        }
+        for state in &self.module.states {
+            writeln!(
+                code,
+                "    this.#state.{} = {};",
+                state.local_name, state.initial_value
+            )
+            .map_err(format_error)?;
+        }
+        writeln!(code, "  }}").map_err(format_error)?;
+        Ok(())
+    }
+
+    fn emit_form_callbacks(&self, code: &mut String) -> CompilerResult<()> {
+        let Some(form_control) = self.module.form_controls.first() else {
+            return Ok(());
+        };
+
+        self.emit_sync_form_value(code, form_control)?;
+        self.emit_form_reset_callback(code, form_control)?;
+        self.emit_form_disabled_callback(code, form_control)?;
+        Ok(())
+    }
+
+    fn emit_sync_form_value(
+        &self,
+        code: &mut String,
+        form_control: &FormControlDefinition,
+    ) -> CompilerResult<()> {
+        writeln!(code, "  #syncFormValue() {{").map_err(format_error)?;
+        writeln!(code, "    if (!this.#mounted) return;").map_err(format_error)?;
+        let names = binding_names(self.module).join(", ");
+        if !names.is_empty() {
+            writeln!(code, "    const {{ {names} }} = this.#createBindings();")
+                .map_err(format_error)?;
+        }
+        writeln!(
+            code,
+            "    this.#internals.setFormValue({});",
+            form_control.value_expression
+        )
+        .map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        Ok(())
+    }
+
+    fn emit_form_reset_callback(
+        &self,
+        code: &mut String,
+        form_control: &FormControlDefinition,
+    ) -> CompilerResult<()> {
+        writeln!(code, "  formResetCallback() {{").map_err(format_error)?;
+        if let Some(reset_body) = &form_control.reset_body {
+            let names = binding_names(self.module).join(", ");
+            if !names.is_empty() {
+                writeln!(code, "    const {{ {names} }} = this.#createBindings();")
+                    .map_err(format_error)?;
+            }
+            for line in reset_body
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+            {
+                writeln!(code, "    {line}").map_err(format_error)?;
+            }
+        } else {
+            writeln!(code, "    this.#initializeState();").map_err(format_error)?;
+        }
+        writeln!(code, "    this.#flush();").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        Ok(())
+    }
+
+    fn emit_form_disabled_callback(
+        &self,
+        code: &mut String,
+        form_control: &FormControlDefinition,
+    ) -> CompilerResult<()> {
+        writeln!(code, "  formDisabledCallback(disabled) {{").map_err(format_error)?;
+        if let Some(disabled_expression) = &form_control.disabled_expression
+            && let Some(prop) = self.module.props.iter().find(|prop| {
+                prop.local_name == disabled_expression.trim()
+                    && matches!(prop.kind, PropKind::Boolean)
+            })
+        {
+            writeln!(code, "    this.{} = disabled;", prop.prop_name).map_err(format_error)?;
+        }
+        writeln!(code, "    this.#flush();").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
         Ok(())
     }
 
@@ -835,6 +962,9 @@ impl<'a> CodeGenerator<'a> {
     fn emit_flush(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  #flush() {{").map_err(format_error)?;
         writeln!(code, "    this.#update();").map_err(format_error)?;
+        if !self.module.form_controls.is_empty() {
+            writeln!(code, "    this.#syncFormValue();").map_err(format_error)?;
+        }
         if !self.module.effects.is_empty() {
             writeln!(code, "    this.#runEffects();").map_err(format_error)?;
         }
@@ -2420,7 +2550,16 @@ fn event_name_from_attribute(name: &str) -> Option<String> {
     if event_name.is_empty() {
         return None;
     }
-    Some(kebab_case_identifier(event_name))
+    let event_name = kebab_case_identifier(event_name);
+    Some(match event_name.as_str() {
+        "key-down" => "keydown".to_owned(),
+        "key-up" => "keyup".to_owned(),
+        "pointer-down" => "pointerdown".to_owned(),
+        "pointer-up" => "pointerup".to_owned(),
+        "focus-in" => "focusin".to_owned(),
+        "focus-out" => "focusout".to_owned(),
+        _ => event_name,
+    })
 }
 
 fn handler_body(expression: &str) -> String {

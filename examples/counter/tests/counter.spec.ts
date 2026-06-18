@@ -136,6 +136,129 @@ test("compiled design-system primitives expose native contracts", async ({
   )
 })
 
+test("packaged primitives render and dispatch package events", async ({ page }) => {
+  await page.goto("/")
+
+  const section = page.locator("#primitive-package-case")
+  const checkbox = section.locator("iktia-checkbox")
+  const checkboxButton = checkbox.locator("button")
+  const toggle = section.locator("iktia-toggle")
+  const toggleButton = toggle.locator("button")
+  const primaryButton = section.locator("iktia-button[variant='primary']")
+  const tabs = section.locator("iktia-tabs")
+  const firstPanel = tabs.locator("[part~='panel'][data-value='first']")
+  const secondPanel = tabs.locator("[part~='panel'][data-value='second']")
+  const dropdown = section.locator("iktia-dropdown")
+  const form = section.locator("#primitive-form")
+
+  await expect(primaryButton.locator("button")).toHaveAttribute(
+    "part",
+    "root control"
+  )
+  await expect(checkboxButton).toHaveAttribute("role", "checkbox")
+  await expect(checkboxButton).toHaveAttribute("data-state", "unchecked")
+  await expect(toggleButton).toHaveAttribute("data-state", "off")
+  await expect(tabs.locator("[role='tab']")).toHaveCount(3)
+  await expect(firstPanel).toBeVisible()
+  await expect(secondPanel).toBeHidden()
+
+  await primaryButton.locator("button").click()
+  await expect(page.locator("#primitive-event")).toContainText(
+    '"variant":"primary"'
+  )
+
+  await checkboxButton.click()
+  await expect(checkboxButton).toHaveAttribute("data-state", "checked")
+  await expect(page.locator("#primitive-event")).toContainText('"checked":true')
+
+  await toggleButton.click()
+  await expect(toggleButton).toHaveAttribute("data-state", "on")
+  await expect(page.locator("#primitive-event")).toContainText('"pressed":true')
+
+  await form.locator("button[type='submit']").click()
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-last-primitive-form",
+    "docs:reviewed, preview:enabled"
+  )
+  await expect(page.locator("#primitive-form-event")).toHaveText(
+    "Last primitive form data: docs:reviewed, preview:enabled"
+  )
+
+  await form.locator("button[type='reset']").click()
+  await expect(checkboxButton).toHaveAttribute("data-state", "unchecked")
+  await expect(toggleButton).toHaveAttribute("data-state", "off")
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-last-primitive-form",
+    "none"
+  )
+
+  await tabs.locator("[role='tab']").nth(1).click()
+  await expect(firstPanel).toBeHidden()
+  await expect(secondPanel).toBeVisible()
+  await expect(tabs.locator("[role='tab']").nth(1)).toHaveAttribute(
+    "data-state",
+    "selected"
+  )
+  await expect(page.locator("#primitive-event")).toContainText('"value":"second"')
+
+  await tabs.locator("[role='tab']").nth(1).press("ArrowRight")
+  await expect(tabs.locator("[role='tab']").nth(2)).toHaveAttribute(
+    "data-state",
+    "selected"
+  )
+  await expect(tabs.locator("[role='tab']").nth(2)).toBeFocused()
+  await tabs.locator("[role='tab']").nth(2).press("Home")
+  await expect(tabs.locator("[role='tab']").nth(0)).toHaveAttribute(
+    "data-state",
+    "selected"
+  )
+  await expect(tabs.locator("[role='tab']").nth(0)).toBeFocused()
+
+  await dropdown.locator("button").click()
+  await expect(dropdown.locator("[part~='panel']")).toBeVisible()
+  await expect(page.locator("#primitive-event")).toContainText('"open":true')
+  await dropdown.locator("button").press("Escape")
+  await expect(dropdown.locator("[part~='panel']")).toBeHidden()
+  await expect(dropdown.locator("button")).toBeFocused()
+
+  await dropdown.locator("button").click()
+  await expect(dropdown.locator("[part~='panel']")).toBeVisible()
+  await page.locator("#counter-case").click()
+  await expect(dropdown.locator("[part~='panel']")).toBeHidden()
+  await expect(dropdown.locator("button")).toBeFocused()
+})
+
+test("form-associated primitive controls receive disabled fieldset state", async ({
+  page,
+}) => {
+  await page.goto("/")
+
+  await page.evaluate(() => {
+    const form = document.createElement("form")
+    form.innerHTML = `
+      <fieldset disabled>
+        <iktia-checkbox name="blocked" value="yes" label="Blocked"></iktia-checkbox>
+        <iktia-toggle name="blocked-toggle" value="yes" label="Blocked toggle"></iktia-toggle>
+      </fieldset>
+    `
+    document.body.append(form)
+  })
+
+  const checkboxButton = page.locator("form fieldset iktia-checkbox button")
+  const toggleButton = page.locator("form fieldset iktia-toggle button")
+
+  await expect(checkboxButton).toBeDisabled()
+  await expect(toggleButton).toBeDisabled()
+  await checkboxButton.evaluate((button) =>
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+  )
+  await toggleButton.evaluate((button) =>
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+  )
+  await expect(checkboxButton).toHaveAttribute("data-state", "unchecked")
+  await expect(toggleButton).toHaveAttribute("data-state", "off")
+})
+
 test("declarative shadow dom renders useful DOM before upgrade and hydrates after upgrade", async ({
   page,
 }) => {

@@ -9,8 +9,8 @@ use oxc_span::{GetSpan, SourceType, Span};
 
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
-    ComponentImport, ComputedDefinition, EffectDefinition, EventDefinition, StateDefinition,
-    StateKind, StyleImport,
+    ComponentImport, ComputedDefinition, EffectDefinition, EventDefinition, FormControlDefinition,
+    RuntimeImport, StateDefinition, StateKind, StyleImport,
 };
 use crate::naming::is_pascal_case_identifier;
 
@@ -32,6 +32,7 @@ impl SourceSpan {
 #[derive(Debug, Clone, Default)]
 pub(crate) struct AstComponentSemantics {
     pub(crate) states: Vec<StateDefinition>,
+    pub(crate) form_controls: Vec<FormControlDefinition>,
     pub(crate) computed: Vec<ComputedDefinition>,
     pub(crate) effects: Vec<EffectDefinition>,
     pub(crate) events: Vec<EventDefinition>,
@@ -49,6 +50,7 @@ pub(crate) struct AstFunctionComponent {
 #[derive(Debug, Default)]
 pub(crate) struct AstModuleFacts {
     pub(crate) component_imports: Vec<ComponentImport>,
+    pub(crate) runtime_imports: Vec<RuntimeImport>,
     pub(crate) style_imports: Vec<StyleImport>,
     pub(crate) function_components: Vec<AstFunctionComponent>,
 }
@@ -102,6 +104,7 @@ impl<'a, 'program> AstAnalyzer<'a, 'program> {
             Statement::ImportDeclaration(import) => {
                 capture_component_imports(import, facts);
                 capture_style_imports(import, facts);
+                capture_runtime_import(self.source, import, facts)?;
             }
             Statement::ExportNamedDeclaration(export) => {
                 if let Some(Declaration::FunctionDeclaration(function)) = &export.declaration {
@@ -124,6 +127,40 @@ impl<'a, 'program> AstAnalyzer<'a, 'program> {
         }
         Ok(())
     }
+}
+
+fn capture_runtime_import(
+    source: &str,
+    import: &oxc_ast::ast::ImportDeclaration<'_>,
+    facts: &mut AstModuleFacts,
+) -> CompilerResult<()> {
+    let import_source = import.source.value.as_str();
+    if import.import_kind == ImportOrExportKind::Type
+        || import_source == "@iktia/core"
+        || import_source.contains(".wc")
+        || is_inline_css_source(import_source)
+    {
+        return Ok(());
+    }
+    if import
+        .specifiers
+        .as_ref()
+        .is_some_and(|specifiers| specifiers.iter().all(is_type_import_specifier))
+    {
+        return Ok(());
+    }
+    facts.runtime_imports.push(RuntimeImport {
+        source: source_span(source, SourceSpan::from_oxc(import.span()))?.to_owned(),
+    });
+    Ok(())
+}
+
+fn is_type_import_specifier(specifier: &ImportDeclarationSpecifier<'_>) -> bool {
+    matches!(
+        specifier,
+        ImportDeclarationSpecifier::ImportSpecifier(specifier)
+            if specifier.import_kind == ImportOrExportKind::Type
+    )
 }
 
 fn capture_component_imports(
@@ -346,9 +383,71 @@ fn capture_authoring_const(
                 event_name: event_name.to_owned(),
             });
         }
+        Some("formControl") => {
+            let Some(options) = call.arguments.first() else {
+                return Err(unsupported("formControl() requires an options object."));
+            };
+            semantics
+                .form_controls
+                .push(capture_form_control_definition(
+                    source, local_name, options,
+                )?);
+        }
         _ => {}
     }
     Ok(())
+}
+
+fn capture_form_control_definition(
+    source: &str,
+    local_name: &str,
+    argument: &Argument<'_>,
+) -> CompilerResult<FormControlDefinition> {
+    let options_source = source_span(source, SourceSpan::from_oxc(argument.span()))?.trim();
+    if !options_source.starts_with('{') || !options_source.ends_with('}') {
+        return Err(unsupported(
+            "formControl() currently accepts a static object literal.",
+        ));
+    }
+    let properties = &options_source[1..options_source.len() - 1];
+    let mut value_expression = None;
+    let mut reset_body = None;
+    let mut disabled_expression = None;
+
+    for property_source in split_top_level_commas(properties) {
+        let property_source = property_source.trim();
+        if property_source.is_empty() {
+            continue;
+        }
+        let (name, value) = split_top_level_colon(property_source)
+            .map(|(name, value)| (name.trim(), value.trim()))
+            .unwrap_or((property_source, property_source));
+        match name {
+            "value" => {
+                value_expression = Some(capture_arrow_expression_source_from_str(value)?);
+            }
+            "reset" => {
+                reset_body = Some(capture_arrow_body_source_from_str(value)?);
+            }
+            "disabled" => {
+                disabled_expression = Some(value.to_owned());
+            }
+            _ => {}
+        }
+    }
+
+    let Some(value_expression) = value_expression else {
+        return Err(unsupported(
+            "formControl() requires a `value` arrow function.",
+        ));
+    };
+
+    Ok(FormControlDefinition {
+        local_name: local_name.to_owned(),
+        value_expression,
+        reset_body,
+        disabled_expression,
+    })
 }
 
 fn binding_identifier_name<'a>(pattern: &'a BindingPattern<'a>) -> Option<&'a str> {
@@ -437,9 +536,13 @@ fn capture_arrow_expression_source(
     argument: &Argument<'_>,
 ) -> CompilerResult<String> {
     let callback_source = source_span(source, SourceSpan::from_oxc(argument.span()))?;
+    capture_arrow_expression_source_from_str(callback_source)
+}
+
+fn capture_arrow_expression_source_from_str(callback_source: &str) -> CompilerResult<String> {
     let Some(arrow_index) = callback_source.find("=>") else {
         return Err(unsupported(
-            "computed() requires an arrow function callback.",
+            "Iktia compiler helpers require an arrow function callback.",
         ));
     };
     let body = callback_source[arrow_index + 2..].trim();
@@ -453,8 +556,14 @@ fn capture_arrow_expression_source(
 
 fn capture_arrow_body_source(source: &str, argument: &Argument<'_>) -> CompilerResult<String> {
     let callback_source = source_span(source, SourceSpan::from_oxc(argument.span()))?;
+    capture_arrow_body_source_from_str(callback_source)
+}
+
+fn capture_arrow_body_source_from_str(callback_source: &str) -> CompilerResult<String> {
     let Some(arrow_index) = callback_source.find("=>") else {
-        return Err(unsupported("effect() requires an arrow function callback."));
+        return Err(unsupported(
+            "Iktia compiler helpers require an arrow function callback.",
+        ));
     };
     let body = callback_source[arrow_index + 2..].trim();
     if body.starts_with('{') {
@@ -464,6 +573,92 @@ fn capture_arrow_body_source(source: &str, argument: &Argument<'_>) -> CompilerR
         return Ok(body[1..body.len() - 1].trim().to_owned());
     }
     Ok(format!("return {};", strip_wrapping_parentheses(body)))
+}
+
+fn split_top_level_commas(source: &str) -> Vec<&str> {
+    split_top_level(source, ',')
+}
+
+fn split_top_level_colon(source: &str) -> Option<(&str, &str)> {
+    split_top_level_once(source, ':')
+}
+
+fn split_top_level(source: &str, delimiter: char) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0usize;
+    let mut in_string: Option<char> = None;
+    let mut escaped = false;
+
+    for (index, ch) in source.char_indices() {
+        if let Some(quote) = in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if ch == '\\' {
+                escaped = true;
+                continue;
+            }
+            if ch == quote {
+                in_string = None;
+            }
+            continue;
+        }
+
+        if matches!(ch, '"' | '\'' | '`') {
+            in_string = Some(ch);
+            continue;
+        }
+        if matches!(ch, '(' | '[' | '{') {
+            depth += 1;
+        } else if matches!(ch, ')' | ']' | '}') {
+            depth = depth.saturating_sub(1);
+        } else if ch == delimiter && depth == 0 {
+            parts.push(&source[start..index]);
+            start = index + ch.len_utf8();
+        }
+    }
+
+    parts.push(&source[start..]);
+    parts
+}
+
+fn split_top_level_once(source: &str, delimiter: char) -> Option<(&str, &str)> {
+    let mut depth = 0usize;
+    let mut in_string: Option<char> = None;
+    let mut escaped = false;
+
+    for (index, ch) in source.char_indices() {
+        if let Some(quote) = in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+            if ch == '\\' {
+                escaped = true;
+                continue;
+            }
+            if ch == quote {
+                in_string = None;
+            }
+            continue;
+        }
+
+        if matches!(ch, '"' | '\'' | '`') {
+            in_string = Some(ch);
+            continue;
+        }
+        if matches!(ch, '(' | '[' | '{') {
+            depth += 1;
+        } else if matches!(ch, ')' | ']' | '}') {
+            depth = depth.saturating_sub(1);
+        } else if ch == delimiter && depth == 0 {
+            return Some((&source[..index], &source[index + ch.len_utf8()..]));
+        }
+    }
+
+    None
 }
 
 fn source_span(source: &str, span: SourceSpan) -> CompilerResult<&str> {

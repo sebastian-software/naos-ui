@@ -417,6 +417,128 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_initialize_state_from_props_in_instance_context() {
+        let source = r#"
+            import { state } from "@iktia/core";
+
+            export function Snapshot({
+              checked = false,
+              label = "Ready",
+              step = 1,
+            }: SnapshotProps = {}) {
+              const selected = state(checked);
+              const text = state(label);
+              const count = state(step);
+
+              return (
+                <button
+                  aria-pressed={selected()}
+                  data-count={count()}
+                >
+                  {text()}
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "snapshot.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("#state = {};"));
+        assert!(result.code.contains("#initializeState()"));
+        assert!(result.code.contains("const checked = this.#props.checked;"));
+        assert!(result.code.contains("this.#state.selected = checked;"));
+        assert!(result.code.contains("this.#state.text = label;"));
+        assert!(result.code.contains("this.#state.count = step;"));
+        assert!(!result.code.contains("#state = {\n    selected: checked"));
+    }
+
+    #[test]
+    fn transform_component_module_should_generate_form_associated_control_helpers() {
+        let source = r#"
+            import { formControl, state } from "@iktia/core";
+
+            export function Check({
+              checked = false,
+              disabled = false,
+              value = "on",
+            }: CheckProps = {}) {
+              const selected = state(checked);
+              const form = formControl({
+                value: () => selected() ? value : null,
+                reset: () => {
+                  selected.set(checked);
+                },
+                disabled,
+              });
+              void form;
+
+              return (
+                <button
+                  disabled={disabled}
+                  aria-pressed={selected()}
+                  onClick={() => selected.update((current) => !current)}
+                >
+                  {value}
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "check.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("static formAssociated = true;"));
+        assert!(
+            result
+                .code
+                .contains("this.#internals = this.attachInternals();")
+        );
+        assert!(result.code.contains("#syncFormValue()"));
+        assert!(
+            result
+                .code
+                .contains("this.#internals.setFormValue(selected() ? value : null);")
+        );
+        assert!(result.code.contains("formResetCallback()"));
+        assert!(result.code.contains("selected.set(checked);"));
+        assert!(result.code.contains("formDisabledCallback(disabled)"));
+        assert!(result.code.contains("this.disabled = disabled;"));
+    }
+
+    #[test]
+    fn transform_component_module_should_map_common_dom_event_attribute_names() {
+        let source = r#"
+            import { on } from "@iktia/core";
+
+            export function KeyboardButton() {
+              return (
+                <button
+                  onKeyDown={on("keydown", () => {})}
+                  onPointerDown={on("pointerdown", () => {})}
+                >
+                  Move
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "keyboard-button.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("addEventListener(\"keydown\""));
+        assert!(result.code.contains("addEventListener(\"pointerdown\""));
+        assert!(!result.code.contains("addEventListener(\"key-down\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-down\""));
+    }
+
+    #[test]
     fn transform_component_module_should_generate_control_flow_and_web_composition_helpers() {
         let source = r#"
             import { Show, computed, effect, event, host, on, state } from "@iktia/core";

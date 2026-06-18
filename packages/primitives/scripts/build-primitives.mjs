@@ -1,0 +1,106 @@
+import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import { dirname, join, resolve } from "node:path"
+
+import { transformComponent } from "@iktia/compiler"
+import ts from "typescript"
+
+const packageRoot = resolve(import.meta.dirname, "..")
+const sourceRoot = join(packageRoot, "src")
+const distRoot = join(packageRoot, "dist")
+
+const components = [
+  "button",
+  "button-group",
+  "checkbox",
+  "dropdown",
+  "field",
+  "tabs",
+  "toggle",
+]
+const behaviorFiles = ["checkbox", "disclosure", "tabs", "toggle"]
+
+await rm(distRoot, { force: true, recursive: true })
+await mkdir(distRoot, { recursive: true })
+
+const exports = []
+
+for (const component of components) {
+  const filename = join(sourceRoot, `${component}.wc.tsx`)
+  const source = await readFile(filename, "utf8")
+  const transformed = transformComponent({ filename, source })
+  const code = await inlineCssImports(transformed.code, filename)
+  await writeFile(join(distRoot, `${component}.mjs`), `${code}\n`)
+  await writeFile(join(distRoot, `${component}.d.mts`), declarationFor(component))
+  exports.push(component)
+}
+
+await writeFile(
+  join(distRoot, "index.mjs"),
+  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`
+)
+await writeFile(
+  join(distRoot, "index.d.mts"),
+  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`
+)
+
+await buildBehaviorHelpers()
+
+async function inlineCssImports(code, filename) {
+  const cssImport =
+    /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline)["'];?/g
+  const sideEffectCssImport = /import\s+["']([^"']+\.css\?inline)["'];?/g
+  let output = code
+  for (const match of code.matchAll(cssImport)) {
+    const [statement, localName, source] = match
+    const cssPath = join(dirname(filename), source.replace("?inline", ""))
+    const css = await readFile(cssPath, "utf8")
+    output = output.replace(statement, `const ${localName} = ${JSON.stringify(css)};`)
+  }
+  output = output.replace(sideEffectCssImport, "")
+  return output
+}
+
+async function buildBehaviorHelpers() {
+  const behaviorSourceRoot = join(sourceRoot, "internal", "behavior")
+  const behaviorDistRoot = join(distRoot, "internal", "behavior")
+  await mkdir(behaviorDistRoot, { recursive: true })
+
+  for (const behavior of behaviorFiles) {
+    const source = await readFile(join(behaviorSourceRoot, `${behavior}.ts`), "utf8")
+    const output = ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.ESNext,
+        target: ts.ScriptTarget.ES2023,
+      },
+      fileName: `${behavior}.ts`,
+    })
+    await writeFile(join(behaviorDistRoot, `${behavior}.js`), `${output.outputText}\n`)
+  }
+}
+
+function declarationFor(component) {
+  const className = classNameFor(component)
+  const tagName = `iktia-${component}`
+  return `export declare class ${className} extends HTMLElement {}
+export { ${className} as ${exportNameFor(component)} };
+export default ${className};
+
+declare global {
+  interface HTMLElementTagNameMap {
+    "${tagName}": ${className};
+  }
+}
+`
+}
+
+function classNameFor(component) {
+  return `${exportNameFor(component)}Element`
+}
+
+function exportNameFor(component) {
+  return component
+    .split("-")
+    .map((part) => `${part[0].toUpperCase()}${part.slice(1)}`)
+    .join("")
+    .replace(/^/, "Iktia")
+}

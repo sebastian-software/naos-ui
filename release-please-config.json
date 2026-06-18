@@ -12,6 +12,11 @@
       "package-name": "@iktia/runtime",
       "release-type": "node"
     },
+    "packages/primitives": {
+      "component": "primitives",
+      "package-name": "@iktia/primitives",
+      "release-type": "node"
+    },
     "packages/compiler": {
       "component": "compiler",
       "package-name": "@iktia/compiler",

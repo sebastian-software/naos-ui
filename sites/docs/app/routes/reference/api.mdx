@@ -19,6 +19,7 @@ not published to crates.io for v0.1.
 | `event()` | Public | Typed `CustomEvent` dispatch helper. |
 | `on()` | Public | Typed DOM listener helper with listener options. |
 | `host()` | Public | Current custom element plus abort signal. |
+| `formControl()` | Experimental | Compiler-recognized form association helper for generated Custom Elements. |
 | `Show` | Public | Static conditional rendering primitive. |
 | `ComponentOptions` | Public | Flat `styles` metadata for component CSS. |
 
@@ -27,6 +28,21 @@ not published to crates.io for v0.1.
 Tiny platform helper runtime for generated output: events, scheduling, and
 hydration helpers. It is not a reconciler, virtual DOM, component runtime, or
 framework adapter.
+
+## `@iktia/primitives`
+
+Experimental primitive Custom Elements authored in Iktia `.wc.tsx` and compiled
+for package distribution.
+
+| Element | Notes |
+| --- | --- |
+| `<iktia-button>` | Action primitive with slots, variants, parts, and `iktia-press`. |
+| `<iktia-button-group>` | Oriented action grouping. |
+| `<iktia-checkbox>` | ARIA checkbox primitive with experimental `FormData`, reset, and disabled fieldset support. |
+| `<iktia-dropdown>` | Compiler-compatible dropdown primitive with Escape and outside pointer dismiss. |
+| `<iktia-field>` | Field composition shell for labels, hints, errors, and controls. |
+| `<iktia-tabs>` | Three-panel tab primitive with roving focus and orientation metadata. |
+| `<iktia-toggle>` | Pressed/on-off control with experimental `FormData`, reset, and disabled fieldset support. |
 
 ## `@iktia/compiler`
 
