@@ -177,6 +177,9 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   const popoverTrigger = popover.locator("[part~='trigger']")
   const popoverContent = popover.locator("[part~='content']")
   const popoverClose = popover.locator("[part~='close']")
+  const tooltip = section.locator("iktia-tooltip")
+  const tooltipTrigger = tooltip.locator("[part~='trigger']")
+  const tooltipContent = tooltip.locator("[part~='content']")
   const tabs = section.locator("iktia-tabs")
   const tabItems = tabs.locator("iktia-tab")
   const tabPanels = tabs.locator("iktia-tab-panel")
@@ -264,6 +267,9 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(popoverTrigger).toHaveAttribute("aria-expanded", "false")
   await expect(popoverTrigger).toHaveAttribute("data-state", "closed")
   await expect(popoverContent).toBeHidden()
+  await expect(tooltipTrigger).toHaveAttribute("data-state", "closed")
+  await expect(tooltipContent).toHaveAttribute("role", "tooltip")
+  await expect(tooltipContent).toBeHidden()
   await expect(tabItems).toHaveCount(3)
   await expect(tabItems.nth(0)).toHaveAttribute("role", "tab")
   await expect(tabItems.nth(0)).toHaveAttribute("data-state", "selected")
@@ -581,6 +587,35 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await page.locator("#counter-case").click()
   await expect(popoverContent).toBeHidden()
   await expect(popoverTrigger).toBeFocused()
+
+  await tooltipTrigger.evaluate((trigger) => {
+    trigger.dispatchEvent(new PointerEvent("pointermove", {
+      bubbles: true,
+      pointerType: "mouse",
+    }))
+  })
+  await expect(tooltipTrigger).toHaveAttribute("data-state", "open")
+  await expect(tooltipTrigger).toHaveAttribute("aria-describedby", /.+/)
+  await expect(tooltipContent).toBeVisible()
+  await expect(page.locator("#primitive-event")).toContainText('"open":true')
+  await page.keyboard.press("Escape")
+  await expect(tooltipContent).toBeHidden()
+  await expect(page.locator("#primitive-event")).toContainText('"open":false')
+
+  await tooltipTrigger.evaluate((trigger) => {
+    trigger.dispatchEvent(new PointerEvent("pointermove", {
+      bubbles: true,
+      pointerType: "mouse",
+    }))
+  })
+  await expect(tooltipContent).toBeVisible()
+  await tooltipTrigger.evaluate((trigger) => {
+    trigger.dispatchEvent(new PointerEvent("pointerleave", {
+      bubbles: true,
+      pointerType: "mouse",
+    }))
+  })
+  await expect(tooltipContent).toBeHidden()
 })
 
 test("form-associated primitive controls receive disabled fieldset state", async ({

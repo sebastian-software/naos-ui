@@ -555,6 +555,10 @@ mod tests {
                 <button
                   onKeyDown={on("keydown", () => {})}
                   onPointerDown={on("pointerdown", () => {})}
+                  onPointerMove={on("pointermove", () => {})}
+                  onPointerOver={on("pointerover", () => {})}
+                  onPointerLeave={on("pointerleave", () => {})}
+                  onPointerCancel={on("pointercancel", () => {})}
                 >
                   Move
                 </button>
@@ -569,8 +573,16 @@ mod tests {
 
         assert!(result.code.contains("addEventListener(\"keydown\""));
         assert!(result.code.contains("addEventListener(\"pointerdown\""));
+        assert!(result.code.contains("addEventListener(\"pointermove\""));
+        assert!(result.code.contains("addEventListener(\"pointerover\""));
+        assert!(result.code.contains("addEventListener(\"pointerleave\""));
+        assert!(result.code.contains("addEventListener(\"pointercancel\""));
         assert!(!result.code.contains("addEventListener(\"key-down\""));
         assert!(!result.code.contains("addEventListener(\"pointer-down\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-move\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-over\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-leave\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-cancel\""));
     }
 
     #[test]
@@ -764,6 +776,18 @@ mod tests {
                 onKeyDown(event) {
                   event.preventDefault();
                 },
+                onPointerMove(event) {
+                  event.preventDefault();
+                },
+                onPointerOver(event) {
+                  event.preventDefault();
+                },
+                onPointerLeave(event) {
+                  event.preventDefault();
+                },
+                onPointerCancel(event) {
+                  event.preventDefault();
+                },
                 style: { color: active() ? "red" : "blue" },
                 tabIndex: 0,
               }));
@@ -792,6 +816,10 @@ mod tests {
                 .code
                 .contains("removeEventListener(eventName, previous)")
         );
+        assert!(result.code.contains("\"pointer-move\": \"pointermove\""));
+        assert!(result.code.contains("\"pointer-over\": \"pointerover\""));
+        assert!(result.code.contains("\"pointer-leave\": \"pointerleave\""));
+        assert!(result.code.contains("\"pointer-cancel\": \"pointercancel\""));
         assert!(result.code.contains("target.style[property]"));
         assert!(
             result

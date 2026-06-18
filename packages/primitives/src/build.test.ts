@@ -41,6 +41,7 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./tab.mjs\"")
     expect(index).toContain("export * from \"./tab-panel.mjs\"")
     expect(index).toContain("export * from \"./tabs.mjs\"")
+    expect(index).toContain("export * from \"./tooltip.mjs\"")
     expect(index).toContain("export * from \"./toggle.mjs\"")
     expect(index).toContain("export * from \"./toggle-group.mjs\"")
     expect(index).toContain("export * from \"./toggle-item.mjs\"")
@@ -69,6 +70,7 @@ describe("@iktia/primitives build output", () => {
     const segmentedControl = readFileSync(join(distRoot, "internal", "zag", "segmented-control.js"), "utf8")
     const select = readFileSync(join(distRoot, "internal", "zag", "select.js"), "utf8")
     const tabs = readFileSync(join(distRoot, "internal", "zag", "tabs.js"), "utf8")
+    const tooltip = readFileSync(join(distRoot, "internal", "zag", "tooltip.js"), "utf8")
     const toggle = readFileSync(join(distRoot, "internal", "zag", "toggle.js"), "utf8")
     const toggleGroup = readFileSync(join(distRoot, "internal", "zag", "toggle-group.js"), "utf8")
 
@@ -94,6 +96,7 @@ describe("@iktia/primitives build output", () => {
     expect(select).toContain("syncIktiaSelectItems")
     expect(tabs).toContain("@zag-js/tabs")
     expect(tabs).toContain("syncIktiaTabsItems")
+    expect(tooltip).toContain("@zag-js/tooltip")
     expect(toggle).toContain("@zag-js/toggle")
     expect(toggleGroup).toContain("@zag-js/toggle-group")
     expect(toggleGroup).toContain("syncIktiaToggleGroupItems")
@@ -224,6 +227,16 @@ describe("@iktia/primitives build output", () => {
     expect(popover).toContain("#applySpreadAttributes")
     expect(popover).not.toContain("@iktia/core")
     expect(popover).not.toContain("type IktiaZagPopoverService")
+  })
+
+  it("backs tooltip with the private Zag adapter", () => {
+    const tooltip = readFileSync(join(distRoot, "tooltip.mjs"), "utf8")
+
+    expect(tooltip).toContain("from \"./internal/zag/tooltip.js\"")
+    expect(tooltip).toContain("createIktiaZagTooltipService")
+    expect(tooltip).toContain("#applySpreadAttributes")
+    expect(tooltip).not.toContain("@iktia/core")
+    expect(tooltip).not.toContain("type IktiaZagTooltipService")
   })
 
   it("backs toggle group with the private Zag adapter", () => {

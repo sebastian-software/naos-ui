@@ -1194,7 +1194,7 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "    if (!/^on[A-Z]/.test(name)) return null;").map_err(format_error)?;
         writeln!(code, "    const eventName = name.slice(2).replace(/([A-Z])/g, \"-$1\").replace(/^-/, \"\").toLowerCase();")
             .map_err(format_error)?;
-        writeln!(code, "    return {{ \"key-down\": \"keydown\", \"key-up\": \"keyup\", \"pointer-down\": \"pointerdown\", \"pointer-up\": \"pointerup\", \"focus-in\": \"focusin\", \"focus-out\": \"focusout\" }}[eventName] ?? eventName;")
+        writeln!(code, "    return {{ \"key-down\": \"keydown\", \"key-up\": \"keyup\", \"pointer-cancel\": \"pointercancel\", \"pointer-down\": \"pointerdown\", \"pointer-enter\": \"pointerenter\", \"pointer-leave\": \"pointerleave\", \"pointer-move\": \"pointermove\", \"pointer-out\": \"pointerout\", \"pointer-over\": \"pointerover\", \"pointer-up\": \"pointerup\", \"focus-in\": \"focusin\", \"focus-out\": \"focusout\" }}[eventName] ?? eventName;")
             .map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         Ok(())
@@ -2874,7 +2874,13 @@ fn event_name_from_attribute(name: &str) -> Option<String> {
     Some(match event_name.as_str() {
         "key-down" => "keydown".to_owned(),
         "key-up" => "keyup".to_owned(),
+        "pointer-cancel" => "pointercancel".to_owned(),
         "pointer-down" => "pointerdown".to_owned(),
+        "pointer-enter" => "pointerenter".to_owned(),
+        "pointer-leave" => "pointerleave".to_owned(),
+        "pointer-move" => "pointermove".to_owned(),
+        "pointer-out" => "pointerout".to_owned(),
+        "pointer-over" => "pointerover".to_owned(),
         "pointer-up" => "pointerup".to_owned(),
         "focus-in" => "focusin".to_owned(),
         "focus-out" => "focusout".to_owned(),

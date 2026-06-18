@@ -33,6 +33,7 @@ const components = [
   "tab",
   "tab-panel",
   "tabs",
+  "tooltip",
   "toggle",
   "toggle-group",
   "toggle-item",
@@ -53,6 +54,7 @@ const zagFiles = [
   "scope",
   "service",
   "tabs",
+  "tooltip",
   "toggle",
   "toggle-group",
 ]
