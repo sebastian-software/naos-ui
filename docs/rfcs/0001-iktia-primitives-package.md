@@ -523,7 +523,7 @@ Preliminary decisions for `@iktia/primitives`:
   states, form-control patterns, SSR behavior, and actual Web Component user
   expectations. Do not copy Lit-bound behavior or DOM shape.
 
-### 2026-06-18 Zag Spike Result
+### 2026-06-18 Zag Documentation Spike Result
 
 No third-party behavior runtime was added in this pass. The spike outcome is to
 keep Zag as the first serious adaptation candidate for richer composite
@@ -550,6 +550,31 @@ Abort criteria for future Zag adoption:
 * Shadow DOM focus or outside-interaction behavior requires broad global event
   normalization;
 * importing one primitive pulls unrelated machines or renderer packages.
+
+### 2026-06-18 Zag Package Spike Result
+
+A follow-up package spike installed `@zag-js/tabs@1.41.2` as a dev-only
+dependency and compiled a private `createZagTabsProbe()` adapter against the
+real `connect()` API.
+
+Findings:
+
+* `@zag-js/tabs` exports `machine` and `connect`, but the package does not ship
+  a framework-agnostic service runner for native Custom Elements.
+* `connect()` is useful as an API and prop-shape reference, but it expects a
+  Zag `Service` with `send`, `context`, `state`, `prop`, and `scope`
+  integration.
+* A Custom Element adapter can translate Zag events such as `ARROW_NEXT`,
+  `ARROW_PREV`, `HOME`, `END`, `TAB_FOCUS`, and `TAB_CLICK` into Iktia state
+  transitions, but that adapter becomes real primitive infrastructure rather
+  than a tiny drop-in dependency.
+* The current tabs behavior remains smaller as an Iktia-owned kernel. Zag should
+  be revisited for harder widgets where the state-machine value is large enough
+  to justify a maintained adapter.
+
+Decision after the package spike: keep Zag dev-only as evidence for this spike,
+do not make it a runtime dependency for the current primitives, and do not wire
+the current `<iktia-tabs>` implementation to Zag yet.
 
 Primitive-specific recommendations:
 

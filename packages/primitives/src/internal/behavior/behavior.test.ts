@@ -7,6 +7,7 @@ import {
 } from "./disclosure.js"
 import { tabsValueForKey } from "./tabs.js"
 import { nextTogglePressed, toggleFormValue } from "./toggle.js"
+import { createZagTabsProbe } from "./zag-tabs-spike.js"
 
 describe("primitive behavior kernels", () => {
   it("toggles pressed state and form value", () => {
@@ -42,5 +43,28 @@ describe("primitive behavior kernels", () => {
     expect(tabsValueForKey("second", "End", values)).toBe("third")
     expect(tabsValueForKey("second", "ArrowDown", values)).toBeNull()
     expect(tabsValueForKey("second", "ArrowDown", values, "vertical")).toBe("third")
+  })
+
+  it("proves the Zag tabs connect API needs a Custom Element service adapter", () => {
+    const probe = createZagTabsProbe({
+      value: "first",
+      values: ["first", "second", "third"],
+    })
+    probe.api().selectNext("first")
+
+    expect(probe.sentEvents()).toContain("TAB_FOCUS")
+    expect(probe.sentEvents()).toContain("ARROW_NEXT")
+    expect(probe.value()).toBe("second")
+
+    const triggerProps = probe.api().getTriggerProps({ value: "third" }) as {
+      onClick(event: { currentTarget: unknown; defaultPrevented: boolean }): void
+    }
+    triggerProps.onClick({
+      currentTarget: { matches: () => false },
+      defaultPrevented: false,
+    })
+
+    expect(probe.sentEvents()).toContain("TAB_CLICK")
+    expect(probe.value()).toBe("third")
   })
 })
