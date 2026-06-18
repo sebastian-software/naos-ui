@@ -31,6 +31,7 @@ than chronological trivia.
 * [ADR 0013: Tiny Runtime Boundary](0013-tiny-runtime-boundary.md)
 * [ADR 0015: CSS And Declarative Shadow DOM Contract](0015-css-and-dsd-contract.md)
 * [ADR 0016: Diagnostics And Source Maps](0016-diagnostics-and-source-maps.md)
+* [ADR 0017: Theme Package And Token Boundary](0017-theme-package-and-token-boundary.md)
 
 ### P2: Conventions And Implementation Guidance
 

@@ -16,20 +16,28 @@ and Iktia primitives consume those variables from inside their Shadow DOM.
 The first slice is intentionally a package and documentation plan, not a visual
 theme builder and not a CLI scaffolding feature. ShadCN's theming and create
 flows are useful inspiration for semantic tokens, portable presets, dark-mode
-overrides, and later apply/create workflows. Iktia must not copy ShadCN source,
-component styling, DOM structure, or runtime architecture, and must not depend
-on ShadCN.
+overrides, and later apply/create workflows. Web Awesome's theming model is also
+useful as a reference for scoped themes, low-specificity CSS variables,
+light/dark scheme selectors, `color-scheme`, and the distinction between global
+design tokens and component-level hooks.
+
+Iktia must not copy ShadCN or Web Awesome source, component styling, DOM
+structure, registry implementation, utility system, visual-builder workflow, or
+runtime architecture, and must not depend on either project.
 
 ## Goals
 
 * Ship a public package named `@iktia/theme`.
 * Provide a default neutral preset that works with `@iktia/primitives`.
 * Define a small semantic token vocabulary for application surfaces, actions,
-  controls, focus rings, radius, and font families.
+  status colors, controls, focus rings, radius, and font families.
 * Keep component-specific `--iktia-*` override hooks valid for users who need
   per-primitive control.
 * Make light and dark themes work through CSS variable overrides, not through
   component re-rendering or a JavaScript theme runtime.
+* Set `color-scheme` with the same selectors that apply light and dark tokens.
+* Use low-specificity theme selectors so host applications can override preset
+  tokens with ordinary CSS.
 * Keep the package independent from React, ShadCN, Tailwind, Radix, CSS-in-JS,
   font loaders, icon packages, and framework adapters.
 * Leave a clear later path for preset application and create-style tooling
@@ -38,8 +46,11 @@ on ShadCN.
 ## Non-Goals
 
 * Do not use ShadCN as a dependency.
+* Do not use Web Awesome as a dependency.
 * Do not copy ShadCN code, CSS, component names, DOM structure, visual style, or
   registry implementation.
+* Do not copy Web Awesome code, CSS, component names, DOM structure, visual
+  style, utility classes, palette matrix, or builder workflow.
 * Do not require Tailwind or generate Tailwind configuration.
 * Do not add an Iktia CSS graph, Sass pipeline, PostCSS contract, CSS Modules
   contract, constructable stylesheet contract, or CSS-in-JS runtime.
@@ -73,8 +84,15 @@ This package must fit the accepted Iktia architecture:
   events, accessibility behavior, and component-specific override variables.
 * Presets are distributed as CSS files plus typed JavaScript metadata.
 * The first preset is `neutral`.
-* Light mode is the default `:root` token set.
+* Theme CSS exposes both default root tokens and named theme scopes through
+  low-specificity selectors.
+* Theme CSS is wrapped in `@layer iktia-theme` so ordinary application CSS can
+  override preset defaults without relying on import order.
+* Light mode is the default token set.
+* Named theme scopes use `[data-iktia-theme="<name>"]`.
 * Dark mode uses `[data-iktia-color-scheme="dark"]` as the public selector.
+* Theme CSS sets `color-scheme: light` or `color-scheme: dark` with the same
+  selectors that apply the matching token values.
 * Scoped themes are supported by placing preset variables on a container
   instead of `:root`.
 * Component CSS should prefer fallback chains from component-specific variables
@@ -94,6 +112,14 @@ The first public TypeScript entry point:
 
 ```ts
 import { neutralTheme, type IktiaThemePreset } from "@iktia/theme"
+```
+
+The first public selector surface:
+
+```html
+<html data-iktia-theme="neutral">
+<html data-iktia-theme="neutral" data-iktia-color-scheme="dark">
+<section data-iktia-theme="neutral" data-iktia-color-scheme="dark">
 ```
 
 The public preset shape:
@@ -146,6 +172,10 @@ export const neutralTheme = {
       "muted-foreground": "#58665f",
       accent: "#dff4ef",
       "accent-foreground": "#0f3f35",
+      success: "#16815f",
+      "success-foreground": "#f2fff8",
+      warning: "#a15c00",
+      "warning-foreground": "#fff8e5",
       danger: "#b42318",
       "danger-foreground": "#fff7f5",
       border: "#d6ded9",
@@ -167,6 +197,10 @@ export const neutralTheme = {
       "muted-foreground": "#9fb1aa",
       accent: "#1d3a35",
       "accent-foreground": "#d8f5ec",
+      success: "#5ee6a8",
+      "success-foreground": "#062d20",
+      warning: "#fbbf24",
+      "warning-foreground": "#332000",
       danger: "#f87171",
       "danger-foreground": "#3b0a0a",
       border: "#34433d",
@@ -181,55 +215,69 @@ The generated `neutral.css` should look like this in shape, not necessarily in
 exact color values:
 
 ```css
-:root {
-  --iktia-font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
-  --iktia-font-mono: "SFMono-Regular", Consolas, monospace;
-  --iktia-radius: 0.375rem;
-  --iktia-radius-sm: calc(var(--iktia-radius) * 0.66);
-  --iktia-radius-md: var(--iktia-radius);
-  --iktia-radius-lg: calc(var(--iktia-radius) * 1.33);
-  --iktia-radius-xl: calc(var(--iktia-radius) * 1.66);
-  --iktia-background: #f8fafc;
-  --iktia-foreground: #17201b;
-  --iktia-surface: #ffffff;
-  --iktia-surface-foreground: #17201b;
-  --iktia-overlay: #ffffff;
-  --iktia-overlay-foreground: #17201b;
-  --iktia-primary: #0f766e;
-  --iktia-primary-foreground: #f8fffb;
-  --iktia-secondary: #e2f3ea;
-  --iktia-secondary-foreground: #0f3f35;
-  --iktia-muted: #edf4f0;
-  --iktia-muted-foreground: #58665f;
-  --iktia-accent: #dff4ef;
-  --iktia-accent-foreground: #0f3f35;
-  --iktia-danger: #b42318;
-  --iktia-danger-foreground: #fff7f5;
-  --iktia-border: #d6ded9;
-  --iktia-input: #65736d;
-  --iktia-ring: #0f766e;
-}
+@layer iktia-theme {
+  :where(:root),
+  :where([data-iktia-theme="neutral"]) {
+    color-scheme: light;
+    --iktia-font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+    --iktia-font-mono: "SFMono-Regular", Consolas, monospace;
+    --iktia-radius: 0.375rem;
+    --iktia-radius-sm: calc(var(--iktia-radius) * 0.66);
+    --iktia-radius-md: var(--iktia-radius);
+    --iktia-radius-lg: calc(var(--iktia-radius) * 1.33);
+    --iktia-radius-xl: calc(var(--iktia-radius) * 1.66);
+    --iktia-background: #f8fafc;
+    --iktia-foreground: #17201b;
+    --iktia-surface: #ffffff;
+    --iktia-surface-foreground: #17201b;
+    --iktia-overlay: #ffffff;
+    --iktia-overlay-foreground: #17201b;
+    --iktia-primary: #0f766e;
+    --iktia-primary-foreground: #f8fffb;
+    --iktia-secondary: #e2f3ea;
+    --iktia-secondary-foreground: #0f3f35;
+    --iktia-muted: #edf4f0;
+    --iktia-muted-foreground: #58665f;
+    --iktia-accent: #dff4ef;
+    --iktia-accent-foreground: #0f3f35;
+    --iktia-success: #16815f;
+    --iktia-success-foreground: #f2fff8;
+    --iktia-warning: #a15c00;
+    --iktia-warning-foreground: #fff8e5;
+    --iktia-danger: #b42318;
+    --iktia-danger-foreground: #fff7f5;
+    --iktia-border: #d6ded9;
+    --iktia-input: #65736d;
+    --iktia-ring: #0f766e;
+  }
 
-[data-iktia-color-scheme="dark"] {
-  --iktia-background: #101412;
-  --iktia-foreground: #eef7f2;
-  --iktia-surface: #171d1a;
-  --iktia-surface-foreground: #eef7f2;
-  --iktia-overlay: #1d2420;
-  --iktia-overlay-foreground: #eef7f2;
-  --iktia-primary: #5eead4;
-  --iktia-primary-foreground: #063832;
-  --iktia-secondary: #24312d;
-  --iktia-secondary-foreground: #d8f5ec;
-  --iktia-muted: #202925;
-  --iktia-muted-foreground: #9fb1aa;
-  --iktia-accent: #1d3a35;
-  --iktia-accent-foreground: #d8f5ec;
-  --iktia-danger: #f87171;
-  --iktia-danger-foreground: #3b0a0a;
-  --iktia-border: #34433d;
-  --iktia-input: #50635b;
-  --iktia-ring: #5eead4;
+  :where([data-iktia-color-scheme="dark"]),
+  :where([data-iktia-theme="neutral"][data-iktia-color-scheme="dark"]) {
+    color-scheme: dark;
+    --iktia-background: #101412;
+    --iktia-foreground: #eef7f2;
+    --iktia-surface: #171d1a;
+    --iktia-surface-foreground: #eef7f2;
+    --iktia-overlay: #1d2420;
+    --iktia-overlay-foreground: #eef7f2;
+    --iktia-primary: #5eead4;
+    --iktia-primary-foreground: #063832;
+    --iktia-secondary: #24312d;
+    --iktia-secondary-foreground: #d8f5ec;
+    --iktia-muted: #202925;
+    --iktia-muted-foreground: #9fb1aa;
+    --iktia-accent: #1d3a35;
+    --iktia-accent-foreground: #d8f5ec;
+    --iktia-success: #5ee6a8;
+    --iktia-success-foreground: #062d20;
+    --iktia-warning: #fbbf24;
+    --iktia-warning-foreground: #332000;
+    --iktia-danger: #f87171;
+    --iktia-danger-foreground: #3b0a0a;
+    --iktia-border: #34433d;
+    --iktia-input: #50635b;
+    --iktia-ring: #5eead4;
+  }
 }
 ```
 
@@ -246,6 +294,8 @@ The v1 token set is intentionally small and semantic:
 | `secondary` / `secondary-foreground` | Lower-emphasis filled actions and supporting controls. |
 | `muted` / `muted-foreground` | Hints, descriptions, inactive text, and quiet surfaces. |
 | `accent` / `accent-foreground` | Hover, highlighted, checked, and selected item states. |
+| `success` / `success-foreground` | Positive status, successful validation, and completion states. |
+| `warning` / `warning-foreground` | Caution, pending, and recoverable warning states. |
 | `danger` / `danger-foreground` | Invalid, destructive, and error states. |
 | `border` | Default dividers and structural borders. |
 | `input` | Form control borders and outline-style control treatment. |
@@ -257,6 +307,32 @@ The v1 token set is intentionally small and semantic:
 The token vocabulary should not include component-specific names such as
 `button-bg` or `select-border`. Those remain primitive override hooks and are
 owned by `@iktia/primitives`.
+
+Web Awesome's broader token categories are useful future references, especially
+component-group tokens, focus tokens, shadows, spacing, transitions, typography,
+and variant role mapping. They are intentionally not part of the first token
+set unless a primitive integration proves that a shared group token removes real
+duplication.
+
+## Reference Learnings
+
+Web Awesome's current theming system layers themes, palettes, variant roles, and
+light/dark schemes through classes on the page or a scoped subtree. That is
+more product surface than Iktia should adopt in v1, but several ideas are worth
+keeping:
+
+* Use low-specificity selectors for preset tokens so application CSS can
+  override them easily.
+* Support named theme scopes in addition to default root tokens.
+* Set `color-scheme` alongside light and dark token overrides.
+* Reserve success and warning tokens early so feedback and validation
+  components do not have to overload `danger` and `accent`.
+* Keep global design tokens separate from component-level override hooks.
+
+The first Iktia theme package should not adopt Web Awesome's full hue-scale
+palette matrix, utility class layer, hosted project workflow, or visual theme
+builder. Those can be evaluated later if Iktia needs more than one default
+preset and a real preset creation workflow.
 
 ## Primitive CSS Integration
 
@@ -392,6 +468,8 @@ Deliverables:
   `--iktia-overlay-foreground` where appropriate.
 * Map selected, checked, highlighted, hover, and active item states to
   `--iktia-accent` or `--iktia-primary` based on emphasis.
+* Map successful validation, warning, and destructive states to
+  `--iktia-success`, `--iktia-warning`, and `--iktia-danger` respectively.
 
 Acceptance criteria:
 
@@ -416,6 +494,8 @@ Deliverables:
 * Update package reference docs to list `@iktia/theme`.
 * Update demos or docs examples to show theme CSS crossing the Shadow DOM
   boundary.
+* Document the relationship to ADR 0017 so users understand which selectors and
+  token layers are durable decisions.
 
 Acceptance criteria:
 
@@ -437,6 +517,10 @@ Deliverables:
   cross Shadow DOM boundaries into primitives.
 * Browser coverage proving `[data-iktia-color-scheme="dark"]` changes computed
   styles inside at least one primitive Shadow DOM.
+* Browser coverage proving `[data-iktia-theme="neutral"]` can scope theme
+  variables to a subtree.
+* Browser coverage proving `color-scheme` changes with the selected theme
+  scheme.
 * Regression coverage proving component-specific overrides beat semantic tokens.
 
 Acceptance criteria:
@@ -505,8 +589,8 @@ This RFC is complete when:
 * Primitive CSS fallback precedence is explicit.
 * The first implementation can proceed without deciding token scope, package
   ownership, dark-mode shape, or CLI scope.
-* Existing unrelated combobox work in `@iktia/primitives` is preserved and not
-  treated as part of the theming implementation.
+* Existing unrelated workspace changes are preserved and not treated as part of
+  the theming implementation.
 
 ## Future Work
 
@@ -530,3 +614,7 @@ Possible create-style workflow:
 
 These commands and visual workflows are intentionally not part of the first
 implementation slice.
+
+## Related Decisions
+
+* [ADR 0017: Theme Package And Token Boundary](../adrs/0017-theme-package-and-token-boundary.md)
