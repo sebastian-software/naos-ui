@@ -27,6 +27,10 @@ pub struct ComponentModule {
     pub computed: Vec<ComputedDefinition>,
     /// Lifecycle side effect declarations.
     pub effects: Vec<EffectDefinition>,
+    /// Connected lifecycle callbacks.
+    pub connected_callbacks: Vec<LifecycleCallbackDefinition>,
+    /// Disconnected lifecycle callbacks.
+    pub disconnected_callbacks: Vec<LifecycleCallbackDefinition>,
     /// Whether the component body references `host()`.
     pub uses_host_helpers: bool,
     /// Custom event declarations.
@@ -162,6 +166,13 @@ pub struct ComputedDefinition {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EffectDefinition {
     /// Source text for the effect callback body.
+    pub body: String,
+}
+
+/// Custom element lifecycle callback declaration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LifecycleCallbackDefinition {
+    /// Source text for the lifecycle callback body.
     pub body: String,
 }
 

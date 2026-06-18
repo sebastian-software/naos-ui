@@ -10,7 +10,7 @@ use oxc_span::{GetSpan, SourceType, Span};
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
     ComponentImport, ComputedDefinition, EffectDefinition, EventDefinition, FormControlDefinition,
-    RuntimeImport, StateDefinition, StateKind, StyleImport,
+    LifecycleCallbackDefinition, RuntimeImport, StateDefinition, StateKind, StyleImport,
 };
 use crate::naming::is_pascal_case_identifier;
 
@@ -35,6 +35,8 @@ pub(crate) struct AstComponentSemantics {
     pub(crate) form_controls: Vec<FormControlDefinition>,
     pub(crate) computed: Vec<ComputedDefinition>,
     pub(crate) effects: Vec<EffectDefinition>,
+    pub(crate) connected_callbacks: Vec<LifecycleCallbackDefinition>,
+    pub(crate) disconnected_callbacks: Vec<LifecycleCallbackDefinition>,
     pub(crate) events: Vec<EventDefinition>,
     pub(crate) uses_host_helpers: bool,
     pub(crate) template_source: Option<String>,
@@ -316,13 +318,37 @@ fn capture_body_statement(
             }
         }
         Statement::ExpressionStatement(statement) => {
-            if let Expression::CallExpression(call) = &statement.expression
-                && call_name(call) == Some("effect")
-                && let Some(callback) = call.arguments.first()
-            {
-                semantics.effects.push(EffectDefinition {
-                    body: capture_arrow_body_source(source, callback)?,
-                });
+            if let Expression::CallExpression(call) = &statement.expression {
+                match call_name(call) {
+                    Some("effect") => {
+                        if let Some(callback) = call.arguments.first() {
+                            semantics.effects.push(EffectDefinition {
+                                body: capture_arrow_body_source(source, callback)?,
+                            });
+                        }
+                    }
+                    Some("onConnected") => {
+                        let Some(callback) = call.arguments.first() else {
+                            return Err(unsupported("onConnected() requires a callback."));
+                        };
+                        semantics
+                            .connected_callbacks
+                            .push(LifecycleCallbackDefinition {
+                                body: capture_arrow_body_source(source, callback)?,
+                            });
+                    }
+                    Some("onDisconnected") => {
+                        let Some(callback) = call.arguments.first() else {
+                            return Err(unsupported("onDisconnected() requires a callback."));
+                        };
+                        semantics
+                            .disconnected_callbacks
+                            .push(LifecycleCallbackDefinition {
+                                body: capture_arrow_body_source(source, callback)?,
+                            });
+                    }
+                    _ => {}
+                }
             }
         }
         Statement::ReturnStatement(statement) => {

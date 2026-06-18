@@ -547,10 +547,15 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "      }}").map_err(format_error)?;
         writeln!(code, "      this.#mounted = true;").map_err(format_error)?;
         writeln!(code, "    }}").map_err(format_error)?;
+        self.emit_lifecycle_callback_lines(code, &self.module.connected_callbacks)?;
         writeln!(code, "    this.#flush();").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
-        if self.module.uses_host_helpers || !self.module.effects.is_empty() {
+        if self.module.uses_host_helpers
+            || !self.module.effects.is_empty()
+            || !self.module.disconnected_callbacks.is_empty()
+        {
             writeln!(code, "  disconnectedCallback() {{").map_err(format_error)?;
+            self.emit_lifecycle_callback_lines(code, &self.module.disconnected_callbacks)?;
             if self.module.uses_host_helpers {
                 writeln!(code, "    this.#abortController.abort();").map_err(format_error)?;
             }
@@ -584,6 +589,32 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "    }}").map_err(format_error)?;
         writeln!(code, "    this.#flush();").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
+        Ok(())
+    }
+
+    fn emit_lifecycle_callback_lines(
+        &self,
+        code: &mut String,
+        callbacks: &[crate::model::LifecycleCallbackDefinition],
+    ) -> CompilerResult<()> {
+        if callbacks.is_empty() {
+            return Ok(());
+        }
+        let names = binding_names(self.module).join(", ");
+        if !names.is_empty() {
+            writeln!(code, "    const {{ {names} }} = this.#createBindings();")
+                .map_err(format_error)?;
+        }
+        for callback in callbacks {
+            for line in callback
+                .body
+                .lines()
+                .map(str::trim)
+                .filter(|line| !line.is_empty())
+            {
+                writeln!(code, "    {line}").map_err(format_error)?;
+            }
+        }
         Ok(())
     }
 

@@ -417,6 +417,41 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_generate_lifecycle_callbacks() {
+        let source = r#"
+            import { onConnected, onDisconnected, state } from "@iktia/core";
+
+            export function LifecycleProbe() {
+              const status = state("idle");
+
+              onConnected(() => {
+                status.set("connected");
+              });
+              onDisconnected(() => {
+                status.set("disconnected");
+              });
+
+              return <span data-status={status()} />;
+            }
+        "#;
+
+        let result = match transform_component_module(source, "lifecycle-probe.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("connectedCallback()"));
+        assert!(result.code.contains("disconnectedCallback()"));
+        assert!(
+            result
+                .code
+                .contains("const { status } = this.#createBindings();")
+        );
+        assert!(result.code.contains("status.set(\"connected\");"));
+        assert!(result.code.contains("status.set(\"disconnected\");"));
+    }
+
+    #[test]
     fn transform_component_module_should_initialize_state_from_props_in_instance_context() {
         let source = r#"
             import { state } from "@iktia/core";

@@ -66,6 +66,8 @@ fn analyze_function_component(
         form_controls: function_component.semantics.form_controls,
         computed: function_component.semantics.computed,
         effects: function_component.semantics.effects,
+        connected_callbacks: function_component.semantics.connected_callbacks,
+        disconnected_callbacks: function_component.semantics.disconnected_callbacks,
         uses_host_helpers: function_component.semantics.uses_host_helpers,
         events: function_component.semantics.events,
         template_source: function_component
