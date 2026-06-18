@@ -292,6 +292,14 @@ dispatch native CustomEvents.</code></pre>
                 <iktia-combobox-item value="qa" label="QA"></iktia-combobox-item>
                 <iktia-combobox-item value="blocked" label="Blocked" disabled></iktia-combobox-item>
               </iktia-combobox>
+              <iktia-number-input
+                name="approvals"
+                label="Required approvals"
+                value="2"
+                min="1"
+                max="5"
+                step="1"
+              ></iktia-number-input>
               <div class="primitive-row">
                 <button type="submit" class="native-action">Read FormData</button>
                 <button type="reset" class="native-action secondary">Reset</button>

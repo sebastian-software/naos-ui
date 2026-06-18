@@ -1194,7 +1194,7 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "    if (!/^on[A-Z]/.test(name)) return null;").map_err(format_error)?;
         writeln!(code, "    const eventName = name.slice(2).replace(/([A-Z])/g, \"-$1\").replace(/^-/, \"\").toLowerCase();")
             .map_err(format_error)?;
-        writeln!(code, "    return {{ \"context-menu\": \"contextmenu\", \"key-down\": \"keydown\", \"key-up\": \"keyup\", \"pointer-cancel\": \"pointercancel\", \"pointer-down\": \"pointerdown\", \"pointer-enter\": \"pointerenter\", \"pointer-leave\": \"pointerleave\", \"pointer-move\": \"pointermove\", \"pointer-out\": \"pointerout\", \"pointer-over\": \"pointerover\", \"pointer-up\": \"pointerup\", \"focus-in\": \"focusin\", \"focus-out\": \"focusout\" }}[eventName] ?? eventName;")
+        writeln!(code, "    return {{ \"before-input\": \"beforeinput\", \"context-menu\": \"contextmenu\", \"key-down\": \"keydown\", \"key-up\": \"keyup\", \"pointer-cancel\": \"pointercancel\", \"pointer-down\": \"pointerdown\", \"pointer-enter\": \"pointerenter\", \"pointer-leave\": \"pointerleave\", \"pointer-move\": \"pointermove\", \"pointer-out\": \"pointerout\", \"pointer-over\": \"pointerover\", \"pointer-up\": \"pointerup\", \"focus-in\": \"focusin\", \"focus-out\": \"focusout\" }}[eventName] ?? eventName;")
             .map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         Ok(())
@@ -2874,6 +2874,7 @@ fn event_name_from_attribute(name: &str) -> Option<String> {
     Some(match event_name.as_str() {
         "key-down" => "keydown".to_owned(),
         "key-up" => "keyup".to_owned(),
+        "before-input" => "beforeinput".to_owned(),
         "context-menu" => "contextmenu".to_owned(),
         "pointer-cancel" => "pointercancel".to_owned(),
         "pointer-down" => "pointerdown".to_owned(),

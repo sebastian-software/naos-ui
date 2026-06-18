@@ -34,6 +34,7 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./listbox-item.mjs\"")
     expect(index).toContain("export * from \"./menu.mjs\"")
     expect(index).toContain("export * from \"./menu-item.mjs\"")
+    expect(index).toContain("export * from \"./number-input.mjs\"")
     expect(index).toContain("export * from \"./popover.mjs\"")
     expect(index).toContain("export * from \"./radio.mjs\"")
     expect(index).toContain("export * from \"./radio-group.mjs\"")
@@ -68,6 +69,7 @@ describe("@iktia/primitives build output", () => {
     const hoverCard = readFileSync(join(distRoot, "internal", "zag", "hover-card.js"), "utf8")
     const listbox = readFileSync(join(distRoot, "internal", "zag", "listbox.js"), "utf8")
     const menu = readFileSync(join(distRoot, "internal", "zag", "menu.js"), "utf8")
+    const numberInput = readFileSync(join(distRoot, "internal", "zag", "number-input.js"), "utf8")
     const popover = readFileSync(join(distRoot, "internal", "zag", "popover.js"), "utf8")
     const radioGroup = readFileSync(join(distRoot, "internal", "zag", "radio-group.js"), "utf8")
     const service = readFileSync(join(distRoot, "internal", "zag", "service.js"), "utf8")
@@ -93,6 +95,7 @@ describe("@iktia/primitives build output", () => {
     expect(listbox).toContain("syncIktiaListboxItems")
     expect(menu).toContain("@zag-js/menu")
     expect(menu).toContain("syncIktiaMenuItems")
+    expect(numberInput).toContain("@zag-js/number-input")
     expect(popover).toContain("@zag-js/popover")
     expect(radioGroup).toContain("@zag-js/radio-group")
     expect(radioGroup).toContain("syncIktiaRadioGroupItems")
@@ -230,6 +233,17 @@ describe("@iktia/primitives build output", () => {
     expect(contextMenu).not.toContain("type IktiaZagMenuService")
   })
 
+  it("backs number input with the private Zag adapter", () => {
+    const numberInput = readFileSync(join(distRoot, "number-input.mjs"), "utf8")
+
+    expect(numberInput).toContain("from \"./internal/zag/number-input.js\"")
+    expect(numberInput).toContain("createIktiaZagNumberInputService")
+    expect(numberInput).toContain("#applySpreadAttributes")
+    expect(numberInput).toContain("static formAssociated = true;")
+    expect(numberInput).not.toContain("@iktia/core")
+    expect(numberInput).not.toContain("type IktiaZagNumberInputService")
+  })
+
   it("backs dialog with the private Zag adapter", () => {
     const dialog = readFileSync(join(distRoot, "dialog.mjs"), "utf8")
 
@@ -307,6 +321,7 @@ describe("@iktia/primitives build output", () => {
     const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
     const combobox = readFileSync(join(distRoot, "combobox.mjs"), "utf8")
     const listbox = readFileSync(join(distRoot, "listbox.mjs"), "utf8")
+    const numberInput = readFileSync(join(distRoot, "number-input.mjs"), "utf8")
     const radioGroup = readFileSync(join(distRoot, "radio-group.mjs"), "utf8")
     const segmentedControl = readFileSync(join(distRoot, "segmented-control.mjs"), "utf8")
     const select = readFileSync(join(distRoot, "select.mjs"), "utf8")
@@ -314,7 +329,7 @@ describe("@iktia/primitives build output", () => {
     const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")
     const toggleGroup = readFileSync(join(distRoot, "toggle-group.mjs"), "utf8")
 
-    for (const source of [checkbox, combobox, listbox, radioGroup, segmentedControl, select, switchComponent, toggle, toggleGroup]) {
+    for (const source of [checkbox, combobox, listbox, numberInput, radioGroup, segmentedControl, select, switchComponent, toggle, toggleGroup]) {
       expect(source).toContain("static formAssociated = true")
       expect(source).toContain("this.#internals = this.attachInternals()")
       expect(source).toContain("this.#internals.setFormValue")

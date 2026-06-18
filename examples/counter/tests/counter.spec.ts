@@ -165,6 +165,10 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   const comboboxTrigger = combobox.locator("button")
   const comboboxContent = combobox.locator("[part~='content']")
   const comboboxItems = combobox.locator("iktia-combobox-item")
+  const numberInput = section.locator("iktia-number-input")
+  const numberInputField = numberInput.locator("[part~='input']")
+  const numberInputDecrement = numberInput.locator("[part~='decrement']")
+  const numberInputIncrement = numberInput.locator("[part~='increment']")
   const menu = section.locator("iktia-menu")
   const menuTrigger = menu.locator("button")
   const menuContent = menu.locator("[part~='content']")
@@ -257,6 +261,10 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(comboboxItems.nth(0)).toHaveAttribute("data-state", "checked")
   await expect(comboboxItems.nth(3)).toHaveAttribute("aria-disabled", "true")
   await expect(comboboxContent).toBeHidden()
+  await expect(numberInputField).toHaveAttribute("role", "spinbutton")
+  await expect(numberInputField).toHaveValue("2")
+  await expect(numberInputField).toHaveAttribute("aria-valuemin", "1")
+  await expect(numberInputField).toHaveAttribute("aria-valuemax", "5")
   await expect(menuTrigger).toHaveAttribute("aria-haspopup", "menu")
   await expect(menuTrigger).toHaveAttribute("data-state", "closed")
   await expect(menuItems).toHaveCount(3)
@@ -391,13 +399,21 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(comboboxItems.nth(1)).toHaveAttribute("data-state", "checked")
   await expect(comboboxInput).toHaveValue("Docs team")
 
+  await numberInputIncrement.click()
+  await expect(numberInputField).toHaveValue("3")
+  await expect(page.locator("#primitive-event")).toContainText('"value":"3"')
+  await numberInputField.press("ArrowUp")
+  await expect(numberInputField).toHaveValue("4")
+  await numberInputDecrement.click()
+  await expect(numberInputField).toHaveValue("3")
+
   await form.locator("button[type='submit']").click()
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs"
+    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3"
   )
   await expect(page.locator("#primitive-form-event")).toHaveText(
-    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs"
+    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3"
   )
 
   await form.locator("button[type='reset']").click()
@@ -413,9 +429,10 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(listboxItems.nth(1)).toHaveAttribute("data-state", "checked")
   await expect(comboboxItems.nth(0)).toHaveAttribute("data-state", "checked")
   await expect(comboboxInput).toHaveValue("Operations")
+  await expect(numberInputField).toHaveValue("2")
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "notify:enabled, channels:web, cadence:weekly, region:eu, lane:review, owner:ops"
+    "notify:enabled, channels:web, cadence:weekly, region:eu, lane:review, owner:ops, approvals:2"
   )
 
   await combobox.evaluate((element) => {
@@ -761,6 +778,7 @@ test("form-associated primitive controls receive disabled fieldset state", async
         <iktia-combobox name="blocked-combobox" label="Blocked combobox">
           <iktia-combobox-item value="yes" label="Yes"></iktia-combobox-item>
         </iktia-combobox>
+        <iktia-number-input name="blocked-number" label="Blocked number" value="2"></iktia-number-input>
       </fieldset>
     `
     document.body.append(form)
@@ -778,6 +796,8 @@ test("form-associated primitive controls receive disabled fieldset state", async
   const comboboxInput = page.locator("form fieldset iktia-combobox input")
   const comboboxButton = page.locator("form fieldset iktia-combobox button")
   const comboboxItem = page.locator("form fieldset iktia-combobox-item")
+  const numberInput = page.locator("form fieldset iktia-number-input input")
+  const numberIncrement = page.locator("form fieldset iktia-number-input [part~='increment']")
 
   await expect(checkboxButton).toBeDisabled()
   await expect(toggleButton).toBeDisabled()
@@ -785,6 +805,8 @@ test("form-associated primitive controls receive disabled fieldset state", async
   await expect(selectButton).toBeDisabled()
   await expect(comboboxInput).toBeDisabled()
   await expect(comboboxButton).toBeDisabled()
+  await expect(numberInput).toBeDisabled()
+  await expect(numberIncrement).toBeDisabled()
   await expect(radio).toHaveAttribute("aria-disabled", "true")
   await expect(toggleItem).toHaveAttribute("aria-disabled", "true")
   await expect(segmentedItem).toHaveAttribute("aria-disabled", "true")

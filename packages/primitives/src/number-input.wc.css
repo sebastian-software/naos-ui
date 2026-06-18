@@ -1,0 +1,80 @@
+:host {
+  display: inline-block;
+  font: inherit;
+}
+
+[part~="root"] {
+  display: inline-grid;
+  gap: var(--iktia-number-input-gap, 0.35rem);
+  color: var(--iktia-number-input-fg, #17201b);
+}
+
+[part~="label"] {
+  color: var(--iktia-number-input-label-fg, #283c35);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+[part~="control"] {
+  display: inline-grid;
+  grid-template-columns: auto minmax(4.5rem, 1fr) auto;
+  align-items: stretch;
+  width: min(var(--iktia-number-input-width, 12rem), 100%);
+  border: 1px solid var(--iktia-number-input-border, #65736d);
+  border-radius: var(--iktia-number-input-radius, 0.375rem);
+  background: var(--iktia-number-input-bg, #ffffff);
+  overflow: hidden;
+}
+
+[part~="decrement"],
+[part~="increment"] {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2.25rem;
+  border: 0;
+  background: var(--iktia-number-input-trigger-bg, #eef2f7);
+  color: var(--iktia-number-input-trigger-fg, #17201b);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+[part~="decrement"]:hover,
+[part~="increment"]:hover {
+  background: var(--iktia-number-input-trigger-bg-hover, #e2f3ea);
+}
+
+[part~="decrement"]:disabled,
+[part~="increment"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+[part~="input"] {
+  min-width: 0;
+  border: 0;
+  border-inline: 1px solid var(--iktia-number-input-border, #65736d);
+  padding: 0.45rem 0.55rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+}
+
+[part~="input"]:focus {
+  outline: 0;
+}
+
+[part~="control"]:focus-within {
+  outline: 2px solid var(--iktia-focus-ring, #0f766e);
+  outline-offset: 2px;
+}
+
+[part~="value"] {
+  color: var(--iktia-number-input-value-fg, #3f4d47);
+  font-size: 0.82rem;
+}
+
+[part~="root"][data-disabled] {
+  opacity: 0.55;
+}

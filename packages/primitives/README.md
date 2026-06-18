@@ -32,6 +32,7 @@ import "@iktia/primitives/toggle"
 | `<iktia-hover-card>` | Zag-backed hover/focus preview card with positioned content and open events. | Experimental overlay MVP |
 | `<iktia-listbox>` / `<iktia-listbox-item>` | Zag-backed listbox with selection, typeahead, disabled items, and native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-menu>` / `<iktia-menu-item>` | Zag-backed flat action menu with dismiss behavior, focus return, and item selection. | Experimental overlay MVP |
+| `<iktia-number-input>` | Zag-backed numeric input with steppers, keyboard behavior, min/max clamping, and native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-popover>` | Zag-backed positioned popover with Escape/outside dismiss, close trigger, and focus return. | Experimental overlay MVP |
 | `<iktia-radio-group>` / `<iktia-radio>` | Zag-backed radio collection with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-segmented-control>` / `<iktia-segmented-item>` | Zag-backed single-selection segmented control with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
@@ -53,8 +54,8 @@ The primitives expose platform-readable contracts:
 * Iktia-prefixed `CustomEvent`s such as `iktia-change`, `iktia-select`, and
   `iktia-press`.
 
-Checkbox, combobox, listbox, radio group, segmented control, select, switch,
-toggle, and toggle group use the compiler-owned `formControl()` spike to generate
+Checkbox, combobox, listbox, number input, radio group, segmented control,
+select, switch, toggle, and toggle group use the compiler-owned `formControl()` spike to generate
 Form-Associated Custom Element output. They support `name`, `value`, submit,
 reset, disabled fieldset propagation, and `FormData` in the current MVP, but
 remain experimental until label association, validation, and broader

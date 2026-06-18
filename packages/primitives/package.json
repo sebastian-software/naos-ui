@@ -83,6 +83,10 @@
       "types": "./dist/menu-item.d.mts",
       "import": "./dist/menu-item.mjs"
     },
+    "./number-input": {
+      "types": "./dist/number-input.d.mts",
+      "import": "./dist/number-input.mjs"
+    },
     "./popover": {
       "types": "./dist/popover.d.mts",
       "import": "./dist/popover.mjs"
@@ -167,6 +171,7 @@
     "@zag-js/hover-card": "1.41.2",
     "@zag-js/listbox": "1.41.2",
     "@zag-js/menu": "1.41.2",
+    "@zag-js/number-input": "1.41.2",
     "@zag-js/popover": "1.41.2",
     "@zag-js/radio-group": "1.41.2",
     "@zag-js/select": "1.41.2",
