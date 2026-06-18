@@ -29,6 +29,7 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./dialog.mjs\"")
     expect(index).toContain("export * from \"./dropdown.mjs\"")
     expect(index).toContain("export * from \"./field.mjs\"")
+    expect(index).toContain("export * from \"./file-upload.mjs\"")
     expect(index).toContain("export * from \"./hover-card.mjs\"")
     expect(index).toContain("export * from \"./listbox.mjs\"")
     expect(index).toContain("export * from \"./listbox-item.mjs\"")
@@ -69,6 +70,7 @@ describe("@iktia/primitives build output", () => {
     const collapsible = readFileSync(join(distRoot, "internal", "zag", "collapsible.js"), "utf8")
     const combobox = readFileSync(join(distRoot, "internal", "zag", "combobox.js"), "utf8")
     const dialog = readFileSync(join(distRoot, "internal", "zag", "dialog.js"), "utf8")
+    const fileUpload = readFileSync(join(distRoot, "internal", "zag", "file-upload.js"), "utf8")
     const hoverCard = readFileSync(join(distRoot, "internal", "zag", "hover-card.js"), "utf8")
     const listbox = readFileSync(join(distRoot, "internal", "zag", "listbox.js"), "utf8")
     const menu = readFileSync(join(distRoot, "internal", "zag", "menu.js"), "utf8")
@@ -96,6 +98,7 @@ describe("@iktia/primitives build output", () => {
     expect(combobox).toContain("@zag-js/combobox")
     expect(combobox).toContain("syncIktiaComboboxItems")
     expect(dialog).toContain("@zag-js/dialog")
+    expect(fileUpload).toContain("@zag-js/file-upload")
     expect(hoverCard).toContain("@zag-js/hover-card")
     expect(listbox).toContain("@zag-js/listbox")
     expect(listbox).toContain("syncIktiaListboxItems")
@@ -327,6 +330,17 @@ describe("@iktia/primitives build output", () => {
     expect(hoverCard).not.toContain("type IktiaZagHoverCardService")
   })
 
+  it("backs file upload with the private Zag adapter", () => {
+    const fileUpload = readFileSync(join(distRoot, "file-upload.mjs"), "utf8")
+
+    expect(fileUpload).toContain("from \"./internal/zag/file-upload.js\"")
+    expect(fileUpload).toContain("createIktiaZagFileUploadService")
+    expect(fileUpload).toContain("#applySpreadAttributes")
+    expect(fileUpload).toContain("static formAssociated = true;")
+    expect(fileUpload).not.toContain("@iktia/core")
+    expect(fileUpload).not.toContain("type IktiaZagFileUploadService")
+  })
+
   it("backs toggle group with the private Zag adapter", () => {
     const toggleGroup = readFileSync(join(distRoot, "toggle-group.mjs"), "utf8")
 
@@ -365,6 +379,7 @@ describe("@iktia/primitives build output", () => {
   it("emits form-associated custom control output", () => {
     const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
     const combobox = readFileSync(join(distRoot, "combobox.mjs"), "utf8")
+    const fileUpload = readFileSync(join(distRoot, "file-upload.mjs"), "utf8")
     const listbox = readFileSync(join(distRoot, "listbox.mjs"), "utf8")
     const numberInput = readFileSync(join(distRoot, "number-input.mjs"), "utf8")
     const pinInput = readFileSync(join(distRoot, "pin-input.mjs"), "utf8")
@@ -377,7 +392,7 @@ describe("@iktia/primitives build output", () => {
     const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")
     const toggleGroup = readFileSync(join(distRoot, "toggle-group.mjs"), "utf8")
 
-    for (const source of [checkbox, combobox, listbox, numberInput, pinInput, radioGroup, segmentedControl, select, slider, switchComponent, tagsInput, toggle, toggleGroup]) {
+    for (const source of [checkbox, combobox, fileUpload, listbox, numberInput, pinInput, radioGroup, segmentedControl, select, slider, switchComponent, tagsInput, toggle, toggleGroup]) {
       expect(source).toContain("static formAssociated = true")
       expect(source).toContain("this.#internals = this.attachInternals()")
       expect(source).toContain("this.#internals.setFormValue")

@@ -95,12 +95,15 @@ document.addEventListener("iktia-press", (event) => {
 })
 
 if (primitiveForm instanceof HTMLFormElement) {
+  const formatEntry = ([name, entry]: [string, FormDataEntryValue]) =>
+    `${name}:${entry instanceof File ? entry.name : String(entry)}`
+
   primitiveForm.addEventListener("submit", (event) => {
     event.preventDefault()
     const entries = [...new FormData(primitiveForm).entries()]
     const value =
       entries.length > 0
-        ? entries.map(([name, entry]) => `${name}:${String(entry)}`).join(", ")
+        ? entries.map(formatEntry).join(", ")
         : "none"
     document.body.dataset.lastPrimitiveForm = value
     if (primitiveFormEvent) {
@@ -113,7 +116,7 @@ if (primitiveForm instanceof HTMLFormElement) {
       const entries = [...new FormData(primitiveForm).entries()]
       const value =
         entries.length > 0
-          ? entries.map(([name, entry]) => `${name}:${String(entry)}`).join(", ")
+          ? entries.map(formatEntry).join(", ")
           : "none"
       document.body.dataset.lastPrimitiveForm = value
       if (primitiveFormEvent) {

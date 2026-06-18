@@ -63,6 +63,10 @@
       "types": "./dist/field.d.mts",
       "import": "./dist/field.mjs"
     },
+    "./file-upload": {
+      "types": "./dist/file-upload.d.mts",
+      "import": "./dist/file-upload.mjs"
+    },
     "./hover-card": {
       "types": "./dist/hover-card.d.mts",
       "import": "./dist/hover-card.mjs"
@@ -180,6 +184,7 @@
     "@zag-js/collapsible": "1.41.2",
     "@zag-js/combobox": "1.41.2",
     "@zag-js/dialog": "1.41.2",
+    "@zag-js/file-upload": "1.41.2",
     "@zag-js/hover-card": "1.41.2",
     "@zag-js/listbox": "1.41.2",
     "@zag-js/menu": "1.41.2",

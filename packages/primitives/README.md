@@ -29,6 +29,7 @@ import "@iktia/primitives/toggle"
 | `<iktia-dialog>` | Zag-backed modal dialog with backdrop, focus trap, scroll lock, dismiss behavior, and focus return. | Experimental overlay MVP |
 | `<iktia-dropdown>` | Button-triggered dropdown/disclosure primitive. | Experimental |
 | `<iktia-field>` | Field composition shell for labels, controls, hints, and errors. | Experimental |
+| `<iktia-file-upload>` | Zag-backed file input with dropzone, picker trigger, file list, delete controls, and native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-hover-card>` | Zag-backed hover/focus preview card with positioned content and open events. | Experimental overlay MVP |
 | `<iktia-listbox>` / `<iktia-listbox-item>` | Zag-backed listbox with selection, typeahead, disabled items, and native `FormData` behavior. | Experimental form-associated MVP |
 | `<iktia-menu>` / `<iktia-menu-item>` | Zag-backed flat action menu with dismiss behavior, focus return, and item selection. | Experimental overlay MVP |
@@ -57,7 +58,7 @@ The primitives expose platform-readable contracts:
 * Iktia-prefixed `CustomEvent`s such as `iktia-change`, `iktia-select`, and
   `iktia-press`.
 
-Checkbox, combobox, listbox, number input, pin input, radio group, segmented control,
+Checkbox, combobox, file upload, listbox, number input, pin input, radio group, segmented control,
 slider, select, switch, tags input, toggle, and toggle group use the compiler-owned `formControl()` spike to generate
 Form-Associated Custom Element output. They support `name`, `value`, submit,
 reset, disabled fieldset propagation, and `FormData` in the current MVP, but

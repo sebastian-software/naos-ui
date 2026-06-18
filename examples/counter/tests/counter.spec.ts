@@ -177,6 +177,12 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   const tagsInputField = tagsInput.locator("[part~='input']")
   const tagItems = tagsInput.locator("[part~='item-preview']")
   const tagDeleteTriggers = tagsInput.locator("[part~='item-delete']")
+  const fileUpload = section.locator("iktia-file-upload")
+  const fileUploadRoot = fileUpload.locator("[part~='root']")
+  const fileUploadDropzone = fileUpload.locator("[part~='dropzone']")
+  const fileUploadInput = fileUpload.locator("[part~='input']")
+  const fileUploadItems = fileUpload.locator("[part~='item']")
+  const fileUploadClear = fileUpload.locator("[part~='clear']")
   const slider = section.locator("iktia-slider")
   const sliderControl = slider.locator("[part~='control']")
   const sliderThumb = slider.locator("[part~='thumb']")
@@ -289,6 +295,11 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(tagItems.nth(0)).toContainText("docs")
   await expect(tagItems.nth(1)).toContainText("preview")
   await expect(tagsInputField).toHaveAttribute("autocomplete", "off")
+  await expect(fileUploadRoot).toHaveAttribute("data-state", "empty")
+  await expect(fileUploadDropzone).toHaveAttribute("role", "button")
+  await expect(fileUploadInput).toHaveAttribute("type", "file")
+  await expect(fileUploadInput).toHaveAttribute("accept", ".txt")
+  await expect(fileUploadItems).toHaveCount(0)
   await expect(sliderThumb).toHaveAttribute("role", "slider")
   await expect(sliderThumb).toHaveAttribute("aria-valuemin", "0")
   await expect(sliderThumb).toHaveAttribute("aria-valuemax", "100")
@@ -450,6 +461,19 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(tagsInputRoot).toHaveAttribute("data-value", "docs,qa")
   await expect(tagItems).toHaveCount(2)
 
+  await fileUploadInput.setInputFiles({
+    name: "release.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("release notes"),
+  })
+  await expect(fileUploadRoot).toHaveAttribute("data-state", "filled")
+  await expect(fileUploadRoot).toHaveAttribute("data-value", "release.txt")
+  await expect(fileUploadItems).toHaveCount(1)
+  await expect(fileUploadItems.nth(0)).toContainText("release.txt")
+  await expect(page.locator("#primitive-event")).toContainText(
+    '"files":["release.txt"]'
+  )
+
   await sliderThumb.evaluate((element) => {
     element.dispatchEvent(
       new KeyboardEvent("keydown", {
@@ -464,16 +488,21 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(page.locator("#primitive-event")).toContainText('"value":50')
   const sliderBox = await sliderControl.boundingBox()
   if (sliderBox == null) throw new Error("Slider control box missing")
-  await page.mouse.click(sliderBox.x + sliderBox.width * 0.8, sliderBox.y + sliderBox.height / 2)
+  await sliderControl.click({
+    position: {
+      x: sliderBox.width * 0.8,
+      y: sliderBox.height / 2,
+    },
+  })
   await expect(sliderThumb).toHaveAttribute("aria-valuenow", "80")
 
   await form.locator("button[type='submit']").click()
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, confidence:80"
+    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, confidence:80"
   )
   await expect(page.locator("#primitive-form-event")).toHaveText(
-    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, confidence:80"
+    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, confidence:80"
   )
 
   await form.locator("button[type='reset']").click()
@@ -497,11 +526,23 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(pinInputFields.nth(3)).toHaveValue("")
   await expect(tagsInputRoot).toHaveAttribute("data-value", "docs,preview")
   await expect(tagItems).toHaveCount(2)
+  await expect(fileUploadRoot).toHaveAttribute("data-state", "empty")
+  await expect(fileUploadItems).toHaveCount(0)
   await expect(sliderThumb).toHaveAttribute("aria-valuenow", "40")
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
     "notify:enabled, channels:web, cadence:weekly, region:eu, lane:review, owner:ops, approvals:2, release-code:123, release-tags:docs,preview, confidence:40"
   )
+
+  await fileUploadInput.setInputFiles({
+    name: "cleanup.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("cleanup"),
+  })
+  await expect(fileUploadRoot).toHaveAttribute("data-value", "cleanup.txt")
+  await fileUploadClear.click()
+  await expect(fileUploadRoot).toHaveAttribute("data-state", "empty")
+  await expect(fileUploadItems).toHaveCount(0)
 
   await combobox.evaluate((element) => {
     const item = document.createElement("iktia-combobox-item")
@@ -849,6 +890,7 @@ test("form-associated primitive controls receive disabled fieldset state", async
         <iktia-number-input name="blocked-number" label="Blocked number" value="2"></iktia-number-input>
         <iktia-pin-input name="blocked-pin" label="Blocked pin" value="12"></iktia-pin-input>
         <iktia-tags-input name="blocked-tags" label="Blocked tags" value="docs,preview"></iktia-tags-input>
+        <iktia-file-upload name="blocked-file" label="Blocked file"></iktia-file-upload>
         <iktia-slider name="blocked-slider" label="Blocked slider" value="40"></iktia-slider>
       </fieldset>
     `
@@ -871,6 +913,8 @@ test("form-associated primitive controls receive disabled fieldset state", async
   const numberIncrement = page.locator("form fieldset iktia-number-input [part~='increment']")
   const pinInputField = page.locator("form fieldset iktia-pin-input [part~='input']").first()
   const tagsInputField = page.locator("form fieldset iktia-tags-input [part~='input']")
+  const fileUploadInput = page.locator("form fieldset iktia-file-upload [part~='input']")
+  const fileUploadTrigger = page.locator("form fieldset iktia-file-upload [part~='trigger']")
   const sliderThumb = page.locator("form fieldset iktia-slider [part~='thumb']")
 
   await expect(checkboxButton).toBeDisabled()
@@ -883,6 +927,8 @@ test("form-associated primitive controls receive disabled fieldset state", async
   await expect(numberIncrement).toBeDisabled()
   await expect(pinInputField).toBeDisabled()
   await expect(tagsInputField).toBeDisabled()
+  await expect(fileUploadInput).toBeDisabled()
+  await expect(fileUploadTrigger).toBeDisabled()
   await expect(sliderThumb).toHaveAttribute("aria-disabled", "true")
   await expect(radio).toHaveAttribute("aria-disabled", "true")
   await expect(toggleItem).toHaveAttribute("aria-disabled", "true")
