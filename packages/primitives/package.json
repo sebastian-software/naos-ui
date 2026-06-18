@@ -51,6 +51,14 @@
       "types": "./dist/listbox-item.d.mts",
       "import": "./dist/listbox-item.mjs"
     },
+    "./menu": {
+      "types": "./dist/menu.d.mts",
+      "import": "./dist/menu.mjs"
+    },
+    "./menu-item": {
+      "types": "./dist/menu-item.d.mts",
+      "import": "./dist/menu-item.mjs"
+    },
     "./radio": {
       "types": "./dist/radio.d.mts",
       "import": "./dist/radio.mjs"
@@ -118,6 +126,7 @@
     "@zag-js/checkbox": "1.41.2",
     "@zag-js/combobox": "1.41.2",
     "@zag-js/listbox": "1.41.2",
+    "@zag-js/menu": "1.41.2",
     "@zag-js/radio-group": "1.41.2",
     "@zag-js/select": "1.41.2",
     "@zag-js/tabs": "1.41.2",

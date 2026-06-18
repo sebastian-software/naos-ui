@@ -26,6 +26,8 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./field.mjs\"")
     expect(index).toContain("export * from \"./listbox.mjs\"")
     expect(index).toContain("export * from \"./listbox-item.mjs\"")
+    expect(index).toContain("export * from \"./menu.mjs\"")
+    expect(index).toContain("export * from \"./menu-item.mjs\"")
     expect(index).toContain("export * from \"./radio.mjs\"")
     expect(index).toContain("export * from \"./radio-group.mjs\"")
     expect(index).toContain("export * from \"./segmented-control.mjs\"")
@@ -52,6 +54,7 @@ describe("@iktia/primitives build output", () => {
     const checkbox = readFileSync(join(distRoot, "internal", "zag", "checkbox.js"), "utf8")
     const combobox = readFileSync(join(distRoot, "internal", "zag", "combobox.js"), "utf8")
     const listbox = readFileSync(join(distRoot, "internal", "zag", "listbox.js"), "utf8")
+    const menu = readFileSync(join(distRoot, "internal", "zag", "menu.js"), "utf8")
     const radioGroup = readFileSync(join(distRoot, "internal", "zag", "radio-group.js"), "utf8")
     const service = readFileSync(join(distRoot, "internal", "zag", "service.js"), "utf8")
     const props = readFileSync(join(distRoot, "internal", "zag", "props.js"), "utf8")
@@ -67,6 +70,8 @@ describe("@iktia/primitives build output", () => {
     expect(combobox).toContain("syncIktiaComboboxItems")
     expect(listbox).toContain("@zag-js/listbox")
     expect(listbox).toContain("syncIktiaListboxItems")
+    expect(menu).toContain("@zag-js/menu")
+    expect(menu).toContain("syncIktiaMenuItems")
     expect(radioGroup).toContain("@zag-js/radio-group")
     expect(radioGroup).toContain("syncIktiaRadioGroupItems")
     expect(service).toContain("createZagService")
@@ -166,6 +171,17 @@ describe("@iktia/primitives build output", () => {
     expect(combobox).toContain("#applySpreadAttributes")
     expect(combobox).not.toContain("@iktia/core")
     expect(combobox).not.toContain("type IktiaZagComboboxService")
+  })
+
+  it("backs menu with the private Zag adapter", () => {
+    const menu = readFileSync(join(distRoot, "menu.mjs"), "utf8")
+
+    expect(menu).toContain("from \"./internal/zag/menu.js\"")
+    expect(menu).toContain("createIktiaZagMenuService")
+    expect(menu).toContain("syncIktiaMenuItems")
+    expect(menu).toContain("#applySpreadAttributes")
+    expect(menu).not.toContain("@iktia/core")
+    expect(menu).not.toContain("type IktiaZagMenuService")
   })
 
   it("backs toggle group with the private Zag adapter", () => {

@@ -74,6 +74,16 @@ document.addEventListener("iktia-open-change", (event) => {
   }
 })
 
+document.addEventListener("iktia-select", (event) => {
+  if (event instanceof CustomEvent) {
+    const value = JSON.stringify(event.detail)
+    document.body.dataset.lastPrimitive = value
+    if (primitiveEvent) {
+      primitiveEvent.textContent = `Last primitive event: ${value}`
+    }
+  }
+})
+
 document.addEventListener("iktia-press", (event) => {
   if (event instanceof CustomEvent) {
     const value = JSON.stringify(event.detail)

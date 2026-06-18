@@ -317,6 +317,12 @@ dispatch native CustomEvents.</code></pre>
               <p>Dropdown is experimental and compiler-compatible in this first pass.</p>
             </iktia-dropdown>
 
+            <iktia-menu label="Release actions">
+              <iktia-menu-item value="ship" label="Ship release"></iktia-menu-item>
+              <iktia-menu-item value="schedule" label="Schedule release"></iktia-menu-item>
+              <iktia-menu-item value="rollback" label="Rollback" disabled></iktia-menu-item>
+            </iktia-menu>
+
             <output id="primitive-event">Last primitive event: none</output>
           </div>
           <pre><code>import "@iktia/primitives"</code></pre>
