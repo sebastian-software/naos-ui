@@ -35,6 +35,14 @@
       "types": "./dist/field.d.mts",
       "import": "./dist/field.mjs"
     },
+    "./radio": {
+      "types": "./dist/radio.d.mts",
+      "import": "./dist/radio.mjs"
+    },
+    "./radio-group": {
+      "types": "./dist/radio-group.d.mts",
+      "import": "./dist/radio-group.mjs"
+    },
     "./tabs": {
       "types": "./dist/tabs.d.mts",
       "import": "./dist/tabs.mjs"
@@ -60,6 +68,7 @@
   "dependencies": {
     "@iktia/core": "workspace:^",
     "@zag-js/checkbox": "1.41.2",
+    "@zag-js/radio-group": "1.41.2",
     "@zag-js/tabs": "1.41.2",
     "@zag-js/toggle": "1.41.2"
   },

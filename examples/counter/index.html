@@ -225,6 +225,15 @@ dispatch native CustomEvents.</code></pre>
                 </div>
                 <span slot="hint">Checkbox and toggle contribute native FormData.</span>
               </iktia-field>
+              <iktia-radio-group
+                name="audience"
+                label="Release audience"
+                orientation="horizontal"
+              >
+                <iktia-radio value="stable" label="Stable"></iktia-radio>
+                <iktia-radio value="beta" label="Beta"></iktia-radio>
+                <iktia-radio value="canary" label="Canary" disabled></iktia-radio>
+              </iktia-radio-group>
               <div class="primitive-row">
                 <button type="submit" class="native-action">Read FormData</button>
                 <button type="reset" class="native-action secondary">Reset</button>

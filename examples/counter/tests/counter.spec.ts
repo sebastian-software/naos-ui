@@ -145,6 +145,8 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   const toggle = section.locator("iktia-toggle")
   const toggleButton = toggle.locator("button")
   const primaryButton = section.locator("iktia-button[variant='primary']")
+  const radioGroup = section.locator("iktia-radio-group")
+  const radios = radioGroup.locator("iktia-radio")
   const tabs = section.locator("iktia-tabs")
   const firstPanel = tabs.locator("[part~='panel'][data-value='first']")
   const secondPanel = tabs.locator("[part~='panel'][data-value='second']")
@@ -158,6 +160,14 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(checkboxButton).toHaveAttribute("role", "checkbox")
   await expect(checkboxButton).toHaveAttribute("data-state", "unchecked")
   await expect(toggleButton).toHaveAttribute("data-state", "off")
+  await expect(radioGroup.locator("[role='radiogroup']")).toHaveAttribute(
+    "data-state",
+    "none"
+  )
+  await expect(radios).toHaveCount(3)
+  await expect(radios.nth(0)).toHaveAttribute("role", "radio")
+  await expect(radios.nth(0)).toHaveAttribute("data-state", "unchecked")
+  await expect(radios.nth(2)).toHaveAttribute("aria-disabled", "true")
   await expect(tabs.locator("[role='tab']")).toHaveCount(3)
   await expect(firstPanel).toBeVisible()
   await expect(secondPanel).toBeHidden()
@@ -175,18 +185,27 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(toggleButton).toHaveAttribute("data-state", "on")
   await expect(page.locator("#primitive-event")).toContainText('"pressed":true')
 
+  await radios.nth(1).click()
+  await expect(radios.nth(1)).toHaveAttribute("data-state", "checked")
+  await expect(page.locator("#primitive-event")).toContainText('"value":"beta"')
+  await expect(radios.nth(1)).toBeFocused()
+  await radios.nth(1).press("ArrowLeft")
+  await expect(radios.nth(0)).toHaveAttribute("data-state", "checked")
+  await expect(radios.nth(0)).toBeFocused()
+
   await form.locator("button[type='submit']").click()
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "docs:reviewed, preview:enabled"
+    "docs:reviewed, preview:enabled, audience:stable"
   )
   await expect(page.locator("#primitive-form-event")).toHaveText(
-    "Last primitive form data: docs:reviewed, preview:enabled"
+    "Last primitive form data: docs:reviewed, preview:enabled, audience:stable"
   )
 
   await form.locator("button[type='reset']").click()
   await expect(checkboxButton).toHaveAttribute("data-state", "unchecked")
   await expect(toggleButton).toHaveAttribute("data-state", "off")
+  await expect(radios.nth(0)).toHaveAttribute("data-state", "unchecked")
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
     "none"
@@ -239,24 +258,33 @@ test("form-associated primitive controls receive disabled fieldset state", async
       <fieldset disabled>
         <iktia-checkbox name="blocked" value="yes" label="Blocked"></iktia-checkbox>
         <iktia-toggle name="blocked-toggle" value="yes" label="Blocked toggle"></iktia-toggle>
+        <iktia-radio-group name="blocked-radio" label="Blocked radio">
+          <iktia-radio value="yes" label="Yes"></iktia-radio>
+        </iktia-radio-group>
       </fieldset>
     `
     document.body.append(form)
   })
 
   const checkboxButton = page.locator("form fieldset iktia-checkbox button")
+  const radio = page.locator("form fieldset iktia-radio")
   const toggleButton = page.locator("form fieldset iktia-toggle button")
 
   await expect(checkboxButton).toBeDisabled()
   await expect(toggleButton).toBeDisabled()
+  await expect(radio).toHaveAttribute("aria-disabled", "true")
   await checkboxButton.evaluate((button) =>
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
   )
   await toggleButton.evaluate((button) =>
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
   )
+  await radio.evaluate((item) =>
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+  )
   await expect(checkboxButton).toHaveAttribute("data-state", "unchecked")
   await expect(toggleButton).toHaveAttribute("data-state", "off")
+  await expect(radio).toHaveAttribute("data-state", "unchecked")
 })
 
 test("declarative shadow dom renders useful DOM before upgrade and hydrates after upgrade", async ({

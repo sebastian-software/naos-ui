@@ -1,0 +1,52 @@
+:host {
+  display: inline-block;
+  font: inherit;
+}
+
+[part~="root"] {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iktia-radio-gap, 0.55rem);
+  color: var(--iktia-radio-fg, #17201b);
+  font: inherit;
+  cursor: pointer;
+}
+
+:host([data-disabled]) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+:host(:focus-visible) {
+  outline: 2px solid var(--iktia-focus-ring, #0f766e);
+  outline-offset: 3px;
+}
+
+[part~="control"] {
+  display: inline-grid;
+  place-items: center;
+  width: var(--iktia-radio-size, 1.15rem);
+  height: var(--iktia-radio-size, 1.15rem);
+  border: 1px solid var(--iktia-radio-border, #65736d);
+  border-radius: 999px;
+  background: var(--iktia-radio-bg, #ffffff);
+}
+
+[part~="indicator"] {
+  width: calc(var(--iktia-radio-size, 1.15rem) * 0.5);
+  height: calc(var(--iktia-radio-size, 1.15rem) * 0.5);
+  border-radius: 999px;
+  background: transparent;
+}
+
+:host([data-state="checked"]) [part~="control"] {
+  border-color: var(--iktia-radio-checked-border, #0f766e);
+}
+
+:host([data-state="checked"]) [part~="indicator"] {
+  background: var(--iktia-radio-checked-bg, #0f766e);
+}
+
+[part~="label"] {
+  font-weight: 700;
+}

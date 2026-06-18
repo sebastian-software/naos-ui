@@ -22,6 +22,8 @@ describe("@iktia/primitives build output", () => {
     expect(index).toContain("export * from \"./checkbox.mjs\"")
     expect(index).toContain("export * from \"./dropdown.mjs\"")
     expect(index).toContain("export * from \"./field.mjs\"")
+    expect(index).toContain("export * from \"./radio.mjs\"")
+    expect(index).toContain("export * from \"./radio-group.mjs\"")
     expect(index).toContain("export * from \"./tabs.mjs\"")
     expect(index).toContain("export * from \"./toggle.mjs\"")
   })
@@ -36,6 +38,7 @@ describe("@iktia/primitives build output", () => {
   it("builds private Zag adapter helpers without adding public exports", () => {
     const index = readFileSync(join(distRoot, "index.mjs"), "utf8")
     const checkbox = readFileSync(join(distRoot, "internal", "zag", "checkbox.js"), "utf8")
+    const radioGroup = readFileSync(join(distRoot, "internal", "zag", "radio-group.js"), "utf8")
     const service = readFileSync(join(distRoot, "internal", "zag", "service.js"), "utf8")
     const props = readFileSync(join(distRoot, "internal", "zag", "props.js"), "utf8")
     const scope = readFileSync(join(distRoot, "internal", "zag", "scope.js"), "utf8")
@@ -43,6 +46,8 @@ describe("@iktia/primitives build output", () => {
     const toggle = readFileSync(join(distRoot, "internal", "zag", "toggle.js"), "utf8")
 
     expect(checkbox).toContain("@zag-js/checkbox")
+    expect(radioGroup).toContain("@zag-js/radio-group")
+    expect(radioGroup).toContain("syncIktiaRadioGroupItems")
     expect(service).toContain("createZagService")
     expect(props).toContain("normalizeZagProps")
     expect(scope).toContain("createZagScope")
@@ -78,11 +83,23 @@ describe("@iktia/primitives build output", () => {
     expect(tabs).not.toContain("type IktiaZagTabsService")
   })
 
-  it("emits form-associated checkbox and toggle output", () => {
+  it("backs radio group with the private Zag adapter", () => {
+    const radioGroup = readFileSync(join(distRoot, "radio-group.mjs"), "utf8")
+
+    expect(radioGroup).toContain("from \"./internal/zag/radio-group.js\"")
+    expect(radioGroup).toContain("createIktiaZagRadioGroupService")
+    expect(radioGroup).toContain("syncIktiaRadioGroupItems")
+    expect(radioGroup).toContain("#applySpreadAttributes")
+    expect(radioGroup).not.toContain("@iktia/core")
+    expect(radioGroup).not.toContain("type IktiaZagRadioGroupService")
+  })
+
+  it("emits form-associated custom control output", () => {
     const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
+    const radioGroup = readFileSync(join(distRoot, "radio-group.mjs"), "utf8")
     const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")
 
-    for (const source of [checkbox, toggle]) {
+    for (const source of [checkbox, radioGroup, toggle]) {
       expect(source).toContain("static formAssociated = true")
       expect(source).toContain("this.#internals = this.attachInternals()")
       expect(source).toContain("this.#internals.setFormValue")

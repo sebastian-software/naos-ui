@@ -14,11 +14,21 @@ const components = [
   "checkbox",
   "dropdown",
   "field",
+  "radio",
+  "radio-group",
   "tabs",
   "toggle",
 ]
 const behaviorFiles = ["checkbox", "disclosure", "tabs", "toggle"]
-const zagFiles = ["checkbox", "props", "scope", "service", "tabs", "toggle"]
+const zagFiles = [
+  "checkbox",
+  "props",
+  "radio-group",
+  "scope",
+  "service",
+  "tabs",
+  "toggle",
+]
 
 await rm(distRoot, { force: true, recursive: true })
 await mkdir(distRoot, { recursive: true })
