@@ -13,16 +13,24 @@ pub struct ComponentModule {
     pub options: ComponentOptions,
     /// Component imports that should be preserved for nested Custom Element registration.
     pub component_imports: Vec<ComponentImport>,
+    /// Runtime imports preserved for helper functions used in generated code.
+    pub runtime_imports: Vec<RuntimeImport>,
     /// Inline CSS imports referenced by component styles.
     pub style_imports: Vec<StyleImport>,
     /// Public props declared through function parameters.
     pub props: Vec<PropDefinition>,
     /// Internal state declarations.
     pub states: Vec<StateDefinition>,
+    /// Form-associated custom element declaration.
+    pub form_controls: Vec<FormControlDefinition>,
     /// Pure derived value declarations.
     pub computed: Vec<ComputedDefinition>,
     /// Lifecycle side effect declarations.
     pub effects: Vec<EffectDefinition>,
+    /// Connected lifecycle callbacks.
+    pub connected_callbacks: Vec<LifecycleCallbackDefinition>,
+    /// Disconnected lifecycle callbacks.
+    pub disconnected_callbacks: Vec<LifecycleCallbackDefinition>,
     /// Whether the component body references `host()`.
     pub uses_host_helpers: bool,
     /// Custom event declarations.
@@ -39,6 +47,13 @@ pub struct ComponentImport {
     /// Local binding name used in the current module.
     pub local_name: String,
     /// Import source specifier.
+    pub source: String,
+}
+
+/// Runtime import that should be preserved in generated output.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RuntimeImport {
+    /// Raw import declaration source.
     pub source: String,
 }
 
@@ -118,6 +133,19 @@ pub struct StateDefinition {
     pub kind: StateKind,
 }
 
+/// Form-associated custom element declaration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FormControlDefinition {
+    /// Local variable name used in the component callback.
+    pub local_name: String,
+    /// Expression passed to `ElementInternals.setFormValue()`.
+    pub value_expression: String,
+    /// Optional reset callback body.
+    pub reset_body: Option<String>,
+    /// Optional prop/local expression used for disabled reflection.
+    pub disabled_expression: Option<String>,
+}
+
 /// Local reactive authoring declaration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StateKind {
@@ -138,6 +166,13 @@ pub struct ComputedDefinition {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EffectDefinition {
     /// Source text for the effect callback body.
+    pub body: String,
+}
+
+/// Custom element lifecycle callback declaration.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LifecycleCallbackDefinition {
+    /// Source text for the lifecycle callback body.
     pub body: String,
 }
 

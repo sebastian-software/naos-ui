@@ -417,6 +417,181 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_generate_lifecycle_callbacks() {
+        let source = r#"
+            import { onConnected, onDisconnected, state } from "@iktia/core";
+
+            export function LifecycleProbe() {
+              const status = state("idle");
+
+              onConnected(() => {
+                status.set("connected");
+              });
+              onDisconnected(() => {
+                status.set("disconnected");
+              });
+
+              return <span data-status={status()} />;
+            }
+        "#;
+
+        let result = match transform_component_module(source, "lifecycle-probe.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("connectedCallback()"));
+        assert!(result.code.contains("disconnectedCallback()"));
+        assert!(
+            result
+                .code
+                .contains("const { status } = this.#createBindings();")
+        );
+        assert!(result.code.contains("status.set(\"connected\");"));
+        assert!(result.code.contains("status.set(\"disconnected\");"));
+    }
+
+    #[test]
+    fn transform_component_module_should_initialize_state_from_props_in_instance_context() {
+        let source = r#"
+            import { state } from "@iktia/core";
+
+            export function Snapshot({
+              checked = false,
+              label = "Ready",
+              step = 1,
+            }: SnapshotProps = {}) {
+              const selected = state(checked);
+              const text = state(label);
+              const count = state(step);
+
+              return (
+                <button
+                  aria-pressed={selected()}
+                  data-count={count()}
+                >
+                  {text()}
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "snapshot.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("#state = {};"));
+        assert!(result.code.contains("#initializeState()"));
+        assert!(result.code.contains("const checked = this.#props.checked;"));
+        assert!(result.code.contains("this.#state.selected = checked;"));
+        assert!(result.code.contains("this.#state.text = label;"));
+        assert!(result.code.contains("this.#state.count = step;"));
+        assert!(!result.code.contains("#state = {\n    selected: checked"));
+    }
+
+    #[test]
+    fn transform_component_module_should_generate_form_associated_control_helpers() {
+        let source = r#"
+            import { formControl, state } from "@iktia/core";
+
+            export function Check({
+              checked = false,
+              disabled = false,
+              value = "on",
+            }: CheckProps = {}) {
+              const selected = state(checked);
+              const form = formControl({
+                value: () => selected() ? value : null,
+                reset: () => {
+                  selected.set(checked);
+                },
+                disabled,
+              });
+              void form;
+
+              return (
+                <button
+                  disabled={disabled}
+                  aria-pressed={selected()}
+                  onClick={() => selected.update((current) => !current)}
+                >
+                  {value}
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "check.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("static formAssociated = true;"));
+        assert!(
+            result
+                .code
+                .contains("this.#internals = this.attachInternals();")
+        );
+        assert!(result.code.contains("#syncFormValue()"));
+        assert!(
+            result
+                .code
+                .contains("this.#internals.setFormValue(selected() ? value : null);")
+        );
+        assert!(result.code.contains("formResetCallback()"));
+        assert!(result.code.contains("selected.set(checked);"));
+        assert!(result.code.contains("formDisabledCallback(disabled)"));
+        assert!(result.code.contains("this.disabled = disabled;"));
+    }
+
+    #[test]
+    fn transform_component_module_should_map_common_dom_event_attribute_names() {
+        let source = r#"
+            import { on } from "@iktia/core";
+
+            export function KeyboardButton() {
+              return (
+                <button
+                  onKeyDown={on("keydown", () => {})}
+                  onPointerDown={on("pointerdown", () => {})}
+                  onPointerMove={on("pointermove", () => {})}
+                  onPointerOver={on("pointerover", () => {})}
+                  onPointerLeave={on("pointerleave", () => {})}
+                  onPointerCancel={on("pointercancel", () => {})}
+                  onContextMenu={on("contextmenu", () => {})}
+                  onBeforeInput={on("beforeinput", () => {})}
+                >
+                  Move
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "keyboard-button.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("addEventListener(\"keydown\""));
+        assert!(result.code.contains("addEventListener(\"pointerdown\""));
+        assert!(result.code.contains("addEventListener(\"pointermove\""));
+        assert!(result.code.contains("addEventListener(\"pointerover\""));
+        assert!(result.code.contains("addEventListener(\"pointerleave\""));
+        assert!(result.code.contains("addEventListener(\"pointercancel\""));
+        assert!(result.code.contains("addEventListener(\"contextmenu\""));
+        assert!(result.code.contains("addEventListener(\"beforeinput\""));
+        assert!(!result.code.contains("addEventListener(\"key-down\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-down\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-move\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-over\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-leave\""));
+        assert!(!result.code.contains("addEventListener(\"pointer-cancel\""));
+        assert!(!result.code.contains("addEventListener(\"context-menu\""));
+        assert!(!result.code.contains("addEventListener(\"before-input\""));
+    }
+
+    #[test]
     fn transform_component_module_should_generate_control_flow_and_web_composition_helpers() {
         let source = r#"
             import { Show, computed, effect, event, host, on, state } from "@iktia/core";
@@ -591,6 +766,110 @@ mod tests {
         );
         assert!(result.code.contains("initial-count"));
         assert!(result.code.contains("addEventListener(\"value-change\""));
+    }
+
+    #[test]
+    fn transform_component_module_should_generate_native_jsx_spread_attributes() {
+        let source = r#"
+            import { computed, state } from "@iktia/core";
+
+            export function SpreadButton() {
+              const active = state(false);
+              const triggerProps = computed(() => ({
+                "aria-selected": active(),
+                className: "from-spread",
+                hidden: false,
+                onKeyDown(event) {
+                  event.preventDefault();
+                },
+                onPointerMove(event) {
+                  event.preventDefault();
+                },
+                onPointerOver(event) {
+                  event.preventDefault();
+                },
+                onPointerLeave(event) {
+                  event.preventDefault();
+                },
+                onPointerCancel(event) {
+                  event.preventDefault();
+                },
+                style: { color: active() ? "red" : "blue" },
+                tabIndex: 0,
+              }));
+
+              return (
+                <button part="before" {...triggerProps()} part="after" data-state={active() ? "on" : "off"}>
+                  Press
+                </button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "spread-button.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains(
+            "#node0Spread0 = { names: new Set(), listeners: new Map(), styles: new Set() };"
+        ));
+        assert!(result.code.contains(
+            "this.#applySpreadAttributes(this.#node0, this.#node0Spread0, triggerProps());"
+        ));
+        assert!(
+            result
+                .code
+                .contains("removeEventListener(eventName, previous)")
+        );
+        assert!(result.code.contains("\"pointer-move\": \"pointermove\""));
+        assert!(result.code.contains("\"pointer-over\": \"pointerover\""));
+        assert!(result.code.contains("\"pointer-leave\": \"pointerleave\""));
+        assert!(result.code.contains("\"pointer-cancel\": \"pointercancel\""));
+        assert!(result.code.contains("\"context-menu\": \"contextmenu\""));
+        assert!(result.code.contains("\"before-input\": \"beforeinput\""));
+        assert!(result.code.contains("target.style[property]"));
+        assert!(
+            result
+                .code
+                .contains("if (name === \"className\") return \"class\";")
+        );
+        assert!(
+            result
+                .code
+                .contains("const { active, triggerProps } = this.#createBindings();")
+        );
+        let spread_index = result
+            .code
+            .find("this.#applySpreadAttributes(this.#node0, this.#node0Spread0, triggerProps());")
+            .expect("spread update should be generated");
+        let explicit_after_index = result.code[spread_index..]
+            .find("this.#node0.setAttribute(\"part\", \"after\");")
+            .expect("explicit attribute after spread should be re-applied during update");
+        assert!(explicit_after_index > 0);
+    }
+
+    #[test]
+    fn transform_component_module_should_reject_jsx_spread_on_pascal_components() {
+        let source = r#"
+            import { computed } from "@iktia/core";
+            import { Counter } from "./counter.wc.tsx";
+
+            export function Dashboard() {
+              const counterProps = computed(() => ({ initialCount: 1 }));
+
+              return <Counter {...counterProps()} />;
+            }
+        "#;
+
+        let error = transform_component_module(source, "dashboard.wc.tsx")
+            .expect_err("component spread should be rejected");
+
+        assert!(
+            error
+                .to_string()
+                .contains("JSX spread attributes are supported only on native elements")
+        );
     }
 
     #[test]

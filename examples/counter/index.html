@@ -187,6 +187,268 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
 dispatch native CustomEvents.</code></pre>
         </div>
       </section>
+
+      <section
+        class="demo-case"
+        id="primitive-package-case"
+        aria-labelledby="primitive-package-title"
+      >
+        <div class="case-copy">
+          <p class="case-kicker">Use case 06</p>
+          <h2 id="primitive-package-title">Packaged primitives</h2>
+          <p>
+            The first <code>@iktia/primitives</code> package ships compiled
+            Iktia-authored Web Components. These are package imports, not local
+            demo fixtures.
+          </p>
+          <ul>
+            <li>Buttons, toggles, checkbox, field, tabs, and dropdown share parts and state attributes.</li>
+            <li>The package build compiles <code>.wc.tsx</code> sources before publishing.</li>
+            <li>Checkbox and toggle use the compiler-owned Form-Associated Custom Element spike.</li>
+          </ul>
+        </div>
+        <div class="case-surface package-surface">
+          <div class="primitive-stack">
+            <form id="primitive-form" class="primitive-form">
+              <iktia-field label="Release checklist">
+                <div class="primitive-row">
+                  <iktia-checkbox
+                    name="docs"
+                    value="reviewed"
+                    label="Docs reviewed"
+                  ></iktia-checkbox>
+                  <iktia-toggle
+                    name="preview"
+                    value="enabled"
+                    label="Publish preview"
+                  ></iktia-toggle>
+                  <iktia-switch
+                    name="notify"
+                    value="enabled"
+                    label="Notify team"
+                    checked
+                  ></iktia-switch>
+                </div>
+                <span slot="hint">Checkbox, toggle, and switch contribute native FormData.</span>
+              </iktia-field>
+              <iktia-radio-group
+                name="audience"
+                label="Release audience"
+                orientation="horizontal"
+              >
+                <iktia-radio value="stable" label="Stable"></iktia-radio>
+                <iktia-radio value="beta" label="Beta"></iktia-radio>
+                <iktia-radio value="canary" label="Canary" disabled></iktia-radio>
+              </iktia-radio-group>
+              <iktia-toggle-group
+                name="channels"
+                label="Release channels"
+                value="web"
+                multiple
+              >
+                <iktia-toggle-item value="web" label="Web"></iktia-toggle-item>
+                <iktia-toggle-item value="docs" label="Docs"></iktia-toggle-item>
+                <iktia-toggle-item value="cli" label="CLI" disabled></iktia-toggle-item>
+              </iktia-toggle-group>
+              <iktia-segmented-control
+                name="cadence"
+                label="Release cadence"
+                value="weekly"
+              >
+                <iktia-segmented-item value="daily" label="Daily"></iktia-segmented-item>
+                <iktia-segmented-item value="weekly" label="Weekly"></iktia-segmented-item>
+                <iktia-segmented-item value="monthly" label="Monthly"></iktia-segmented-item>
+                <iktia-segmented-item value="frozen" label="Frozen" disabled></iktia-segmented-item>
+              </iktia-segmented-control>
+              <iktia-select
+                name="region"
+                label="Release region"
+                value="eu"
+                placeholder="Choose region"
+              >
+                <iktia-select-item value="us" label="United States"></iktia-select-item>
+                <iktia-select-item value="eu" label="Europe"></iktia-select-item>
+                <iktia-select-item value="apac" label="APAC"></iktia-select-item>
+                <iktia-select-item value="hold" label="On hold" disabled></iktia-select-item>
+              </iktia-select>
+              <iktia-listbox
+                name="lane"
+                label="Release lane"
+                value="review"
+              >
+                <iktia-listbox-item value="dev" label="Development"></iktia-listbox-item>
+                <iktia-listbox-item value="review" label="Review"></iktia-listbox-item>
+                <iktia-listbox-item value="frozen" label="Frozen" disabled></iktia-listbox-item>
+                <iktia-listbox-item value="audit" label="Audit"></iktia-listbox-item>
+              </iktia-listbox>
+              <iktia-combobox
+                name="owner"
+                label="Release owner"
+                value="ops"
+                placeholder="Search owner"
+              >
+                <iktia-combobox-item value="ops" label="Operations"></iktia-combobox-item>
+                <iktia-combobox-item value="docs" label="Docs team"></iktia-combobox-item>
+                <iktia-combobox-item value="qa" label="QA"></iktia-combobox-item>
+                <iktia-combobox-item value="blocked" label="Blocked" disabled></iktia-combobox-item>
+              </iktia-combobox>
+              <iktia-number-input
+                name="approvals"
+                label="Required approvals"
+                value="2"
+                min="1"
+                max="5"
+                step="1"
+              ></iktia-number-input>
+              <iktia-pin-input
+                name="release-code"
+                label="Release code"
+                value="123"
+                count="4"
+                otp
+              ></iktia-pin-input>
+              <iktia-tags-input
+                name="release-tags"
+                label="Release tags"
+                value="docs,preview"
+                placeholder="Add tag"
+              ></iktia-tags-input>
+              <iktia-file-upload
+                name="release-file"
+                label="Release file"
+                accept=".txt"
+              ></iktia-file-upload>
+              <iktia-date-picker
+                name="release-date"
+                label="Release date"
+                value="2026-06-18"
+              ></iktia-date-picker>
+              <iktia-editable
+                name="release-note"
+                label="Release note"
+                value="Launch checklist"
+              ></iktia-editable>
+              <iktia-rating-group
+                name="release-rating"
+                label="Release rating"
+                value="3"
+              ></iktia-rating-group>
+              <iktia-slider
+                name="confidence"
+                label="Release confidence"
+                value="40"
+                min="0"
+                max="100"
+                step="10"
+              ></iktia-slider>
+              <div class="primitive-row">
+                <button type="submit" class="native-action">Read FormData</button>
+                <button type="reset" class="native-action secondary">Reset</button>
+              </div>
+            </form>
+            <output id="primitive-form-event">Last primitive form data: none</output>
+
+            <iktia-button-group label="Primitive actions">
+              <iktia-button variant="primary" label="Build"></iktia-button>
+              <iktia-button variant="ghost" label="Preview"></iktia-button>
+            </iktia-button-group>
+
+            <iktia-tabs value="contract">
+              <iktia-tab value="contract" label="Contract"></iktia-tab>
+              <iktia-tab value="behavior" label="Behavior"></iktia-tab>
+              <iktia-tab value="forms" label="Forms"></iktia-tab>
+              <iktia-tab-panel value="contract">
+                Parts, slots, data-state, and CSS variables.
+              </iktia-tab-panel>
+              <iktia-tab-panel value="behavior">
+                Behavior stays inside Iktia-authored kernels or native controls.
+              </iktia-tab-panel>
+              <iktia-tab-panel value="forms">
+                Checkbox and toggle submit through ElementInternals.
+              </iktia-tab-panel>
+            </iktia-tabs>
+
+            <iktia-dropdown label="Package notes">
+              <p>Dropdown is experimental and compiler-compatible in this first pass.</p>
+            </iktia-dropdown>
+
+            <iktia-menu label="Release actions">
+              <iktia-menu-item value="ship" label="Ship release"></iktia-menu-item>
+              <iktia-menu-item value="schedule" label="Schedule release"></iktia-menu-item>
+              <iktia-menu-item value="rollback" label="Rollback" disabled></iktia-menu-item>
+            </iktia-menu>
+
+            <iktia-context-menu>
+              <span slot="trigger">Right-click for release context actions.</span>
+              <iktia-menu-item value="copy" label="Copy release link"></iktia-menu-item>
+              <iktia-menu-item value="assign" label="Assign owner"></iktia-menu-item>
+              <iktia-menu-item value="archive" label="Archive" disabled></iktia-menu-item>
+            </iktia-context-menu>
+
+            <iktia-collapsible label="Release notes">
+              This section uses Zag-backed trigger and content props while
+              keeping the Iktia Custom Element contract.
+            </iktia-collapsible>
+
+            <iktia-accordion label="Release checklist details" value="quality">
+              <iktia-accordion-item value="quality" label="Quality gates">
+                Browser, docs, and package-release checks must be green.
+              </iktia-accordion-item>
+              <iktia-accordion-item value="handoff" label="Handoff">
+                Commit focused slices before moving to the next primitive.
+              </iktia-accordion-item>
+              <iktia-accordion-item value="blocked" label="Blocked" disabled>
+                Disabled accordion items remain focus-safe.
+              </iktia-accordion-item>
+            </iktia-accordion>
+
+            <iktia-popover label="Deployment hint" title="Before release">
+              Confirm that package docs, browser tests, and release metadata are
+              aligned before opening the release PR.
+            </iktia-popover>
+
+            <iktia-dialog
+              label="Open release dialog"
+              title="Release approval"
+              description="Dialog behavior comes from Zag and keeps focus inside while open."
+            ></iktia-dialog>
+
+            <iktia-tooltip
+              label="Why checks?"
+              text="The package stays experimental until browser and release gates pass."
+            ></iktia-tooltip>
+
+            <iktia-hover-card
+              label="Release owner"
+              title="Operations"
+              text="The operations team owns the release checklist and rollback plan."
+            ></iktia-hover-card>
+
+            <iktia-progress
+              label="Release progress"
+              value="80"
+            ></iktia-progress>
+
+            <iktia-avatar
+              alt="Operations"
+              fallback="OP"
+              src="data:image/svg+xml,%3Csvg%20xmlns%3D%22http://www.w3.org/2000/svg%22%20viewBox%3D%220%200%2080%2080%22%3E%3Crect%20width%3D%2280%22%20height%3D%2280%22%20fill%3D%22%230f766e%22/%3E%3C/svg%3E"
+            ></iktia-avatar>
+
+            <iktia-toast
+              label="Show release toast"
+              title="Release queued"
+              description="The release notification is managed by the Zag toast store."
+              type="success"
+              duration="5000"
+            ></iktia-toast>
+            <iktia-toast-root label="Release notifications"></iktia-toast-root>
+
+            <output id="primitive-event">Last primitive event: none</output>
+          </div>
+          <pre><code>import "@iktia/primitives"</code></pre>
+        </div>
+      </section>
     </main>
 
     <script type="module" src="/src/main.ts"></script>

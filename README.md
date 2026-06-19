@@ -55,6 +55,7 @@ The current implementation proves the vertical slice:
   HTML paths
 * typed N-API boundary and Node wrapper
 * Vite transform plugin
+* first experimental `@iktia/primitives` package built from `.wc.tsx` sources
 * Ardo-rendered docs plus linked static demos with Playwright browser gates
 * Shadow DOM style injection and default/named slots
 
@@ -103,6 +104,7 @@ For package consumers, install the public packages:
 
 ```sh
 pnpm add @iktia/core @iktia/runtime
+pnpm add @iktia/primitives
 pnpm add -D @iktia/compiler @iktia/vite @iktia/cli
 ```
 
@@ -146,6 +148,18 @@ Create a `.wc.tsx` file and import it from your app.
 import "./counter.wc.tsx"
 ```
 
+Use the first packaged primitives when you want a compiled baseline UI surface.
+
+```ts
+import "@iktia/primitives"
+```
+
+The initial primitive package includes experimental button, button group,
+checkbox, dropdown, field, tabs, and toggle elements. Checkbox and toggle have
+an experimental compiler-owned Form-Associated Custom Element MVP; form-like
+primitives remain unstable until labels, validation, disabled propagation, and
+cross-browser form behavior are fully documented and tested.
+
 Run the example.
 
 ```sh
@@ -155,8 +169,9 @@ pnpm --filter @iktia/example-counter test
 
 The public site is split into Ardo-rendered docs at the root and linked static
 Iktia demos under `/demos/`. The demos cover reactive state, events, primitive
-parts/slots/state attributes, PascalCase composition, CSS variables, and a
-generated Declarative Shadow DOM page with delayed custom-element upgrade. See
+parts/slots/state attributes, PascalCase composition, CSS variables, packaged
+`@iktia/primitives`, and a generated Declarative Shadow DOM page with delayed
+custom-element upgrade. See
 [docs/demos.md](docs/demos.md) for the docs/demo matrix, local commands, and
 Pages workflow details.
 

@@ -4,6 +4,7 @@ import { join } from "node:path"
 const publicPackages = [
   "packages/core",
   "packages/runtime",
+  "packages/primitives",
   "packages/compiler",
   "packages/vite",
   "packages/cli",
@@ -17,7 +18,14 @@ const publicPackages = [
   "packages/compiler-win32-x64-msvc",
 ]
 
-const jsPackages = ["packages/core", "packages/runtime", "packages/compiler", "packages/vite", "packages/cli"]
+const jsPackages = [
+  "packages/core",
+  "packages/runtime",
+  "packages/primitives",
+  "packages/compiler",
+  "packages/vite",
+  "packages/cli",
+]
 
 const nativeTargets = [
   {
@@ -96,7 +104,14 @@ for (const packagePath of publicPackages) {
 
 for (const packagePath of jsPackages) {
   const packageJson = packageJsonByPath.get(packagePath)
-  check(packageJson?.scripts?.build === "tsdown", `${packagePath} must build with tsdown`)
+  if (packagePath === "packages/primitives") {
+    check(
+      packageJson?.scripts?.build === "node scripts/build-primitives.mjs",
+      `${packagePath} must build with the primitives compiler script`
+    )
+  } else {
+    check(packageJson?.scripts?.build === "tsdown", `${packagePath} must build with tsdown`)
+  }
   check(packageJson?.files?.includes("dist/"), `${packagePath} must publish dist files`)
   check(
     typeof packageJson?.types === "string" &&

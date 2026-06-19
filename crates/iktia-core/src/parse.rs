@@ -4,7 +4,7 @@ use crate::ast::{
 use crate::error::{CompilerError, CompilerResult};
 use crate::model::{
     ComponentImport, ComponentModule, ComponentOptions, PropAccess, PropDefinition, PropKind,
-    StyleImport,
+    RuntimeImport, StyleImport,
 };
 use crate::naming::{custom_element_tag_for_component, kebab_case_identifier};
 
@@ -18,12 +18,14 @@ pub fn analyze_component_module(source: &str, filename: &str) -> CompilerResult<
     let ast_facts = analyze_module(source, filename)?;
 
     let component_imports = ast_facts.component_imports.clone();
+    let runtime_imports = ast_facts.runtime_imports.clone();
     let style_imports = ast_facts.style_imports.clone();
     if let Some(function_component) = capture_function_component(source, &ast_facts)? {
         return analyze_function_component(
             source,
             function_component,
             component_imports,
+            runtime_imports,
             style_imports,
         );
     }
@@ -44,6 +46,7 @@ fn analyze_function_component(
     source: &str,
     function_component: FunctionComponent<'_>,
     component_imports: Vec<ComponentImport>,
+    runtime_imports: Vec<RuntimeImport>,
     style_imports: Vec<StyleImport>,
 ) -> CompilerResult<ComponentModule> {
     let tag_name = custom_element_tag_for_component(&function_component.name);
@@ -56,11 +59,15 @@ fn analyze_function_component(
         export_name: Some(function_component.name),
         options,
         component_imports,
+        runtime_imports,
         style_imports,
         props: capture_function_props(function_component.params)?,
         states: function_component.semantics.states,
+        form_controls: function_component.semantics.form_controls,
         computed: function_component.semantics.computed,
         effects: function_component.semantics.effects,
+        connected_callbacks: function_component.semantics.connected_callbacks,
+        disconnected_callbacks: function_component.semantics.disconnected_callbacks,
         uses_host_helpers: function_component.semantics.uses_host_helpers,
         events: function_component.semantics.events,
         template_source: function_component

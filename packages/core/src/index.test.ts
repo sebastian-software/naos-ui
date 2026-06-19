@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   event,
+  formControl,
   host,
   on,
   state,
@@ -19,5 +20,6 @@ describe("authoring runtime stubs", () => {
     expect(() => on("click", () => undefined)).toThrow("Iktia on()")
     expect(() => host()).toThrow("Iktia host()")
     expect(() => event<number>("change")).toThrow("Iktia event()")
+    expect(() => formControl({ value: () => null })).toThrow("Iktia formControl()")
   })
 })

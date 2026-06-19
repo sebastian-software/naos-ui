@@ -49,6 +49,16 @@ export type EventEmitter<Detail> = {
   emit: [Detail] extends [void] ? (detail?: void) => void : (detail: Detail) => void
 }
 
+export type FormControlOptions = {
+  value(): FormDataEntryValue | FormData | null
+  reset?(): void
+  disabled?: boolean
+}
+
+export type FormControlHandle = {
+  readonly formAssociated: true
+}
+
 export function state<T>(initialValue: T): StateAccessor<T> {
   return authoringRuntimeError("state")
 }
@@ -88,6 +98,10 @@ export function event<Detail = void>(
   options?: EventOptions
 ): EventEmitter<Detail> {
   return authoringRuntimeError("event")
+}
+
+export function formControl(options: FormControlOptions): FormControlHandle {
+  return authoringRuntimeError("formControl")
 }
 
 export function onConnected(callback: () => void): void {

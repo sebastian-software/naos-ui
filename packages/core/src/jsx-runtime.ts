@@ -25,9 +25,12 @@ export type IntrinsicElementAttributes = {
   onClick?: EventHandler<PointerEvent>
   onFocus?: EventHandler<FocusEvent>
   onInput?: EventHandler<InputEvent>
+  onKeyDown?: EventHandler<KeyboardEvent>
+  onPointerDown?: EventHandler<PointerEvent>
   part?: string
   role?: string
   slot?: string
+  tabindex?: number
   type?: string
   value?: string | number | readonly string[]
 }

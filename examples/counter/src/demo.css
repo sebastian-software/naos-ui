@@ -161,7 +161,14 @@ x-counter,
 x-disclosure,
 x-field,
 x-toggle,
-x-toolbar {
+x-toolbar,
+iktia-button,
+iktia-button-group,
+iktia-checkbox,
+iktia-dropdown,
+iktia-field,
+iktia-tabs,
+iktia-toggle {
   justify-self: start;
 }
 
@@ -174,8 +181,54 @@ x-toolbar {
 }
 
 .primitive-surface x-disclosure,
-.primitive-surface x-field {
+.primitive-surface x-field,
+.primitive-surface iktia-field,
+.primitive-surface iktia-tabs,
+.primitive-surface iktia-dropdown {
   width: 100%;
+}
+
+.package-surface {
+  align-content: start;
+}
+
+.primitive-stack {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.primitive-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.primitive-form {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.native-action {
+  min-height: 2.35rem;
+  border: 1px solid #0f766e;
+  border-radius: 0.375rem;
+  padding: 0.48rem 0.75rem;
+  background: #0f766e;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.native-action.secondary {
+  background: #ffffff;
+  color: #0f766e;
+}
+
+.native-action:focus-visible {
+  outline: 2px solid #0f766e;
+  outline-offset: 2px;
 }
 
 @media (max-width: 780px) {
