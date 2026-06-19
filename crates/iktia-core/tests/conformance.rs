@@ -128,7 +128,7 @@ const DSD_FIXTURES: &[DsdFixture] = &[DsdFixture {
         "data-iktia-text=\"text0\"",
         "Clicks: 0",
     ],
-    forbidden_snippets: &["onClick", "CustomEvent"],
+    forbidden_snippets: &["addEventListener", "CustomEvent"],
 }];
 
 #[test]
