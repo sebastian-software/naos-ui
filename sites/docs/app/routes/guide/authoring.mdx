@@ -27,13 +27,12 @@ host lifecycle access use normal TypeScript exports and the primitives above.
 
 ## Events And Listeners
 
-Dispatch options and listener options are split:
+Events dispatch native `CustomEvent` instances. In the current MVP, generated
+events use `bubbles: true`, `composed: true`, and `cancelable: false`.
+Listener options belong on `on()`.
 
 ```tsx
-const changed = event<boolean>("toggle-change", {
-  bubbles: true,
-  composed: true,
-})
+const changed = event<boolean>("toggle-change")
 
 return (
   <button
@@ -46,8 +45,8 @@ return (
 )
 ```
 
-`event(name, customEventOptions)` configures emitted events. `on(type, handler,
-listenerOptions)` configures DOM listeners.
+`event(name)` creates the typed emitter. `on(type, handler, listenerOptions)`
+configures DOM listeners. Event option code generation is a later milestone.
 
 ## Keyed Lists
 

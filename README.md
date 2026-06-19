@@ -59,7 +59,8 @@ The current implementation proves the vertical slice:
 * Ardo-rendered docs plus linked static demos with Playwright browser gates
 * Shadow DOM style injection and default/named slots
 
-See [docs/compiler-limitations.md](docs/compiler-limitations.md) for the current
+Start with [docs/README.md](docs/README.md) for the guided documentation path.
+Use [docs/compiler-limitations.md](docs/compiler-limitations.md) for the current
 accepted syntax boundary.
 
 ## Why This Exists
@@ -244,7 +245,9 @@ Current APIs:
 * `<Show>` and keyed `.map()` as explicit compile-time control flow
 * typed JSX intrinsic elements and common DOM/event attributes
 
-For details, see [docs/authoring.md](docs/authoring.md).
+For the full path from install to authoring, styling, DSD, tooling, and
+troubleshooting, see [docs/README.md](docs/README.md). For authoring details,
+see [docs/authoring.md](docs/authoring.md).
 
 ## Packages
 
@@ -357,12 +360,17 @@ Workspace layout:
 
 Useful references:
 
+* [Documentation learning path](docs/README.md)
+* [Quickstart](docs/quickstart.md)
 * [Authoring guide](docs/authoring.md)
+* [Styling and Declarative Shadow DOM](docs/styling-and-dsd.md)
+* [API reference](docs/api-reference.md)
 * [Compiler limitations](docs/compiler-limitations.md)
 * [CLI](docs/cli.md)
 * [Declarative Shadow DOM plan](docs/declarative-shadow-dom-plan.md)
 * [Native distribution](docs/native-distribution.md)
 * [Docs and demos](docs/demos.md)
+* [Troubleshooting](docs/troubleshooting.md)
 * [MDN Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
 
 ## License
