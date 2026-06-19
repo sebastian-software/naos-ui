@@ -9,9 +9,11 @@ pub(crate) const DIAGNOSTIC_HINT_COMPONENT_OPTIONS: &str =
 pub(crate) const DIAGNOSTIC_HINT_DSD_INPUTS: &str =
     "Pass JSON objects for DSD props and inline styles.";
 pub(crate) const DIAGNOSTIC_HINT_FUNCTION_COMPONENT: &str =
-    "Export a PascalCase function component with a parenthesized TSX return value.";
+    "Export a PascalCase instance setup function with a single JSX return value.";
 pub(crate) const DIAGNOSTIC_HINT_FUNCTION_PROPS: &str =
     "Declare explicit destructured props with defaults.";
+pub(crate) const DIAGNOSTIC_HINT_INSTANCE_SETUP: &str =
+    "Return a single JSX template from the component setup function.";
 pub(crate) const DIAGNOSTIC_HINT_LISTS: &str =
     "Use a keyed .map() expression or <For> child that returns one JSX element.";
 pub(crate) const DIAGNOSTIC_HINT_REMOVED_API: &str =
@@ -34,6 +36,8 @@ pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK: &str =
     "IKTIA_UNSUPPORTED_EFFECT_CALLBACK";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS: &str =
     "IKTIA_UNSUPPORTED_FUNCTION_PROPS";
+pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER: &str =
+    "IKTIA_UNSUPPORTED_FACTORY_RENDER";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER: &str =
     "IKTIA_UNSUPPORTED_LIST_RENDERER";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK: &str =

@@ -43,9 +43,9 @@ mod tests {
         DIAGNOSTIC_CODE_REMOVED_AUTHORING_API, DIAGNOSTIC_CODE_TEMPLATE_PARSE,
         DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
         DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
-        DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
-        DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
-        DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
+        DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
+        DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS, DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+        DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
     };
 
     #[test]
@@ -85,6 +85,10 @@ mod tests {
             (
                 DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
                 "IKTIA_UNSUPPORTED_FUNCTION_PROPS",
+            ),
+            (
+                DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
+                "IKTIA_UNSUPPORTED_FACTORY_RENDER",
             ),
             (
                 DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
@@ -217,7 +221,37 @@ mod tests {
                 "#,
                 DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
                 "must return a TSX template",
-                "parenthesized TSX return",
+                "single JSX return",
+            ),
+            (
+                "factory-render.wc.tsx",
+                r#"
+                    import { state } from "@iktia/core";
+
+                    export function FactoryRender() {
+                      const count = state(0);
+                      return () => <button>{count()}</button>;
+                    }
+                "#,
+                DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
+                "return () => JSX",
+                "single JSX template",
+            ),
+            (
+                "factory-render-block.wc.tsx",
+                r#"
+                    import { state } from "@iktia/core";
+
+                    export function FactoryRenderBlock() {
+                      const count = state(0);
+                      return () => {
+                        return <button>{count()}</button>;
+                      };
+                    }
+                "#,
+                DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
+                "instance setup declarations",
+                "single JSX template",
             ),
             (
                 "computed-block.wc.tsx",
@@ -369,6 +403,22 @@ mod tests {
             computed_block_source,
             "computed-block.wc.tsx",
             "() => {\n                return count() * 2;\n              }",
+        );
+
+        let factory_render_source = r#"
+            import { state } from "@iktia/core";
+
+            export function FactoryRender() {
+              const count = state(0);
+              return () => <button>{count()}</button>;
+            }
+        "#;
+
+        assert_diagnostic_source_span(
+            transform_component_module(factory_render_source, "factory-render.wc.tsx"),
+            factory_render_source,
+            "factory-render.wc.tsx",
+            "() => <button>{count()}</button>",
         );
     }
 

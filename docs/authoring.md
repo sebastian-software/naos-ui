@@ -165,6 +165,14 @@ Element tag names must contain a hyphen.
 Function props use normal TypeScript types and destructuring defaults. The
 compiler turns those destructured names into observed properties and attributes.
 
+Iktia function components are instance setup declarations. The component body is
+analyzed and lowered into a generated Custom Element class; it is not called
+again as a React-style render function during updates. Use `state()`,
+`computed()`, prop reads, `effect()`, and `host().update()` to participate in
+generated updates. The single JSX return declares the view for that instance.
+Remix v3's returned render function informed this lifecycle decision, but it is
+not an Iktia compatibility target or accepted public component shape.
+
 ```tsx
 export type TextFieldProps = {
   disabled?: boolean
