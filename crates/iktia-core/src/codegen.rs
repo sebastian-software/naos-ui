@@ -1,7 +1,12 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
-use crate::error::{CompilerError, CompilerResult};
+use crate::error::{
+    CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
+    DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
+    DIAGNOSTIC_HINT_LISTS, DIAGNOSTIC_HINT_SHOW, dsd_input, template_parse, unsupported,
+    unsupported_with_code,
+};
 use crate::model::{
     ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult, EffectDefinition,
     EventDefinition, FormControlDefinition, PropDefinition, PropKind, SourceMap, StateDefinition,
@@ -114,7 +119,7 @@ impl<'a> TemplateParser<'a> {
         self.skip_whitespace();
         self.expect_char('<')?;
         if self.peek_char() == Some('/') {
-            return Err(unsupported("Unexpected closing tag in TSX template."));
+            return Err(template_parse("Unexpected closing tag in TSX template."));
         }
 
         let tag_name = self.parse_name()?;
@@ -142,7 +147,7 @@ impl<'a> TemplateParser<'a> {
                 self.position += 2;
                 let close_name = self.parse_name()?;
                 if close_name != tag_name {
-                    return Err(unsupported(format!(
+                    return Err(template_parse(format!(
                         "Mismatched closing tag. Expected </{tag_name}> but found </{close_name}>."
                     )));
                 }
@@ -151,7 +156,7 @@ impl<'a> TemplateParser<'a> {
                 break;
             }
             if self.is_eof() {
-                return Err(unsupported(format!(
+                return Err(template_parse(format!(
                     "Missing closing tag for <{tag_name}> in TSX template."
                 )));
             }
@@ -200,7 +205,7 @@ impl<'a> TemplateParser<'a> {
             Some('"') | Some('\'') => AttributeValue::Static(self.parse_quoted_string()?),
             Some('{') => AttributeValue::Expression(self.parse_braced_expression()?),
             _ => {
-                return Err(unsupported(format!(
+                return Err(template_parse(format!(
                     "Attribute `{name}` must use a quoted or braced value."
                 )));
             }
@@ -229,14 +234,14 @@ impl<'a> TemplateParser<'a> {
             }
         }
         if start == self.position {
-            return Err(unsupported("Expected a tag or attribute name."));
+            return Err(template_parse("Expected a tag or attribute name."));
         }
         Ok(self.input[start..self.position].to_owned())
     }
 
     fn parse_quoted_string(&mut self) -> CompilerResult<String> {
         let Some(quote) = self.peek_char() else {
-            return Err(unsupported("Expected a quoted string."));
+            return Err(template_parse("Expected a quoted string."));
         };
         self.position += quote.len_utf8();
         let start = self.position;
@@ -248,7 +253,7 @@ impl<'a> TemplateParser<'a> {
             }
             self.position += ch.len_utf8();
         }
-        Err(unsupported("Unterminated quoted attribute value."))
+        Err(template_parse("Unterminated quoted attribute value."))
     }
 
     fn parse_braced_expression(&mut self) -> CompilerResult<String> {
@@ -290,7 +295,7 @@ impl<'a> TemplateParser<'a> {
             self.position += ch.len_utf8();
         }
 
-        Err(unsupported("Unterminated braced TSX expression."))
+        Err(template_parse("Unterminated braced TSX expression."))
     }
 
     fn expect_char(&mut self, expected: char) -> CompilerResult<()> {
@@ -1423,7 +1428,11 @@ impl<'a> CodeGenerator<'a> {
                 self.emit_text(fallback_variable, value);
             }
             AttributeValue::Boolean => {
-                return Err(unsupported("Show fallback must have a value."));
+                return Err(unsupported_with_code(
+                    DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
+                    "Show fallback must have a value.",
+                    DIAGNOSTIC_HINT_SHOW,
+                ));
             }
         }
         Ok(())
@@ -2021,7 +2030,11 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
                 }
             }
             AttributeValue::Static(value) => Ok(self.text_marker(value)),
-            AttributeValue::Boolean => Err(unsupported("Show fallback must have a value.")),
+            AttributeValue::Boolean => Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
+                "Show fallback must have a value.",
+                DIAGNOSTIC_HINT_SHOW,
+            )),
         }
     }
 
@@ -2197,12 +2210,10 @@ fn parse_prerender_props(
     let Some(props_json) = props_json.filter(|value| !value.trim().is_empty()) else {
         return Ok(BTreeMap::new());
     };
-    let value: JsonValue =
-        serde_json::from_str(props_json).map_err(|source| CompilerError::Unsupported {
-            message: format!("DSD prerender props must be valid JSON: {source}"),
-        })?;
+    let value: JsonValue = serde_json::from_str(props_json)
+        .map_err(|source| dsd_input(format!("DSD prerender props must be valid JSON: {source}")))?;
     let JsonValue::Object(props) = value else {
-        return Err(unsupported("DSD prerender props must be a JSON object."));
+        return Err(dsd_input("DSD prerender props must be a JSON object."));
     };
     Ok(props
         .into_iter()
@@ -2217,17 +2228,15 @@ fn parse_inline_styles(
     else {
         return Ok(BTreeMap::new());
     };
-    let value: JsonValue =
-        serde_json::from_str(inline_styles_json).map_err(|source| CompilerError::Unsupported {
-            message: format!("DSD inline styles must be valid JSON: {source}"),
-        })?;
+    let value: JsonValue = serde_json::from_str(inline_styles_json)
+        .map_err(|source| dsd_input(format!("DSD inline styles must be valid JSON: {source}")))?;
     let JsonValue::Object(styles) = value else {
-        return Err(unsupported("DSD inline styles must be a JSON object."));
+        return Err(dsd_input("DSD inline styles must be a JSON object."));
     };
     let mut output = BTreeMap::new();
     for (key, value) in styles {
         let JsonValue::String(css) = value else {
-            return Err(unsupported(
+            return Err(dsd_input(
                 "DSD inline style values must be strings keyed by local import name.",
             ));
         };
@@ -2589,8 +2598,10 @@ fn parse_for_renderer(element: &TemplateElement) -> CompilerResult<ListRenderer>
         .collect::<Vec<_>>();
 
     if expressions.len() != 1 {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "<For> requires exactly one braced arrow-function child.",
+            DIAGNOSTIC_HINT_LISTS,
         ));
     }
 
@@ -2608,8 +2619,10 @@ fn parse_map_renderer(expression: &str) -> CompilerResult<Option<ListRenderer>> 
     };
     let each_expression = trimmed[..map_index].trim();
     if each_expression.is_empty() {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Iktia .map() list expressions must have an array expression before .map().",
+            DIAGNOSTIC_HINT_LISTS,
         ));
     }
     let map_name_end = map_index + ".map".len();
@@ -2617,20 +2630,26 @@ fn parse_map_renderer(expression: &str) -> CompilerResult<Option<ListRenderer>> 
     let open_offset = after_map.len() - after_map.trim_start().len();
     let open = map_name_end + open_offset;
     if !trimmed[open..].starts_with('(') {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Iktia .map() list expressions must call .map(...).",
+            DIAGNOSTIC_HINT_LISTS,
         ));
     }
     let close = find_matching_delimiter(trimmed, open, '(', ')')?;
     if !trimmed[close + 1..].trim().is_empty() {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Iktia .map() list expressions must be the full JSX child expression.",
+            DIAGNOSTIC_HINT_LISTS,
         ));
     }
     let arguments = split_top_level_commas(&trimmed[open + 1..close]);
     if arguments.len() != 1 {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Iktia .map() list expressions support exactly one callback argument.",
+            DIAGNOSTIC_HINT_LISTS,
         ));
     }
     let renderer = parse_list_callback(arguments[0].trim(), ".map() callback")?;
@@ -2642,20 +2661,28 @@ fn parse_map_renderer(expression: &str) -> CompilerResult<Option<ListRenderer>> 
 
 fn parse_list_callback(expression: &str, label: &str) -> CompilerResult<ListRenderer> {
     let Some(arrow_index) = expression.find("=>") else {
-        return Err(unsupported(format!("{label} must be an arrow function.")));
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+            format!("{label} must be an arrow function."),
+            DIAGNOSTIC_HINT_LISTS,
+        ));
     };
     let params = expression[..arrow_index].trim();
     let raw_body = expression[arrow_index + 2..].trim();
     if raw_body.starts_with('{') {
-        return Err(unsupported(format!(
-            "{label} must use an expression body that returns JSX."
-        )));
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+            format!("{label} must use an expression body that returns JSX."),
+            DIAGNOSTIC_HINT_LISTS,
+        ));
     }
     let body = strip_wrapping_parentheses(raw_body);
     if !body.starts_with('<') {
-        return Err(unsupported(format!(
-            "{label} must return a JSX element expression."
-        )));
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+            format!("{label} must return a JSX element expression."),
+            DIAGNOSTIC_HINT_LISTS,
+        ));
     }
     let params = strip_wrapping_parentheses(params);
     let mut param_parts = split_top_level_commas(params)
@@ -2663,18 +2690,26 @@ fn parse_list_callback(expression: &str, label: &str) -> CompilerResult<ListRend
         .map(str::trim)
         .filter(|value| !value.is_empty());
     let Some(item_name) = param_parts.next() else {
-        return Err(unsupported(format!("{label} must name an item parameter.")));
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+            format!("{label} must name an item parameter."),
+            DIAGNOSTIC_HINT_LISTS,
+        ));
     };
     let index_name = param_parts.next().unwrap_or("index");
     if param_parts.next().is_some() {
-        return Err(unsupported(format!(
-            "{label} currently supports item and index parameters only.",
-        )));
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+            format!("{label} currently supports item and index parameters only.",),
+            DIAGNOSTIC_HINT_LISTS,
+        ));
     }
     if !is_identifier(item_name) || !is_identifier(index_name) {
-        return Err(unsupported(format!(
-            "{label} parameters must be simple identifiers.",
-        )));
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+            format!("{label} parameters must be simple identifiers.",),
+            DIAGNOSTIC_HINT_LISTS,
+        ));
     }
 
     let template = TemplateParser::new(body).parse_element()?;
@@ -2691,8 +2726,10 @@ fn parse_list_callback(expression: &str, label: &str) -> CompilerResult<ListRend
 
 fn required_key_expression(element: &TemplateElement) -> CompilerResult<String> {
     let Some(attribute) = optional_attribute(element, "key") else {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Dynamic .map() lists require a key attribute on the returned root JSX element.",
+            DIAGNOSTIC_HINT_LISTS,
         ));
     };
     let TemplateAttribute::Named { value, .. } = attribute else {
@@ -2705,8 +2742,10 @@ fn required_key_expression(element: &TemplateElement) -> CompilerResult<String> 
             Ok(expression.trim().to_owned())
         }
         AttributeValue::Static(value) => Ok(format!("\"{}\"", escape_js_string(value))),
-        AttributeValue::Boolean | AttributeValue::Expression(_) => Err(unsupported(
+        AttributeValue::Boolean | AttributeValue::Expression(_) => Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Dynamic .map() list keys must use a non-empty expression or static value.",
+            DIAGNOSTIC_HINT_LISTS,
         )),
     }
 }
@@ -2777,13 +2816,17 @@ fn validate_child_expression(expression: &str) -> CompilerResult<()> {
         return Ok(());
     }
     if expression.contains(".map(") {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Unsupported JSX array mapping. Use items().map((item) => <Row key={item.id} />) with a JSX element expression body.",
+            DIAGNOSTIC_HINT_LISTS,
         ));
     }
     if expression.contains('?') || expression.contains("&&") || expression.contains("||") {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
             "Conditional JSX expressions are not supported. Use the explicit <Show when={...}> control-flow primitive.",
+            DIAGNOSTIC_HINT_SHOW,
         ));
     }
     Err(unsupported(
@@ -3071,15 +3114,7 @@ fn attribute_name_for_element(name: &str, is_component_element: bool) -> String 
 }
 
 fn format_error(error: std::fmt::Error) -> CompilerError {
-    CompilerError::Unsupported {
-        message: format!("Failed to generate component source: {error}"),
-    }
-}
-
-fn unsupported(message: impl Into<String>) -> CompilerError {
-    CompilerError::Unsupported {
-        message: message.into(),
-    }
+    unsupported(format!("Failed to generate component source: {error}"))
 }
 
 fn source_map_for_transform(source: &str, filename: &str, code: &str) -> SourceMap {

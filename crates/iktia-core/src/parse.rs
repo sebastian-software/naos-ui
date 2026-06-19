@@ -1,7 +1,12 @@
 use crate::ast::{
     AstComponentSemantics, AstFunctionComponent, AstModuleFacts, SourceSpan, analyze_module,
 };
-use crate::error::{CompilerError, CompilerResult};
+use crate::error::{
+    CompilerError, CompilerResult, DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
+    DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS, DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
+    DIAGNOSTIC_HINT_COMPONENT_OPTIONS, DIAGNOSTIC_HINT_FUNCTION_COMPONENT,
+    DIAGNOSTIC_HINT_FUNCTION_PROPS, removed_authoring_api, unsupported, unsupported_with_code,
+};
 use crate::model::{
     ComponentImport, ComponentModule, ComponentOptions, PropAccess, PropDefinition, PropKind,
     RuntimeImport, StyleImport,
@@ -73,7 +78,13 @@ fn analyze_function_component(
         template_source: function_component
             .semantics
             .template_source
-            .ok_or_else(|| unsupported("Function components must return a TSX template."))?,
+            .ok_or_else(|| {
+                unsupported_with_code(
+                    DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
+                    "Function components must return a TSX template.",
+                    DIAGNOSTIC_HINT_FUNCTION_COMPONENT,
+                )
+            })?,
     })
 }
 
@@ -121,8 +132,10 @@ fn capture_component_options(component_call: &str) -> CompilerResult<ComponentOp
         if starts_with_property_key(property, "shadow")
             || starts_with_property_key(property, "define")
         {
-            return Err(unsupported(
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
                 "Component options only support `styles` in the public v0.1 API.",
+                DIAGNOSTIC_HINT_COMPONENT_OPTIONS,
             ));
         }
     }
@@ -202,8 +215,10 @@ fn capture_function_props(params: &str) -> CompilerResult<Vec<PropDefinition>> {
             continue;
         }
         if prop_source.starts_with("...") {
-            return Err(unsupported(
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
                 "Function component rest props are not supported in the current compiler milestone.",
+                DIAGNOSTIC_HINT_FUNCTION_PROPS,
             ));
         }
         props.push(parse_function_prop(prop_source)?);
@@ -227,8 +242,10 @@ fn parse_function_prop(prop_source: &str) -> CompilerResult<PropDefinition> {
         .ok_or_else(|| unsupported("Function component prop binding is missing a local name."))?;
 
     if local_name.is_empty() || prop_name_source.is_empty() {
-        return Err(unsupported(
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
             "Function component prop binding must have a name.",
+            DIAGNOSTIC_HINT_FUNCTION_PROPS,
         ));
     }
 
@@ -312,22 +329,22 @@ fn default_for_kind(kind: PropKind) -> String {
 
 fn reject_removed_module_apis(source: &str) -> CompilerResult<()> {
     if contains_call(source, "component") {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "component() was removed from the v0.1 authoring API. Export a PascalCase function component instead.",
         ));
     }
     if contains_prop_call(source) {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "prop.*() and prop() were removed from the v0.1 authoring API. Declare props with typed function parameters instead.",
         ));
     }
     if contains_call(source, "signal") {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "signal() was removed from the v0.1 authoring API. Use state() for local component state.",
         ));
     }
     if contains_call(source, "useHost") {
-        return Err(unsupported(
+        return Err(removed_authoring_api(
             "useHost() was removed from the v0.1 authoring API. Use host() instead.",
         ));
     }
@@ -403,10 +420,4 @@ fn find_matching_delimiter(
     }
 
     Err(unsupported("source contains an unmatched delimiter."))
-}
-
-fn unsupported(message: impl Into<String>) -> CompilerError {
-    CompilerError::Unsupported {
-        message: message.into(),
-    }
 }

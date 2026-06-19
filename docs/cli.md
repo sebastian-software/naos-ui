@@ -32,4 +32,7 @@ counter.wc.tsx:4-12 error IKTIA_UNSUPPORTED_SYNTAX: Unsupported JSX
 hint: Use supported syntax.
 ```
 
+See [Compiler diagnostics](compiler-diagnostics.md) for the current diagnostic
+code catalog and compatibility expectations.
+
 The CLI exits with status `1` when compilation or prerendering fails.
