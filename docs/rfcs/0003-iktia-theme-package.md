@@ -96,7 +96,13 @@ This package must fit the accepted Iktia architecture:
 * Scoped themes are supported by placing preset variables on a container
   instead of `:root`.
 * Component CSS should prefer fallback chains from component-specific variables
-  to semantic tokens to literal last-resort values.
+  to role tokens to semantic tokens to literal last-resort values.
+* Status tokens use `success`, `info`, `warning`, and `error`.
+* `danger` is not a v1 status token. Destructive action variants should use
+  `error` in the first slice unless a later decision accepts a separate
+  `destructive` action role.
+* Repeated primitive families share small role-token fallbacks for controls,
+  overlays, feedback surfaces, tracks, ranges, and active/selected items.
 * Future CLI or visual tooling must consume the same preset data model rather
   than inventing a second theme format.
 
@@ -156,6 +162,30 @@ export const neutralTheme = {
       "radius-md": "var(--iktia-radius)",
       "radius-lg": "calc(var(--iktia-radius) * 1.33)",
       "radius-xl": "calc(var(--iktia-radius) * 1.66)",
+      "control-bg": "var(--iktia-surface)",
+      "control-fg": "var(--iktia-foreground)",
+      "control-border": "var(--iktia-input)",
+      "control-radius": "var(--iktia-radius-md)",
+      "overlay-bg": "var(--iktia-overlay)",
+      "overlay-fg": "var(--iktia-overlay-foreground)",
+      "overlay-border": "var(--iktia-border)",
+      "overlay-radius": "var(--iktia-radius-lg)",
+      "overlay-shadow": "var(--iktia-shadow-md)",
+      "feedback-bg": "var(--iktia-surface)",
+      "feedback-fg": "var(--iktia-foreground)",
+      "feedback-border": "var(--iktia-border)",
+      "feedback-radius": "var(--iktia-radius-lg)",
+      "feedback-shadow": "var(--iktia-shadow-md)",
+      "track-bg": "var(--iktia-muted)",
+      "range-bg": "var(--iktia-primary)",
+      "item-active-bg": "var(--iktia-accent)",
+      "item-active-fg": "var(--iktia-accent-foreground)",
+      "item-selected-bg": "var(--iktia-primary)",
+      "item-selected-fg": "var(--iktia-primary-foreground)",
+      "shadow-sm": "0 1px 3px rgb(15 23 42 / 0.14)",
+      "shadow-md": "0 12px 28px rgb(15 23 42 / 0.14)",
+      "duration-fast": "120ms",
+      "duration-normal": "180ms",
     },
     light: {
       background: "#f8fafc",
@@ -174,10 +204,12 @@ export const neutralTheme = {
       "accent-foreground": "#0f3f35",
       success: "#16815f",
       "success-foreground": "#f2fff8",
+      info: "#2563eb",
+      "info-foreground": "#f8fbff",
       warning: "#a15c00",
       "warning-foreground": "#fff8e5",
-      danger: "#b42318",
-      "danger-foreground": "#fff7f5",
+      error: "#b42318",
+      "error-foreground": "#fff7f5",
       border: "#d6ded9",
       input: "#65736d",
       ring: "#0f766e",
@@ -199,10 +231,12 @@ export const neutralTheme = {
       "accent-foreground": "#d8f5ec",
       success: "#5ee6a8",
       "success-foreground": "#062d20",
+      info: "#93c5fd",
+      "info-foreground": "#0b1f3a",
       warning: "#fbbf24",
       "warning-foreground": "#332000",
-      danger: "#f87171",
-      "danger-foreground": "#3b0a0a",
+      error: "#f87171",
+      "error-foreground": "#3b0a0a",
       border: "#34433d",
       input: "#50635b",
       ring: "#5eead4",
@@ -226,6 +260,30 @@ exact color values:
     --iktia-radius-md: var(--iktia-radius);
     --iktia-radius-lg: calc(var(--iktia-radius) * 1.33);
     --iktia-radius-xl: calc(var(--iktia-radius) * 1.66);
+    --iktia-control-bg: var(--iktia-surface);
+    --iktia-control-fg: var(--iktia-foreground);
+    --iktia-control-border: var(--iktia-input);
+    --iktia-control-radius: var(--iktia-radius-md);
+    --iktia-overlay-bg: var(--iktia-overlay);
+    --iktia-overlay-fg: var(--iktia-overlay-foreground);
+    --iktia-overlay-border: var(--iktia-border);
+    --iktia-overlay-radius: var(--iktia-radius-lg);
+    --iktia-overlay-shadow: var(--iktia-shadow-md);
+    --iktia-feedback-bg: var(--iktia-surface);
+    --iktia-feedback-fg: var(--iktia-foreground);
+    --iktia-feedback-border: var(--iktia-border);
+    --iktia-feedback-radius: var(--iktia-radius-lg);
+    --iktia-feedback-shadow: var(--iktia-shadow-md);
+    --iktia-track-bg: var(--iktia-muted);
+    --iktia-range-bg: var(--iktia-primary);
+    --iktia-item-active-bg: var(--iktia-accent);
+    --iktia-item-active-fg: var(--iktia-accent-foreground);
+    --iktia-item-selected-bg: var(--iktia-primary);
+    --iktia-item-selected-fg: var(--iktia-primary-foreground);
+    --iktia-shadow-sm: 0 1px 3px rgb(15 23 42 / 0.14);
+    --iktia-shadow-md: 0 12px 28px rgb(15 23 42 / 0.14);
+    --iktia-duration-fast: 120ms;
+    --iktia-duration-normal: 180ms;
     --iktia-background: #f8fafc;
     --iktia-foreground: #17201b;
     --iktia-surface: #ffffff;
@@ -242,10 +300,12 @@ exact color values:
     --iktia-accent-foreground: #0f3f35;
     --iktia-success: #16815f;
     --iktia-success-foreground: #f2fff8;
+    --iktia-info: #2563eb;
+    --iktia-info-foreground: #f8fbff;
     --iktia-warning: #a15c00;
     --iktia-warning-foreground: #fff8e5;
-    --iktia-danger: #b42318;
-    --iktia-danger-foreground: #fff7f5;
+    --iktia-error: #b42318;
+    --iktia-error-foreground: #fff7f5;
     --iktia-border: #d6ded9;
     --iktia-input: #65736d;
     --iktia-ring: #0f766e;
@@ -270,10 +330,12 @@ exact color values:
     --iktia-accent-foreground: #d8f5ec;
     --iktia-success: #5ee6a8;
     --iktia-success-foreground: #062d20;
+    --iktia-info: #93c5fd;
+    --iktia-info-foreground: #0b1f3a;
     --iktia-warning: #fbbf24;
     --iktia-warning-foreground: #332000;
-    --iktia-danger: #f87171;
-    --iktia-danger-foreground: #3b0a0a;
+    --iktia-error: #f87171;
+    --iktia-error-foreground: #3b0a0a;
     --iktia-border: #34433d;
     --iktia-input: #50635b;
     --iktia-ring: #5eead4;
@@ -283,7 +345,12 @@ exact color values:
 
 ## Token Model
 
-The v1 token set is intentionally small and semantic:
+The v1 token set is intentionally small. It has two layers:
+
+1. semantic tokens for application meaning;
+2. role tokens for repeated primitive fallback patterns.
+
+Semantic tokens:
 
 | Token | Purpose |
 | --- | --- |
@@ -295,8 +362,9 @@ The v1 token set is intentionally small and semantic:
 | `muted` / `muted-foreground` | Hints, descriptions, inactive text, and quiet surfaces. |
 | `accent` / `accent-foreground` | Hover, highlighted, checked, and selected item states. |
 | `success` / `success-foreground` | Positive status, successful validation, and completion states. |
+| `info` / `info-foreground` | Informational messages, neutral notifications, and low-risk status emphasis. |
 | `warning` / `warning-foreground` | Caution, pending, and recoverable warning states. |
-| `danger` / `danger-foreground` | Invalid, destructive, and error states. |
+| `error` / `error-foreground` | Invalid, failed, destructive, and unrecoverable states. |
 | `border` | Default dividers and structural borders. |
 | `input` | Form control borders and outline-style control treatment. |
 | `ring` | Focus-visible outline and active focus affordances. |
@@ -304,15 +372,43 @@ The v1 token set is intentionally small and semantic:
 | `radius-sm`, `radius-md`, `radius-lg`, `radius-xl` | Derived radius scale for component families. |
 | `font-sans`, `font-mono` | Font-family variables only; package does not load font files. |
 
+`danger` is intentionally not part of the v1 token vocabulary. `error` is more
+common as the status counterpart to `success`, and the current primitive API
+already exposes error-style feedback through names such as toast `type="error"`.
+If Iktia later needs a separate destructive-action role, prefer a deliberate
+`destructive` token decision over adding `danger` as an ambiguous status name.
+
+Role tokens:
+
+| Token | Purpose |
+| --- | --- |
+| `control-bg` / `control-fg` / `control-border` | Shared fallback for inputs, buttons, trigger controls, and form controls. |
+| `control-radius` | Shared fallback radius for control-like primitives. |
+| `overlay-bg` / `overlay-fg` / `overlay-border` | Shared fallback for popovers, menus, dialogs, date-picker panels, and floating layers. |
+| `overlay-radius` / `overlay-shadow` | Shared geometry and elevation fallback for floating layers. |
+| `feedback-bg` / `feedback-fg` / `feedback-border` | Shared fallback for toast, progress labels, avatar fallback treatment, and status surfaces. |
+| `feedback-radius` / `feedback-shadow` | Shared geometry and elevation fallback for feedback surfaces. |
+| `track-bg` / `range-bg` | Shared fallback for progress bars, sliders, switches, and other track/range controls. |
+| `item-active-bg` / `item-active-fg` | Shared fallback for hover, highlighted, pressed, and current item states. |
+| `item-selected-bg` / `item-selected-fg` | Shared fallback for selected, checked, and chosen item states. |
+| `shadow-sm`, `shadow-md` | Small elevation scale for primitives that already need shadows. |
+| `duration-fast`, `duration-normal` | Basic motion durations for primitive state transitions. |
+
+Role tokens should usually be aliases to semantic tokens in the neutral preset.
+They are not component-specific APIs. They exist so primitive CSS can avoid
+duplicating long fallback chains across controls, overlays, feedback/status
+components, and range-like primitives.
+
 The token vocabulary should not include component-specific names such as
 `button-bg` or `select-border`. Those remain primitive override hooks and are
 owned by `@iktia/primitives`.
 
-Web Awesome's broader token categories are useful future references, especially
-component-group tokens, focus tokens, shadows, spacing, transitions, typography,
-and variant role mapping. They are intentionally not part of the first token
-set unless a primitive integration proves that a shared group token removes real
-duplication.
+Broader Web Awesome-style categories remain future references, especially full
+hue scales, density scales, typography scales, utility classes, and visual
+builder metadata. The current primitive breadth does prove that a small shared
+role-token layer removes real duplication, so controls, overlays, feedback
+surfaces, tracks, ranges, active items, selected items, shadows, and basic
+durations are in the v1 plan.
 
 ## Reference Learnings
 
@@ -325,9 +421,11 @@ keeping:
   override them easily.
 * Support named theme scopes in addition to default root tokens.
 * Set `color-scheme` alongside light and dark token overrides.
-* Reserve success and warning tokens early so feedback and validation
-  components do not have to overload `danger` and `accent`.
+* Reserve success, info, warning, and error tokens early so feedback and
+  validation components do not have to overload `primary` and `accent`.
 * Keep global design tokens separate from component-level override hooks.
+* Use a small role-token layer for repeated primitive families instead of
+  adopting a full palette or variant matrix.
 
 The first Iktia theme package should not adopt Web Awesome's full hue-scale
 palette matrix, utility class layer, hosted project workflow, or visual theme
@@ -337,24 +435,24 @@ preset and a real preset creation workflow.
 ## Primitive CSS Integration
 
 Primitive CSS should keep existing component-level variables as the first
-override point. The new semantic tokens become shared fallbacks.
+override point. Role tokens and semantic tokens become shared fallbacks.
 
 Example button fallback direction:
 
 ```css
 :host {
-  color: var(--iktia-button-fg, var(--iktia-foreground, #17201b));
+  color: var(--iktia-button-fg, var(--iktia-control-fg, var(--iktia-foreground, #17201b)));
   font: inherit;
 }
 
 button {
-  border-color: var(--iktia-button-border, var(--iktia-border, #26584a));
-  border-radius: var(--iktia-button-radius, var(--iktia-radius-md, 0.375rem));
-  background: var(--iktia-button-bg, var(--iktia-surface, #f3faf6));
+  border-color: var(--iktia-button-border, var(--iktia-control-border, var(--iktia-border, #26584a)));
+  border-radius: var(--iktia-button-radius, var(--iktia-control-radius, var(--iktia-radius-md, 0.375rem)));
+  background: var(--iktia-button-bg, var(--iktia-control-bg, var(--iktia-surface, #f3faf6)));
 }
 
 button:hover {
-  background: var(--iktia-button-bg-hover, var(--iktia-accent, #e2f3ea));
+  background: var(--iktia-button-bg-hover, var(--iktia-item-active-bg, var(--iktia-accent, #e2f3ea)));
 }
 
 button:focus-visible {
@@ -368,11 +466,32 @@ button[data-variant="primary"] {
 }
 ```
 
+Family fallback direction:
+
+* Form controls use `control-*` first, then `input`, `surface`,
+  `foreground`, `border`, and `error` where appropriate.
+* Overlay-like primitives use `overlay-*`, then `overlay`,
+  `overlay-foreground`, and `border`.
+* Feedback/status primitives use `feedback-*` plus `success`, `info`,
+  `warning`, and `error`.
+* Progress, slider, switch, and similar range-like primitives use `track-bg`
+  and `range-bg`.
+* Selected, checked, highlighted, hover, pressed, and active item states use
+  `item-active-*`, `item-selected-*`, `accent`, or `primary` based on emphasis.
+
 This gives users three levels of control:
 
 1. Import a preset and use the default look.
 2. Override semantic tokens for the whole application or a scoped subtree.
 3. Override primitive-specific variables for exact component-level changes.
+
+The shared role tokens should not force shared internal base components in v1.
+Controls, overlays, and feedback primitives have repeated CSS relationships,
+but they also have different parts, state attributes, ARIA contracts, behavior
+kernels, and Shadow DOM structures. Sharing through tokens preserves that
+explicit surface. A later implementation can add internal CSS recipe generation
+or a narrow helper only if the primitive integration proves that duplication is
+purely mechanical and the helper does not hide component-specific contracts.
 
 Primitive CSS must not remove existing documented variables during this pass
 unless a separate stability review accepts the break. Because primitives are
@@ -439,6 +558,7 @@ Deliverables:
   README, and package exports.
 * Add the `IktiaThemePreset` and `IktiaThemeTokens` public types.
 * Add `neutralTheme` as the first preset.
+* Include semantic tokens, status tokens, and role tokens in the preset schema.
 * Generate `dist/neutral.css` from `neutralTheme`.
 * Wire the package into release and workspace validation where required:
   release-please config, release manifest, release workflow, and
@@ -453,30 +573,41 @@ Acceptance criteria:
 
 ### M2: Primitive Token Integration
 
-Refactor existing primitive CSS fallbacks to consume semantic tokens while
-preserving primitive-specific override hooks.
+Refactor primitive CSS fallbacks by family so they consume role tokens and
+semantic tokens while preserving primitive-specific override hooks.
 
 Deliverables:
 
-* Replace direct literal-only fallbacks with component-variable to semantic-token
-  to literal fallback chains.
+* Replace direct literal-only fallbacks with component-variable to role-token to
+  semantic-token to literal fallback chains.
 * Normalize focus ring usage around `--iktia-focus-ring` falling back to
   `--iktia-ring`.
-* Map form controls to `--iktia-input`, `--iktia-border`, `--iktia-surface`,
-  `--iktia-foreground`, and `--iktia-danger` where appropriate.
-* Map overlay-like primitives to `--iktia-overlay` and
-  `--iktia-overlay-foreground` where appropriate.
+* Map form controls to `--iktia-control-*`, `--iktia-input`,
+  `--iktia-border`, `--iktia-surface`, `--iktia-foreground`, and
+  `--iktia-error` where appropriate.
+* Map overlay-like primitives to `--iktia-overlay-*`, `--iktia-overlay`,
+  `--iktia-overlay-foreground`, and `--iktia-border` where appropriate.
+* Map feedback/status primitives to `--iktia-feedback-*`,
+  `--iktia-success`, `--iktia-info`, `--iktia-warning`, and `--iktia-error`.
+* Map progress, slider, switch, and similar range-like primitives to
+  `--iktia-track-bg` and `--iktia-range-bg`.
 * Map selected, checked, highlighted, hover, and active item states to
-  `--iktia-accent` or `--iktia-primary` based on emphasis.
-* Map successful validation, warning, and destructive states to
-  `--iktia-success`, `--iktia-warning`, and `--iktia-danger` respectively.
+  `--iktia-item-active-*`, `--iktia-item-selected-*`, `--iktia-accent`, or
+  `--iktia-primary` based on emphasis.
+* Map successful validation, informational, warning, and error states to
+  `--iktia-success`, `--iktia-info`, `--iktia-warning`, and `--iktia-error`
+  respectively.
+* Avoid adding internal base components solely for styling reuse. Prefer tokens
+  and documented fallback recipes unless an implementation pass proves a helper
+  removes behavior or lifecycle duplication without weakening public primitive
+  contracts.
 
 Acceptance criteria:
 
 * Existing primitive examples still render without importing `@iktia/theme`.
 * Importing `@iktia/theme/neutral.css` changes shared styling through semantic
-  tokens without requiring component source changes.
-* Component-specific overrides still win over semantic tokens.
+  and role tokens without requiring component source changes.
+* Component-specific overrides still win over role and semantic tokens.
 * Existing browser tests for parts, state attributes, and form behavior still
   pass.
 
@@ -489,8 +620,11 @@ Deliverables:
 * Add a docs guide for installing `@iktia/theme`, importing `neutral.css`,
   toggling `[data-iktia-color-scheme="dark"]`, and overriding tokens.
 * Add a preset example showing a scoped theme container.
-* Add a primitive variable matrix that distinguishes semantic theme tokens from
-  component-specific override variables.
+* Add a primitive variable matrix that distinguishes semantic tokens, role
+  tokens, and component-specific override variables.
+* Generate or audit the primitive variable matrix from
+  `packages/primitives/src/*.wc.css` so it does not drift as new primitives are
+  added.
 * Update package reference docs to list `@iktia/theme`.
 * Update demos or docs examples to show theme CSS crossing the Shadow DOM
   boundary.
@@ -513,6 +647,8 @@ Deliverables:
 
 * Unit tests for preset schema rules and generated CSS output.
 * Package build/export tests for `@iktia/theme`.
+* A CSS variable inventory check that catches undocumented primitive variables
+  or missing matrix coverage where practical.
 * Browser coverage proving CSS variables from `@iktia/theme/neutral.css`
   cross Shadow DOM boundaries into primitives.
 * Browser coverage proving `[data-iktia-color-scheme="dark"]` changes computed
@@ -521,7 +657,8 @@ Deliverables:
   variables to a subtree.
 * Browser coverage proving `color-scheme` changes with the selected theme
   scheme.
-* Regression coverage proving component-specific overrides beat semantic tokens.
+* Regression coverage proving component-specific overrides beat role and
+  semantic tokens.
 
 Acceptance criteria:
 
@@ -585,10 +722,11 @@ This RFC is complete when:
   unambiguous.
 * The initial public import paths are explicit.
 * The dark-mode selector is explicit.
-* The semantic token vocabulary is explicit.
+* The semantic, status, and role token vocabulary is explicit.
 * Primitive CSS fallback precedence is explicit.
 * The first implementation can proceed without deciding token scope, package
-  ownership, dark-mode shape, or CLI scope.
+  ownership, status naming, dark-mode shape, primitive-family fallback shape,
+  or CLI scope.
 * Existing unrelated workspace changes are preserved and not treated as part of
   the theming implementation.
 

@@ -34,9 +34,17 @@ parts, slots, state attributes, events, accessibility behavior, and
 primitive-specific override variables.
 
 Theme CSS uses Iktia-prefixed global tokens such as `--iktia-background`,
-`--iktia-surface`, `--iktia-primary`, `--iktia-success`, `--iktia-warning`,
-`--iktia-danger`, `--iktia-border`, `--iktia-input`, `--iktia-ring`,
-`--iktia-radius`, and `--iktia-font-sans`.
+`--iktia-surface`, `--iktia-primary`, `--iktia-success`, `--iktia-info`,
+`--iktia-warning`, `--iktia-error`, `--iktia-border`, `--iktia-input`,
+`--iktia-ring`, `--iktia-radius`, and `--iktia-font-sans`.
+
+The first theme slice also includes a small role-token layer for repeated
+primitive families, such as `--iktia-control-bg`,
+`--iktia-control-border`, `--iktia-overlay-bg`,
+`--iktia-feedback-bg`, `--iktia-track-bg`, and `--iktia-range-bg`.
+These role tokens are shared fallback points, not component APIs.
+Primitive-specific variables remain the exact override layer for individual
+components.
 
 Theme CSS must use low-specificity selectors so host applications can override
 tokens without fighting the preset. Generated preset CSS should also use a
@@ -68,18 +76,27 @@ property must be set with the same selectors so native controls and browser UI
 match the selected scheme.
 
 Primitive CSS must use fallback chains that preserve component-specific
-overrides while consuming semantic theme tokens:
+overrides while consuming role tokens and semantic theme tokens:
 
 ```css
-border-color: var(--iktia-button-border, var(--iktia-border, #26584a));
-background: var(--iktia-button-bg, var(--iktia-surface, #f3faf6));
+border-color: var(--iktia-button-border, var(--iktia-control-border, var(--iktia-border, #26584a)));
+background: var(--iktia-button-bg, var(--iktia-control-bg, var(--iktia-surface, #f3faf6)));
 outline-color: var(--iktia-focus-ring, var(--iktia-ring, #0f766e));
 ```
 
 Do not adopt a full Web Awesome-style palette and variant class system in the
-first theme slice. Variant roles such as success and warning are reserved as
-semantic tokens, but a complete hue-scale matrix, utility layer, and visual
-theme builder require later RFCs or ADRs.
+first theme slice. Status roles use `success`, `info`, `warning`, and `error`.
+`danger` is not a v1 status token; destructive actions should use `error`
+unless a later RFC or ADR accepts a separate action role such as
+`destructive`. A complete hue-scale matrix, utility layer, and visual theme
+builder require later RFCs or ADRs.
+
+Do not introduce shared internal base components purely to reduce repeated CSS
+fallback chains in the first theme slice. Shared styling should flow through
+tokens and documented fallback recipes. Internal component abstractions should
+only be introduced later when they remove behavior or lifecycle duplication
+without hiding primitive-specific parts, state attributes, and accessibility
+contracts.
 
 Do not add `iktia init`, `iktia create`, or `iktia theme apply` as part of the
 first theme package. CLI theming workflows require a later update to the
@@ -105,10 +122,12 @@ minimal CLI scope decision.
   inheritance.
 * Component-specific variables remain the exact override layer for individual
   primitives.
+* A small role-token layer reduces repeated primitive fallback logic without
+  turning `@iktia/primitives` into an opinionated design system.
 * `color-scheme` keeps native controls aligned with light and dark tokens.
 * The first implementation stays smaller than Web Awesome's full theme system
   while preserving a later path to palettes, variant-role mapping, grouped
-  control tokens, and visual tooling.
+  component recipes, and visual tooling.
 
 ## Related Milestones
 

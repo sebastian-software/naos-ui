@@ -9,3 +9,5 @@ sets, and phased execution plans.
 * [RFC 0001: Iktia Primitives Package](0001-iktia-primitives-package.md)
 * [RFC 0002: Zag-Backed Primitives Roadmap](0002-zag-backed-primitives-roadmap.md)
 * [RFC 0003: Iktia Theme Package](0003-iktia-theme-package.md)
+* [RFC 0004: Component Instance Factory Semantics](0004-component-instance-factory-semantics.md)
+  * [Review: RFC 0004 (independent assessment)](0004-component-instance-factory-semantics-review.md)
