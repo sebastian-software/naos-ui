@@ -5,9 +5,10 @@ the native compiler API and rendered by the CLI and Vite plugin. Each diagnostic
 has a stable `code`, `severity`, `message`, `filename`, optional `span`, and
 optional `hint`.
 
-Source spans are part of the public diagnostic shape. The current compiler
-catalog documents unsupported authoring boundaries first; these entries
-currently report `span: null` until span-rich rejection paths are implemented.
+Source spans are part of the public diagnostic shape. Some unsupported
+authoring boundaries already report source spans, while broader generated
+template parse failures may still report `span: null` until those rejection
+paths move fully onto AST-backed analysis.
 
 ## Catalog
 
@@ -21,6 +22,7 @@ currently report `span: null` until span-rich rejection paths are implemented.
 | `IKTIA_UNSUPPORTED_FUNCTION_PROPS` | Function props used unsupported destructuring such as rest props. | Declare explicit destructured props with defaults. |
 | `IKTIA_UNSUPPORTED_COMPUTED_CALLBACK` | `computed()` did not use the supported arrow-expression callback form. | Check the v0.1 authoring limitations. |
 | `IKTIA_UNSUPPORTED_EFFECT_CALLBACK` | `effect()` did not use the supported arrow callback shape. | Check the v0.1 authoring limitations. |
+| `IKTIA_UNSUPPORTED_FACTORY_RENDER` | A component returned a JSX-producing render callback such as `return () => <button />`. | Return a single JSX template from the component setup function. |
 | `IKTIA_UNSUPPORTED_LIST_RENDERER` | A list expression did not match the supported `<For>`, `<Index>`, or keyed `.map()` shape. | Return one JSX element from a simple arrow callback, and include a root `key` for item-keyed lists. |
 | `IKTIA_UNSUPPORTED_CONDITIONAL_JSX` | Conditional JSX was authored outside the explicit control-flow primitive. | Use `<Show when={...} fallback={...}>`. |
 | `IKTIA_UNSUPPORTED_SHOW_FALLBACK` | `<Show fallback>` was present without a value. | Provide a static, expression, or JSX fallback value. |

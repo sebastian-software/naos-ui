@@ -10,8 +10,9 @@ use oxc_span::{GetSpan, SourceType, Span};
 
 use crate::error::{
     CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK,
-    DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
-    removed_authoring_api, removed_authoring_api_with_span, unsupported, unsupported_with_code,
+    DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
+    DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS, DIAGNOSTIC_HINT_INSTANCE_SETUP, removed_authoring_api,
+    removed_authoring_api_with_span, unsupported, unsupported_with_code,
     unsupported_with_code_and_span,
 };
 use crate::model::{
@@ -379,6 +380,14 @@ fn capture_body_statement(
         }
         Statement::ReturnStatement(statement) => {
             if let Some(argument) = &statement.argument {
+                if is_returned_jsx_callback(argument) {
+                    return Err(unsupported_with_code_and_span(
+                        DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
+                        "Iktia components do not support `return () => JSX` factory render functions. Component functions are instance setup declarations with one JSX return.",
+                        DIAGNOSTIC_HINT_INSTANCE_SETUP,
+                        SourceSpan::from_oxc(argument.span()).to_diagnostic(),
+                    ));
+                }
                 let template = source_span(source, SourceSpan::from_oxc(argument.span()))?;
                 semantics.template_source = Some(strip_wrapping_parentheses(template).to_owned());
             }
@@ -571,6 +580,40 @@ fn state_accessor_call_name<'a>(
             state_accessor_call_name(&expression.expression, semantics)
         }
         _ => None,
+    }
+}
+
+fn is_returned_jsx_callback(expression: &Expression<'_>) -> bool {
+    match expression {
+        Expression::ArrowFunctionExpression(arrow) => arrow_function_returns_jsx(arrow),
+        Expression::ParenthesizedExpression(expression) => {
+            is_returned_jsx_callback(&expression.expression)
+        }
+        _ => false,
+    }
+}
+
+fn arrow_function_returns_jsx(arrow: &ArrowFunctionExpression<'_>) -> bool {
+    arrow
+        .body
+        .statements
+        .iter()
+        .any(|statement| match statement {
+            Statement::ExpressionStatement(statement) => expression_is_jsx(&statement.expression),
+            Statement::ReturnStatement(statement) => {
+                statement.argument.as_ref().is_some_and(expression_is_jsx)
+            }
+            _ => false,
+        })
+}
+
+fn expression_is_jsx(expression: &Expression<'_>) -> bool {
+    match expression {
+        Expression::JSXElement(_) | Expression::JSXFragment(_) => true,
+        Expression::ParenthesizedExpression(expression) => {
+            expression_is_jsx(&expression.expression)
+        }
+        _ => false,
     }
 }
 

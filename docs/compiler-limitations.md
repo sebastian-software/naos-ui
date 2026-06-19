@@ -7,7 +7,10 @@ compatibility layer.
 
 ## Supported Shape
 
-A component module should contain one exported PascalCase function component:
+A component module should contain one exported PascalCase instance setup
+function. The function body declares per-instance props, state, computed values,
+effects, events, host access, and a single JSX view for the generated Custom
+Element instance:
 
 ```tsx
 export function Counter({ label = "Label" }: CounterProps = {}) {
@@ -26,7 +29,7 @@ Current analysis expects:
 * One exported PascalCase function declaration.
 * A deterministic inferred Custom Element tag name.
 * Destructured function props when props are needed.
-* A `return (...)` TSX template.
+* A single JSX return that declares the component view.
 * `const` declarations for `state()`, `computed()`, `effect()`, `event()`, and
   experimental `formControl()`.
 * A single root TSX element.
@@ -35,7 +38,13 @@ OXC validates that the module parses as TSX before transform-specific analysis
 runs. The primary component analyzer uses OXC AST facts for `.wc` imports,
 function component discovery, local `state()`, `computed()`, `effect()`, and
 `event()` declarations, host helper usage, unsupported syntax detection, and
-returned TSX template spans.
+returned JSX template spans.
+
+The exported component function is not a React-style render function and is not
+called again during updates. Remix v3's returned render function was useful
+design input for the instance-lifetime model, but `return () => <JSX>` is not
+part of Iktia's v0.1 component shape. Generated state writes, prop changes,
+effects, and host updates drive the DOM patch code instead.
 
 Some MVP detail parsers remain intentionally conservative: function prop
 destructuring, component options, inline style arrays, and generated-template
@@ -180,6 +189,7 @@ Currently unsupported:
 * Imported CSS object access such as `styles.button`.
 * Rest props in function component parameter destructuring.
 * Non-`const` authoring declarations.
+* Factory render functions such as `return () => <button />`.
 * Callback expression bodies such as `() => <button />`.
 * Return values not wrapped in parentheses.
 * Event option code generation from `event(name, options)`.
