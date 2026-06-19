@@ -1131,6 +1131,78 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_generate_for_and_index_reconcilers() {
+        let source = r#"
+            import { For, Index, state } from "@iktia/core";
+
+            export function ListProbe() {
+              const rows = state([{ id: "a", label: "Alpha" }, { id: "b", label: "Beta" }]);
+              const names = state(["Alpha", "Beta"]);
+
+              return (
+                <section>
+                  <For each={rows()}>
+                    {(row, index) => (
+                      <button key={row.id} data-id={row.id} data-index={index}>
+                        {row.label}
+                      </button>
+                    )}
+                  </For>
+                  <Index each={names()}>
+                    {(name, index) => (
+                      <input data-index={index} value={name()} />
+                    )}
+                  </Index>
+                </section>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "list-probe.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("#node1Records = new Map();"));
+        assert!(result.code.contains("#node2Records = new Map();"));
+        assert!(result.code.contains("this.#node1Records.get(for1Key)"));
+        assert!(result.code.contains("this.#node2Records.get(for2Key)"));
+        assert!(
+            result
+                .code
+                .contains("const name = () => node2Record.value;")
+        );
+        assert!(
+            result
+                .code
+                .contains("node2Record.for2Node0.value = String(for2Node0_value_value);")
+        );
+        assert!(
+            result
+                .code
+                .contains("let node1Cursor = this.#node1.firstChild;")
+        );
+        assert!(
+            result
+                .code
+                .contains("this.#node1.insertBefore(node1OrderedNode, node1Cursor);")
+        );
+        assert!(
+            result
+                .code
+                .contains("let node2Cursor = this.#node2.firstChild;")
+        );
+        assert!(
+            result
+                .code
+                .contains("this.#node2.insertBefore(node2OrderedNode, node2Cursor);")
+        );
+        assert!(!result.code.contains("this.#node1.replaceChildren("));
+        assert!(!result.code.contains("this.#node2.replaceChildren("));
+        assert!(!result.code.contains(".map(("));
+    }
+
+    #[test]
     fn transform_component_module_should_reject_unkeyed_map_jsx_children() {
         let source = r#"
             import { computed } from "@iktia/core";

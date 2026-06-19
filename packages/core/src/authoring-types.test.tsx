@@ -1,6 +1,8 @@
 /** @jsxImportSource @iktia/core */
 import {
   Show,
+  For,
+  Index,
   computed,
   effect,
   event,
@@ -23,9 +25,6 @@ type RemovedSignalApi = IktiaCore["signal"]
 
 // @ts-expect-error useHost() is not part of the v0.1 public API
 type RemovedUseHostApi = IktiaCore["useHost"]
-
-// @ts-expect-error <For> is not part of the v0.1 public API
-type RemovedForApi = IktiaCore["For"]
 
 const componentOptions = {
   styles: [":host { display: block; }"],
@@ -59,6 +58,7 @@ function FunctionCounter({
   const count = state(0)
   const doubled = computed(() => count() * 2)
   const items = computed(() => [label, String(doubled())] as const)
+  const editableItems = computed(() => ["Alpha", "Beta"] as const)
   const change = event<number>("change")
   const ready = event<void>("ready", { bubbles: false })
 
@@ -113,6 +113,18 @@ function FunctionCounter({
           {item}
         </span>
       ))}
+      <For each={items()}>
+        {(item, index) => (
+          <span key={item} data-index={index} part="for-item">
+            {item}
+          </span>
+        )}
+      </For>
+      <Index each={editableItems()}>
+        {(item, index) => (
+          <input data-index={index} value={item()} />
+        )}
+      </Index>
     </button>
   )
 }

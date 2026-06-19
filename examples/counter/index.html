@@ -74,9 +74,38 @@ host().flushSync()</code></pre>
         </div>
       </section>
 
-      <section class="demo-case" id="toggle-case" aria-labelledby="toggle-title">
+      <section
+        class="demo-case"
+        id="list-reconciler-probe-case"
+        aria-labelledby="list-reconciler-probe-title"
+      >
         <div class="case-copy">
           <p class="case-kicker">Use case 03</p>
+          <h2 id="list-reconciler-probe-title">List reconcilers</h2>
+          <p>
+            A fixture for item-keyed <code>&lt;For&gt;</code> rows and
+            position-keyed <code>&lt;Index&gt;</code> rows.
+          </p>
+          <ul>
+            <li>
+              <code>&lt;For&gt;</code> moves keyed nodes without recreating them.
+            </li>
+            <li>
+              <code>&lt;Index&gt;</code> keeps row nodes stable while values rebind.
+            </li>
+            <li>Input focus survives state updates from editable primitive rows.</li>
+          </ul>
+        </div>
+        <div class="case-surface">
+          <list-reconciler-probe></list-reconciler-probe>
+          <pre><code>&lt;For each={rows()}&gt;
+&lt;Index each={names()}&gt;</code></pre>
+        </div>
+      </section>
+
+      <section class="demo-case" id="toggle-case" aria-labelledby="toggle-title">
+        <div class="case-copy">
+          <p class="case-kicker">Use case 04</p>
           <h2 id="toggle-title">Primitive toggle</h2>
           <p>
             A small design-system primitive using Shadow DOM, parts, slots,
@@ -103,7 +132,7 @@ host().flushSync()</code></pre>
         aria-labelledby="composition-title"
       >
         <div class="case-copy">
-          <p class="case-kicker">Use case 04</p>
+          <p class="case-kicker">Use case 05</p>
           <h2 id="composition-title">PascalCase composition</h2>
           <p>
             Authoring code composes imported components by their TypeScript
@@ -126,7 +155,7 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
 
       <section class="demo-case" id="theme-case" aria-labelledby="theme-title">
         <div class="case-copy">
-          <p class="case-kicker">Use case 05</p>
+          <p class="case-kicker">Use case 06</p>
           <h2 id="theme-title">CSS variable theming</h2>
           <p>
             v0.1 keeps CSS flat and bundler-owned. Host pages theme generated
@@ -171,7 +200,7 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
         aria-labelledby="primitive-suite-title"
       >
         <div class="case-copy">
-          <p class="case-kicker">Use case 06</p>
+          <p class="case-kicker">Use case 07</p>
           <h2 id="primitive-suite-title">Design-system primitives</h2>
           <p>
             A small primitive set shows Iktia output as framework-neutral UI:
@@ -219,7 +248,7 @@ dispatch native CustomEvents.</code></pre>
         aria-labelledby="primitive-package-title"
       >
         <div class="case-copy">
-          <p class="case-kicker">Use case 07</p>
+          <p class="case-kicker">Use case 08</p>
           <h2 id="primitive-package-title">Packaged primitives</h2>
           <p>
             The first <code>@iktia/primitives</code> package ships compiled

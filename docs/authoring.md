@@ -404,13 +404,28 @@ export function Dashboard() {
 }
 ```
 
-`<Show>` is a compiler primitive, not a runtime component. Lists use a narrow
-typed `.map()` syntax that the compiler lowers into list IR.
+`<Show>`, `<For>`, and `<Index>` are compiler primitives, not runtime
+components. `<For>` is item-keyed and preserves row nodes by the returned
+element's `key`. `<Index>` is position-keyed and passes each item as an
+accessor so row nodes can stay mounted while their values rebind. The narrow
+typed `.map()` form remains supported as item-keyed list shorthand.
 
 ```tsx
 <Show when={count() > 0} fallback={<span>Empty</span>}>
   <span>{count()}</span>
 </Show>
+
+<For each={items()}>
+  {(item, index) => (
+    <span key={item.id} part="indicator" data-index={index}>
+      {item.label}
+    </span>
+  )}
+</For>
+
+<Index each={names()}>
+  {(name, index) => <input data-index={index} value={name()} />}
+</Index>
 
 {items().map((item, index) => (
   <span key={item.id} part="indicator" data-index={index}>
@@ -419,12 +434,11 @@ typed `.map()` syntax that the compiler lowers into list IR.
 ))}
 ```
 
-The accepted `.map()` form must be the whole JSX child expression, use simple
-item and optional index parameters, return a JSX element expression body, and
-put `key` on the returned root element. Block bodies, missing keys, non-JSX map
-returns, and arbitrary list expressions fail during compiler analysis. The
-generated v0.1 output re-renders the list container on update; keyed diffing is
-a later compiler implementation detail.
+The accepted `<For>` and `.map()` forms must return a JSX element expression
+body and put `key` on the returned root element. `<Index>` does not use a
+`key`; choose it for position-stable controls such as editable inputs. Block
+bodies, missing item keys, non-JSX map returns, and arbitrary list expressions
+fail during compiler analysis.
 
 ## Primitive Contracts
 

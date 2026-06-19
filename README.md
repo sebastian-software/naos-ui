@@ -253,7 +253,8 @@ Current APIs:
 * `event<Detail>(name)`
 * `on(name, handler)` for typed DOM event composition
 * `host()` for element, root, update, and abort-signal access
-* `<Show>` and keyed `.map()` as explicit compile-time control flow
+* `<Show>`, `<For>`, `<Index>`, and keyed `.map()` as explicit compile-time
+  control flow
 * typed JSX intrinsic elements and common DOM/event attributes
 
 For the full path from install to authoring, styling, DSD, tooling, and
