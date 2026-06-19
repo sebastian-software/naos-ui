@@ -72,7 +72,7 @@ const infoHelpText = `Usage:
 Print Node platform metadata and native compiler version metadata as JSON.
 
 Options:
-  --json     Print JSON. This is the default output format.
+  --json     Print compact JSON. The default info output is pretty JSON.
   --pretty   Pretty-print JSON output. This is the default for info.
   -h, --help Show this help.
 `
