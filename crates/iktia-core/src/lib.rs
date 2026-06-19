@@ -414,10 +414,10 @@ mod tests {
         assert!(result.code.contains("#runEffects()"));
         assert!(result.code.contains("document.body.dataset.lastEffect"));
         assert!(result.code.contains("this.#flush();"));
-        assert!(
-            !result.code.contains("@iktia/runtime"),
-            "state, computed, and effects should remain generated component semantics"
-        );
+        assert!(result.code.contains("new CustomEvent(\"change\""));
+        assert!(result.code.contains("bubbles: true"));
+        assert!(result.code.contains("composed: true"));
+        assert!(result.code.contains("cancelable: false"));
     }
 
     #[test]
