@@ -372,6 +372,7 @@ struct CodeGenerator<'a> {
     next_node_index: usize,
     next_text_index: usize,
     node_fields: Vec<String>,
+    list_record_fields: Vec<String>,
     spread_fields: Vec<String>,
     text_fields: Vec<String>,
     mount_lines: Vec<String>,
@@ -387,6 +388,7 @@ impl<'a> CodeGenerator<'a> {
             next_node_index: 0,
             next_text_index: 0,
             node_fields: Vec::new(),
+            list_record_fields: Vec::new(),
             spread_fields: Vec::new(),
             text_fields: Vec::new(),
             mount_lines: Vec::new(),
@@ -561,6 +563,9 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "  #state = {{}};").map_err(format_error)?;
         for field in &self.node_fields {
             writeln!(code, "  #{field};").map_err(format_error)?;
+        }
+        for field in &self.list_record_fields {
+            writeln!(code, "  #{field} = new Map();").map_err(format_error)?;
         }
         for field in &self.spread_fields {
             writeln!(
@@ -1467,6 +1472,9 @@ impl<'a> CodeGenerator<'a> {
         if element.tag_name == "For" {
             return self.emit_for_control(element);
         }
+        if element.tag_name == "Index" {
+            return self.emit_index_control(element);
+        }
 
         let index = self.next_node_index;
         self.next_node_index += 1;
@@ -1632,24 +1640,32 @@ impl<'a> CodeGenerator<'a> {
         self.emit_list_control(&renderer)
     }
 
+    fn emit_index_control(&mut self, element: &TemplateElement) -> CompilerResult<String> {
+        let renderer = parse_index_renderer(element)?;
+        self.emit_list_control(&renderer)
+    }
+
     fn emit_list_control(&mut self, renderer: &ListRenderer) -> CompilerResult<String> {
         let rendered_template = TemplateParser::new(&renderer.template_source).parse_element()?;
         let index = self.next_node_index;
         self.next_node_index += 1;
         let variable = format!("node{index}");
         let field = format!("node{index}");
+        let records_field = format!("{field}Records");
         let items_variable = format!("{field}Items");
+        let next_records_variable = format!("{field}NextRecords");
+        let nodes_variable = format!("{field}Nodes");
+        let loop_index_variable = format!("{field}Index");
+        let record_variable = format!("{field}Record");
+        let cursor_variable = format!("{field}Cursor");
+        let ordered_node_variable = format!("{field}OrderedNode");
+        let next_sibling_variable = format!("{field}NextSibling");
         let render_prefix = format!("for{index}");
-        let mut render_lines = Vec::new();
-        let mut render_index = 0usize;
-        let rendered_variable = self.emit_inline_element(
-            &rendered_template,
-            &render_prefix,
-            &mut render_index,
-            &mut render_lines,
-        )?;
+        let row_template =
+            self.emit_list_row_template(&rendered_template, &render_prefix, &record_variable)?;
 
         self.node_fields.push(field.clone());
+        self.list_record_fields.push(records_field.clone());
         self.mount_lines.push(format!(
             "const {variable} = document.createElement(\"span\");"
         ));
@@ -1666,57 +1682,146 @@ impl<'a> CodeGenerator<'a> {
                 "const {items_variable} = Array.from(({}) ?? []);",
                 renderer.each_expression
             ),
+            format!("const {next_records_variable} = new Map();"),
+            format!("const {nodes_variable} = [];"),
             format!(
-                "this.#{field}.replaceChildren(...{items_variable}.map(({}, {}) => {{",
-                renderer.item_name, renderer.index_name
+                "for (let {loop_index_variable} = 0; {loop_index_variable} < {items_variable}.length; {loop_index_variable} += 1) {{"
             ),
-            format!(
-                "  const {render_prefix}Key = {}; void {render_prefix}Key;",
-                renderer.key_expression
-            ),
+            format!("  const {} = {loop_index_variable};", renderer.index_name),
         ];
-        for line in render_lines {
+        match renderer.kind {
+            ListRendererKind::ItemKeyed => {
+                let key_expression = renderer
+                    .key_expression
+                    .as_deref()
+                    .expect("item-keyed renderers require key expressions");
+                update_lines.push(format!(
+                    "  const {} = {items_variable}[{loop_index_variable}];",
+                    renderer.item_name
+                ));
+                update_lines.push(format!("  const {render_prefix}Key = {key_expression};"));
+            }
+            ListRendererKind::IndexKeyed => {
+                update_lines.push(format!(
+                    "  const {render_prefix}Key = {loop_index_variable};"
+                ));
+            }
+        }
+        update_lines.extend([
+            format!("  let {record_variable} = this.#{records_field}.get({render_prefix}Key);"),
+            format!("  if (!{record_variable}) {{"),
+        ]);
+        for line in &row_template.create_lines {
+            update_lines.push(format!("    {line}"));
+        }
+        update_lines.push(format!(
+            "    {record_variable} = {{ {} }};",
+            row_template.record_properties.join(", ")
+        ));
+        update_lines.push("  }".to_owned());
+        if renderer.kind == ListRendererKind::IndexKeyed {
+            update_lines.push(format!(
+                "  {record_variable}.value = {items_variable}[{loop_index_variable}];"
+            ));
+            update_lines.push(format!(
+                "  const {} = () => {record_variable}.value;",
+                renderer.item_name
+            ));
+        }
+        for line in &row_template.update_lines {
             update_lines.push(format!("  {line}"));
         }
-        update_lines.push(format!("  return {rendered_variable};"));
-        update_lines.push("}));".to_owned());
+        update_lines.push(format!(
+            "  {next_records_variable}.set({render_prefix}Key, {record_variable});"
+        ));
+        update_lines.push(format!("  {nodes_variable}.push({record_variable}.node);"));
+        update_lines.push("}".to_owned());
+        update_lines.push(format!("this.#{records_field} = {next_records_variable};"));
+        update_lines.push(format!("let {cursor_variable} = this.#{field}.firstChild;"));
+        update_lines.push(format!(
+            "for (const {ordered_node_variable} of {nodes_variable}) {{"
+        ));
+        update_lines.push(format!(
+            "  if ({cursor_variable} === {ordered_node_variable}) {{"
+        ));
+        update_lines.push(format!(
+            "    {cursor_variable} = {cursor_variable}.nextSibling;"
+        ));
+        update_lines.push("  } else {".to_owned());
+        update_lines.push(format!(
+            "    this.#{field}.insertBefore({ordered_node_variable}, {cursor_variable});"
+        ));
+        update_lines.push("  }".to_owned());
+        update_lines.push("}".to_owned());
+        update_lines.push(format!("while ({cursor_variable}) {{"));
+        update_lines.push(format!(
+            "  const {next_sibling_variable} = {cursor_variable}.nextSibling;"
+        ));
+        update_lines.push(format!("  this.#{field}.removeChild({cursor_variable});"));
+        update_lines.push(format!("  {cursor_variable} = {next_sibling_variable};"));
+        update_lines.push("}".to_owned());
         self.push_update_lines(
             update_lines,
             self.dependencies_for_expression(&format!(
                 "{} {} {}",
-                renderer.each_expression, renderer.key_expression, renderer.template_source
+                renderer.each_expression,
+                renderer.key_expression.as_deref().unwrap_or(""),
+                renderer.template_source
             )),
         );
 
         Ok(variable)
     }
 
-    fn emit_inline_element(
+    fn emit_list_row_template(
         &mut self,
         element: &TemplateElement,
         prefix: &str,
-        next_index: &mut usize,
-        lines: &mut Vec<String>,
+        record_variable: &str,
+    ) -> CompilerResult<ListRowTemplate> {
+        let mut build = ListRowBuild {
+            prefix: prefix.to_owned(),
+            record_variable: record_variable.to_owned(),
+            next_index: 0,
+            create_lines: Vec::new(),
+            record_properties: Vec::new(),
+            update_lines: Vec::new(),
+        };
+        let root_variable = self.emit_list_row_element(element, &mut build)?;
+        build
+            .record_properties
+            .insert(0, format!("node: {root_variable}"));
+        Ok(ListRowTemplate {
+            create_lines: build.create_lines,
+            record_properties: build.record_properties,
+            update_lines: build.update_lines,
+        })
+    }
+
+    fn emit_list_row_element(
+        &mut self,
+        element: &TemplateElement,
+        build: &mut ListRowBuild,
     ) -> CompilerResult<String> {
-        let index = *next_index;
-        *next_index += 1;
-        let variable = format!("{prefix}Node{index}");
+        let index = build.next_index;
+        build.next_index += 1;
+        let variable = format!("{}Node{index}", build.prefix);
         let tag_name = self.element_tag_name(&element.tag_name);
         let is_component_element = is_pascal_case_identifier(&element.tag_name);
-        lines.push(format!(
+        build.create_lines.push(format!(
             "const {variable} = document.createElement(\"{}\");",
             escape_js_string(&tag_name)
         ));
+        build.record_properties.push(variable.clone());
 
         let mut follows_spread = false;
         for attribute in &element.attributes {
-            self.emit_inline_attribute(
-                &variable,
+            self.emit_list_row_attribute(
                 &variable,
                 attribute,
                 is_component_element,
                 follows_spread,
-                lines,
+                build,
             )?;
             if matches!(attribute, TemplateAttribute::Spread { .. }) {
                 follows_spread = true;
@@ -1726,27 +1831,42 @@ impl<'a> CodeGenerator<'a> {
         for child in &element.children {
             match child {
                 TemplateChild::Element(child_element) => {
-                    let child_variable =
-                        self.emit_inline_element(child_element, prefix, next_index, lines)?;
-                    lines.push(format!("{variable}.append({child_variable});"));
+                    let child_variable = self.emit_list_row_element(child_element, build)?;
+                    build
+                        .create_lines
+                        .push(format!("{variable}.append({child_variable});"));
                 }
                 TemplateChild::Expression(expression) => {
-                    let text_variable = format!("{prefix}Text{}", *next_index);
-                    *next_index += 1;
-                    lines.push(format!(
-                        "const {text_variable} = document.createTextNode(String({}));",
+                    let text_variable = format!("{}Text{}", build.prefix, build.next_index);
+                    build.next_index += 1;
+                    build.create_lines.push(format!(
+                        "const {text_variable} = document.createTextNode(\"\");"
+                    ));
+                    build
+                        .create_lines
+                        .push(format!("{variable}.append({text_variable});"));
+                    build.record_properties.push(text_variable.clone());
+                    build.update_lines.push(format!(
+                        "{}.{text_variable}.data = String({});",
+                        build.record_variable,
                         expression.trim()
                     ));
-                    lines.push(format!("{variable}.append({text_variable});"));
                 }
                 TemplateChild::Text(text) => {
                     if let Some(expression) = text_expression(text) {
-                        let text_variable = format!("{prefix}Text{}", *next_index);
-                        *next_index += 1;
-                        lines.push(format!(
-                            "const {text_variable} = document.createTextNode({expression});"
+                        let text_variable = format!("{}Text{}", build.prefix, build.next_index);
+                        build.next_index += 1;
+                        build.create_lines.push(format!(
+                            "const {text_variable} = document.createTextNode(\"\");"
                         ));
-                        lines.push(format!("{variable}.append({text_variable});"));
+                        build
+                            .create_lines
+                            .push(format!("{variable}.append({text_variable});"));
+                        build.record_properties.push(text_variable.clone());
+                        build.update_lines.push(format!(
+                            "{}.{text_variable}.data = {expression};",
+                            build.record_variable
+                        ));
                     }
                 }
             }
@@ -1755,14 +1875,13 @@ impl<'a> CodeGenerator<'a> {
         Ok(variable)
     }
 
-    fn emit_inline_attribute(
+    fn emit_list_row_attribute(
         &mut self,
         variable: &str,
-        target_key: &str,
         attribute: &TemplateAttribute,
         is_component_element: bool,
-        _follows_spread: bool,
-        lines: &mut Vec<String>,
+        follows_spread: bool,
+        build: &mut ListRowBuild,
     ) -> CompilerResult<()> {
         let TemplateAttribute::Named { name, value } = attribute else {
             if is_component_element {
@@ -1774,12 +1893,14 @@ impl<'a> CodeGenerator<'a> {
                 unreachable!();
             };
             self.uses_spread_attributes = true;
-            let spread_cache = format!("{target_key}Spread");
-            lines.push(format!(
+            let spread_cache = format!("{variable}Spread{}", build.record_properties.len());
+            build.create_lines.push(format!(
                 "const {spread_cache} = {{ names: new Set(), listeners: new Map(), styles: new Set() }};"
             ));
-            lines.push(format!(
-                "this.#applySpreadAttributes({variable}, {spread_cache}, {expression});"
+            build.record_properties.push(spread_cache.clone());
+            build.update_lines.push(format!(
+                "this.#applySpreadAttributes({}.{variable}, {}.{spread_cache}, {expression});",
+                build.record_variable, build.record_variable
             ));
             return Ok(());
         };
@@ -1793,39 +1914,66 @@ impl<'a> CodeGenerator<'a> {
                     name
                 )));
             };
-            lines.push(format!(
-                "{variable}.addEventListener(\"{event_name}\", (event) => {{"
+            let listener_property = format!("{variable}Listener{}", event_name.replace('-', "_"));
+            build
+                .record_properties
+                .push(format!("{listener_property}: null"));
+            build.update_lines.push(format!(
+                "if ({}.{listener_property}) {}.{variable}.removeEventListener(\"{event_name}\", {}.{listener_property});",
+                build.record_variable, build.record_variable, build.record_variable
+            ));
+            build.update_lines.push(format!(
+                "{}.{listener_property} = (event) => {{",
+                build.record_variable
             ));
             for line in handler_body(expression)
                 .lines()
                 .map(str::trim)
                 .filter(|line| !line.is_empty())
             {
-                lines.push(format!("  {line}"));
+                build.update_lines.push(format!("  {line}"));
             }
-            lines.push("});".to_owned());
+            build.update_lines.push("};".to_owned());
+            build.update_lines.push(format!(
+                "{}.{variable}.addEventListener(\"{event_name}\", {}.{listener_property});",
+                build.record_variable, build.record_variable
+            ));
             return Ok(());
         }
 
         let attribute_name = attribute_name_for_element(name, is_component_element);
         match value {
             AttributeValue::Boolean => {
-                lines.push(format!(
+                build.create_lines.push(format!(
                     "{variable}.setAttribute(\"{}\", \"\");",
                     attribute_name
                 ));
+                if follows_spread {
+                    build.update_lines.push(format!(
+                        "{}.{variable}.setAttribute(\"{}\", \"\");",
+                        build.record_variable, attribute_name
+                    ));
+                }
             }
             AttributeValue::Static(value) => {
-                lines.push(format!(
+                build.create_lines.push(format!(
                     "{variable}.setAttribute(\"{}\", \"{}\");",
                     attribute_name,
                     escape_js_string(value)
                 ));
+                if follows_spread {
+                    build.update_lines.push(format!(
+                        "{}.{variable}.setAttribute(\"{}\", \"{}\");",
+                        build.record_variable,
+                        attribute_name,
+                        escape_js_string(value)
+                    ));
+                }
             }
             AttributeValue::Expression(expression) => {
-                lines.push(dynamic_attribute_update(
+                build.update_lines.push(dynamic_attribute_update(
+                    &format!("{}.{variable}", build.record_variable),
                     variable,
-                    target_key,
                     &attribute_name,
                     expression,
                 ));
@@ -2422,6 +2570,9 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         if element.tag_name == "For" {
             return self.render_for_control();
         }
+        if element.tag_name == "Index" {
+            return self.render_index_control();
+        }
 
         let field = self.next_node_field();
         let tag_name = self.element_tag_name(&element.tag_name);
@@ -2597,6 +2748,10 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
     }
 
     fn render_for_control(&mut self) -> CompilerResult<String> {
+        self.render_list_control()
+    }
+
+    fn render_index_control(&mut self) -> CompilerResult<String> {
         self.render_list_control()
     }
 
@@ -3134,11 +3289,33 @@ fn optional_attribute<'a>(
         })
 }
 
+struct ListRowTemplate {
+    create_lines: Vec<String>,
+    record_properties: Vec<String>,
+    update_lines: Vec<String>,
+}
+
+struct ListRowBuild {
+    prefix: String,
+    record_variable: String,
+    next_index: usize,
+    create_lines: Vec<String>,
+    record_properties: Vec<String>,
+    update_lines: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ListRendererKind {
+    ItemKeyed,
+    IndexKeyed,
+}
+
 struct ListRenderer {
     each_expression: String,
     item_name: String,
     index_name: String,
-    key_expression: String,
+    key_expression: Option<String>,
+    kind: ListRendererKind,
     template_source: String,
 }
 
@@ -3163,9 +3340,39 @@ fn parse_for_renderer(element: &TemplateElement) -> CompilerResult<ListRenderer>
         ));
     }
 
-    let renderer = parse_list_callback(expressions[0], "<For> child")?;
+    let renderer = parse_list_callback(expressions[0], "<For> child", true)?;
     Ok(ListRenderer {
         each_expression,
+        kind: ListRendererKind::ItemKeyed,
+        ..renderer
+    })
+}
+
+fn parse_index_renderer(element: &TemplateElement) -> CompilerResult<ListRenderer> {
+    let each_expression = required_expression_attribute(element, "each")?.to_owned();
+    let expressions = element
+        .children
+        .iter()
+        .filter_map(|child| match child {
+            TemplateChild::Expression(expression) if !expression.trim().is_empty() => {
+                Some(expression.trim())
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    if expressions.len() != 1 {
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+            "<Index> requires exactly one braced arrow-function child.",
+            DIAGNOSTIC_HINT_LISTS,
+        ));
+    }
+
+    let renderer = parse_list_callback(expressions[0], "<Index> child", false)?;
+    Ok(ListRenderer {
+        each_expression,
+        kind: ListRendererKind::IndexKeyed,
         ..renderer
     })
 }
@@ -3210,14 +3417,19 @@ fn parse_map_renderer(expression: &str) -> CompilerResult<Option<ListRenderer>> 
             DIAGNOSTIC_HINT_LISTS,
         ));
     }
-    let renderer = parse_list_callback(arguments[0].trim(), ".map() callback")?;
+    let renderer = parse_list_callback(arguments[0].trim(), ".map() callback", true)?;
     Ok(Some(ListRenderer {
         each_expression: each_expression.to_owned(),
+        kind: ListRendererKind::ItemKeyed,
         ..renderer
     }))
 }
 
-fn parse_list_callback(expression: &str, label: &str) -> CompilerResult<ListRenderer> {
+fn parse_list_callback(
+    expression: &str,
+    label: &str,
+    requires_key: bool,
+) -> CompilerResult<ListRenderer> {
     let Some(arrow_index) = expression.find("=>") else {
         return Err(unsupported_with_code(
             DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
@@ -3271,13 +3483,18 @@ fn parse_list_callback(expression: &str, label: &str) -> CompilerResult<ListRend
     }
 
     let template = TemplateParser::new(body).parse_element()?;
-    let key_expression = required_key_expression(&template)?;
+    let key_expression = if requires_key {
+        Some(required_key_expression(&template)?)
+    } else {
+        None
+    };
 
     Ok(ListRenderer {
         each_expression: String::new(),
         item_name: item_name.to_owned(),
         index_name: index_name.to_owned(),
         key_expression,
+        kind: ListRendererKind::ItemKeyed,
         template_source: body.to_owned(),
     })
 }
@@ -3346,6 +3563,11 @@ fn dynamic_attribute_update(
     if name.starts_with("aria-") {
         return format!(
             "const {value_variable} = {expression}; if ({value_variable} == null) {{ {target}.removeAttribute(\"{name}\"); }} else {{ {target}.setAttribute(\"{name}\", String({value_variable})); }}"
+        );
+    }
+    if name == "value" {
+        return format!(
+            "const {value_variable} = {expression}; if ({value_variable} == null || {value_variable} === false) {{ {target}.removeAttribute(\"value\"); {target}.value = \"\"; }} else {{ {target}.setAttribute(\"value\", String({value_variable})); {target}.value = String({value_variable}); }}"
         );
     }
     format!(

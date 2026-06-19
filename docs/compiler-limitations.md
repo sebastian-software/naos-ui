@@ -65,15 +65,18 @@ The MVP template parser supports:
 * Event attributes such as `onClick`.
 * Text interpolation with `{expression}` chunks.
 * Explicit `<Show when={...} fallback={...}>...</Show>` control flow.
-* Keyed `.map()` list control flow, for example
+* Item-keyed `<For each={...}>...</For>` list control flow.
+* Position-keyed `<Index each={...}>...</Index>` list control flow.
+* Keyed `.map()` list control flow shorthand, for example
   `{items().map((item, index) => <span key={item.id} />)}`.
 * PascalCase child components imported from direct `.wc` modules.
 * Default and named slots.
 * `part`, `class`, `data-*`, `aria-*`, and common DOM attributes.
 
 Generated updates currently cover dynamic attributes, text bindings, effects,
-`<Show>` containers, and keyed `.map()` list containers. Lists re-render their
-container on update; keyed diffing is not part of the current MVP.
+`<Show>` containers, `<For>` containers, `<Index>` containers, and keyed
+`.map()` list containers. Item-keyed lists reuse row nodes by key; index-keyed
+lists reuse row nodes by position and rebind item accessors on update.
 
 ## Dependency Detection Boundary
 
@@ -143,9 +146,10 @@ Currently unsupported:
 * Multiple root JSX elements or fragments.
 * Conditional JSX branches outside `<Show>`.
 * Unkeyed `.map()` JSX list children.
+* `<For>` children without a key on the returned root element.
 * `.map()` list callbacks with block bodies or non-JSX return values.
-* Arbitrary array mapping or list expressions outside the accepted keyed
-  `.map()` form.
+* Arbitrary array mapping or list expressions outside the accepted `<For>`,
+  `<Index>`, or keyed `.map()` forms.
 * Spread attributes.
 * Component composition that requires module graph analysis beyond direct `.wc`
   imports.

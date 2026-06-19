@@ -47,6 +47,20 @@ async function expectPrimitiveEventType(page: Page, type: string) {
     .toBe(true)
 }
 
+async function expectShadowFocused(locator: ReturnType<Page["locator"]>) {
+  await expect
+    .poll(() =>
+      locator.evaluate((element) => {
+        const root = element.getRootNode()
+        if (root instanceof ShadowRoot) {
+          return root.activeElement === element
+        }
+        return document.activeElement === element
+      })
+    )
+    .toBe(true)
+}
+
 test("compiled counter renders, updates, and emits detail", async ({ page }) => {
   await page.goto("/")
 
@@ -123,6 +137,59 @@ test("compiled reactive output batches and gates DOM updates", async ({
   await expect(body).toHaveAttribute("data-probe-before-flush", "3")
   await expect(body).toHaveAttribute("data-probe-after-flush", "4")
   await expect(body).toHaveAttribute("data-probe-effect-runs", "4")
+})
+
+test("compiled list reconcilers preserve keyed and indexed row nodes", async ({
+  page,
+}) => {
+  await page.goto("/")
+
+  const probe = page.locator("#list-reconciler-probe-case list-reconciler-probe")
+  const forRows = probe.locator("[data-probe-for-row]")
+  const indexRows = probe.locator("[data-probe-index-row]")
+
+  await expect(forRows).toHaveText(["Alpha", "Beta"])
+  const alphaRow = await forRows.nth(0).elementHandle()
+  if (!alphaRow) throw new Error("Missing initial Alpha row.")
+
+  await probe.locator("[data-probe-for-reorder]").click()
+  await expect(forRows).toHaveText(["Beta", "Alpha", "Gamma"])
+  await expect(forRows.nth(1)).toHaveAttribute("data-index", "1")
+  expect(
+    await forRows
+      .nth(1)
+      .evaluate((element, previous) => element === previous, alphaRow)
+  ).toBe(true)
+  await forRows.nth(1).click()
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-probe-for-clicked",
+    "a"
+  )
+  await alphaRow.dispose()
+
+  await expect(indexRows.nth(0)).toHaveValue("Alpha")
+  await expect(indexRows.nth(1)).toHaveValue("Beta")
+  const firstInput = await indexRows.nth(0).elementHandle()
+  if (!firstInput) throw new Error("Missing initial indexed input.")
+
+  await indexRows.nth(0).focus()
+  await indexRows.nth(0).fill("Alpine")
+  await expectShadowFocused(indexRows.nth(0))
+  await expect(indexRows.nth(0)).toHaveValue("Alpine")
+  expect(
+    await indexRows
+      .nth(0)
+      .evaluate((element, previous) => element === previous, firstInput)
+  ).toBe(true)
+
+  await probe.locator("[data-probe-index-replace]").click()
+  await expect(indexRows.nth(0)).toHaveValue("Gamma")
+  expect(
+    await indexRows
+      .nth(0)
+      .evaluate((element, previous) => element === previous, firstInput)
+  ).toBe(true)
+  await firstInput.dispose()
 })
 
 test("compiled toggle renders primitive contracts and control flow", async ({ page }) => {

@@ -27,6 +27,16 @@ export type ShowProps = {
   children?: JsxChild
 }
 
+export type ForProps<T> = {
+  each: readonly T[] | null | undefined
+  children: (item: T, index: number) => JSX.Element
+}
+
+export type IndexProps<T> = {
+  each: readonly T[] | null | undefined
+  children: (item: Accessor<T>, index: number) => JSX.Element
+}
+
 export type HostHandle = {
   readonly element: HTMLElement
   readonly root: ParentNode
@@ -74,6 +84,14 @@ export function effect(callback: EffectCallback): void {
 
 export function Show(props: ShowProps): JSX.Element {
   return authoringRuntimeError("Show")
+}
+
+export function For<T>(props: ForProps<T>): JSX.Element {
+  return authoringRuntimeError("For")
+}
+
+export function Index<T>(props: IndexProps<T>): JSX.Element {
+  return authoringRuntimeError("Index")
 }
 
 export function on<Name extends keyof KnownDomEventMap & string>(
