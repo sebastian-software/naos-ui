@@ -12,6 +12,7 @@ const keep = args.has("--keep")
 const publicPackages = [
   "packages/core",
   "packages/runtime",
+  "packages/primitives",
   "packages/compiler",
   "packages/vite",
   "packages/cli",
@@ -86,6 +87,10 @@ try {
     await run("node", ["verify-native.mjs"], { cwd: appDir })
   })
 
+  await phase("verify CLI package bin", async () => {
+    await run("pnpm", ["exec", "iktia", "info", "--json"], { cwd: appDir })
+  })
+
   await phase("build temporary Vite project", async () => {
     await run("pnpm", ["exec", "vite", "build"], { cwd: appDir })
   })
@@ -94,10 +99,13 @@ try {
     const assetText = await readBuiltAssets(join(appDir, "dist"))
     assertIncludes(assetText, "smoke-counter")
     assertIncludes(assetText, "CustomEvent")
-    assertIncludes(assetText, "change")
-    assertIncludes(assetText, "data-count")
+    assertIncludes(assetText, 'new CustomEvent("change"')
+    assertIncludes(assetText, 'setAttribute("data-count"')
+    assertIncludes(assetText, 'customElements.define("iktia-button"')
+    assertIncludes(assetText, "--iktia-button-bg")
     const indexHtml = await readFile(join(appDir, "dist", "index.html"), "utf8")
     assertIncludes(indexHtml, "smoke-counter")
+    assertIncludes(indexHtml, "iktia-button")
   })
 
   console.log(`[fresh-project] ok: temporary project built successfully at ${appDir}`)
@@ -132,6 +140,7 @@ async function writeProjectFiles(projectDir, tarballs) {
       "@iktia/cli": fileSpec(tarballs.get("@iktia/cli")),
       "@iktia/compiler": fileSpec(tarballs.get("@iktia/compiler")),
       "@iktia/core": fileSpec(tarballs.get("@iktia/core")),
+      "@iktia/primitives": fileSpec(tarballs.get("@iktia/primitives")),
       "@iktia/runtime": fileSpec(tarballs.get("@iktia/runtime")),
       "@iktia/vite": fileSpec(tarballs.get("@iktia/vite")),
       [currentNativePackageName()]: fileSpec(tarballs.get(currentNativePackageName())),
@@ -171,11 +180,11 @@ async function writeProjectFiles(projectDir, tarballs) {
   )
   await writeFile(
     join(projectDir, "index.html"),
-    `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>Iktia fresh project smoke</title>\n  </head>\n  <body>\n    <smoke-counter label="Smoke"></smoke-counter>\n    <script type="module" src="/src/main.ts"></script>\n  </body>\n</html>\n`
+    `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>Iktia fresh project smoke</title>\n  </head>\n  <body>\n    <smoke-counter label="Smoke"></smoke-counter>\n    <iktia-button label="Primitive smoke" variant="primary"></iktia-button>\n    <script type="module" src="/src/main.ts"></script>\n  </body>\n</html>\n`
   )
   await writeFile(
     join(projectDir, "src", "main.ts"),
-    `import "./smoke-counter.wc.tsx"\n\ndocument.addEventListener("change", (event) => {\n  if (event instanceof CustomEvent) {\n    document.body.dataset.lastChange = String(event.detail)\n  }\n})\n`
+    `import "@iktia/primitives/button"\nimport "./smoke-counter.wc.tsx"\n\ndocument.addEventListener("change", (event) => {\n  if (event instanceof CustomEvent) {\n    document.body.dataset.lastChange = String(event.detail)\n  }\n})\n`
   )
   await writeFile(
     join(projectDir, "src", "smoke-counter.wc.tsx"),
