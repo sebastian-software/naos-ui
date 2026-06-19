@@ -796,6 +796,100 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_ignore_comments_and_strings_in_dependency_detection() {
+        let source = r#"
+            import { computed, effect, state } from "@iktia/core";
+
+            export function Probe() {
+              const count = state(0);
+              const label = computed(() => `Count ${count()}`);
+
+              effect(() => {
+                console.info("observeExternalRead() count() label()");
+                // observeExternalRead();
+                /* anotherExternalRead(); */
+                document.body.dataset.label = `${label()}`;
+              });
+
+              return <button title={`literal count() ${label()}`}>{label()}</button>;
+            }
+        "#;
+
+        let result = match transform_component_module(source, "probe.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            !result
+                .code
+                .contains("this.#shouldUpdate(null, dirtySources)")
+        );
+        assert!(
+            result
+                .code
+                .contains("if (this.#shouldUpdate([\"count\"], dirtySources))")
+        );
+    }
+
+    #[test]
+    fn transform_component_module_should_keep_host_reads_dependency_neutral() {
+        let source = r#"
+            import { effect, host, state } from "@iktia/core";
+
+            export function Probe() {
+              const count = state(0);
+
+              effect(() => {
+                host().element.dataset.count = String(count());
+              });
+
+              return <button>{count()}</button>;
+            }
+        "#;
+
+        let result = match transform_component_module(source, "probe.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            !result
+                .code
+                .contains("this.#shouldUpdate(null, dirtySources)")
+        );
+        assert!(
+            result
+                .code
+                .contains("if (this.#shouldUpdate([\"count\"], dirtySources))")
+        );
+    }
+
+    #[test]
+    fn transform_component_module_should_skip_comments_between_reactive_accessor_and_call() {
+        let source = r#"
+            import { state } from "@iktia/core";
+
+            export function Probe() {
+              const count = state(0);
+
+              return <button>{count /* stable accessor */ ()}</button>;
+            }
+        "#;
+
+        let result = match transform_component_module(source, "probe.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            result
+                .code
+                .contains("if (this.#shouldUpdate([\"count\"], dirtySources))")
+        );
+    }
+
+    #[test]
     fn transform_component_module_should_generate_lifecycle_callbacks() {
         let source = r#"
             import { onConnected, onDisconnected, state } from "@iktia/core";
@@ -1223,6 +1317,9 @@ mod tests {
                 .code
                 .contains("if (name === \"className\") return \"class\";")
         );
+        assert!(result.code.contains(
+            "const attributeValue = attributeName.startsWith(\"aria-\") ? String(value) : value === true ? \"\" : String(value);"
+        ));
         assert!(
             result
                 .code
@@ -1236,6 +1333,9 @@ mod tests {
             .find("this.#node0.setAttribute(\"part\", \"after\");")
             .expect("explicit attribute after spread should be re-applied during update");
         assert!(explicit_after_index > 0);
+        assert!(result.code[spread_index..].contains(
+            "if (this.#shouldUpdate(null, dirtySources)) {\n      const node0_data_state_value = active() ? \"on\" : \"off\";"
+        ));
     }
 
     #[test]

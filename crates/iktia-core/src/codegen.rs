@@ -1283,7 +1283,12 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "    }} else {{").map_err(format_error)?;
         writeln!(
             code,
-            "      target.setAttribute(attributeName, value === true ? \"\" : String(value));"
+            "      const attributeValue = attributeName.startsWith(\"aria-\") ? String(value) : value === true ? \"\" : String(value);"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "      target.setAttribute(attributeName, attributeValue);"
         )
         .map_err(format_error)?;
         writeln!(code, "    }}").map_err(format_error)?;
@@ -1933,6 +1938,11 @@ impl<'a> CodeGenerator<'a> {
                 }
             }
             AttributeValue::Expression(expression) => {
+                let dependencies = if follows_spread {
+                    ReactiveDependencies::Unknown
+                } else {
+                    self.dependencies_for_expression(expression)
+                };
                 self.push_update_line(
                     dynamic_attribute_update(
                         field_reference,
@@ -1940,7 +1950,7 @@ impl<'a> CodeGenerator<'a> {
                         &attribute_name,
                         expression,
                     ),
-                    self.dependencies_for_expression(expression),
+                    dependencies,
                 );
             }
         }
@@ -2102,11 +2112,32 @@ struct IdentifierUse {
 
 fn identifier_uses(source: &str) -> Vec<IdentifierUse> {
     let mut identifiers = Vec::new();
+    collect_identifier_uses(source, &mut identifiers);
+    identifiers
+}
+
+fn collect_identifier_uses(source: &str, identifiers: &mut Vec<IdentifierUse>) {
     let mut index = 0usize;
     while index < source.len() {
         let Some(ch) = source[index..].chars().next() else {
             break;
         };
+        if ch == '/' && source[index..].starts_with("//") {
+            index = skip_line_comment(source, index);
+            continue;
+        }
+        if ch == '/' && source[index..].starts_with("/*") {
+            index = skip_block_comment(source, index);
+            continue;
+        }
+        if ch == '\'' || ch == '"' {
+            index = skip_quoted_literal(source, index, ch);
+            continue;
+        }
+        if ch == '`' {
+            index = skip_template_literal(source, index, identifiers);
+            continue;
+        }
         if !is_dependency_identifier_start(ch) {
             index += ch.len_utf8();
             continue;
@@ -2120,7 +2151,6 @@ fn identifier_uses(source: &str) -> Vec<IdentifierUse> {
         });
         index = end;
     }
-    identifiers
 }
 
 fn consume_dependency_identifier(source: &str, start: usize) -> usize {
@@ -2143,7 +2173,137 @@ fn previous_non_whitespace(source: &str, index: usize) -> Option<char> {
 }
 
 fn next_non_whitespace(source: &str, index: usize) -> Option<char> {
-    source[index..].chars().find(|ch| !ch.is_whitespace())
+    let mut cursor = index;
+    while cursor < source.len() {
+        let ch = source[cursor..].chars().next()?;
+        if ch.is_whitespace() {
+            cursor += ch.len_utf8();
+            continue;
+        }
+        if ch == '/' && source[cursor..].starts_with("//") {
+            cursor = skip_line_comment(source, cursor);
+            continue;
+        }
+        if ch == '/' && source[cursor..].starts_with("/*") {
+            cursor = skip_block_comment(source, cursor);
+            continue;
+        }
+        return Some(ch);
+    }
+    None
+}
+
+fn skip_line_comment(source: &str, start: usize) -> usize {
+    source[start..]
+        .find('\n')
+        .map_or(source.len(), |offset| start + offset + 1)
+}
+
+fn skip_block_comment(source: &str, start: usize) -> usize {
+    source[start + 2..]
+        .find("*/")
+        .map_or(source.len(), |offset| start + 2 + offset + 2)
+}
+
+fn skip_quoted_literal(source: &str, start: usize, quote: char) -> usize {
+    let mut cursor = start + quote.len_utf8();
+    let mut escaped = false;
+    while cursor < source.len() {
+        let Some(ch) = source[cursor..].chars().next() else {
+            break;
+        };
+        cursor += ch.len_utf8();
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if ch == '\\' {
+            escaped = true;
+            continue;
+        }
+        if ch == quote {
+            return cursor;
+        }
+    }
+    source.len()
+}
+
+fn skip_template_literal(
+    source: &str,
+    start: usize,
+    identifiers: &mut Vec<IdentifierUse>,
+) -> usize {
+    let mut cursor = start + 1;
+    let mut escaped = false;
+    while cursor < source.len() {
+        let Some(ch) = source[cursor..].chars().next() else {
+            break;
+        };
+        if escaped {
+            escaped = false;
+            cursor += ch.len_utf8();
+            continue;
+        }
+        if ch == '\\' {
+            escaped = true;
+            cursor += ch.len_utf8();
+            continue;
+        }
+        if ch == '`' {
+            return cursor + 1;
+        }
+        if ch == '$' && source[cursor..].starts_with("${") {
+            let expression_start = cursor + 2;
+            let Some(expression_end) = template_expression_end(source, expression_start) else {
+                return source.len();
+            };
+            collect_identifier_uses(&source[expression_start..expression_end], identifiers);
+            cursor = expression_end + 1;
+            continue;
+        }
+        cursor += ch.len_utf8();
+    }
+    source.len()
+}
+
+fn template_expression_end(source: &str, start: usize) -> Option<usize> {
+    let mut cursor = start;
+    let mut depth = 1usize;
+    while cursor < source.len() {
+        let ch = source[cursor..].chars().next()?;
+        if ch == '/' && source[cursor..].starts_with("//") {
+            cursor = skip_line_comment(source, cursor);
+            continue;
+        }
+        if ch == '/' && source[cursor..].starts_with("/*") {
+            cursor = skip_block_comment(source, cursor);
+            continue;
+        }
+        if ch == '\'' || ch == '"' {
+            cursor = skip_quoted_literal(source, cursor, ch);
+            continue;
+        }
+        if ch == '`' {
+            let mut nested_identifiers = Vec::new();
+            cursor = skip_template_literal(source, cursor, &mut nested_identifiers);
+            continue;
+        }
+        if ch == '{' {
+            depth += 1;
+            cursor += ch.len_utf8();
+            continue;
+        }
+        if ch == '}' {
+            depth -= 1;
+            if depth == 0 {
+                return Some(cursor);
+            }
+            cursor += ch.len_utf8();
+            continue;
+        }
+        cursor += ch.len_utf8();
+    }
+    None
 }
 
 fn is_dependency_identifier_start(ch: char) -> bool {
@@ -2179,6 +2339,7 @@ fn is_allowed_dependency_call(name: &str) -> bool {
             | "isNaN"
             | "parseFloat"
             | "parseInt"
+            | "host"
     )
 }
 
