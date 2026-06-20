@@ -86,7 +86,7 @@ const REJECTED_FIXTURES: &[RejectedFixture] = &[
         filename: "conditional-jsx.wc.tsx",
         source: include_str!("fixtures/conformance/rejected/conditional-jsx.wc.tsx"),
         code: "IKTIA_UNSUPPORTED_CONDITIONAL_JSX",
-        message: "Use the explicit <Show",
+        message: "Use explicit <Show> or <Switch>",
         hint: "<Show",
     },
     RejectedFixture {

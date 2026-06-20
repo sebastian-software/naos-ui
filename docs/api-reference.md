@@ -25,6 +25,8 @@ for v0.1 and are not published to crates.io.
 | `on(name, handler, options?)` | Public | Typed DOM listener helper. |
 | `host()` | Public | Current element, root, update handle, and abort signal. |
 | `Show` | Public | Explicit conditional control-flow primitive. |
+| `Switch` | Public | First-match-wins multi-way control-flow primitive. |
+| `Match` | Public | Static branch arm for `<Switch>`, with optional trailing default. |
 | `For` | Public | Item-keyed list control-flow primitive. |
 | `Index` | Public | Position-keyed list control-flow primitive with item accessors. |
 | `ComponentOptions` | Public | Component-level `styles` metadata. |

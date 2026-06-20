@@ -24,8 +24,9 @@ paths move fully onto AST-backed analysis.
 | `IKTIA_UNSUPPORTED_EFFECT_CALLBACK` | `effect()` did not use the supported arrow callback shape. | Check the v0.1 authoring limitations. |
 | `IKTIA_UNSUPPORTED_FACTORY_RENDER` | A component returned a JSX-producing render callback such as `return () => <button />`. | Return a single JSX template from the component setup function. |
 | `IKTIA_UNSUPPORTED_LIST_RENDERER` | A list expression did not match the supported `<For>`, `<Index>`, or keyed `.map()` shape. | Return one JSX element from a simple arrow callback, and include a root `key` for item-keyed lists. |
-| `IKTIA_UNSUPPORTED_CONDITIONAL_JSX` | Conditional JSX was authored outside the explicit control-flow primitive. | Use `<Show when={...} fallback={...}>`. |
+| `IKTIA_UNSUPPORTED_CONDITIONAL_JSX` | Conditional JSX was authored outside the explicit control-flow primitive. | Use `<Show when={...} fallback={...}>` or `<Switch>/<Match>`. |
 | `IKTIA_UNSUPPORTED_SHOW_FALLBACK` | `<Show fallback>` was present without a value. | Provide a static, expression, or JSX fallback value. |
+| `IKTIA_UNSUPPORTED_SWITCH_MATCH` | `<Switch>` / `<Match>` did not match the static first-match-wins shape. | Use direct static `<Match when={...}>` children and one optional trailing default `<Match>`. |
 | `IKTIA_TEMPLATE_PARSE` | The TSX template slice did not match Iktia's supported template grammar. | Check the v0.1 authoring limitations. |
 | `IKTIA_DSD_INPUT` | Declarative Shadow DOM props or inline styles were not valid JSON objects. | Pass JSON objects for DSD props and inline styles. |
 | `IKTIA_UNSUPPORTED_SYNTAX` | A syntax boundary is unsupported but not yet assigned a narrower catalog code. | Check the v0.1 authoring limitations. |

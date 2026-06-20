@@ -4,8 +4,8 @@ use std::fmt::Write as _;
 use crate::error::{
     CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
     DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
-    DIAGNOSTIC_HINT_LISTS, DIAGNOSTIC_HINT_SHOW, dsd_input, template_parse, unsupported,
-    unsupported_with_code,
+    DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH, DIAGNOSTIC_HINT_LISTS, DIAGNOSTIC_HINT_SHOW,
+    DIAGNOSTIC_HINT_SWITCH, dsd_input, template_parse, unsupported, unsupported_with_code,
 };
 use crate::model::{
     ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult, EffectDefinition,
@@ -1680,6 +1680,16 @@ impl<'a> CodeGenerator<'a> {
         if element.tag_name == "Show" {
             return self.emit_show_control(element);
         }
+        if element.tag_name == "Switch" {
+            return self.emit_switch_control(element);
+        }
+        if element.tag_name == "Match" {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                "<Match> can only be used as a direct child of <Switch>.",
+                DIAGNOSTIC_HINT_SWITCH,
+            ));
+        }
         if element.tag_name == "For" {
             return self.emit_for_control(element);
         }
@@ -1844,6 +1854,84 @@ impl<'a> CodeGenerator<'a> {
             }
         }
         Ok(())
+    }
+
+    fn emit_switch_control(&mut self, element: &TemplateElement) -> CompilerResult<String> {
+        let matches = parse_switch_matches(element)?;
+        let index = self.next_node_index;
+        self.next_node_index += 1;
+        let variable = format!("node{index}");
+        let field = format!("node{index}");
+
+        self.node_fields.push(field.clone());
+        self.mount_lines.push(format!(
+            "const {variable} = document.createElement(\"span\");"
+        ));
+        self.mount_lines
+            .push(format!("{variable}.style.display = \"contents\";"));
+        self.mount_lines.push(format!(
+            "{variable}.setAttribute(\"data-iktia-control\", \"switch\");"
+        ));
+        self.mount_lines
+            .push(format!("this.#{field} = {variable};"));
+
+        let mut branch_fields = Vec::new();
+        for (match_index, switch_match) in matches.iter().enumerate() {
+            let branch_variable = format!("{variable}Match{match_index}");
+            let branch_field = format!("{field}Match{match_index}");
+            self.node_fields.push(branch_field.clone());
+            self.mount_lines.push(format!(
+                "const {branch_variable} = document.createElement(\"span\");"
+            ));
+            self.mount_lines
+                .push(format!("{branch_variable}.style.display = \"contents\";"));
+            self.mount_lines
+                .push(format!("this.#{branch_field} = {branch_variable};"));
+            self.mount_lines
+                .push(format!("{variable}.append({branch_variable});"));
+            for child in &switch_match.children {
+                self.emit_child(&branch_variable, child)?;
+            }
+            branch_fields.push(branch_field);
+        }
+
+        let matched_variable = format!("{field}Matched");
+        let mut update_lines = vec![format!("let {matched_variable} = false;")];
+        let mut dependencies = BTreeSet::new();
+        let mut has_unknown_dependencies = false;
+        for (match_index, switch_match) in matches.iter().enumerate() {
+            let branch_field = &branch_fields[match_index];
+            if let Some(when) = &switch_match.when {
+                let condition_variable = format!("{field}Match{match_index}When");
+                update_lines.push(format!("const {condition_variable} = Boolean({when});"));
+                update_lines.push(format!(
+                    "this.#{branch_field}.hidden = {matched_variable} || !{condition_variable};"
+                ));
+                update_lines.push(format!(
+                    "{matched_variable} = {matched_variable} || {condition_variable};"
+                ));
+                match self.dependencies_for_expression(when) {
+                    ReactiveDependencies::Known(sources) => {
+                        dependencies.extend(sources);
+                    }
+                    ReactiveDependencies::Unknown => {
+                        has_unknown_dependencies = true;
+                    }
+                }
+            } else {
+                update_lines.push(format!("this.#{branch_field}.hidden = {matched_variable};"));
+                update_lines.push(format!("{matched_variable} = true;"));
+            }
+        }
+
+        let dependencies = if has_unknown_dependencies {
+            ReactiveDependencies::Unknown
+        } else {
+            ReactiveDependencies::Known(dependencies)
+        };
+        self.push_update_lines(update_lines, dependencies);
+
+        Ok(variable)
     }
 
     fn emit_for_control(&mut self, element: &TemplateElement) -> CompilerResult<String> {
@@ -2965,6 +3053,16 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         if element.tag_name == "Show" {
             return self.render_show_control(element);
         }
+        if element.tag_name == "Switch" {
+            return self.render_switch_control(element);
+        }
+        if element.tag_name == "Match" {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                "<Match> can only be used as a direct child of <Switch>.",
+                DIAGNOSTIC_HINT_SWITCH,
+            ));
+        }
         if element.tag_name == "For" {
             return self.render_for_control();
         }
@@ -3143,6 +3241,52 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
                 DIAGNOSTIC_HINT_SHOW,
             )),
         }
+    }
+
+    fn render_switch_control(&mut self, element: &TemplateElement) -> CompilerResult<String> {
+        let matches = parse_switch_matches(element)?;
+        let container_field = self.next_node_field();
+        let mut output = String::new();
+        write!(
+            output,
+            "<span style=\"display: contents\" data-iktia-control=\"switch\" data-iktia-node=\"{}\">",
+            escape_html_attribute(&container_field)
+        )
+        .map_err(format_error)?;
+
+        let mut matched = false;
+        for (match_index, switch_match) in matches.iter().enumerate() {
+            let branch_field = format!("{container_field}Match{match_index}");
+            let is_visible = if matched {
+                false
+            } else if let Some(when) = &switch_match.when {
+                match evaluate_expression(when, &self.context).and_then(|value| value.as_bool()) {
+                    Some(true) => {
+                        matched = true;
+                        true
+                    }
+                    Some(false) => false,
+                    None => true,
+                }
+            } else {
+                matched = true;
+                true
+            };
+            write!(
+                output,
+                "<span style=\"display: contents\" data-iktia-node=\"{}\"{}>",
+                escape_html_attribute(&branch_field),
+                hidden_attribute(!is_visible)
+            )
+            .map_err(format_error)?;
+            for child in &switch_match.children {
+                output.push_str(&self.render_child(child)?);
+            }
+            output.push_str("</span>");
+        }
+
+        output.push_str("</span>");
+        Ok(output)
     }
 
     fn render_for_control(&mut self) -> CompilerResult<String> {
@@ -3737,6 +3881,107 @@ struct ListRenderer {
     template_source: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct SwitchMatch {
+    when: Option<String>,
+    children: Vec<TemplateChild>,
+}
+
+fn parse_switch_matches(element: &TemplateElement) -> CompilerResult<Vec<SwitchMatch>> {
+    if !element.attributes.is_empty() {
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+            "<Switch> does not support attributes in this milestone.",
+            DIAGNOSTIC_HINT_SWITCH,
+        ));
+    }
+
+    let mut matches = Vec::new();
+    let mut seen_default = false;
+    for child in &element.children {
+        match child {
+            TemplateChild::Text(text) if text.trim().is_empty() => {}
+            TemplateChild::Element(match_element) if match_element.tag_name == "Match" => {
+                if seen_default {
+                    return Err(unsupported_with_code(
+                        DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                        "<Switch> default <Match> must be the last arm.",
+                        DIAGNOSTIC_HINT_SWITCH,
+                    ));
+                }
+                let when = parse_match_when(match_element)?;
+                if when.is_none() {
+                    seen_default = true;
+                }
+                matches.push(SwitchMatch {
+                    when,
+                    children: match_element.children.clone(),
+                });
+            }
+            _ => {
+                return Err(unsupported_with_code(
+                    DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                    "<Switch> children must be static <Match> elements.",
+                    DIAGNOSTIC_HINT_SWITCH,
+                ));
+            }
+        }
+    }
+
+    if matches.is_empty() {
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+            "<Switch> requires at least one <Match> child.",
+            DIAGNOSTIC_HINT_SWITCH,
+        ));
+    }
+
+    Ok(matches)
+}
+
+fn parse_match_when(element: &TemplateElement) -> CompilerResult<Option<String>> {
+    let mut when = None;
+    for attribute in &element.attributes {
+        let TemplateAttribute::Named { name, value } = attribute else {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                "<Match> does not support JSX spread attributes.",
+                DIAGNOSTIC_HINT_SWITCH,
+            ));
+        };
+        if name != "when" {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                "<Match> supports only the optional `when` attribute.",
+                DIAGNOSTIC_HINT_SWITCH,
+            ));
+        }
+        if when.is_some() {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                "<Match> can declare `when` only once.",
+                DIAGNOSTIC_HINT_SWITCH,
+            ));
+        }
+        let AttributeValue::Expression(expression) = value else {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                "<Match> `when` must use a braced expression.",
+                DIAGNOSTIC_HINT_SWITCH,
+            ));
+        };
+        if expression.trim().is_empty() {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                "<Match> `when` must not be empty.",
+                DIAGNOSTIC_HINT_SWITCH,
+            ));
+        }
+        when = Some(expression.trim().to_owned());
+    }
+    Ok(when)
+}
+
 fn parse_for_renderer(element: &TemplateElement) -> CompilerResult<ListRenderer> {
     let each_expression = required_expression_attribute(element, "each")?.to_owned();
     let expressions = element
@@ -4023,7 +4268,7 @@ fn validate_child_expression(expression: &str) -> CompilerResult<()> {
     if expression.contains('?') || expression.contains("&&") || expression.contains("||") {
         return Err(unsupported_with_code(
             DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
-            "Conditional JSX expressions are not supported. Use the explicit <Show when={...}> control-flow primitive.",
+            "Conditional JSX expressions are not supported. Use explicit <Show> or <Switch>/<Match> control-flow primitives.",
             DIAGNOSTIC_HINT_SHOW,
         ));
     }

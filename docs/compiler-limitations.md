@@ -49,8 +49,10 @@ updates drive the DOM patch code instead.
 
 The single JSX return can still describe multiple visual states. Loading,
 error, empty, and ready views should be modeled as state or derived values and
-explicit control-flow subtrees inside the returned template. The compiler
-boundary rejects arbitrary returned render functions, not conditional UI.
+explicit control-flow subtrees inside the returned template. Use `<Show>` for
+binary conditionals and `<Switch>/<Match>` when exactly one state view should
+win. The compiler boundary rejects arbitrary returned render functions, not
+conditional UI.
 
 Some MVP detail parsers remain intentionally conservative: function prop
 destructuring, component options, inline style arrays, and generated-template
@@ -80,6 +82,8 @@ The MVP template parser supports:
 * Event attributes such as `onClick`.
 * Text interpolation with `{expression}` chunks.
 * Explicit `<Show when={...} fallback={...}>...</Show>` control flow.
+* Explicit `<Switch>` / `<Match when={...}>` multi-way control flow with one
+  optional trailing default `<Match>`.
 * Item-keyed `<For each={...}>...</For>` list control flow.
 * Position-keyed `<Index each={...}>...</Index>` list control flow.
 * Keyed `.map()` list control flow shorthand, for example
@@ -89,9 +93,10 @@ The MVP template parser supports:
 * `part`, `class`, `data-*`, `aria-*`, and common DOM attributes.
 
 Generated updates currently cover dynamic attributes, text bindings, effects,
-`<Show>` containers, `<For>` containers, `<Index>` containers, and keyed
-`.map()` list containers. Item-keyed lists reuse row nodes by key; index-keyed
-lists reuse row nodes by position and rebind item accessors on update.
+`<Show>` containers, `<Switch>` containers, `<For>` containers, `<Index>`
+containers, and keyed `.map()` list containers. Item-keyed lists reuse row
+nodes by key; index-keyed lists reuse row nodes by position and rebind item
+accessors on update.
 
 Item-keyed list row bindings can use a local keyed selector helper when the
 helper is a one-argument arrow function that directly compares a state accessor
@@ -181,7 +186,9 @@ silently producing framework-like runtime behavior.
 Currently unsupported:
 
 * Multiple root JSX elements or fragments.
-* Conditional JSX branches outside `<Show>`.
+* Conditional JSX branches outside `<Show>` or `<Switch>/<Match>`.
+* Dynamic `<Switch>` children, multiple default `<Match>` arms, or `<Match>`
+  outside a direct `<Switch>` child position.
 * Unkeyed `.map()` JSX list children.
 * `<For>` children without a key on the returned root element.
 * `.map()` list callbacks with block bodies or non-JSX return values.
