@@ -45,7 +45,8 @@ mod tests {
         DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
         DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
         DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS, DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-        DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
+        DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+        DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
     };
 
     #[test]
@@ -97,6 +98,10 @@ mod tests {
             (
                 DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
                 "IKTIA_UNSUPPORTED_SHOW_FALLBACK",
+            ),
+            (
+                DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
+                "IKTIA_UNSUPPORTED_SWITCH_MATCH",
             ),
             (
                 DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
@@ -1181,6 +1186,69 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_generate_switch_match_control_flow() {
+        let source = r#"
+            import { Match, Switch, state } from "@iktia/core";
+
+            export function StatusPanel() {
+              const status = state("loading");
+
+              return (
+                <section>
+                  <Switch>
+                    <Match when={status() === "loading"}>
+                      <p part="status">Loading</p>
+                    </Match>
+                    <Match when={status() === "error"}>
+                      <p part="status error">Error</p>
+                    </Match>
+                    <Match when={status() === "empty"}>
+                      <p part="status">Empty</p>
+                    </Match>
+                    <Match>
+                      <p part="status">Ready</p>
+                    </Match>
+                  </Switch>
+                </section>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "status-panel.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("data-iktia-control\", \"switch"));
+        assert!(result.code.contains("let node1Matched = false;"));
+        assert!(
+            result
+                .code
+                .contains("const node1Match0When = Boolean(status() === \"loading\");")
+        );
+        assert!(
+            result
+                .code
+                .contains("this.#node1Match0.hidden = node1Matched || !node1Match0When;")
+        );
+        assert!(
+            result
+                .code
+                .contains("node1Matched = node1Matched || node1Match1When;")
+        );
+        assert!(
+            result
+                .code
+                .contains("this.#node1Match3.hidden = node1Matched;")
+        );
+        assert!(
+            result
+                .code
+                .contains("if (this.#shouldUpdate([\"status\"], dirtySources))")
+        );
+    }
+
+    #[test]
     fn transform_component_module_should_generate_for_and_index_reconcilers() {
         let source = r#"
             import { For, Index, state } from "@iktia/core";
@@ -1406,7 +1474,56 @@ mod tests {
         let error = transform_component_module(source, "status.wc.tsx")
             .expect_err("conditional JSX child should be rejected");
 
-        assert!(error.to_string().contains("Use the explicit <Show"));
+        assert!(
+            error
+                .to_string()
+                .contains("Use explicit <Show> or <Switch>")
+        );
+    }
+
+    #[test]
+    fn transform_component_module_should_reject_invalid_switch_match_structure() {
+        let source = r#"
+            import { Match, Switch, state } from "@iktia/core";
+
+            export function StatusPanel() {
+              const ready = state(false);
+
+              return (
+                <Switch>
+                  <Match>Default</Match>
+                  <Match when={ready()}>Ready</Match>
+                </Switch>
+              );
+            }
+        "#;
+
+        let error = transform_component_module(source, "status-panel.wc.tsx")
+            .expect_err("default Match before conditional Match should be rejected");
+
+        assert!(
+            error
+                .to_string()
+                .contains("default <Match> must be the last arm")
+        );
+    }
+
+    #[test]
+    fn transform_component_module_should_reject_match_outside_switch() {
+        let source = r#"
+            import { Match, state } from "@iktia/core";
+
+            export function StatusPanel() {
+              const ready = state(false);
+
+              return <Match when={ready()}>Ready</Match>;
+            }
+        "#;
+
+        let error = transform_component_module(source, "status-panel.wc.tsx")
+            .expect_err("Match outside Switch should be rejected");
+
+        assert!(error.to_string().contains("direct child of <Switch>"));
     }
 
     #[test]
@@ -1672,6 +1789,62 @@ mod tests {
                 .template_html
                 .contains("<style>:host { display: block; }</style>")
         );
+    }
+
+    #[test]
+    fn render_declarative_shadow_dom_module_should_serialize_switch_match_control_flow() {
+        let source = r#"
+            import { Match, Switch, state } from "@iktia/core";
+
+            export function StatusPanel() {
+              const loading = state(false);
+              const failed = state(false);
+
+              return (
+                <section>
+                  <Switch>
+                    <Match when={loading()}>
+                      <p>Loading</p>
+                    </Match>
+                    <Match when={failed()}>
+                      <p>Error</p>
+                    </Match>
+                    <Match>
+                      <p>Ready</p>
+                    </Match>
+                  </Switch>
+                </section>
+              );
+            }
+        "#;
+
+        let result = match render_declarative_shadow_dom_module(source, "status-panel.wc.tsx", None)
+        {
+            Ok(result) => result,
+            Err(error) => panic!("DSD render failed: {error}"),
+        };
+
+        assert!(
+            result
+                .template_html
+                .contains("data-iktia-control=\"switch\"")
+        );
+        assert!(
+            result.template_html.contains(
+                "<span style=\"display: contents\" data-iktia-node=\"node1Match0\" hidden>"
+            )
+        );
+        assert!(
+            result.template_html.contains(
+                "<span style=\"display: contents\" data-iktia-node=\"node1Match1\" hidden>"
+            )
+        );
+        assert!(
+            result
+                .template_html
+                .contains("<span style=\"display: contents\" data-iktia-node=\"node1Match2\">")
+        );
+        assert!(result.template_html.contains(">Ready<"));
     }
 
     #[test]

@@ -1,6 +1,8 @@
 /** @jsxImportSource @iktia/core */
 import {
   Show,
+  Switch,
+  Match,
   For,
   Index,
   computed,
@@ -108,6 +110,17 @@ function FunctionCounter({
       <Show when={count() > 0} fallback={<span>Empty</span>}>
         <span>{doubled()}</span>
       </Show>
+      <Switch>
+        <Match when={count() < 0}>
+          <span>Negative</span>
+        </Match>
+        <Match when={count() === 0}>
+          <span>Zero</span>
+        </Match>
+        <Match>
+          <span>Positive</span>
+        </Match>
+      </Switch>
       {items().map((item, index) => (
         <span key={item} data-index={index} part="item">
           {item}

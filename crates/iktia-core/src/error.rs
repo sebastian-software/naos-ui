@@ -19,7 +19,8 @@ pub(crate) const DIAGNOSTIC_HINT_LISTS: &str =
 pub(crate) const DIAGNOSTIC_HINT_REMOVED_API: &str =
     "Use the v0.1 function component authoring API instead.";
 pub(crate) const DIAGNOSTIC_HINT_SHOW: &str =
-    "Use explicit <Show when={...} fallback={...}> control flow.";
+    "Use explicit <Show when={...} fallback={...}> or <Switch>/<Match> control flow.";
+pub(crate) const DIAGNOSTIC_HINT_SWITCH: &str = "Use static <Switch> children with <Match when={...}> arms and one optional trailing <Match> default.";
 
 pub(crate) const DIAGNOSTIC_CODE_DSD_INPUT: &str = "IKTIA_DSD_INPUT";
 pub(crate) const DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED: &str =
@@ -42,6 +43,7 @@ pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER: &str =
     "IKTIA_UNSUPPORTED_LIST_RENDERER";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK: &str =
     "IKTIA_UNSUPPORTED_SHOW_FALLBACK";
+pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH: &str = "IKTIA_UNSUPPORTED_SWITCH_MATCH";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX: &str = "IKTIA_UNSUPPORTED_SYNTAX";
 
 /// Shared result type for compiler operations.

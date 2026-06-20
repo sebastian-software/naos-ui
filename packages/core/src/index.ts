@@ -27,6 +27,15 @@ export type ShowProps = {
   children?: JsxChild
 }
 
+export type SwitchProps = {
+  children?: JsxChild
+}
+
+export type MatchProps = {
+  when?: boolean
+  children?: JsxChild
+}
+
 export type ForProps<T> = {
   each: readonly T[] | null | undefined
   children: (item: T, index: number) => JSX.Element
@@ -84,6 +93,14 @@ export function effect(callback: EffectCallback): void {
 
 export function Show(props: ShowProps): JSX.Element {
   return authoringRuntimeError("Show")
+}
+
+export function Switch(props: SwitchProps): JSX.Element {
+  return authoringRuntimeError("Switch")
+}
+
+export function Match(props: MatchProps): JSX.Element {
+  return authoringRuntimeError("Match")
 }
 
 export function For<T>(props: ForProps<T>): JSX.Element {

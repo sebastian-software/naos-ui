@@ -176,7 +176,8 @@ single JSX return declares the view for that instance.
 That single return is a compiler boundary, not a one-state UI limitation.
 Loading, error, empty, and ready variants should be represented as state or
 derived values inside the returned view, using explicit control-flow primitives
-such as `<Show>` for conditional subtrees.
+such as `<Show>` for binary conditionals and `<Switch>/<Match>` for mutually
+exclusive state views.
 
 ```tsx
 export type TextFieldProps = {
@@ -417,8 +418,10 @@ export function Dashboard() {
 }
 ```
 
-`<Show>`, `<For>`, and `<Index>` are compiler primitives, not runtime
-components. `<For>` is item-keyed and preserves row nodes by the returned
+`<Show>`, `<Switch>/<Match>`, `<For>`, and `<Index>` are compiler primitives,
+not runtime components. `<Switch>` chooses the first matching `<Match
+when={...}>` arm and supports one trailing `<Match>` without `when` as an
+explicit default. `<For>` is item-keyed and preserves row nodes by the returned
 element's `key`. `<Index>` is position-keyed and passes each item as an
 accessor so row nodes can stay mounted while their values rebind. The narrow
 typed `.map()` form remains supported as item-keyed list shorthand.
@@ -427,6 +430,25 @@ typed `.map()` form remains supported as item-keyed list shorthand.
 <Show when={count() > 0} fallback={<span>Empty</span>}>
   <span>{count()}</span>
 </Show>
+
+<Switch>
+  <Match when={status() === "loading"}>
+    <p part="status">Loading</p>
+  </Match>
+  <Match when={status() === "error"}>
+    <p part="status error">Error</p>
+  </Match>
+  <Match when={items().length === 0}>
+    <p part="status empty">Empty</p>
+  </Match>
+  <Match>
+    <ul>
+      <For each={items()}>
+        {(item) => <li key={item.id}>{item.label}</li>}
+      </For>
+    </ul>
+  </Match>
+</Switch>
 
 <For each={items()}>
   {(item, index) => (
@@ -446,6 +468,11 @@ typed `.map()` form remains supported as item-keyed list shorthand.
   </span>
 ))}
 ```
+
+`<Switch>` children must be static `<Match>` elements. Dynamic Match lists,
+multiple defaults, and defaults before later conditional arms fail during
+compiler analysis. Use `<Show>` when a visible subtree is independent, and
+`<Switch>/<Match>` when only one view state should be visible at a time.
 
 The accepted `<For>` and `.map()` forms must return a JSX element expression
 body and put `key` on the returned root element. `<Index>` does not use a
