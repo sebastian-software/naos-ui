@@ -140,7 +140,7 @@ export function createIktiaRadioGroupContextController({
         })
         if (next == null) return
         event.preventDefault()
-        if (next !== item) {
+        if (next.element !== item.element) {
           current.api.setValue(next.value)
           next.element.focus()
           onRequestUpdate()
@@ -191,9 +191,7 @@ export function createIktiaRadioGroupContextController({
         api: active.api,
         item,
         items,
-        onRequestUpdate,
         orientation: active.orientation,
-        attachListeners: false,
       })
     }
   }
@@ -211,18 +209,14 @@ export function createIktiaRadioGroupContextController({
 }
 
 function syncRadioItem({
-  attachListeners = true,
   api,
   item,
   items,
-  onRequestUpdate,
   orientation,
 }: {
-  attachListeners?: boolean
   api: ZagRadioGroupApi
   item: RadioItem
   items: RadioItem[]
-  onRequestUpdate(): void
   orientation: "horizontal" | "vertical"
 }) {
   const { disabled, element, value } = item
@@ -239,35 +233,6 @@ function syncRadioItem({
   setStringAttribute(element, "data-orientation", orientation)
   setStringAttribute(element, "data-disabled", disabled ? "" : null)
   element.tabIndex = isTabStop ? 0 : -1
-
-  if (!attachListeners) return () => undefined
-
-  const selectCurrent = () => {
-    if (disabled) return
-    api.setValue(value)
-    element.focus()
-    onRequestUpdate()
-  }
-  const clickListener = () => selectCurrent()
-  const keyListener = (event: KeyboardEvent) => {
-    const next = nextRadioItemForKey({ current: item, event, items, orientation })
-    if (next == null) return
-    event.preventDefault()
-    if (next !== item) {
-      api.setValue(next.value)
-      next.element.focus()
-      onRequestUpdate()
-      return
-    }
-    selectCurrent()
-  }
-
-  element.addEventListener("click", clickListener)
-  element.addEventListener("keydown", keyListener)
-  return () => {
-    element.removeEventListener("click", clickListener)
-    element.removeEventListener("keydown", keyListener)
-  }
 }
 
 function compareRadioItems(a: RadioItem, b: RadioItem) {

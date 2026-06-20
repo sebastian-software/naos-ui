@@ -38,7 +38,6 @@ export function IktiaRadio({
       },
       context: IKTIA_RADIO_GROUP_CONTEXT,
       element: host().element,
-      subscribe: true,
     }))
   })
   onDisconnected(() => {

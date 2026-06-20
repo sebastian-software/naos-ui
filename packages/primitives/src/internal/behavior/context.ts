@@ -103,7 +103,6 @@ export function consumeIktiaContext<Value>({
             return
           }
           resolved = true
-          unsubscribeProvider?.()
           unsubscribeProvider = unsubscribe
           callback(value, unsubscribe)
         },

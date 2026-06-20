@@ -92,12 +92,13 @@ describe("primitive behavior kernels", () => {
 
     await Promise.resolve()
     provider.setValue("next")
+    provider.setValue("again")
     cleanup()
     provider.setValue("ignored")
     provider.destroy()
     globalThis.CustomEvent = originalCustomEvent
 
-    expect(received).toEqual(["initial", "next"])
+    expect(received).toEqual(["initial", "next", "again"])
   })
 
   it("toggles pressed state and form value", () => {
