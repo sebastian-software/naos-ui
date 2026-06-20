@@ -169,9 +169,9 @@ Iktia function components are instance setup declarations. The component body is
 analyzed and lowered into a generated Custom Element class; it is not called
 again as a React-style render function during updates. Use `state()`,
 `computed()`, prop reads, `effect()`, and `host().update()` to participate in
-generated updates. The single JSX return declares the view for that instance.
-Remix v3's returned render function informed this lifecycle decision, but it is
-not an Iktia compatibility target or accepted public component shape.
+generated updates. The mental model is closer to Solid's setup-once components
+and Svelte's compiled component instances than to runtime rerendering. The
+single JSX return declares the view for that instance.
 
 ```tsx
 export type TextFieldProps = {

@@ -41,10 +41,11 @@ function component discovery, local `state()`, `computed()`, `effect()`, and
 returned JSX template spans.
 
 The exported component function is not a React-style render function and is not
-called again during updates. Remix v3's returned render function was useful
-design input for the instance-lifetime model, but `return () => <JSX>` is not
-part of Iktia's v0.1 component shape. Generated state writes, prop changes,
-effects, and host updates drive the DOM patch code instead.
+called again during updates. The closest comparison points are setup-once and
+compiler-oriented systems such as Solid and Svelte, not runtime rerendering.
+Factory render callbacks such as `return () => <JSX>` are not part of Iktia's
+v0.1 component shape. Generated state writes, prop changes, effects, and host
+updates drive the DOM patch code instead.
 
 Some MVP detail parsers remain intentionally conservative: function prop
 destructuring, component options, inline style arrays, and generated-template
