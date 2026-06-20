@@ -326,6 +326,10 @@ test("router package mounts Custom Element routes from normal anchors", async ({
   await expect(productView).toHaveJSProperty("productId", "42")
   await expect(productView).toContainText("Product 42")
   await expect(productView).toContainText("Search tab: details")
+  await expect(productView).toContainText("Loader data: 18 units ready")
+  await expect(productView.locator("[data-router-action-result]")).toHaveText(
+    "Action result: none"
+  )
   await expect(productLink).toHaveAttribute("data-active", "")
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-router-route",
@@ -334,6 +338,18 @@ test("router package mounts Custom Element routes from normal anchors", async ({
   await expect(eventOutput).toHaveText(
     "Last router route: /products/42?tab=details"
   )
+
+  await productView.locator("input[name='note']").fill("Ship faster")
+  await productView.getByRole("button", { name: "Save note" }).click()
+
+  await expect(productView.locator("[data-router-action-result]")).toHaveText(
+    "Action result: saved Ship faster"
+  )
+  await expect(page.locator("body")).toHaveAttribute(
+    "data-last-router-action",
+    "Ship faster"
+  )
+  await expect(eventOutput).toHaveText("Last router action: Ship faster")
 
   await settingsLink.click()
 

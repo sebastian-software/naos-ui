@@ -1,4 +1,4 @@
-export type IktiaNavigationType = "load" | "push" | "replace" | "traverse"
+export type IktiaNavigationType = "action" | "load" | "push" | "replace" | "traverse"
 
 export type IktiaNavigation = {
   readonly id: number
@@ -9,6 +9,8 @@ export type IktiaNavigation = {
 }
 
 export type IktiaRouteMatch<Route extends IktiaRoute = IktiaRoute> = {
+  readonly actionData?: unknown
+  readonly data?: unknown
   readonly route: Route
   readonly url: URL
   readonly params: Readonly<Record<string, string>>
@@ -16,8 +18,34 @@ export type IktiaRouteMatch<Route extends IktiaRoute = IktiaRoute> = {
   readonly navigation: IktiaNavigation
 }
 
+export type IktiaLoaderArgs<Route extends IktiaRoute = IktiaRoute> = {
+  readonly navigation: IktiaNavigation
+  readonly params: Readonly<Record<string, string>>
+  readonly request: Request
+  readonly route: Route
+  readonly search: URLSearchParams
+  readonly url: URL
+}
+
+export type IktiaActionSubmission = {
+  readonly form: HTMLFormElement | null
+  readonly formData: FormData
+  readonly method: string
+  readonly submitter: HTMLElement | null
+}
+
+export type IktiaActionArgs<Route extends IktiaRoute = IktiaRoute> = IktiaLoaderArgs<Route> &
+  IktiaActionSubmission
+
+export type IktiaRedirect = {
+  readonly replace?: boolean
+  readonly to: string | URL
+}
+
 export type IktiaRouteBase = {
   readonly path: string
+  readonly action?: (args: IktiaActionArgs) => Promise<unknown> | unknown
+  readonly loader?: (args: IktiaLoaderArgs) => Promise<unknown> | unknown
   readonly load?: (navigation: IktiaNavigation) => Promise<unknown> | unknown
   readonly props?: (match: IktiaRouteMatch) => Record<string, unknown>
   readonly attrs?: (match: IktiaRouteMatch) => Record<string, string | null>
@@ -53,6 +81,15 @@ export type IktiaNavigateOptions = {
   readonly viewTransition?: boolean
 }
 
+export type IktiaSubmitOptions = {
+  readonly form?: HTMLFormElement | null
+  readonly formData?: FormData | URLSearchParams | Record<string, FormDataEntryValue | boolean | number | null | undefined>
+  readonly method?: string
+  readonly replace?: boolean
+  readonly submitter?: HTMLElement | null
+  readonly viewTransition?: boolean
+}
+
 export type IktiaRouterOptions<Routes extends readonly IktiaRoute[]> = {
   readonly basePath?: string
   readonly linkRoot?: ParentNode & EventTarget
@@ -63,6 +100,21 @@ export type IktiaRouterOptions<Routes extends readonly IktiaRoute[]> = {
 }
 
 export type IktiaRouterEventMap<Routes extends readonly IktiaRoute[]> = {
+  "iktia:actioncommit": {
+    readonly data: unknown
+    readonly match: IktiaRouteMatch<Routes[number]>
+    readonly navigation: IktiaNavigation
+    readonly submission: IktiaActionSubmission
+  }
+  "iktia:actionerror": {
+    readonly error: unknown
+    readonly navigation: IktiaNavigation
+    readonly submission: IktiaActionSubmission
+  }
+  "iktia:actionstart": {
+    readonly navigation: IktiaNavigation
+    readonly submission: IktiaActionSubmission
+  }
   "iktia:navigationabort": {
     readonly navigation: IktiaNavigation
   }
@@ -131,6 +183,9 @@ type ViewTransitionDocument = Document & {
 }
 
 const ROUTER_EVENT_NAMES = new Set<string>([
+  "iktia:actioncommit",
+  "iktia:actionerror",
+  "iktia:actionstart",
   "iktia:navigationabort",
   "iktia:navigationcommit",
   "iktia:navigationerror",
@@ -148,6 +203,10 @@ export function createRouter<const Routes extends readonly IktiaRoute[]>(
   options: IktiaRouterOptions<Routes>
 ): IktiaRouter<Routes> {
   return new IktiaRouter(options)
+}
+
+export function redirect(to: string | URL, options: { readonly replace?: boolean } = {}): IktiaRedirect {
+  return { replace: options.replace, to }
 }
 
 export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRoute[]> extends EventTarget {
@@ -190,6 +249,7 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
     if (this.#started) return
     this.#started = true
     this.#linkRoot?.addEventListener("click", this.#onClick)
+    this.#linkRoot?.addEventListener("submit", this.#onSubmit)
     this.#platform.addEventListener("popstate", this.#onPopState)
     void this.#navigateToUrl(this.#currentUrl(), {
       history: "none",
@@ -202,6 +262,7 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
     if (!this.#started) return
     this.#started = false
     this.#linkRoot?.removeEventListener("click", this.#onClick)
+    this.#linkRoot?.removeEventListener("submit", this.#onSubmit)
     this.#platform.removeEventListener("popstate", this.#onPopState)
     this.#activeController?.abort()
     this.#activeController = null
@@ -261,6 +322,31 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
     if (!matched) return
     const navigation = this.#createNavigation(url, "load")
     await this.#loadRoute(matched.route, navigation)
+    await this.#runLoader(matched.route, {
+      route: matched.route as Routes[number],
+      url,
+      params: matched.params,
+      search: url.searchParams,
+      navigation,
+    })
+  }
+
+  submit(to: string | URL, options: IktiaSubmitOptions = {}): Promise<IktiaRouteMatch<Routes[number]> | null> {
+    const url = this.#resolveUrl(to)
+    const submission = normalizeSubmission(options)
+    if (submission.method === "GET") {
+      const targetUrl = appendFormDataToUrl(url, submission.formData)
+      return this.#navigateToUrl(targetUrl, {
+        history: options.replace ? "replace" : "push",
+        type: options.replace ? "replace" : "push",
+        viewTransition: options.viewTransition ?? false,
+      })
+    }
+
+    return this.#submitToUrl(url, submission, {
+      replace: options.replace ?? false,
+      viewTransition: options.viewTransition ?? false,
+    })
   }
 
   #onClick = (event: Event): void => {
@@ -276,6 +362,44 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
     event.preventDefault()
     void this.navigate(url, {
       viewTransition: anchor.hasAttribute("data-iktia-view-transition"),
+    })
+  }
+
+  #onSubmit = (event: Event): void => {
+    if (event.defaultPrevented) return
+    const form = event.target instanceof HTMLFormElement ? event.target : null
+    if (!form || !isRoutableForm(form)) return
+
+    const url = new URL(form.action || this.#currentUrl().href, this.#currentUrl())
+    if (url.origin !== this.#currentUrl().origin || this.#toInternalPath(url) === null) {
+      return
+    }
+
+    event.preventDefault()
+    const submitter =
+      typeof SubmitEvent !== "undefined" && event instanceof SubmitEvent && event.submitter instanceof HTMLElement
+        ? event.submitter
+        : null
+    const formData = formDataFromForm(form, submitter)
+    const method = normalizeMethod(form.method || "get")
+
+    if (method === "GET") {
+      void this.submit(url, {
+        form,
+        formData,
+        method,
+        submitter,
+        viewTransition: form.hasAttribute("data-iktia-view-transition"),
+      })
+      return
+    }
+
+    void this.submit(url, {
+      form,
+      formData,
+      method,
+      submitter,
+      viewTransition: form.hasAttribute("data-iktia-view-transition"),
     })
   }
 
@@ -322,7 +446,7 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
       if (!route) return null
 
       const routeForMatch = normalizeFallbackRoute(route, matched?.route)
-      const match = {
+      const matchWithoutData = {
         route: routeForMatch as Routes[number],
         url,
         params: matched?.params ?? {},
@@ -330,7 +454,7 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
         navigation,
       } satisfies IktiaRouteMatch<Routes[number]>
 
-      const guard = "canEnter" in route && route.canEnter ? await route.canEnter(match) : true
+      const guard = "canEnter" in route && route.canEnter ? await route.canEnter(matchWithoutData) : true
       if (!this.#isCurrent(navigation)) return null
       if (guard === false) return null
       if (typeof guard === "string" || guard instanceof URL) {
@@ -343,6 +467,11 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
 
       await this.#loadRoute(route, navigation)
       if (!this.#isCurrent(navigation)) return null
+
+      const data = await this.#runLoader(route, matchWithoutData)
+      if (!this.#isCurrent(navigation)) return null
+
+      const match = { ...matchWithoutData, data } satisfies IktiaRouteMatch<Routes[number]>
 
       if (options.history === "push") {
         this.#platform.history.pushState(null, "", url)
@@ -373,6 +502,128 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
         this.#activeController = null
         this.#activeNavigation = null
       }
+    }
+  }
+
+  async #submitToUrl(
+    url: URL,
+    submission: IktiaActionSubmission,
+    options: {
+      readonly replace: boolean
+      readonly viewTransition: boolean
+    }
+  ): Promise<IktiaRouteMatch<Routes[number]> | null> {
+    if (this.#activeController && this.#activeNavigation) {
+      const previousNavigation = this.#activeNavigation
+      this.#activeController.abort()
+      this.#dispatchRouterEvent("iktia:navigationabort", {
+        navigation: previousNavigation,
+      })
+    }
+
+    const controller = new AbortController()
+    const navigation: IktiaNavigation = {
+      id: ++this.#navigationId,
+      url,
+      from: this.#currentMatch?.url ?? null,
+      type: "action",
+      signal: controller.signal,
+    }
+
+    this.#activeController = controller
+    this.#activeNavigation = navigation
+    this.#dispatchRouterEvent("iktia:navigationstart", { navigation })
+    this.#dispatchRouterEvent("iktia:actionstart", { navigation, submission })
+
+    try {
+      const matched = this.#findRoute(url)
+      const route = matched?.route
+      if (!route) return null
+
+      const matchWithoutData = {
+        route: route as Routes[number],
+        url,
+        params: matched.params,
+        search: url.searchParams,
+        navigation,
+      } satisfies IktiaRouteMatch<Routes[number]>
+
+      await this.#loadRoute(route, navigation)
+      if (!this.#isCurrent(navigation)) return null
+
+      if (!route.action) {
+        throw new Error(`Route "${route.path}" does not define an action.`)
+      }
+
+      const actionData = await route.action({
+        ...this.#loaderArgs(route, matchWithoutData),
+        request: createActionRequest(url, navigation, submission),
+        ...submission,
+      })
+      if (!this.#isCurrent(navigation)) return null
+
+      if (isRedirect(actionData)) {
+        this.#clearActiveNavigation(navigation)
+        this.#dispatchRouterEvent("iktia:actioncommit", {
+          data: actionData,
+          match: matchWithoutData,
+          navigation,
+          submission,
+        })
+        const replace = actionData.replace ?? options.replace
+        return this.#navigateToUrl(this.#resolveUrl(actionData.to), {
+          history: replace ? "replace" : "push",
+          type: replace ? "replace" : "push",
+          viewTransition: options.viewTransition,
+        })
+      }
+
+      const data = await this.#runLoader(route, {
+        ...matchWithoutData,
+        actionData,
+      })
+      if (!this.#isCurrent(navigation)) return null
+
+      const match = {
+        ...matchWithoutData,
+        actionData,
+        data,
+      } satisfies IktiaRouteMatch<Routes[number]>
+
+      const currentUrl = this.#currentUrl()
+      if (options.replace) {
+        this.#platform.history.replaceState(null, "", url)
+      } else if (currentUrl.href !== url.href) {
+        this.#platform.history.pushState(null, "", url)
+      }
+
+      await this.#commit(match, route, options.viewTransition)
+      this.#dispatchRouterEvent("iktia:actioncommit", {
+        data: actionData,
+        match,
+        navigation,
+        submission,
+      })
+      return match
+    } catch (error) {
+      if (!this.#isCurrent(navigation)) return null
+      this.#dispatchRouterEvent("iktia:actionerror", { error, navigation, submission })
+      this.#dispatchRouterEvent("iktia:navigationerror", { error, navigation })
+      if (this.#error) {
+        const errorRoute = normalizeFallbackRoute(this.#error)
+        const match = {
+          route: errorRoute as Routes[number],
+          url,
+          params: {},
+          search: url.searchParams,
+          navigation,
+        } satisfies IktiaRouteMatch<Routes[number]>
+        await this.#commit(match, this.#error, false)
+        return match
+      }
+      throw error
+    } finally {
+      this.#clearActiveNavigation(navigation)
     }
   }
 
@@ -447,6 +698,28 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
     })
     this.#loadPromises.set(route, promise)
     return promise
+  }
+
+  async #runLoader<Route extends IktiaRoute | IktiaFallbackRoute>(
+    route: Route,
+    match: IktiaRouteMatch
+  ): Promise<unknown> {
+    if (!route.loader) return undefined
+    return route.loader(this.#loaderArgs(route, match))
+  }
+
+  #loaderArgs<Route extends IktiaRoute | IktiaFallbackRoute>(
+    route: Route,
+    match: IktiaRouteMatch
+  ): IktiaLoaderArgs {
+    return {
+      navigation: match.navigation,
+      params: match.params,
+      request: createLoaderRequest(match.url, match.navigation),
+      route: normalizeFallbackRoute(route),
+      search: match.search,
+      url: match.url,
+    }
   }
 
   #dispatchRouterEvent<Name extends IktiaRouterEventName>(
@@ -543,6 +816,13 @@ export class IktiaRouter<Routes extends readonly IktiaRoute[] = readonly IktiaRo
   #isCurrent(navigation: IktiaNavigation): boolean {
     return this.#activeNavigation?.id === navigation.id && !navigation.signal.aborted
   }
+
+  #clearActiveNavigation(navigation: IktiaNavigation): void {
+    if (this.#activeNavigation?.id === navigation.id) {
+      this.#activeController = null
+      this.#activeNavigation = null
+    }
+  }
 }
 
 function defaultPlatform(): RouterPlatform {
@@ -597,6 +877,83 @@ function findAnchor(target: EventTarget | null): HTMLAnchorElement | null {
 
 function isRoutableAnchor(anchor: HTMLAnchorElement): boolean {
   return !anchor.target && !anchor.hasAttribute("download") && !anchor.getAttribute("rel")?.split(/\s+/).includes("external")
+}
+
+function isRoutableForm(form: HTMLFormElement): boolean {
+  return form.hasAttribute("data-iktia-action") && !form.target && normalizeMethod(form.method || "get") !== "DIALOG"
+}
+
+function normalizeSubmission(options: IktiaSubmitOptions): IktiaActionSubmission {
+  return {
+    form: options.form ?? null,
+    formData: normalizeFormData(options.formData ?? options.form ?? new FormData()),
+    method: normalizeMethod(options.method ?? options.form?.method ?? "post"),
+    submitter: options.submitter ?? null,
+  }
+}
+
+function normalizeFormData(
+  value: NonNullable<IktiaSubmitOptions["formData"]> | HTMLFormElement
+): FormData {
+  if (typeof HTMLFormElement !== "undefined" && value instanceof HTMLFormElement) return formDataFromForm(value, null)
+  if (value instanceof FormData) return value
+
+  const formData = new FormData()
+  if (value instanceof URLSearchParams) {
+    for (const [name, entryValue] of value) {
+      formData.append(name, entryValue)
+    }
+    return formData
+  }
+
+  for (const [name, entryValue] of Object.entries(value)) {
+    if (entryValue === null || entryValue === undefined) continue
+    const isFile = typeof File !== "undefined" && entryValue instanceof File
+    formData.append(name, typeof entryValue === "string" || isFile ? entryValue : String(entryValue))
+  }
+  return formData
+}
+
+function formDataFromForm(form: HTMLFormElement, submitter: HTMLElement | null): FormData {
+  if (!submitter) return new FormData(form)
+  try {
+    return new FormData(form, submitter)
+  } catch {
+    return new FormData(form)
+  }
+}
+
+function normalizeMethod(method: string): string {
+  return method.trim().toUpperCase() || "GET"
+}
+
+function appendFormDataToUrl(url: URL, formData: FormData): URL {
+  const next = new URL(url)
+  const params = new URLSearchParams(next.search)
+  for (const [name, value] of formData) {
+    params.append(name, typeof value === "string" ? value : value.name)
+  }
+  next.search = params.toString()
+  return next
+}
+
+function createLoaderRequest(url: URL, navigation: IktiaNavigation): Request {
+  return new Request(url, {
+    method: "GET",
+    signal: navigation.signal,
+  })
+}
+
+function createActionRequest(url: URL, navigation: IktiaNavigation, submission: IktiaActionSubmission): Request {
+  return new Request(url, {
+    body: submission.method === "GET" || submission.method === "HEAD" ? undefined : submission.formData,
+    method: submission.method,
+    signal: navigation.signal,
+  })
+}
+
+function isRedirect(value: unknown): value is IktiaRedirect {
+  return Boolean(value && typeof value === "object" && "to" in value)
 }
 
 function compileRoutePath(path: string): (pathname: string) => Readonly<Record<string, string>> | null {

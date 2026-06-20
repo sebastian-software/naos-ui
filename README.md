@@ -183,8 +183,9 @@ pnpm --filter @iktia/example-counter test
 The public site is split into Ardo-rendered docs at the root and linked static
 Iktia demos under `/demos/`. The demos cover reactive state, events, primitive
 parts/slots/state attributes, PascalCase composition, CSS variables, packaged
-`@iktia/primitives`, an optional `@iktia/router` Custom Element route shell,
-and a generated Declarative Shadow DOM page with delayed custom-element upgrade. See
+`@iktia/primitives`, an optional `@iktia/router` Custom Element route shell
+with loader/action flow, and a generated Declarative Shadow DOM page with
+delayed custom-element upgrade. See
 [docs/demos.md](docs/demos.md) for the docs/demo matrix, local commands, and
 Pages workflow details.
 
