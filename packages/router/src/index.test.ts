@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { createRouter, defineRoutes, type IktiaRouteMatch } from "./index.js"
+import { createRouter, defineRoutes, redirect, type IktiaRouteMatch } from "./index.js"
 
 function setupRouter() {
   document.body.innerHTML = `
@@ -112,6 +112,179 @@ describe("IktiaRouter", () => {
     expect(document.title).toBe("Product 42")
     expect(document.querySelector("[data-product]")?.hasAttribute("data-active")).toBe(true)
     expect(commits).toHaveLength(1)
+  })
+
+  it("runs route loaders before mounting and exposes loader data", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+
+    class AppLoaded extends HTMLElement {
+      routeData: unknown
+    }
+    if (!customElements.get("app-loaded")) customElements.define("app-loaded", AppLoaded)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        {
+          path: "/loaded/:id",
+          tag: "app-loaded",
+          loader({ params, request, search }) {
+            expect(request.method).toBe("GET")
+            return {
+              id: params.id,
+              tab: search.get("tab"),
+            }
+          },
+          props({ data }) {
+            return { routeData: data }
+          },
+          title({ data }) {
+            const loaded = data as { id: string }
+            return `Loaded ${loaded.id}`
+          },
+        },
+      ] as const),
+    })
+
+    const match = await router.navigate("/loaded/42?tab=details")
+    const element = outlet.firstElementChild as AppLoaded & { iktiaRoute?: IktiaRouteMatch }
+
+    expect(match?.data).toEqual({ id: "42", tab: "details" })
+    expect(element.routeData).toEqual({ id: "42", tab: "details" })
+    expect(element.iktiaRoute?.data).toEqual({ id: "42", tab: "details" })
+    expect(document.title).toBe("Loaded 42")
+  })
+
+  it("runs route actions and revalidates loader data", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+
+    class AppAction extends HTMLElement {}
+    if (!customElements.get("app-action")) customElements.define("app-action", AppAction)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    let loaderRuns = 0
+    const actionCommits: IktiaRouteMatch[] = []
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        {
+          path: "/actions/:id",
+          tag: "app-action",
+          loader({ params }) {
+            loaderRuns += 1
+            return { id: params.id, loaderRuns }
+          },
+          action({ formData, params, request }) {
+            expect(request.method).toBe("POST")
+            return {
+              id: params.id,
+              note: String(formData.get("note") ?? ""),
+            }
+          },
+        },
+      ] as const),
+    })
+    router.addEventListener("iktia:actioncommit", (event) => {
+      actionCommits.push((event as CustomEvent<{ match: IktiaRouteMatch }>).detail.match)
+    })
+
+    const match = await router.submit("/actions/42", {
+      formData: { note: "ship faster" },
+      method: "post",
+    })
+
+    const element = outlet.firstElementChild as HTMLElement & { iktiaRoute?: IktiaRouteMatch }
+    expect(match?.actionData).toEqual({ id: "42", note: "ship faster" })
+    expect(match?.data).toEqual({ id: "42", loaderRuns: 1 })
+    expect(element.iktiaRoute?.actionData).toEqual({ id: "42", note: "ship faster" })
+    expect(actionCommits).toHaveLength(1)
+    expect(actionCommits[0]?.actionData).toEqual({ id: "42", note: "ship faster" })
+  })
+
+  it("follows action redirects through the router", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+
+    class AppHome extends HTMLElement {}
+    class AppSave extends HTMLElement {}
+    if (!customElements.get("app-redirect-home")) customElements.define("app-redirect-home", AppHome)
+    if (!customElements.get("app-save")) customElements.define("app-save", AppSave)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        { path: "/", tag: "app-redirect-home" },
+        {
+          path: "/save",
+          tag: "app-save",
+          action() {
+            return redirect("/", { replace: true })
+          },
+        },
+      ] as const),
+    })
+
+    const match = await router.submit("/save", { formData: {}, method: "post" })
+
+    expect(match?.url.pathname).toBe("/")
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-redirect-home")
+  })
+
+  it("intercepts explicit data action forms", async () => {
+    document.body.innerHTML = `
+      <section data-root>
+        <form data-iktia-action action="/forms/42" method="post">
+          <input name="note" value="from form">
+          <button>Save</button>
+        </form>
+        <main data-outlet></main>
+      </section>
+    `
+
+    class AppForm extends HTMLElement {}
+    if (!customElements.get("app-form")) customElements.define("app-form", AppForm)
+
+    const outlet = document.querySelector("[data-outlet]")
+    const linkRoot = document.querySelector("[data-root]")
+    const form = document.querySelector("form")
+    if (!outlet || !linkRoot || !form) throw new Error("Missing test form setup.")
+
+    const router = createRouter({
+      linkRoot,
+      outlet,
+      routes: defineRoutes([
+        {
+          path: "/forms/:id",
+          tag: "app-form",
+          action({ formData, params }) {
+            return {
+              id: params.id,
+              note: String(formData.get("note") ?? ""),
+            }
+          },
+        },
+      ] as const),
+    })
+
+    const actionCommit = new Promise<IktiaRouteMatch>((resolve) => {
+      router.addEventListener("iktia:actioncommit", (event) => {
+        resolve((event as CustomEvent<{ match: IktiaRouteMatch }>).detail.match)
+      }, { once: true })
+    })
+    router.start()
+    form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }))
+
+    await expect(actionCommit).resolves.toMatchObject({
+      actionData: { id: "42", note: "from form" },
+    })
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-form")
   })
 
   it("does not abort a committed navigation when navigating again", async () => {

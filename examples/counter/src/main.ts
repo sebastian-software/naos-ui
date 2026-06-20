@@ -20,6 +20,16 @@ const routerEvent = document.querySelector("#router-event")
 const routerOutlet = document.querySelector("#router-outlet")
 const routerSection = document.querySelector("#router-case")
 
+type RouterProductActionData = {
+  id: string
+  note: string
+}
+
+type RouterProductData = {
+  inventory: string
+  label: string
+}
+
 class RouterHomeView extends HTMLElement {
   connectedCallback() {
     this.innerHTML = `
@@ -38,11 +48,23 @@ class RouterProductView extends HTMLElement {
   connectedCallback() {
     const route = this.iktiaRoute
     this.productId = this.productId || route?.params.id || ""
+    const data = route?.data as RouterProductData | undefined
+    const actionData = route?.actionData as RouterProductActionData | undefined
+    const note = actionData?.note ?? "Restock request"
     this.innerHTML = `
       <article class="router-view" data-view="product">
-        <p class="case-kicker">Route params</p>
-        <h3>Product ${this.productId}</h3>
+        <p class="case-kicker">Route params, loader, action</p>
+        <h3>${escapeHtml(data?.label ?? `Product ${this.productId}`)}</h3>
         <p>Search tab: ${route?.search.get("tab") ?? "none"}</p>
+        <p>Loader data: ${escapeHtml(data?.inventory ?? "not loaded")}</p>
+        <form class="router-form" data-iktia-action method="post">
+          <label>
+            <span>Route note</span>
+            <input name="note" value="${escapeHtml(note)}">
+          </label>
+          <button type="submit" class="native-action">Save note</button>
+        </form>
+        <p data-router-action-result>Action result: ${actionData ? `saved ${escapeHtml(actionData.note)}` : "none"}</p>
       </article>
     `
   }
@@ -109,6 +131,19 @@ if (routerOutlet && routerSection) {
       path: "/products/:id",
       tag: "router-product-view",
       load: async () => Promise.resolve(),
+      loader({ params, search }) {
+        const id = params.id ?? "unknown"
+        return {
+          inventory: search.get("tab") === "details" ? "18 units ready" : "summary hidden",
+          label: `Product ${id}`,
+        } satisfies RouterProductData
+      },
+      action({ formData, params }) {
+        return {
+          id: params.id ?? "unknown",
+          note: String(formData.get("note") ?? ""),
+        } satisfies RouterProductActionData
+      },
       props({ params }) {
         return { productId: params.id }
       },
@@ -159,7 +194,38 @@ if (routerOutlet && routerSection) {
     }
   })
 
+  router.addEventListener("iktia:actioncommit", (event) => {
+    if (event instanceof CustomEvent) {
+      const detail = event.detail as { match: IktiaRouteMatch }
+      const actionData = detail.match.actionData as RouterProductActionData | undefined
+      if (!actionData) return
+      document.body.dataset.lastRouterAction = actionData.note
+      if (routerEvent) {
+        routerEvent.textContent = `Last router action: ${actionData.note}`
+      }
+    }
+  })
+
   router.start()
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/gu, (char) => {
+    switch (char) {
+      case "&":
+        return "&amp;"
+      case "<":
+        return "&lt;"
+      case ">":
+        return "&gt;"
+      case "\"":
+        return "&quot;"
+      case "'":
+        return "&#39;"
+      default:
+        return char
+    }
+  })
 }
 
 document.addEventListener("change", (event) => {

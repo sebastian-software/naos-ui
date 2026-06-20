@@ -93,10 +93,11 @@ It should not be described as:
 
 * Do not depend on React Router, TanStack Router, Waku, Lit, Vaadin Router, or a
   framework runtime.
-* Do not add route modules, loaders, actions, fetchers, sessions, cookies,
-  server functions, or backend-for-frontend conventions in the first slice.
-* Do not own application data caching. Route elements or app-level data layers
-  should own data fetching and cache invalidation.
+* Do not add framework route modules, fetchers, sessions, cookies, server
+  functions, or backend-for-frontend conventions in the first slice.
+* Do not own application data caching. Thin route loaders and actions may pass
+  data into route elements, but route elements or app-level data layers should
+  own cache policy and invalidation.
 * Do not implement SSR, SSG, RSC, server actions, or streaming in
   `@iktia/router`.
 * Do not add file-system routing in the first slice.
@@ -125,7 +126,7 @@ Avoid:
 
 * React components, hooks, `RouterProvider`, and `Outlet`;
 * framework route modules as the public Iktia router contract;
-* loaders/actions/fetchers as a first-slice data framework;
+* fetchers, sessions, cookies, and loaders/actions as a full data framework;
 * server conventions in the browser router package.
 
 ### TanStack Router and TanStack Start
@@ -432,6 +433,26 @@ Rules:
 
 `canEnter()` must not become a data-loader substitute. It should answer whether
 navigation may proceed, not fetch page data.
+
+## Loaders and Actions
+
+The first router slice may include thin browser-side route loaders and actions
+without becoming a data framework.
+
+Rules:
+
+* `load()` lazy-loads route modules and may be cached per route.
+* `loader()` runs for navigation and revalidation, receives params, search,
+  URL, a GET `Request`, and the navigation `AbortSignal`, and returns
+  `match.data`.
+* `action()` runs for `router.submit()` or explicit `data-iktia-action` forms,
+  receives `FormData`, method, submitter, URL, params, and an action `Request`,
+  and returns `match.actionData`.
+* `redirect(to)` is the only router-owned action redirect shape.
+* GET forms produce normal URL navigation with serialized form data.
+
+The router must not add app-wide cache semantics, fetcher APIs, optimistic
+state, sessions, cookies, server functions, or file-system route conventions.
 
 ## View Transitions
 

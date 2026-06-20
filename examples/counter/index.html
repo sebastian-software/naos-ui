@@ -515,7 +515,7 @@ dispatch native CustomEvents.</code></pre>
           <ul>
             <li>Route records target custom-element tags.</li>
             <li>Anchors remain ordinary <code>&lt;a href&gt;</code> links.</li>
-            <li>Params, search params, active links, and not-found fallback are DOM-visible.</li>
+            <li>Loaders, actions, params, active links, and not-found fallback are DOM-visible.</li>
           </ul>
         </div>
         <div class="case-surface router-surface">
@@ -539,7 +539,7 @@ dispatch native CustomEvents.</code></pre>
           <output id="router-event">Last router route: none</output>
           <pre><code>createRouter({
   outlet,
-  routes: [{ path: "/products/:id", tag: "router-product-view" }]
+  routes: [{ path: "/products/:id", tag: "router-product-view", loader, action }]
 })</code></pre>
         </div>
       </section>

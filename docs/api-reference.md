@@ -75,19 +75,27 @@ builds that never need Declarative Shadow DOM metadata.
 
 `createRouter(options)` creates an optional browser-side router for Custom
 Element app shells. It maps route records to native element tags or explicit
-element factories, lazy-loads route modules, exposes `iktiaRoute` with params,
-search params, URL, navigation type, and `AbortSignal`, intercepts same-origin
-anchors, updates active-link attributes, and mounts not-found or error routes.
+element factories, lazy-loads route modules, runs abortable route `loader`
+hooks, handles explicit `data-iktia-action` forms through route `action` hooks,
+exposes `iktiaRoute` with params, search params, loader data, action data, URL,
+navigation type, and `AbortSignal`, intercepts same-origin anchors, updates
+active-link attributes, and mounts not-found or error routes.
 
 ```ts
 const routes = defineRoutes([
   { path: "/", tag: "app-home" },
-  { path: "/products/:id", tag: "app-product" },
+  {
+    path: "/products/:id",
+    tag: "app-product",
+    loader: ({ params }) => fetch(`/api/products/${params.id}`).then((response) => response.json()),
+    action: ({ formData }) => saveProduct(formData),
+  },
 ])
 ```
 
 The package has no React, Lit, Vaadin Router, TanStack Router, or Waku runtime
-dependency and is not used by generated components unless an app imports it.
+dependency and is not used by generated components unless an app imports it. It
+does not own application caching, sessions, cookies, SSR, or backend routing.
 
 ## `@iktia/cli`
 

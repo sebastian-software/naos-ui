@@ -37,12 +37,15 @@ Optional browser-side router for Custom Element app shells.
 | --- | --- | --- |
 | `defineRoutes()` | Experimental | Preserves route-table inference for path params. |
 | `createRouter()` | Experimental | Creates a router that mounts custom-element route targets into an outlet. |
-| `IktiaRouter` | Experimental | EventTarget-backed router instance with `start`, `stop`, `navigate`, `replace`, `href`, `prefetch`, `back`, `forward`, and `reload`. |
+| `redirect()` | Experimental | Creates an action redirect result for route actions. |
+| `IktiaRouter` | Experimental | EventTarget-backed router instance with `start`, `stop`, `navigate`, `replace`, `submit`, `href`, `prefetch`, `back`, `forward`, and `reload`. |
 
 Mounted route elements receive an `iktiaRoute` property with the current route,
-URL, params, search params, navigation type, and abort signal. The router
-intercepts only same-origin anchors it can handle and falls back to ordinary
-browser navigation for external links, downloads, targets, and modified clicks.
+URL, params, search params, loader data, action data, navigation type, and abort
+signal. Route records may define `loader` and `action`; native forms opt into
+action handling with `data-iktia-action`. The router intercepts only same-origin
+anchors and explicit action forms it can handle and falls back to ordinary
+browser behavior for external links, downloads, targets, and modified clicks.
 
 ## `@iktia/primitives`
 
