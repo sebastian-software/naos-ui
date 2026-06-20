@@ -107,6 +107,25 @@ It should not be described as:
 
 ## Surveyed Learnings
 
+### Feature Comparison Snapshot
+
+| Feature axis | `@iktia/router` first slice | React Router 8 | TanStack Router | TanStack Start | Waku |
+| --- | --- | --- | --- | --- | --- |
+| Runtime target | Browser platform and Custom Elements | React router/framework modes | React route tree | Full-stack React framework | Minimal React framework |
+| Route contract | Explicit route objects mapping paths to Custom Element tags | Declarative, Data, or Framework route APIs | Code-based or file-based route tree | TanStack Router plus server build/runtime conventions | File-based or config-based pages and layouts |
+| View target | Native Custom Element instance in a DOM outlet | React components and outlets | React components and nested outlets | React components across client/server builds | React Server and Client Components |
+| Link handling | Ordinary same-origin anchors with History fallback | `<Link>`, `<NavLink>`, forms, and progressive enhancement | Typed `Link`/navigation APIs | Framework navigation on top of TanStack Router | `<Link />` plus router hook |
+| Loaders and pre-render data | Thin browser-side `loader()` result exposed as `match.data` | Data/Framework loaders, pending UI, revalidation | Loader lifecycle, prefetching, and built-in cache | Router data plus SSR, streaming, and server functions | Server component data fetching plus static/dynamic render config |
+| Mutations and forms | `action()` for `router.submit()` and explicit `data-iktia-action` forms | Data/Framework actions, forms, fetchers, and revalidation | Data loading focused; app data layer usually owns mutations | Server functions, server routes, middleware, and full-stack type safety | React actions/mutations across the server-client boundary |
+| Type safety | Runtime params/search now; typed route manifest later | Framework mode adds type-safe hrefs and route modules | Core design strength: inferred params, search, route context, and navigation | End-to-end type safety across client/server | Typed page params through route helpers |
+| Cache/session ownership | Out of scope; apps own cache policy | Data APIs include fetchers, sessions, cookies, and related helpers | Built-in router cache and data lifecycle APIs | Full-stack request, middleware, and server data conventions | Framework-owned render/data boundary |
+| Layouts and nesting | Later milestone | Outlets and nested routes | Nested/layout/grouped routes | Full app layouts through TanStack Router | Layout files, groups, and nested segments |
+| Server rendering scope | Out of scope | Available in Framework mode | SSR supported | Primary framework feature | Static prerendering, SSR, and RSC |
+
+The useful position for Iktia is the small middle: keep enough Data Mode flavor
+to make Custom Element routes productive, but stop before the router owns cache
+policy, server contracts, file-system routing, or a React-shaped component tree.
+
 ### React Router 8
 
 React Router now presents three additive modes: Declarative, Data, and
