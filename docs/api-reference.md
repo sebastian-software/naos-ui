@@ -23,8 +23,8 @@ for v0.1 and are not published to crates.io.
 | `computed(() => value)` | Public | Read-only derived value. |
 | `effect(() => cleanup?)` | Public | Lifecycle-aware side effect with optional cleanup. |
 | `event<Detail>(name)` | Public | Typed `CustomEvent` dispatcher. |
-| `on(name, handler, options?)` | Public | Typed DOM listener helper. |
-| `host()` | Public | Current element, root, update handle, and abort signal. |
+| `on(name, handler, options?)` | Public | Typed DOM listener helper with invocation-scoped abort signals. |
+| `host()` | Public | Current element, root, props, lifecycle signals, and update/task handle. |
 | `Show` | Public | Explicit conditional control-flow primitive. |
 | `Switch` | Public | First-match-wins multi-way control-flow primitive. |
 | `Match` | Public | Static branch arm for `<Switch>`, with optional trailing default. |
@@ -38,7 +38,8 @@ executed without the compiler transform.
 
 Generated `state.set()` and `state.update()` calls are batched into a microtask.
 Use `host().flushSync()` when a handler must observe the updated DOM
-immediately after changing state. `host().update()` requests a batched update.
+immediately after changing state. `host().update()` requests a batched update
+and resolves to an `AbortSignal` for work tied to that update pass.
 
 ## `@iktia/compiler`
 

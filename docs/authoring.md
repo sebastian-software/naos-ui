@@ -353,10 +353,16 @@ effect(() => {
 
 `host()` returns a typed lifecycle handle:
 
+* `id`: a stable instance id derived from a host `id` attribute or the
+  element's root-local order on first connection.
 * `element`: the generated custom element instance.
 * `root`: the render root, either the shadow root or the host element.
+* `props`: the current generated prop values.
 * `signal`: an `AbortSignal` aborted during `disconnectedCallback()`.
-* `update()`: an explicit request to schedule the generated update pass.
+* `update()`: schedules the generated update pass and resolves to an
+  update-scoped `AbortSignal` after that pass completes. The signal aborts on
+  the next generated update or disconnect.
+* `queueTask()`: schedules a task to run after the next generated update pass.
 * `flushSync()`: an explicit request to run pending generated updates
   immediately.
 
@@ -374,12 +380,16 @@ The generated emitter dispatches a `CustomEvent` with `bubbles: true`,
 `composed: true`, and `cancelable: false` in the current MVP.
 
 Use `on(name, handler)` when you want DOM event typing at the callsite while
-keeping the generated output as a plain `addEventListener()` callback.
+keeping the generated output as a plain `addEventListener()` callback. The
+handler receives an invocation-scoped `AbortSignal` as its second argument. It
+aborts when the same listener runs again or the host disconnects.
 
 ```tsx
 <button
-  onClick={on("click", (event) => {
+  onClick={on("click", async (event, signal) => {
     event.preventDefault()
+    await save(signal)
+    if (signal.aborted) return
     count.update((value) => value + 1)
   })}
 >

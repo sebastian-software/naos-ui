@@ -94,12 +94,25 @@ function FunctionCounter({
   effect(() => "wrong")
 
   const hostHandle = host()
-  hostHandle.update()
+  const updateSignal: Promise<AbortSignal> = hostHandle.update()
+  hostHandle.queueTask(() => undefined)
+  const hostId: string = hostHandle.id
+  const hostProps: Readonly<Record<string, unknown>> = hostHandle.props
+  void updateSignal
+  void hostId
+  void hostProps
+
+  const typedHostHandle = host<FunctionCounterProps>()
+  const typedLabel: string | undefined = typedHostHandle.props.label
+  void typedLabel
 
   // @ts-expect-error click handlers receive MouseEvent, not KeyboardEvent
   on("click", (event: KeyboardEvent) => event.key)
 
-  on("click", (event) => event.preventDefault(), { once: true })
+  on("click", (event, signal) => {
+    event.preventDefault()
+    signal.throwIfAborted()
+  }, { once: true })
 
   return (
     <button
