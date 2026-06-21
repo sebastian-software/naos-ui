@@ -528,6 +528,10 @@ impl<'a> CodeGenerator<'a> {
         !self.module.states.is_empty() || self.module.uses_host_helpers
     }
 
+    fn uses_event_abort_signals(&self) -> bool {
+        !self.listener_lines.is_empty()
+    }
+
     fn uses_keyed_selectors(&self) -> bool {
         !self.module.keyed_selectors.is_empty()
     }
@@ -593,11 +597,21 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "  #usesDeclarativeRoot = false;").map_err(format_error)?;
         writeln!(code, "  #dirtySources = new Set();").map_err(format_error)?;
         writeln!(code, "  #needsFullUpdate = true;").map_err(format_error)?;
+        if self.module.uses_host_helpers {
+            writeln!(code, "  #hostId = \"\";").map_err(format_error)?;
+        }
         if self.uses_scheduled_updates() {
             writeln!(code, "  #flushScheduled = false;").map_err(format_error)?;
         }
         if self.module.uses_host_helpers {
             writeln!(code, "  #abortController = new AbortController();").map_err(format_error)?;
+            writeln!(code, "  #updateAbortController = new AbortController();")
+                .map_err(format_error)?;
+            writeln!(code, "  #pendingUpdateResolvers = [];").map_err(format_error)?;
+            writeln!(code, "  #queuedHostTasks = [];").map_err(format_error)?;
+        }
+        if self.uses_event_abort_signals() {
+            writeln!(code, "  #eventAbortControllers = new Set();").map_err(format_error)?;
         }
         if !self.module.effects.is_empty() {
             writeln!(code, "  #effectCleanups = [];").map_err(format_error)?;
@@ -674,6 +688,9 @@ impl<'a> CodeGenerator<'a> {
     fn emit_lifecycle(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  connectedCallback() {{").map_err(format_error)?;
         writeln!(code, "    if (!this.#mounted) {{").map_err(format_error)?;
+        if self.module.uses_host_helpers {
+            writeln!(code, "      this.#ensureHostId();").map_err(format_error)?;
+        }
         writeln!(code, "      this.#initializeState();").map_err(format_error)?;
         writeln!(code, "      if (this.#usesDeclarativeRoot) {{").map_err(format_error)?;
         writeln!(code, "        this.#hydrate();").map_err(format_error)?;
@@ -691,8 +708,12 @@ impl<'a> CodeGenerator<'a> {
         {
             writeln!(code, "  disconnectedCallback() {{").map_err(format_error)?;
             self.emit_lifecycle_callback_lines(code, &self.module.disconnected_callbacks)?;
+            if self.uses_event_abort_signals() {
+                writeln!(code, "    this.#abortEventHandlers();").map_err(format_error)?;
+            }
             if self.module.uses_host_helpers {
                 writeln!(code, "    this.#abortController.abort();").map_err(format_error)?;
+                writeln!(code, "    this.#abortHostUpdateScope();").map_err(format_error)?;
             }
             if !self.module.effects.is_empty() {
                 writeln!(code, "    this.#cleanupEffects();").map_err(format_error)?;
@@ -1080,12 +1101,19 @@ impl<'a> CodeGenerator<'a> {
         }
         if self.module.uses_host_helpers {
             writeln!(code, "    const host = () => ({{").map_err(format_error)?;
+            writeln!(code, "      id: this.#hostId,").map_err(format_error)?;
             writeln!(code, "      element: this,").map_err(format_error)?;
             writeln!(code, "      root: this.#root,").map_err(format_error)?;
+            writeln!(code, "      props: this.#props,").map_err(format_error)?;
             writeln!(code, "      signal: this.#abortController.signal,").map_err(format_error)?;
             writeln!(
                 code,
-                "      update: () => {{ this.#markAllDirty(); this.#scheduleFlush(); }},"
+                "      update: () => new Promise((resolve) => {{ this.#pendingUpdateResolvers.push(resolve); this.#markAllDirty(); this.#scheduleFlush(); }}),"
+            )
+            .map_err(format_error)?;
+            writeln!(
+                code,
+                "      queueTask: (task) => {{ this.#queuedHostTasks.push(task); this.#scheduleFlush(); }},"
             )
             .map_err(format_error)?;
             writeln!(code, "      flushSync: () => this.#flushSync(),").map_err(format_error)?;
@@ -1435,6 +1463,85 @@ impl<'a> CodeGenerator<'a> {
             writeln!(code, "    }}").map_err(format_error)?;
             writeln!(code, "  }}").map_err(format_error)?;
         }
+        if self.module.uses_host_helpers {
+            writeln!(code, "  #ensureHostId() {{").map_err(format_error)?;
+            writeln!(code, "    if (this.#hostId) return;").map_err(format_error)?;
+            writeln!(code, "    if (this.id) {{").map_err(format_error)?;
+            writeln!(code, "      this.#hostId = this.id;").map_err(format_error)?;
+            writeln!(code, "      return;").map_err(format_error)?;
+            writeln!(code, "    }}").map_err(format_error)?;
+            writeln!(code, "    const root = this.getRootNode();").map_err(format_error)?;
+            writeln!(
+                code,
+                "    const siblings = typeof root.querySelectorAll === \"function\" ? Array.from(root.querySelectorAll(this.localName)) : [];"
+            )
+            .map_err(format_error)?;
+            writeln!(code, "    const index = siblings.indexOf(this);").map_err(format_error)?;
+            writeln!(
+                code,
+                "    this.#hostId = `${{this.localName}}-${{index < 0 ? 1 : index + 1}}`;"
+            )
+            .map_err(format_error)?;
+            writeln!(code, "  }}").map_err(format_error)?;
+            writeln!(code, "  #beginHostUpdateScope() {{").map_err(format_error)?;
+            writeln!(code, "    this.#updateAbortController.abort();").map_err(format_error)?;
+            writeln!(
+                code,
+                "    this.#updateAbortController = new AbortController();"
+            )
+            .map_err(format_error)?;
+            writeln!(code, "  }}").map_err(format_error)?;
+            writeln!(code, "  #finishHostUpdateScope() {{").map_err(format_error)?;
+            writeln!(
+                code,
+                "    const signal = this.#updateAbortController.signal;"
+            )
+            .map_err(format_error)?;
+            writeln!(code, "    const resolvers = this.#pendingUpdateResolvers;")
+                .map_err(format_error)?;
+            writeln!(code, "    this.#pendingUpdateResolvers = [];").map_err(format_error)?;
+            writeln!(
+                code,
+                "    for (const resolve of resolvers) resolve(signal);"
+            )
+            .map_err(format_error)?;
+            writeln!(code, "    const tasks = this.#queuedHostTasks;").map_err(format_error)?;
+            writeln!(code, "    this.#queuedHostTasks = [];").map_err(format_error)?;
+            writeln!(code, "    for (const task of tasks) task();").map_err(format_error)?;
+            writeln!(code, "  }}").map_err(format_error)?;
+            writeln!(code, "  #abortHostUpdateScope() {{").map_err(format_error)?;
+            writeln!(code, "    this.#updateAbortController.abort();").map_err(format_error)?;
+            writeln!(
+                code,
+                "    const signal = this.#updateAbortController.signal;"
+            )
+            .map_err(format_error)?;
+            writeln!(code, "    const resolvers = this.#pendingUpdateResolvers;")
+                .map_err(format_error)?;
+            writeln!(code, "    this.#pendingUpdateResolvers = [];").map_err(format_error)?;
+            writeln!(
+                code,
+                "    for (const resolve of resolvers) resolve(signal);"
+            )
+            .map_err(format_error)?;
+            writeln!(code, "    this.#queuedHostTasks = [];").map_err(format_error)?;
+            writeln!(
+                code,
+                "    this.#updateAbortController = new AbortController();"
+            )
+            .map_err(format_error)?;
+            writeln!(code, "  }}").map_err(format_error)?;
+        }
+        if self.uses_event_abort_signals() {
+            writeln!(code, "  #abortEventHandlers() {{").map_err(format_error)?;
+            writeln!(
+                code,
+                "    for (const controller of Array.from(this.#eventAbortControllers)) controller.abort();"
+            )
+            .map_err(format_error)?;
+            writeln!(code, "    this.#eventAbortControllers.clear();").map_err(format_error)?;
+            writeln!(code, "  }}").map_err(format_error)?;
+        }
         writeln!(code, "  #markAllDirty() {{").map_err(format_error)?;
         writeln!(code, "    this.#needsFullUpdate = true;").map_err(format_error)?;
         writeln!(code, "    this.#dirtySources.clear();").map_err(format_error)?;
@@ -1450,6 +1557,9 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #flush() {{").map_err(format_error)?;
         writeln!(code, "    if (!this.#mounted) return;").map_err(format_error)?;
+        if self.module.uses_host_helpers {
+            writeln!(code, "    this.#beginHostUpdateScope();").map_err(format_error)?;
+        }
         writeln!(
             code,
             "    const dirtySources = this.#consumeDirtySources();"
@@ -1467,6 +1577,9 @@ impl<'a> CodeGenerator<'a> {
         }
         if !self.module.effects.is_empty() {
             writeln!(code, "    this.#runEffects(dirtySources);").map_err(format_error)?;
+        }
+        if self.module.uses_host_helpers {
+            writeln!(code, "    this.#finishHostUpdateScope();").map_err(format_error)?;
         }
         writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #consumeDirtySources() {{").map_err(format_error)?;
@@ -2138,7 +2251,7 @@ impl<'a> CodeGenerator<'a> {
         ));
         update_lines.push(format!("  {nodes_variable}.push({record_variable}.node);"));
         update_lines.push("}".to_owned());
-        if self.uses_keyed_selectors() {
+        if self.uses_keyed_selectors() || row_template.uses_event_abort_signals {
             update_lines.push(format!(
                 "const {retained_records_variable} = new Set({next_records_variable}.values());"
             ));
@@ -2146,8 +2259,22 @@ impl<'a> CodeGenerator<'a> {
                 "for (const {stale_record_variable} of this.#{records_field}.values()) {{"
             ));
             update_lines.push(format!(
-                "  if (!{retained_records_variable}.has({stale_record_variable})) this.#unregisterKeyedBindings({stale_record_variable});"
+                "  if (!{retained_records_variable}.has({stale_record_variable})) {{"
             ));
+            if self.uses_keyed_selectors() {
+                update_lines.push(format!(
+                    "    this.#unregisterKeyedBindings({stale_record_variable});"
+                ));
+            }
+            if row_template.uses_event_abort_signals {
+                update_lines.push(format!(
+                    "    for (const controller of Array.from({stale_record_variable}.__iktiaEventAbortControllers)) controller.abort();"
+                ));
+                update_lines.push(format!(
+                    "    {stale_record_variable}.__iktiaEventAbortControllers.clear();"
+                ));
+            }
+            update_lines.push("  }".to_owned());
             update_lines.push("}".to_owned());
         }
         update_lines.push(format!("this.#{records_field} = {next_records_variable};"));
@@ -2200,15 +2327,22 @@ impl<'a> CodeGenerator<'a> {
             create_lines: Vec::new(),
             record_properties: Vec::new(),
             update_lines: Vec::new(),
+            uses_event_abort_signals: false,
         };
         let root_variable = self.emit_list_row_element(element, &mut build)?;
         build
             .record_properties
             .insert(0, format!("node: {root_variable}"));
+        if build.uses_event_abort_signals {
+            build
+                .record_properties
+                .push("__iktiaEventAbortControllers: new Set()".to_owned());
+        }
         Ok(ListRowTemplate {
             create_lines: build.create_lines,
             record_properties: build.record_properties,
             update_lines: build.update_lines,
+            uses_event_abort_signals: build.uses_event_abort_signals,
         })
     }
 
@@ -2352,18 +2486,39 @@ impl<'a> CodeGenerator<'a> {
                 )));
             };
             let listener_property = format!("{variable}Listener{}", event_name.replace('-', "_"));
+            let listener_abort_property = format!("{listener_property}Abort");
+            build.uses_event_abort_signals = true;
             build
                 .record_properties
                 .push(format!("{listener_property}: null"));
+            build
+                .record_properties
+                .push(format!("{listener_abort_property}: null"));
             build.update_lines.push(ListRowUpdateLine::plain(format!(
-                "if ({}.{listener_property}) {}.{variable}.removeEventListener(\"{event_name}\", {}.{listener_property});",
-                build.record_variable, build.record_variable, build.record_variable
+                "if ({}.{listener_property}) {{ {}.{variable}.removeEventListener(\"{event_name}\", {}.{listener_property}); {}.{listener_abort_property}?.abort(); }}",
+                build.record_variable, build.record_variable, build.record_variable, build.record_variable
             )));
             build.update_lines.push(ListRowUpdateLine::plain(format!(
                 "{}.{listener_property} = (event) => {{",
                 build.record_variable
             )));
-            for line in handler_body(expression)
+            build.update_lines.push(ListRowUpdateLine::plain(format!(
+                "  {}.{listener_abort_property} = new AbortController();",
+                build.record_variable
+            )));
+            build.update_lines.push(ListRowUpdateLine::plain(format!(
+                "  {}.__iktiaEventAbortControllers.add({}.{listener_abort_property});",
+                build.record_variable, build.record_variable
+            )));
+            build.update_lines.push(ListRowUpdateLine::plain(format!(
+                "  const __iktiaEventSignal = {}.{listener_abort_property}.signal;",
+                build.record_variable
+            )));
+            build.update_lines.push(ListRowUpdateLine::plain(format!(
+                "  __iktiaEventSignal.addEventListener(\"abort\", () => {}.__iktiaEventAbortControllers.delete({}.{listener_abort_property}), {{ once: true }});",
+                build.record_variable, build.record_variable
+            )));
+            for line in handler_body(expression, "__iktiaEventSignal")
                 .lines()
                 .map(str::trim)
                 .filter(|line| !line.is_empty())
@@ -2515,9 +2670,30 @@ impl<'a> CodeGenerator<'a> {
                     name
                 )));
             };
-            let body = handler_body(expression);
+            let body = handler_body(expression, "__iktiaEventSignal");
+            let listener_abort_variable = format!(
+                "{field_name}{}AbortController",
+                event_name.replace('-', "_")
+            );
+            self.listener_lines
+                .push(format!("let {listener_abort_variable} = null;"));
             self.listener_lines.push(format!(
                 "{field_reference}.addEventListener(\"{event_name}\", (event) => {{"
+            ));
+            self.listener_lines.push(format!(
+                "  if ({listener_abort_variable}) {listener_abort_variable}.abort();"
+            ));
+            self.listener_lines.push(format!(
+                "  {listener_abort_variable} = new AbortController();"
+            ));
+            self.listener_lines.push(format!(
+                "  this.#eventAbortControllers.add({listener_abort_variable});"
+            ));
+            self.listener_lines.push(format!(
+                "  const __iktiaEventSignal = {listener_abort_variable}.signal;"
+            ));
+            self.listener_lines.push(format!(
+                "  __iktiaEventSignal.addEventListener(\"abort\", () => this.#eventAbortControllers.delete({listener_abort_variable}), {{ once: true }});"
             ));
             let names = self.binding_names().join(", ");
             if !names.is_empty() {
@@ -3949,6 +4125,7 @@ struct ListRowTemplate {
     create_lines: Vec<String>,
     record_properties: Vec<String>,
     update_lines: Vec<ListRowUpdateLine>,
+    uses_event_abort_signals: bool,
 }
 
 struct ListRowBuild {
@@ -3958,6 +4135,7 @@ struct ListRowBuild {
     create_lines: Vec<String>,
     record_properties: Vec<String>,
     update_lines: Vec<ListRowUpdateLine>,
+    uses_event_abort_signals: bool,
 }
 
 struct ListRowUpdateLine {
@@ -4490,19 +4668,15 @@ fn event_name_from_attribute(name: &str) -> Option<String> {
     })
 }
 
-fn handler_body(expression: &str) -> String {
+fn handler_body(expression: &str, signal_argument: &str) -> String {
     let trimmed = expression.trim();
     if let Some(handler) = on_helper_handler(trimmed) {
-        return handler_body(handler);
+        return handler_body(handler, signal_argument);
     }
-    let Some(arrow_index) = trimmed.find("=>") else {
-        return format!("{trimmed}(event);");
-    };
-    let body = trimmed[arrow_index + 2..].trim();
-    if body.starts_with('{') && body.ends_with('}') && body.len() >= 2 {
-        body[1..body.len() - 1].trim().to_owned()
+    if trimmed.contains("=>") || trimmed.starts_with("function") {
+        format!("({trimmed})(event, {signal_argument});")
     } else {
-        format!("return {body};")
+        format!("{trimmed}(event, {signal_argument});")
     }
 }
 

@@ -46,7 +46,9 @@ return (
 ```
 
 `event(name)` creates the typed emitter. `on(type, handler, listenerOptions)`
-configures DOM listeners. Event option code generation is a later milestone.
+configures DOM listeners. The handler's second argument is an `AbortSignal`
+that aborts on listener re-entry or host disconnect. Event option code
+generation is a later milestone.
 
 ## Keyed Lists
 

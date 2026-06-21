@@ -1397,13 +1397,28 @@ mod tests {
                 .contains("#abortController = new AbortController();")
         );
         assert!(result.code.contains("const host = () => ({"));
+        assert!(result.code.contains("id: this.#hostId,"));
+        assert!(result.code.contains("props: this.#props,"));
         assert!(
             result
                 .code
-                .contains("update: () => { this.#markAllDirty(); this.#scheduleFlush(); },")
+                .contains("update: () => new Promise((resolve) => { this.#pendingUpdateResolvers.push(resolve); this.#markAllDirty(); this.#scheduleFlush(); }),")
         );
+        assert!(result.code.contains(
+            "queueTask: (task) => { this.#queuedHostTasks.push(task); this.#scheduleFlush(); },"
+        ));
         assert!(result.code.contains("flushSync: () => this.#flushSync(),"));
+        assert!(result.code.contains("this.#beginHostUpdateScope();"));
+        assert!(result.code.contains("this.#finishHostUpdateScope();"));
         assert!(result.code.contains("this.#abortController.abort();"));
+        assert!(result.code.contains("this.#abortHostUpdateScope();"));
+        assert!(result.code.contains("#eventAbortControllers = new Set();"));
+        assert!(result.code.contains("this.#eventAbortControllers.add("));
+        assert!(
+            result
+                .code
+                .contains("__iktiaEventSignal.addEventListener(\"abort\"")
+        );
     }
 
     #[test]
@@ -1472,7 +1487,7 @@ mod tests {
     #[test]
     fn transform_component_module_should_generate_for_and_index_reconcilers() {
         let source = r#"
-            import { For, Index, state } from "@iktia/core";
+            import { For, Index, on, state } from "@iktia/core";
 
             export function ListProbe() {
               const rows = state([{ id: "a", label: "Alpha" }, { id: "b", label: "Beta" }]);
@@ -1482,7 +1497,16 @@ mod tests {
                 <section>
                   <For each={rows()}>
                     {(row, index) => (
-                      <button key={row.id} data-id={row.id} data-index={index}>
+                      <button
+                        key={row.id}
+                        data-id={row.id}
+                        data-index={index}
+                        onClick={on("click", async (event, signal) => {
+                          event.preventDefault();
+                          if (signal.aborted) return;
+                          rows.update((current) => current.filter((item) => item.id !== row.id));
+                        })}
+                      >
                         {row.label}
                       </button>
                     )}
@@ -1516,6 +1540,19 @@ mod tests {
                 .code
                 .contains("node2Record.for2Node0.value = String(for2Node0_value_value);")
         );
+        assert!(
+            result
+                .code
+                .contains("__iktiaEventAbortControllers: new Set()")
+        );
+        assert!(
+            result
+                .code
+                .contains("for (const controller of Array.from(node1StaleRecord.__iktiaEventAbortControllers)) controller.abort();")
+        );
+        assert!(result.code.contains(
+            "const __iktiaEventSignal = node1Record.for1Node0ListenerclickAbort.signal;"
+        ));
         assert!(
             result
                 .code

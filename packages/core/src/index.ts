@@ -46,11 +46,14 @@ export type IndexProps<T> = {
   children: (item: Accessor<T>, index: number) => JSX.Element
 }
 
-export type HostHandle = {
+export type HostHandle<Props extends object = Record<string, unknown>> = {
+  readonly id: string
   readonly element: HTMLElement
   readonly root: ParentNode
+  readonly props: Readonly<Props>
   readonly signal: AbortSignal
-  update(): void
+  update(): Promise<AbortSignal>
+  queueTask(task: () => void): void
   flushSync(): void
 }
 
@@ -113,19 +116,19 @@ export function Index<T>(props: IndexProps<T>): JSX.Element {
 
 export function on<Name extends keyof KnownDomEventMap & string>(
   name: Name,
-  handler: (event: KnownDomEventMap[Name]) => void,
+  handler: (event: KnownDomEventMap[Name], signal: AbortSignal) => void | Promise<void>,
   options?: ListenerOptions
 ): (event: KnownDomEventMap[Name] & { currentTarget: EventTarget }) => void
 export function on<Name extends string, EventType extends Event = Event>(
   name: Name extends keyof KnownDomEventMap ? never : Name,
-  handler: (event: EventType) => void,
+  handler: (event: EventType, signal: AbortSignal) => void | Promise<void>,
   options?: ListenerOptions
 ): (event: EventType & { currentTarget: EventTarget }) => void
 export function on(): never {
   return authoringRuntimeError("on")
 }
 
-export function host(): HostHandle {
+export function host<Props extends object = Record<string, unknown>>(): HostHandle<Props> {
   return authoringRuntimeError("host")
 }
 
