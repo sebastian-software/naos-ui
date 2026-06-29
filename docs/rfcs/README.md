@@ -14,3 +14,4 @@ sets, and phased execution plans.
 * [RFC 0005: Native Context Request for Compound Primitives](0005-native-context-request-primitives.md)
 * [RFC 0006: Iktia Router Package](0006-iktia-router-package.md)
 * [RFC 0007: Overlay Portal Kernel](0007-overlay-portal-kernel.md)
+* [RFC 0008: Presence Transition Lifecycle](0008-presence-transition-lifecycle.md)

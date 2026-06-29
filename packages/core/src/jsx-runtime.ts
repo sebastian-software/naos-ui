@@ -24,6 +24,7 @@ export type IntrinsicElementAttributes = {
   children?: JsxChild
   class?: string
   disabled?: boolean
+  hidden?: boolean
   id?: string
   key?: string | number
   name?: string

@@ -39,6 +39,9 @@
   inset: 0;
   z-index: 50;
   background: var(--iktia-dialog-backdrop-bg, rgb(15 23 42 / 0.36));
+  opacity: 1;
+  transition: opacity var(--iktia-dialog-motion-duration, 120ms)
+    var(--iktia-dialog-motion-easing, ease);
 }
 
 [part~="backdrop"][hidden] {
@@ -66,6 +69,14 @@
   background: var(--iktia-dialog-bg, #ffffff);
   color: var(--iktia-dialog-fg, #17201b);
   box-shadow: var(--iktia-dialog-shadow, 0 24px 60px rgb(15 23 42 / 0.24));
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transform-origin: var(--iktia-transform-origin, center);
+  transition:
+    opacity var(--iktia-dialog-motion-duration, 120ms)
+      var(--iktia-dialog-motion-easing, ease),
+    transform var(--iktia-dialog-motion-duration, 120ms)
+      var(--iktia-dialog-motion-easing, ease);
 }
 
 [part~="content"][hidden] {
@@ -74,6 +85,24 @@
 
 [part~="content"]:focus {
   outline: 0;
+}
+
+[part~="backdrop"][data-starting-style],
+[part~="backdrop"][data-ending-style] {
+  opacity: 0;
+}
+
+[part~="content"][data-starting-style],
+[part~="content"][data-ending-style] {
+  opacity: 0;
+  transform: translateY(0.25rem) scale(0.98);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [part~="backdrop"],
+  [part~="content"] {
+    transition-duration: 1ms;
+  }
 }
 
 [part~="header"] {

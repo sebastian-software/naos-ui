@@ -17,6 +17,15 @@ import {
   isIktiaOverlayOutsideEventPath,
   shouldCloseIktiaOverlayForKey,
 } from "./overlay.js"
+import {
+  createIktiaPresenceSnapshot,
+  getIktiaPresenceAttributes,
+  isIktiaPresenceHidden,
+  isIktiaPresenceOpen,
+  nextIktiaPresenceSnapshot,
+  settleIktiaPresenceSnapshot,
+  waitForIktiaPresenceExit,
+} from "./presence.js"
 import { tabsValueForKey } from "./tabs.js"
 import { nextTogglePressed, toggleFormValue } from "./toggle.js"
 import { normalizeZagInputPropBag, normalizeZagPropBag } from "../zag/props.js"
@@ -209,6 +218,69 @@ describe("primitive behavior kernels", () => {
       .toBe(false)
   })
 
+  it("maps presence lifecycle phases for transient UI", () => {
+    const closed = createIktiaPresenceSnapshot(false)
+    const entering = nextIktiaPresenceSnapshot(closed, true)
+    const open = settleIktiaPresenceSnapshot(entering, true)
+    const closing = nextIktiaPresenceSnapshot(open, false)
+    const settled = settleIktiaPresenceSnapshot(closing, false)
+
+    expect(entering.phase).toBe("entering")
+    expect(open.phase).toBe("open")
+    expect(closing.phase).toBe("closing")
+    expect(settled.phase).toBe("closed")
+    expect(isIktiaPresenceOpen(entering)).toBe(true)
+    expect(isIktiaPresenceOpen(closing)).toBe(false)
+    expect(isIktiaPresenceHidden(closing)).toBe(false)
+    expect(isIktiaPresenceHidden(settled)).toBe(true)
+    expect(getIktiaPresenceAttributes(entering)).toEqual({
+      "data-ending-style": undefined,
+      "data-iktia-presence": "entering",
+      "data-starting-style": "",
+    })
+    expect(getIktiaPresenceAttributes(closing)).toEqual({
+      "data-ending-style": "",
+      "data-iktia-presence": "closing",
+      "data-starting-style": undefined,
+    })
+  })
+
+  it("waits for presence exit animations before settling", async () => {
+    const originalRequestAnimationFrame = globalThis.requestAnimationFrame
+    const originalCancelAnimationFrame = globalThis.cancelAnimationFrame
+    try {
+      globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+        callback(0)
+        return 1
+      }) as typeof requestAnimationFrame
+      globalThis.cancelAnimationFrame = (() => undefined) as typeof cancelAnimationFrame
+
+      let resolveFinished: () => void = () => undefined
+      const finished = new Promise<void>((resolve) => {
+        resolveFinished = resolve
+      })
+      const element = {
+        getAnimations: () => [{
+          finished,
+          playState: "running",
+        }],
+      } as unknown as Element
+      const calls: string[] = []
+
+      waitForIktiaPresenceExit(element, () => calls.push("done"))
+      await Promise.resolve()
+      expect(calls).toEqual([])
+
+      resolveFinished()
+      await finished
+      await Promise.resolve()
+      expect(calls).toEqual(["done"])
+    } finally {
+      globalThis.requestAnimationFrame = originalRequestAnimationFrame
+      globalThis.cancelAnimationFrame = originalCancelAnimationFrame
+    }
+  })
+
   it("maps tab keyboard movement", () => {
     const values = ["first", "second", "third"]
 
@@ -223,63 +295,65 @@ describe("primitive behavior kernels", () => {
   it("drives the real Zag tabs machine through the internal service adapter", () => {
     const originalRequestAnimationFrame = globalThis.requestAnimationFrame
     const originalCss = globalThis.CSS
-    globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
-      callback(0)
-      return 0
-    }) as typeof requestAnimationFrame
-    globalThis.CSS = {
-      ...globalThis.CSS,
-      escape: (value: string) => value,
-    } as typeof CSS
+    try {
+      globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+        callback(0)
+        return 0
+      }) as typeof requestAnimationFrame
+      globalThis.CSS = {
+        ...globalThis.CSS,
+        escape: (value: string) => value,
+      } as typeof CSS
 
-    const probe = createZagTabsProbe({
-      value: "first",
-      values: ["first", "second", "third"],
-    })
-    const triggerProps = probe.api().getTriggerProps({ value: "second" }) as {
-      onClick(event: { currentTarget: unknown; defaultPrevented: boolean }): void
+      const probe = createZagTabsProbe({
+        value: "first",
+        values: ["first", "second", "third"],
+      })
+      const triggerProps = probe.api().getTriggerProps({ value: "second" }) as {
+        onClick(event: { currentTarget: unknown; defaultPrevented: boolean }): void
+      }
+      triggerProps.onClick({
+        currentTarget: { matches: () => false },
+        defaultPrevented: false,
+      })
+
+      expect(probe.sentEvents()).toContain("TAB_CLICK")
+      expect(probe.value()).toBe("second")
+
+      const nextTriggerProps = probe.api().getTriggerProps({ value: "third" }) as {
+        onClick(event: { currentTarget: unknown; defaultPrevented: boolean }): void
+      }
+      nextTriggerProps.onClick({
+        currentTarget: { matches: () => false },
+        defaultPrevented: false,
+      })
+
+      expect(probe.sentEvents()).toContain("TAB_CLICK")
+      expect(probe.value()).toBe("third")
+
+      const keyboardProbe = createZagTabsProbe({
+        composite: false,
+        value: "first",
+        values: ["first", "second", "third"],
+      })
+      keyboardProbe.api().selectNext("first")
+
+      expect(keyboardProbe.sentEvents()).toContain("ARROW_NEXT")
+      expect(keyboardProbe.value()).toBe("second")
+
+      const focusProbe = createZagTabsProbe({
+        composite: true,
+        value: "first",
+        values: ["first", "second", "third"],
+      })
+      focusProbe.api().selectNext("first")
+
+      expect(focusProbe.sentEvents()).toContain("ARROW_NEXT")
+      expect(focusProbe.focusedElement()).toBe("second")
+    } finally {
+      globalThis.requestAnimationFrame = originalRequestAnimationFrame
+      globalThis.CSS = originalCss
     }
-    triggerProps.onClick({
-      currentTarget: { matches: () => false },
-      defaultPrevented: false,
-    })
-
-    expect(probe.sentEvents()).toContain("TAB_CLICK")
-    expect(probe.value()).toBe("second")
-
-    const nextTriggerProps = probe.api().getTriggerProps({ value: "third" }) as {
-      onClick(event: { currentTarget: unknown; defaultPrevented: boolean }): void
-    }
-    nextTriggerProps.onClick({
-      currentTarget: { matches: () => false },
-      defaultPrevented: false,
-    })
-
-    expect(probe.sentEvents()).toContain("TAB_CLICK")
-    expect(probe.value()).toBe("third")
-
-    const keyboardProbe = createZagTabsProbe({
-      composite: false,
-      value: "first",
-      values: ["first", "second", "third"],
-    })
-    keyboardProbe.api().selectNext("first")
-
-    expect(keyboardProbe.sentEvents()).toContain("ARROW_NEXT")
-    expect(keyboardProbe.value()).toBe("second")
-
-    const focusProbe = createZagTabsProbe({
-      composite: true,
-      value: "first",
-      values: ["first", "second", "third"],
-    })
-    focusProbe.api().selectNext("first")
-
-    expect(focusProbe.sentEvents()).toContain("ARROW_NEXT")
-    expect(focusProbe.focusedElement()).toBe("second")
-
-    globalThis.requestAnimationFrame = originalRequestAnimationFrame
-    globalThis.CSS = originalCss
   })
 
   it("normalizes Zag prop bags for native element application", () => {

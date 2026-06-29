@@ -54,7 +54,15 @@ const components = [
   "toggle-group",
   "toggle-item",
 ]
-const behaviorFiles = ["checkbox", "context", "disclosure", "overlay", "tabs", "toggle"]
+const behaviorFiles = [
+  "checkbox",
+  "context",
+  "disclosure",
+  "overlay",
+  "presence",
+  "tabs",
+  "toggle",
+]
 const zagFiles = [
   "accordion",
   "avatar",
