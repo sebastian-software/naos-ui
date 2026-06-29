@@ -18,6 +18,16 @@ import {
   getIktiaOverlayStateAttributes,
   listenForIktiaOverlayEscape,
 } from "./internal/behavior/overlay.js"
+import {
+  createIktiaPresenceSnapshot,
+  getIktiaPresenceAttributes,
+  isIktiaPresenceHidden,
+  isIktiaPresenceOpen,
+  nextIktiaPresenceSnapshot,
+  scheduleIktiaPresenceFrame,
+  settleIktiaPresenceSnapshot,
+  waitForIktiaPresenceExit,
+} from "./internal/behavior/presence.js"
 import css from "./popover.wc.css?inline"
 
 export type IktiaPopoverProps = {
@@ -38,6 +48,7 @@ export function IktiaPopover({
   title = "Details",
 }: IktiaPopoverProps = {}) {
   const expanded = state(open)
+  const presence = state(createIktiaPresenceSnapshot(open))
   const popoverService = state<IktiaZagPopoverService | null>(null)
   const popoverApi = computed(() => getIktiaZagPopoverApi(popoverService()))
   const changed = event<{ open: boolean }>("iktia-open-change")
@@ -60,6 +71,30 @@ export function IktiaPopover({
     popoverService.set(null)
   })
   effect(() => {
+    const next = nextIktiaPresenceSnapshot(presence(), expanded())
+    if (next !== presence()) presence.set(next)
+  })
+  effect(() => {
+    const snapshot = presence()
+    if (snapshot.phase === "entering") {
+      return scheduleIktiaPresenceFrame(() => {
+        if (expanded()) {
+          presence.set(settleIktiaPresenceSnapshot(presence(), true))
+        }
+      })
+    }
+    if (snapshot.phase !== "closing") return
+    const content = host().root.querySelector("[part~='content']")
+    return waitForIktiaPresenceExit(
+      content instanceof Element ? content : null,
+      () => {
+        if (!expanded()) {
+          presence.set(settleIktiaPresenceSnapshot(presence(), false))
+        }
+      }
+    )
+  })
+  effect(() => {
     const api = popoverApi()
     void expanded()
     if (api == null || !expanded()) return
@@ -75,8 +110,9 @@ export function IktiaPopover({
       {...getIktiaOverlayStateAttributes({
         kind: "popover",
         modal,
-        open: expanded(),
+        open: isIktiaPresenceOpen(presence()),
       })}
+      {...getIktiaPresenceAttributes(presence())}
     >
       <button
         {...(popoverApi()?.getTriggerProps() ?? {})}
@@ -92,8 +128,10 @@ export function IktiaPopover({
         {...getIktiaOverlayStateAttributes({
           kind: "popover",
           modal,
-          open: expanded(),
+          open: isIktiaPresenceOpen(presence()),
         })}
+        {...getIktiaPresenceAttributes(presence())}
+        hidden={isIktiaPresenceHidden(presence())}
       >
         <div
           {...(popoverApi()?.getContentProps() ?? {})}
@@ -101,8 +139,10 @@ export function IktiaPopover({
           {...getIktiaOverlayStateAttributes({
             kind: "popover",
             modal,
-            open: expanded(),
+            open: isIktiaPresenceOpen(presence()),
           })}
+          {...getIktiaPresenceAttributes(presence())}
+          hidden={isIktiaPresenceHidden(presence())}
         >
           <div part="header">
             <h2 {...(popoverApi()?.getTitleProps() ?? {})} part="title">

@@ -18,6 +18,16 @@ import {
   getIktiaOverlayStateAttributes,
   listenForIktiaOverlayEscape,
 } from "./internal/behavior/overlay.js"
+import {
+  createIktiaPresenceSnapshot,
+  getIktiaPresenceAttributes,
+  isIktiaPresenceHidden,
+  isIktiaPresenceOpen,
+  nextIktiaPresenceSnapshot,
+  scheduleIktiaPresenceFrame,
+  settleIktiaPresenceSnapshot,
+  waitForIktiaPresenceExit,
+} from "./internal/behavior/presence.js"
 import css from "./dialog.wc.css?inline"
 
 export type IktiaDialogProps = {
@@ -40,6 +50,7 @@ export function IktiaDialog({
   title = "Dialog",
 }: IktiaDialogProps = {}) {
   const expanded = state(open)
+  const presence = state(createIktiaPresenceSnapshot(open))
   const dialogService = state<IktiaZagDialogService | null>(null)
   const dialogApi = computed(() => getIktiaZagDialogApi(dialogService()))
   const changed = event<{ open: boolean }>("iktia-open-change")
@@ -61,6 +72,30 @@ export function IktiaDialog({
   onDisconnected(() => {
     stopIktiaZagDialogService(dialogService())
     dialogService.set(null)
+  })
+  effect(() => {
+    const next = nextIktiaPresenceSnapshot(presence(), expanded())
+    if (next !== presence()) presence.set(next)
+  })
+  effect(() => {
+    const snapshot = presence()
+    if (snapshot.phase === "entering") {
+      return scheduleIktiaPresenceFrame(() => {
+        if (expanded()) {
+          presence.set(settleIktiaPresenceSnapshot(presence(), true))
+        }
+      })
+    }
+    if (snapshot.phase !== "closing") return
+    const content = host().root.querySelector("[part~='content']")
+    return waitForIktiaPresenceExit(
+      content instanceof Element ? content : null,
+      () => {
+        if (!expanded()) {
+          presence.set(settleIktiaPresenceSnapshot(presence(), false))
+        }
+      }
+    )
   })
   effect(() => {
     const api = dialogApi()
@@ -96,8 +131,9 @@ export function IktiaDialog({
       {...getIktiaOverlayStateAttributes({
         kind: "dialog",
         modal,
-        open: expanded(),
+        open: isIktiaPresenceOpen(presence()),
       })}
+      {...getIktiaPresenceAttributes(presence())}
     >
       <button
         {...(dialogApi()?.getTriggerProps() ?? {})}
@@ -113,8 +149,10 @@ export function IktiaDialog({
         {...getIktiaOverlayStateAttributes({
           kind: "dialog",
           modal,
-          open: expanded(),
+          open: isIktiaPresenceOpen(presence()),
         })}
+        {...getIktiaPresenceAttributes(presence())}
+        hidden={isIktiaPresenceHidden(presence())}
       />
       <div
         {...(dialogApi()?.getPositionerProps() ?? {})}
@@ -122,8 +160,10 @@ export function IktiaDialog({
         {...getIktiaOverlayStateAttributes({
           kind: "dialog",
           modal,
-          open: expanded(),
+          open: isIktiaPresenceOpen(presence()),
         })}
+        {...getIktiaPresenceAttributes(presence())}
+        hidden={isIktiaPresenceHidden(presence())}
       >
         <section
           {...(dialogApi()?.getContentProps() ?? {})}
@@ -132,8 +172,10 @@ export function IktiaDialog({
           {...getIktiaOverlayStateAttributes({
             kind: "dialog",
             modal,
-            open: expanded(),
+            open: isIktiaPresenceOpen(presence()),
           })}
+          {...getIktiaPresenceAttributes(presence())}
+          hidden={isIktiaPresenceHidden(presence())}
         >
           <div part="header">
             <h2 {...(dialogApi()?.getTitleProps() ?? {})} part="title">
