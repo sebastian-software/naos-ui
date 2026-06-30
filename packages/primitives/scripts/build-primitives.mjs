@@ -2,6 +2,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 
 import { transformComponent } from "@iktia/compiler"
+import { springMotionTokenCss } from "@iktia/motion"
 import ts from "typescript"
 
 const packageRoot = resolve(import.meta.dirname, "..")
@@ -106,7 +107,9 @@ for (const component of components) {
   const filename = join(sourceRoot, `${component}.wc.tsx`)
   const source = await readFile(filename, "utf8")
   const transformed = transformComponent({ filename, source })
-  const code = await inlineCssImports(transformed.code, filename)
+  const code = await inlineCssImports(transformed.code, filename, {
+    motionCss: motionCssForComponentSource(source),
+  })
   await writeFile(join(distRoot, `${component}.mjs`), `${code}\n`)
   await writeFile(join(distRoot, `${component}.d.mts`), declarationFor(component))
   exports.push(component)
@@ -124,7 +127,7 @@ await writeFile(
 await buildBehaviorHelpers()
 await buildZagHelpers()
 
-async function inlineCssImports(code, filename) {
+async function inlineCssImports(code, filename, { motionCss = "" } = {}) {
   const cssImport =
     /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline)["'];?/g
   const sideEffectCssImport = /import\s+["']([^"']+\.css\?inline)["'];?/g
@@ -132,11 +135,21 @@ async function inlineCssImports(code, filename) {
   for (const match of code.matchAll(cssImport)) {
     const [statement, localName, source] = match
     const cssPath = join(dirname(filename), source.replace("?inline", ""))
-    const css = await readFile(cssPath, "utf8")
+    const css = appendGeneratedCss(await readFile(cssPath, "utf8"), motionCss)
     output = output.replace(statement, `const ${localName} = ${JSON.stringify(css)};`)
   }
   output = output.replace(sideEffectCssImport, "")
   return output
+}
+
+function motionCssForComponentSource(source) {
+  if (!source.includes("getIktiaPresenceMotionAttributes")) return ""
+  return springMotionTokenCss({ kind: "presence", preset: "snappy" })
+}
+
+function appendGeneratedCss(css, generatedCss) {
+  if (generatedCss === "") return css
+  return `${css.trimEnd()}\n\n${generatedCss}\n`
 }
 
 async function buildBehaviorHelpers() {

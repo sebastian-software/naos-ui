@@ -25,6 +25,19 @@ export type IktiaSpringTiming = {
   easing: string
 }
 
+export type IktiaMotionTokenKind = "layout" | "presence" | "transition"
+
+export type IktiaSpringMotionTokenOptions = {
+  kind?: IktiaMotionTokenKind
+  preset?: IktiaSpringPreset
+  options?: IktiaSpringOptions
+}
+
+export type IktiaSpringMotionToken = IktiaSpringTiming & {
+  className: string
+  css: string
+}
+
 export type IktiaFlipOptions = {
   duration?: number
   easing?: string
@@ -141,6 +154,46 @@ export function springEasing(
   return spring(options).easing
 }
 
+export function springMotionToken(
+  options: IktiaSpringMotionTokenOptions | IktiaSpringPreset = "smooth"
+): IktiaSpringMotionToken {
+  const token = resolveSpringMotionTokenOptions(options)
+  const timing = spring(token.preset ?? token.options ?? "smooth")
+  const className = springMotionTokenClassName(token)
+
+  return {
+    ...timing,
+    className,
+    css: formatSpringMotionTokenCss({
+      className,
+      duration: timing.duration,
+      easing: timing.easing,
+      kind: token.kind,
+    }),
+  }
+}
+
+export function springMotionTokenClassName(
+  options: IktiaSpringMotionTokenOptions | IktiaSpringPreset = "smooth"
+) {
+  const token = resolveSpringMotionTokenOptions(options)
+  if (token.preset != null) {
+    return `iktia-motion-${token.kind}-spring-${token.preset}`
+  }
+
+  const normalized = normalizeSpringOptions(token.options)
+  return `iktia-motion-${token.kind}-spring-${hashMotionTokenSignature(
+    JSON.stringify(normalized)
+  )}`
+}
+
+export function springMotionTokenCss(
+  options: IktiaSpringMotionTokenOptions | IktiaSpringPreset = "smooth"
+) {
+  const token = springMotionToken(options)
+  return token.css
+}
+
 export function flipMovedElements(
   firstRects: ReadonlyMap<Element, DOMRectReadOnly>,
   options: IktiaFlipOptions = {}
@@ -215,6 +268,70 @@ function resolveSpringOptions(options: IktiaSpringOptions | IktiaSpringPreset) {
     sampleCount: base.sampleCount,
     stiffness: base.stiffness ?? motionTokens.springs.smooth.stiffness,
   }
+}
+
+function resolveSpringMotionTokenOptions(
+  options: IktiaSpringMotionTokenOptions | IktiaSpringPreset
+): Required<Pick<IktiaSpringMotionTokenOptions, "kind">> &
+  (
+    | { options: IktiaSpringOptions; preset?: undefined }
+    | { options?: undefined; preset: IktiaSpringPreset }
+  ) {
+  if (typeof options === "string") {
+    return { kind: "transition", preset: options }
+  }
+
+  if (options.options != null) {
+    return {
+      kind: options.kind ?? "transition",
+      options: normalizeSpringOptions(options.options),
+    }
+  }
+
+  return {
+    kind: options.kind ?? "transition",
+    preset: options.preset ?? "smooth",
+  }
+}
+
+function normalizeSpringOptions(options: IktiaSpringOptions) {
+  const resolved = resolveSpringOptions(options)
+  return {
+    damping: resolved.damping,
+    initialVelocity: resolved.initialVelocity,
+    mass: resolved.mass,
+    maxDuration: resolved.maxDuration,
+    restDelta: resolved.restDelta,
+    restSpeed: resolved.restSpeed,
+    sampleCount: Math.max(
+      2,
+      Math.min(80, Math.round(resolved.sampleCount ?? DEFAULT_SPRING_SAMPLE_COUNT))
+    ),
+    stiffness: resolved.stiffness,
+  }
+}
+
+function formatSpringMotionTokenCss(options: {
+  className: string
+  duration: number
+  easing: string
+  kind: IktiaMotionTokenKind
+}) {
+  return [
+    `.${options.className} {`,
+    `  --iktia-${options.kind}-motion-duration: ${options.duration}ms;`,
+    `  --iktia-${options.kind}-motion-easing: ${options.easing};`,
+    `}`,
+  ].join("\n")
+}
+
+function hashMotionTokenSignature(signature: string) {
+  let hash = 2166136261
+  for (let index = 0; index < signature.length; index += 1) {
+    hash ^= signature.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return (hash >>> 0).toString(36)
 }
 
 function springDuration(options: RequiredSpringOptions) {

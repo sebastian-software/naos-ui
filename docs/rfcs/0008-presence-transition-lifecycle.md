@@ -59,6 +59,12 @@ The package-private helper in `src/internal/behavior/presence.ts` owns:
 The helper does not own rendering, CSS generation, compiler syntax, FLIP
 measurement, or portal movement.
 
+Shared spring timing is now coordinated through `@iktia/motion` token helpers:
+the runtime helper returns a stable class name and the primitives build emits
+the matching CSS custom-property rule into each component's Shadow DOM styles.
+This keeps the presence lifecycle free of inline `style` string generation while
+still preserving browser-native CSS variables for component overrides.
+
 ## First Consumers
 
 `<iktia-dialog>` and `<iktia-popover>` use the helper first because both already
@@ -77,6 +83,15 @@ for duration and easing:
 * `--iktia-tooltip-motion-easing`
 * `--iktia-hover-card-motion-duration`
 * `--iktia-hover-card-motion-easing`
+
+The shared fallback variables are emitted by a deterministic generated class:
+
+```css
+.iktia-motion-presence-spring-snappy {
+  --iktia-presence-motion-duration: 420ms;
+  --iktia-presence-motion-easing: linear(...);
+}
+```
 
 ## Follow-Up Work
 
