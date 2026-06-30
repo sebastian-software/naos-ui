@@ -18,5 +18,9 @@ jobs:
       - name: Release Please
         uses: googleapis/release-please-action@v5
         with:
+          # PAT (org secret) so the release PR is authored by a real user and
+          # its push events trigger CI. With the default GITHUB_TOKEN, runs are
+          # parked as "action_required" and never execute.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
