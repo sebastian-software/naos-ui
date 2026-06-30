@@ -25,6 +25,12 @@ export type IktiaSpringTiming = {
   easing: string
 }
 
+export type IktiaFlipOptions = {
+  duration?: number
+  easing?: string
+  reducedMotion?: IktiaReducedMotionPreference
+}
+
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
 const DEFAULT_ANIMATION_TIMEOUT = 4000
 const DEFAULT_SPRING_SAMPLE_COUNT = 24
@@ -135,6 +141,49 @@ export function springEasing(
   return spring(options).easing
 }
 
+export function flipMovedElements(
+  firstRects: ReadonlyMap<Element, DOMRectReadOnly>,
+  options: IktiaFlipOptions = {}
+): Animation[] {
+  if (shouldSkipMotion(options.reducedMotion)) return []
+
+  const timing = spring("snappy")
+  const duration = options.duration ?? timing.duration
+  const easing = options.easing ?? timing.easing
+  const animations: Animation[] = []
+
+  for (const [element, firstRect] of firstRects) {
+    if (
+      typeof element.getBoundingClientRect !== "function" ||
+      typeof element.animate !== "function"
+    ) {
+      continue
+    }
+
+    const lastRect = element.getBoundingClientRect()
+    const deltaX = firstRect.left - lastRect.left
+    const deltaY = firstRect.top - lastRect.top
+    if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) continue
+
+    const baseTransform = transformForElement(element)
+    const fromTransform = transformWithOffset(baseTransform, deltaX, deltaY)
+    const toTransform =
+      baseTransform === "none" ? "translate(0px, 0px)" : baseTransform
+
+    animations.push(
+      element.animate(
+        [{ transform: fromTransform }, { transform: toTransform }],
+        {
+          duration,
+          easing,
+        }
+      )
+    )
+  }
+
+  return animations
+}
+
 function getPendingAnimations(element: Element, subtree: boolean) {
   try {
     return element
@@ -213,6 +262,28 @@ function springValueAt(options: RequiredSpringOptions, seconds: number) {
 
 function formatProgress(value: number) {
   return Number(value.toFixed(4)).toString()
+}
+
+function formatPx(value: number) {
+  return `${Number(value.toFixed(3))}px`
+}
+
+function transformForElement(element: Element) {
+  if (typeof globalThis.getComputedStyle !== "function") return "none"
+  try {
+    return globalThis.getComputedStyle(element).transform || "none"
+  } catch {
+    return "none"
+  }
+}
+
+function transformWithOffset(
+  baseTransform: string,
+  deltaX: number,
+  deltaY: number
+) {
+  const offset = `translate(${formatPx(deltaX)}, ${formatPx(deltaY)})`
+  return baseTransform === "none" ? offset : `${offset} ${baseTransform}`
 }
 
 type RequiredSpringOptions = Required<

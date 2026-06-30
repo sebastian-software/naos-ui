@@ -84,7 +84,8 @@ The MVP template parser supports:
 * Explicit `<Show when={...} fallback={...}>...</Show>` control flow.
 * Explicit `<Switch>` / `<Match when={...}>` multi-way control flow with one
   optional trailing default `<Match>`.
-* Item-keyed `<For each={...}>...</For>` list control flow.
+* Item-keyed `<For each={...}>...</For>` list control flow, with optional
+  `motion="flip"` move animation for preserved keyed rows.
 * Position-keyed `<Index each={...}>...</Index>` list control flow.
 * Keyed `.map()` list control flow shorthand, for example
   `{items().map((item, index) => <span key={item.id} />)}`.
@@ -100,6 +101,11 @@ Generated updates currently cover dynamic attributes, text bindings, effects,
 containers, and keyed `.map()` list containers. Item-keyed lists reuse row
 nodes by key; index-keyed lists reuse row nodes by position and rebind item
 accessors on update.
+
+`<For motion="flip">` is limited to item-keyed `<For>` lists. It uses a
+compiler-emitted first/last measurement around the keyed reorder, then delegates
+to `@iktia/motion` for a transform-only WAAPI animation. It is skipped for
+reduced-motion users. `<Index>` and keyed `.map()` do not expose this option.
 
 Item-keyed list row bindings can use a local keyed selector helper when the
 helper is a one-argument arrow function that directly compares a state accessor

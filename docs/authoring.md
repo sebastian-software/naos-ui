@@ -453,9 +453,13 @@ export function Dashboard() {
 not runtime components. `<Switch>` chooses the first matching `<Match
 when={...}>` arm and supports one trailing `<Match>` without `when` as an
 explicit default. `<For>` is item-keyed and preserves row nodes by the returned
-element's `key`. `<Index>` is position-keyed and passes each item as an
-accessor so row nodes can stay mounted while their values rebind. The narrow
-typed `.map()` form remains supported as item-keyed list shorthand.
+element's `key`. It can opt into FLIP move animation with `motion="flip"`;
+the compiler measures preserved row positions around its keyed reorder and
+uses `@iktia/motion` to play a transform-only Web Animations API transition.
+Reduced-motion users get the same DOM update without animation. `<Index>` is
+position-keyed and passes each item as an accessor so row nodes can stay mounted
+while their values rebind. The narrow typed `.map()` form remains supported as
+item-keyed list shorthand, without list-motion options.
 
 ```tsx
 <Show when={count() > 0} fallback={<span>Empty</span>}>
@@ -481,7 +485,7 @@ typed `.map()` form remains supported as item-keyed list shorthand.
   </Match>
 </Switch>
 
-<For each={items()}>
+<For each={items()} motion="flip">
   {(item, index) => (
     <span key={item.id} part="indicator" data-index={index}>
       {item.label}

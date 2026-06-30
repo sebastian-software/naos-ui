@@ -17,7 +17,7 @@ export function ListReconcilerProbe() {
   return (
     <section part="root">
       <div data-probe-for-list>
-        <For each={rows()}>
+        <For each={rows()} motion="flip">
           {(row, index) => (
             <button
               key={row.id}

@@ -5,8 +5,15 @@ type PrimitiveEventRecord = {
   type: string
 }
 
+type PresenceRecord = {
+  endingStyle: boolean
+  phase: string | null
+}
+
 declare global {
   interface Window {
+    __iktiaPresenceObservers?: Record<string, MutationObserver>
+    __iktiaPresenceRecords?: Record<string, PresenceRecord[]>
     __iktiaPrimitiveEvents?: PrimitiveEventRecord[]
     __iktiaProbeSecondaryMutationCount?: () => number
     __iktiaProbeSecondaryMutationObserver?: MutationObserver
@@ -61,6 +68,59 @@ async function expectShadowFocused(locator: ReturnType<Page["locator"]>) {
       })
     )
     .toBe(true)
+}
+
+async function activeForRowAnimationCount(
+  locator: ReturnType<Page["locator"]>
+) {
+  return locator.evaluate((element) => {
+    const root = element.shadowRoot ?? element
+    return Array.from(root.querySelectorAll("[data-probe-for-row]")).reduce(
+      (count, row) =>
+        count +
+        row
+          .getAnimations()
+          .filter((animation) => animation.playState !== "finished").length,
+      0
+    )
+  })
+}
+
+async function observePresenceAttributes(
+  locator: ReturnType<Page["locator"]>,
+  key: string
+) {
+  await locator.evaluate((element, key) => {
+    window.__iktiaPresenceObservers ??= {}
+    window.__iktiaPresenceRecords ??= {}
+    window.__iktiaPresenceObservers[key]?.disconnect()
+
+    const records: PresenceRecord[] = []
+    const capture = () => {
+      records.push({
+        endingStyle: element.hasAttribute("data-ending-style"),
+        phase: element.getAttribute("data-iktia-presence"),
+      })
+    }
+    const observer = new MutationObserver(capture)
+    capture()
+    observer.observe(element, {
+      attributeFilter: ["data-ending-style", "data-iktia-presence"],
+      attributes: true,
+    })
+
+    window.__iktiaPresenceObservers[key] = observer
+    window.__iktiaPresenceRecords[key] = records
+  }, key)
+}
+
+async function expectObservedClosingPresence(page: Page, key: string) {
+  const records = await page.evaluate(
+    (key) => window.__iktiaPresenceRecords?.[key] ?? [],
+    key
+  )
+  expect(records.some((record) => record.phase === "closing")).toBe(true)
+  expect(records.some((record) => record.endingStyle)).toBe(true)
 }
 
 test("compiled counter renders, updates, and emits detail", async ({ page }) => {
@@ -187,6 +247,7 @@ test("compiled list reconcilers preserve keyed and indexed row nodes", async ({
   if (!alphaRow) throw new Error("Missing initial Alpha row.")
 
   await probe.locator("[data-probe-for-reorder]").click()
+  expect(await activeForRowAnimationCount(probe)).toBeGreaterThan(0)
   await expect(forRows).toHaveText(["Beta", "Alpha", "Gamma"])
   await expect(forRows.nth(1)).toHaveAttribute("data-index", "1")
   expect(
@@ -265,6 +326,18 @@ test("compiled list reconcilers preserve keyed and indexed row nodes", async ({
       .evaluate((element, previous) => element === previous, firstInput)
   ).toBe(true)
   await firstInput.dispose()
+})
+
+test("compiled keyed For FLIP respects reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.goto("/")
+
+  const probe = page.locator("#list-reconciler-probe-case list-reconciler-probe")
+  const forRows = probe.locator("[data-probe-for-row]")
+
+  await probe.locator("[data-probe-for-reorder]").click()
+  await expect(forRows).toHaveText(["Beta", "Alpha", "Gamma"])
+  expect(await activeForRowAnimationCount(probe)).toBe(0)
 })
 
 test("compiled toggle renders primitive contracts and control flow", async ({ page }) => {
@@ -1269,11 +1342,11 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
     )
   })
   await expect(page.locator("#primitive-event")).toContainText('"open":true')
+  await observePresenceAttributes(tooltipContent, "tooltip")
   await page.keyboard.press("Escape")
-  await expect(tooltipContent).toHaveAttribute("data-iktia-presence", "closing")
-  await expect(tooltipContent).toHaveAttribute("data-ending-style", "")
   await expect(tooltipContent).toBeHidden()
   await expect(tooltipContent).toHaveAttribute("data-iktia-presence", "closed")
+  await expectObservedClosingPresence(page, "tooltip")
   await expect(page.locator("#primitive-event")).toContainText('"open":false')
 
   await tooltipTrigger.evaluate((trigger) => {
@@ -1309,11 +1382,11 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
     )
   })
   await expect(page.locator("#primitive-event")).toContainText('"open":true')
+  await observePresenceAttributes(hoverCardContent, "hover-card")
   await page.keyboard.press("Escape")
-  await expect(hoverCardContent).toHaveAttribute("data-iktia-presence", "closing")
-  await expect(hoverCardContent).toHaveAttribute("data-ending-style", "")
   await expect(hoverCardContent).toBeHidden()
   await expect(hoverCardContent).toHaveAttribute("data-iktia-presence", "closed")
+  await expectObservedClosingPresence(page, "hover-card")
   await expect(page.locator("#primitive-event")).toContainText('"open":false')
 
   await hoverCardTrigger.evaluate((trigger) => {

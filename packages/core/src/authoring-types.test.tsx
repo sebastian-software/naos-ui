@@ -148,7 +148,7 @@ function FunctionCounter({
           {item}
         </span>
       ))}
-      <For each={items()}>
+      <For each={items()} motion="flip">
         {(item, index) => (
           <span key={item} data-index={index} part="for-item">
             {item}
@@ -175,3 +175,8 @@ function FunctionCounter({
 
 // @ts-expect-error label rejects numeric values
 ;<FunctionCounter label={1} />
+
+// @ts-expect-error For motion currently supports only FLIP
+;<For each={[1]} motion="fade">
+  {(item) => <span key={item}>{item}</span>}
+</For>
