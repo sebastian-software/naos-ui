@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  flipMovedElements,
   prefersReducedMotion,
   spring,
   springEasing,
@@ -109,5 +110,82 @@ describe("@iktia/motion", () => {
     expect(timing.easing).toMatch(/^linear\(0, /)
     expect(timing.easing.endsWith(", 1)")).toBe(true)
     expect(springEasing({ damping: 26, stiffness: 300 })).toMatch(/^linear\(/)
+  })
+
+  it("animates moved elements from their previous rect", () => {
+    const originalGetComputedStyle = globalThis.getComputedStyle
+    const animateCalls: unknown[] = []
+    const element = {
+      animate: (...args: unknown[]) => {
+        animateCalls.push(args)
+        return { playState: "running" }
+      },
+      getBoundingClientRect: () => ({
+        bottom: 20,
+        height: 20,
+        left: 10,
+        right: 110,
+        top: 0,
+        width: 100,
+        x: 10,
+        y: 0,
+        toJSON: () => ({}),
+      }),
+    } as unknown as Element
+
+    try {
+      globalThis.getComputedStyle = ((() => ({
+        transform: "scale(1)",
+      })) as unknown) as typeof getComputedStyle
+
+      const animations = flipMovedElements(
+        new Map([
+          [
+            element,
+            {
+              bottom: 56,
+              height: 20,
+              left: 30,
+              right: 130,
+              top: 36,
+              width: 100,
+              x: 30,
+              y: 36,
+              toJSON: () => ({}),
+            },
+          ],
+        ]),
+        { duration: 180, easing: "linear" }
+      )
+
+      expect(animations).toHaveLength(1)
+      expect(animateCalls).toHaveLength(1)
+      expect(animateCalls[0]).toEqual([
+        [
+          { transform: "translate(20px, 36px) scale(1)" },
+          { transform: "scale(1)" },
+        ],
+        { duration: 180, easing: "linear" },
+      ])
+    } finally {
+      globalThis.getComputedStyle = originalGetComputedStyle
+    }
+  })
+
+  it("skips FLIP when reduced motion is requested", () => {
+    const element = {
+      animate: () => {
+        throw new Error("reduced motion should not animate")
+      },
+      getBoundingClientRect: () => {
+        throw new Error("reduced motion should not measure")
+      },
+    } as unknown as Element
+
+    expect(
+      flipMovedElements(new Map([[element, {} as DOMRectReadOnly]]), {
+        reducedMotion: true,
+      })
+    ).toEqual([])
   })
 })

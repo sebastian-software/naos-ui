@@ -381,6 +381,7 @@ struct CodeGenerator<'a> {
     listener_lines: Vec<String>,
     update_steps: Vec<UpdateStep>,
     uses_spread_attributes: bool,
+    uses_motion_flip: bool,
 }
 
 impl<'a> CodeGenerator<'a> {
@@ -399,6 +400,7 @@ impl<'a> CodeGenerator<'a> {
             listener_lines: Vec::new(),
             update_steps: Vec::new(),
             uses_spread_attributes: false,
+            uses_motion_flip: false,
         }
     }
 
@@ -544,10 +546,20 @@ impl<'a> CodeGenerator<'a> {
             )
             .map_err(format_error)?;
         }
+        if self.uses_motion_flip {
+            writeln!(
+                code,
+                "import {{ flipMovedElements as __iktiaFlipMovedElements }} from \"@iktia/motion\";"
+            )
+            .map_err(format_error)?;
+        }
         for runtime_import in &self.module.runtime_imports {
             writeln!(code, "{}", runtime_import.source).map_err(format_error)?;
         }
-        if self.uses_scheduled_updates() || !self.module.runtime_imports.is_empty() {
+        if self.uses_scheduled_updates()
+            || self.uses_motion_flip
+            || !self.module.runtime_imports.is_empty()
+        {
             writeln!(code).map_err(format_error)?;
         }
         Ok(())
@@ -2145,9 +2157,15 @@ impl<'a> CodeGenerator<'a> {
         let next_sibling_variable = format!("{field}NextSibling");
         let retained_records_variable = format!("{field}RetainedRecords");
         let stale_record_variable = format!("{field}StaleRecord");
+        let flip_rects_variable = format!("{field}FlipRects");
+        let flip_record_variable = format!("{field}FlipRecord");
         let render_prefix = format!("for{index}");
         let row_template =
             self.emit_list_row_template(&rendered_template, &render_prefix, &record_variable)?;
+        let uses_flip = matches!(renderer.motion, Some(ListMotion::Flip));
+        if uses_flip {
+            self.uses_motion_flip = true;
+        }
 
         self.node_fields.push(field.clone());
         self.list_record_fields.push(records_field.clone());
@@ -2162,18 +2180,28 @@ impl<'a> CodeGenerator<'a> {
         self.mount_lines
             .push(format!("this.#{field} = {variable};"));
 
-        let mut update_lines = vec![
-            format!(
-                "const {items_variable} = Array.from(({}) ?? []);",
-                renderer.each_expression
-            ),
+        let mut update_lines = vec![format!(
+            "const {items_variable} = Array.from(({}) ?? []);",
+            renderer.each_expression
+        )];
+        if uses_flip {
+            update_lines.push(format!("const {flip_rects_variable} = new Map();"));
+            update_lines.push(format!(
+                "for (const {flip_record_variable} of this.#{records_field}.values()) {{"
+            ));
+            update_lines.push(format!(
+                "  {flip_rects_variable}.set({flip_record_variable}.node, {flip_record_variable}.node.getBoundingClientRect());"
+            ));
+            update_lines.push("}".to_owned());
+        }
+        update_lines.extend([
             format!("const {next_records_variable} = new Map();"),
             format!("const {nodes_variable} = [];"),
             format!(
                 "for (let {loop_index_variable} = 0; {loop_index_variable} < {items_variable}.length; {loop_index_variable} += 1) {{"
             ),
             format!("  const {} = {loop_index_variable};", renderer.index_name),
-        ];
+        ]);
         match renderer.kind {
             ListRendererKind::ItemKeyed => {
                 let key_expression = renderer
@@ -2301,6 +2329,9 @@ impl<'a> CodeGenerator<'a> {
         update_lines.push(format!("  this.#{field}.removeChild({cursor_variable});"));
         update_lines.push(format!("  {cursor_variable} = {next_sibling_variable};"));
         update_lines.push("}".to_owned());
+        if uses_flip {
+            update_lines.push(format!("__iktiaFlipMovedElements({flip_rects_variable});"));
+        }
         self.push_update_lines(
             update_lines,
             self.dependencies_for_expression_without_keyed_selectors(&format!(
@@ -4164,12 +4195,18 @@ enum ListRendererKind {
     IndexKeyed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ListMotion {
+    Flip,
+}
+
 struct ListRenderer {
     each_expression: String,
     item_name: String,
     index_name: String,
     key_expression: Option<String>,
     kind: ListRendererKind,
+    motion: Option<ListMotion>,
     template_source: String,
 }
 
@@ -4276,6 +4313,7 @@ fn parse_match_when(element: &TemplateElement) -> CompilerResult<Option<String>>
 
 fn parse_for_renderer(element: &TemplateElement) -> CompilerResult<ListRenderer> {
     let each_expression = required_expression_attribute(element, "each")?.to_owned();
+    let motion = parse_for_motion(element)?;
     let expressions = element
         .children
         .iter()
@@ -4299,12 +4337,14 @@ fn parse_for_renderer(element: &TemplateElement) -> CompilerResult<ListRenderer>
     Ok(ListRenderer {
         each_expression,
         kind: ListRendererKind::ItemKeyed,
+        motion,
         ..renderer
     })
 }
 
 fn parse_index_renderer(element: &TemplateElement) -> CompilerResult<ListRenderer> {
     let each_expression = required_expression_attribute(element, "each")?.to_owned();
+    reject_list_control_attributes(element, &["each"], "<Index>")?;
     let expressions = element
         .children
         .iter()
@@ -4328,6 +4368,7 @@ fn parse_index_renderer(element: &TemplateElement) -> CompilerResult<ListRendere
     Ok(ListRenderer {
         each_expression,
         kind: ListRendererKind::IndexKeyed,
+        motion: None,
         ..renderer
     })
 }
@@ -4376,6 +4417,7 @@ fn parse_map_renderer(expression: &str) -> CompilerResult<Option<ListRenderer>> 
     Ok(Some(ListRenderer {
         each_expression: each_expression.to_owned(),
         kind: ListRendererKind::ItemKeyed,
+        motion: None,
         ..renderer
     }))
 }
@@ -4450,8 +4492,57 @@ fn parse_list_callback(
         index_name: index_name.to_owned(),
         key_expression,
         kind: ListRendererKind::ItemKeyed,
+        motion: None,
         template_source: body.to_owned(),
     })
+}
+
+fn parse_for_motion(element: &TemplateElement) -> CompilerResult<Option<ListMotion>> {
+    reject_list_control_attributes(element, &["each", "motion"], "<For>")?;
+    let Some(attribute) = optional_attribute(element, "motion") else {
+        return Ok(None);
+    };
+    let TemplateAttribute::Named { value, .. } = attribute else {
+        return Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+            "<For> `motion` does not support JSX spread attributes.",
+            DIAGNOSTIC_HINT_LISTS,
+        ));
+    };
+    match value {
+        AttributeValue::Static(value) if value == "flip" => Ok(Some(ListMotion::Flip)),
+        AttributeValue::Static(_) | AttributeValue::Boolean | AttributeValue::Expression(_) => {
+            Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+                "<For> `motion` currently supports only the static value \"flip\".",
+                DIAGNOSTIC_HINT_LISTS,
+            ))
+        }
+    }
+}
+
+fn reject_list_control_attributes(
+    element: &TemplateElement,
+    allowed: &[&str],
+    label: &str,
+) -> CompilerResult<()> {
+    for attribute in &element.attributes {
+        let TemplateAttribute::Named { name, .. } = attribute else {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+                format!("{label} does not support JSX spread attributes."),
+                DIAGNOSTIC_HINT_LISTS,
+            ));
+        };
+        if !allowed.iter().any(|allowed_name| allowed_name == name) {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+                format!("{label} supports only `{}`.", allowed.join("`, `")),
+                DIAGNOSTIC_HINT_LISTS,
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn required_key_expression(element: &TemplateElement) -> CompilerResult<String> {

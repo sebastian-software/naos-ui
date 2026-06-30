@@ -10,6 +10,7 @@ for v0.1 and are not published to crates.io.
 | `@iktia/core` | Authoring primitives and JSX runtime types. |
 | `@iktia/data` | Optional fetch and subscription resources for Custom Element data loading. |
 | `@iktia/data-convex` | Optional Convex adapter for `@iktia/data` resources. |
+| `@iktia/motion` | Framework-free motion kernels used by generated output and primitives. |
 | `@iktia/runtime` | Tiny platform helpers for generated output. |
 | `@iktia/router` | Optional platform router for Custom Element app shells. |
 | `@iktia/compiler` | Node wrapper around the native compiler. |

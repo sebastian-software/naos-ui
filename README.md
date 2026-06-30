@@ -267,6 +267,7 @@ see [docs/authoring.md](docs/authoring.md).
 
 ```txt
 @iktia/core       Authoring API and JSX runtime types
+@iktia/motion     Framework-free motion kernels for generated output and primitives
 @iktia/runtime    Tiny platform helpers for generated elements
 @iktia/router     Tiny platform router for Custom Element app shells
 @iktia/compiler   Node wrapper around the Rust compiler

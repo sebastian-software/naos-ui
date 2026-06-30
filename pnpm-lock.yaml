@@ -26,6 +26,9 @@ importers:
       '@iktia/core':
         specifier: workspace:^
         version: link:../../packages/core
+      '@iktia/motion':
+        specifier: workspace:^
+        version: link:../../packages/motion
       '@iktia/primitives':
         specifier: workspace:^
         version: link:../../packages/primitives

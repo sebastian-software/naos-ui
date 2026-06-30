@@ -38,6 +38,7 @@ export type MatchProps = {
 
 export type ForProps<T> = {
   each: readonly T[] | null | undefined
+  motion?: "flip"
   children: (item: T, index: number) => JSX.Element
 }
 

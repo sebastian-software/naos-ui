@@ -1576,6 +1576,54 @@ mod tests {
         assert!(!result.code.contains("this.#node1.replaceChildren("));
         assert!(!result.code.contains("this.#node2.replaceChildren("));
         assert!(!result.code.contains(".map(("));
+        assert!(!result.code.contains("@iktia/motion"));
+        assert!(!result.code.contains("__iktiaFlipMovedElements"));
+    }
+
+    #[test]
+    fn transform_component_module_should_generate_keyed_for_flip_motion() {
+        let source = r#"
+            import { For, state } from "@iktia/core";
+
+            export function FlipListProbe() {
+              const rows = state([{ id: "a", label: "Alpha" }, { id: "b", label: "Beta" }]);
+
+              return (
+                <section>
+                  <For each={rows()} motion="flip">
+                    {(row, index) => (
+                      <button key={row.id} data-index={index}>
+                        {row.label}
+                      </button>
+                    )}
+                  </For>
+                </section>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "flip-list-probe.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains(
+            "import { flipMovedElements as __iktiaFlipMovedElements } from \"@iktia/motion\";"
+        ));
+        assert!(result.code.contains("const node1FlipRects = new Map();"));
+        assert!(result.code.contains(
+            "node1FlipRects.set(node1FlipRecord.node, node1FlipRecord.node.getBoundingClientRect());"
+        ));
+        assert!(
+            result
+                .code
+                .contains("this.#node1.insertBefore(node1OrderedNode, node1Cursor);")
+        );
+        assert!(
+            result
+                .code
+                .contains("__iktiaFlipMovedElements(node1FlipRects);")
+        );
     }
 
     #[test]
