@@ -5,6 +5,7 @@ import {
   prefersReducedMotion,
   spring,
   springEasing,
+  springMotionToken,
   waitForAnimations,
 } from "./index.js"
 
@@ -110,6 +111,25 @@ describe("@iktia/motion", () => {
     expect(timing.easing).toMatch(/^linear\(0, /)
     expect(timing.easing.endsWith(", 1)")).toBe(true)
     expect(springEasing({ damping: 26, stiffness: 300 })).toMatch(/^linear\(/)
+  })
+
+  it("generates deterministic spring motion token classes and CSS", () => {
+    const preset = springMotionToken({ kind: "presence", preset: "snappy" })
+    const custom = springMotionToken({
+      kind: "presence",
+      options: { damping: 22, mass: 1, maxDuration: 420, stiffness: 420 },
+    })
+    const sameCustom = springMotionToken({
+      kind: "presence",
+      options: { maxDuration: 420, stiffness: 420, damping: 22, mass: 1 },
+    })
+
+    expect(preset.className).toBe("iktia-motion-presence-spring-snappy")
+    expect(preset.css).toContain(".iktia-motion-presence-spring-snappy")
+    expect(preset.css).toContain("--iktia-presence-motion-duration: ")
+    expect(preset.css).toContain("--iktia-presence-motion-easing: linear(")
+    expect(custom.className).toBe(sameCustom.className)
+    expect(custom.css).toBe(sameCustom.css)
   })
 
   it("animates moved elements from their previous rect", () => {

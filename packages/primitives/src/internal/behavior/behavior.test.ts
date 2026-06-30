@@ -246,12 +246,13 @@ describe("primitive behavior kernels", () => {
     })
   })
 
-  it("maps presence motion to shared spring CSS variables", () => {
+  it("maps presence motion to a stable spring token class", () => {
     const motion = getIktiaPresenceMotionAttributes()
 
-    expect(motion.style).toContain("--iktia-presence-motion-duration: ")
-    expect(motion.style).toContain("ms")
-    expect(motion.style).toContain("--iktia-presence-motion-easing: linear(")
+    expect(motion).toEqual({
+      class: "iktia-motion-presence-spring-snappy",
+    })
+    expect(getIktiaPresenceMotionAttributes()).toBe(motion)
   })
 
   it("waits for presence exit animations before settling", async () => {

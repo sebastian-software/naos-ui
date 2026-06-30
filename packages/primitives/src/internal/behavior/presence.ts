@@ -1,4 +1,7 @@
-import { spring, waitForAnimations, type IktiaSpringPreset } from "@iktia/motion"
+import {
+  springMotionTokenClassName,
+  waitForAnimations,
+} from "@iktia/motion"
 
 export type IktiaPresencePhase =
   | "closed"
@@ -12,7 +15,16 @@ export type IktiaPresenceSnapshot = {
 }
 
 export type IktiaPresenceMotionAttributes = {
-  style: string
+  class: string
+}
+
+export const IKTIA_PRESENCE_MOTION_CLASS = springMotionTokenClassName({
+  kind: "presence",
+  preset: "snappy",
+})
+
+const IKTIA_PRESENCE_MOTION_ATTRIBUTES = {
+  class: IKTIA_PRESENCE_MOTION_CLASS,
 }
 
 export function createIktiaPresenceSnapshot(open: boolean): IktiaPresenceSnapshot {
@@ -59,16 +71,8 @@ export function getIktiaPresenceAttributes({
   }
 }
 
-export function getIktiaPresenceMotionAttributes(
-  preset: IktiaSpringPreset = "snappy"
-): IktiaPresenceMotionAttributes {
-  const timing = spring(preset)
-  return {
-    style: [
-      `--iktia-presence-motion-duration: ${timing.duration}ms`,
-      `--iktia-presence-motion-easing: ${timing.easing}`,
-    ].join("; "),
-  }
+export function getIktiaPresenceMotionAttributes(): IktiaPresenceMotionAttributes {
+  return IKTIA_PRESENCE_MOTION_ATTRIBUTES
 }
 
 export function scheduleIktiaPresenceFrame(callback: () => void) {

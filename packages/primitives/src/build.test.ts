@@ -64,6 +64,7 @@ describe("@iktia/primitives build output", () => {
   })
 
   it("keeps primitive behavior kernels private but available to compiled components", () => {
+    const dialog = readFileSync(join(distRoot, "dialog.mjs"), "utf8")
     const dropdown = readFileSync(join(distRoot, "dropdown.mjs"), "utf8")
     const hoverCardComponent = readFileSync(join(distRoot, "hover-card.mjs"), "utf8")
     const index = readFileSync(join(distRoot, "index.mjs"), "utf8")
@@ -73,6 +74,10 @@ describe("@iktia/primitives build output", () => {
     const overlay = readFileSync(join(distRoot, "internal", "behavior", "overlay.js"), "utf8")
     const presence = readFileSync(join(distRoot, "internal", "behavior", "presence.js"), "utf8")
 
+    expect(dialog).toContain(".iktia-motion-presence-spring-snappy")
+    expect(dialog).toContain("--iktia-presence-motion-duration: ")
+    expect(dialog).toContain("--iktia-presence-motion-easing: linear(")
+    expect(dialog).not.toContain("style: \"--iktia-presence-motion-duration")
     expect(dropdown).toContain("from \"./internal/behavior/disclosure.js\"")
     expect(hoverCardComponent).toContain("from \"./internal/behavior/presence.js\"")
     expect(hoverCardComponent).toContain("getIktiaPresenceMotionAttributes")
@@ -83,8 +88,9 @@ describe("@iktia/primitives build output", () => {
     expect(context).toContain("createIktiaContext")
     expect(overlay).toContain("getIktiaOverlayStateAttributes")
     expect(presence).toContain("from \"@iktia/motion\"")
-    expect(presence).toContain("--iktia-presence-motion-duration")
-    expect(presence).toContain("--iktia-presence-motion-easing")
+    expect(presence).toContain("springMotionTokenClassName")
+    expect(presence).not.toContain("--iktia-presence-motion-duration")
+    expect(presence).not.toContain("--iktia-presence-motion-easing")
     expect(presence).toContain("waitForIktiaPresenceExit")
     expect(index).not.toContain("internal/behavior")
     expect(dropdown).not.toContain("@iktia/core")

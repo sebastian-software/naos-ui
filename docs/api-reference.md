@@ -18,6 +18,22 @@ for v0.1 and are not published to crates.io.
 | `@iktia/vite` | Vite transform and prerender metadata plugin. |
 | `@iktia/cli` | `iktia compile`, `iktia prerender`, and `iktia info`. |
 
+## `@iktia/motion`
+
+| Export | Stability | Purpose |
+| --- | --- | --- |
+| `spring(presetOrOptions)` | Experimental | Resolve a spring preset or option object into browser-native duration and `linear(...)` CSS easing. |
+| `springEasing(presetOrOptions)` | Experimental | Return only the generated CSS easing string. |
+| `springMotionToken(options)` | Experimental | Generate a deterministic motion class name plus CSS custom-property rule for a spring token. |
+| `springMotionTokenClassName(options)` | Experimental | Generate only the deterministic class name for build/runtime coordination. |
+| `springMotionTokenCss(options)` | Experimental | Generate only the CSS rule for compiler or package-build output. |
+| `flipMovedElements(firstRects, options?)` | Experimental | Play transform-only FLIP move animations for preserved keyed elements. |
+| `waitForAnimations(element, options?)` | Experimental | Wait for pending Web Animations API animations, with reduced-motion and timeout guards. |
+
+Motion token classes are intended for compiler or package-build CSS output. For
+example, primitives can share `--iktia-presence-motion-*` variables through a
+stable class without injecting inline `style` strings at render time.
+
 ## `@iktia/core`
 
 | Export | Stability | Purpose |

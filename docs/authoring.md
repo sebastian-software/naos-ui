@@ -461,6 +461,11 @@ position-keyed and passes each item as an accessor so row nodes can stay mounted
 while their values rebind. The narrow typed `.map()` form remains supported as
 item-keyed list shorthand, without list-motion options.
 
+Shared spring timing can be emitted as deterministic motion-token classes.
+The same preset/configuration produces the same class name and CSS custom
+properties, so generated Shadow DOM styles can carry motion variables without
+runtime `style` string assembly or global CSS injection.
+
 ```tsx
 <Show when={count() > 0} fallback={<span>Empty</span>}>
   <span>{count()}</span>
