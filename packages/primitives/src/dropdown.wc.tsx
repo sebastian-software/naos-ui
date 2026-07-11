@@ -1,4 +1,4 @@
-import { effect, event, host, on, state, type ComponentOptions } from "@naos-ui/core"
+import { effect, event, host, state, type ComponentOptions } from "@naos-ui/core"
 import {
   nextDisclosureOpen,
   shouldCloseDisclosureForKey,
@@ -49,17 +49,17 @@ export function NaosDropdown({
         type="button"
         aria-expanded={expanded()}
         aria-controls="naos-dropdown-panel"
-        onKeyDown={on((event) => {
+        onKeyDown={(event) => {
           if (!shouldCloseDisclosureForKey(event.key)) return
           if (!expanded()) return
           event.preventDefault()
           expanded.set(false)
           changed.emit({ open: expanded() })
-        })}
-        onClick={on(() => {
+        }}
+        onClick={() => {
           expanded.set(nextDisclosureOpen(expanded()))
           changed.emit({ open: expanded() })
-        })}
+        }}
       >
         <slot name="trigger">{label}</slot>
       </button>

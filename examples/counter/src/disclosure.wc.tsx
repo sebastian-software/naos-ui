@@ -1,4 +1,4 @@
-import { Show, event, on, state, type ComponentOptions } from "@naos-ui/core"
+import { Show, event, state, type ComponentOptions } from "@naos-ui/core"
 import css from "./disclosure.wc.css?inline"
 
 export type DisclosureProps = {
@@ -19,10 +19,10 @@ export function Disclosure({ label = "Details" }: DisclosureProps = {}) {
         part="trigger"
         aria-expanded={open()}
         aria-controls="naos-disclosure-panel"
-        onClick={on(() => {
+        onClick={() => {
           open.update((value) => !value)
           changed.emit(open())
-        })}
+        }}
       >
         <slot name="summary" />
         {label}

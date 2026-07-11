@@ -132,13 +132,14 @@ Deliverables:
 
 * Write ADRs for API stability tiers and package topology.
 * Keep the public authoring API focused on exported PascalCase functions,
-  typed function props, `state()`, `computed()`, `effect()`, `event()`, `on()`,
-  `host()`, `<Show>`, and keyed `.map()`.
+  typed function props, `state()`, `computed()`, `effect()`, `event()`, bare
+  JSX event handlers, optional `on(handler, options?)`, `host()`, `<Show>`, and
+  keyed `.map()`.
 * Freeze the first public shape of `state()`, `computed()`, `effect()`,
   `event()`, `on()`, `host()`, `<Show>`, keyed `.map()`, and
   `ComponentOptions`.
-* Decide whether event options belong in `event(name, options)`, `on(type,
-  handler, options)`, both, or neither for the first release.
+* Keep dispatch options in `event(name, options)` and native listener options
+  in the exceptional `on(handler, options)` form.
 * Define the public DSD API boundary for `renderDeclarativeShadowDom()` and Vite
   prerender metadata.
 * Define semver expectations for generated output markers such as

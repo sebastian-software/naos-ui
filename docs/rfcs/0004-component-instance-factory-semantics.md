@@ -132,7 +132,8 @@ This RFC must fit the accepted Naos architecture:
 * Side effects use `effect()`.
 * Host access uses `host()`.
 * Component-level events use `event()`.
-* DOM event listeners use `on()`.
+* DOM event listeners use bare JSX handlers by default; `on(handler, options?)`
+  is reserved for listener options or the invocation-scoped abort signal.
 * Generated output owns Custom Element construction, observed attributes,
   property accessors, mount, update, form callbacks, effect cleanup, and DSD
   hydration.
@@ -170,10 +171,10 @@ export function Counter(handle: ComponentHandle<CounterProps>) {
 
   return () => (
     <button
-      onClick={on(() => {
+      onClick={() => {
         count += 1
         handle.update()
-      })}
+      }}
     >
       {handle.props.label}: {count}
     </button>
@@ -251,7 +252,7 @@ export function ClipboardButton(handle: ComponentHandle<ClipboardButtonProps>) {
     return (
       <button
         aria-label={label}
-        onClick={on(async () => {
+        onClick={async () => {
           try {
             await navigator.clipboard.writeText(handle.props.value)
             state = "copied"
@@ -259,7 +260,7 @@ export function ClipboardButton(handle: ComponentHandle<ClipboardButtonProps>) {
             state = "error"
           }
           handle.update()
-        })}
+        }}
       >
         {label}
       </button>
@@ -385,14 +386,14 @@ export function ClipboardButton({
   return (
     <button
       aria-label={label()}
-      onClick={on(async () => {
+      onClick={async () => {
         try {
           await navigator.clipboard.writeText(value)
           status.set("copied")
         } catch {
           status.set("error")
         }
-      })}
+      }}
     >
       {label()}
     </button>

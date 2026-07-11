@@ -2,6 +2,10 @@
 
 Status: Accepted
 
+Amended by: ADR 0021, which makes bare JSX handlers the default and narrows
+`on()` to `on(handler, options?)` for listener options or an invocation-scoped
+abort signal.
+
 Weight: P1
 
 ## Context

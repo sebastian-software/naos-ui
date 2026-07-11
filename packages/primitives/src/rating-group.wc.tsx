@@ -3,7 +3,6 @@ import {
   event,
   formControl,
   host,
-  on,
   onConnected,
   onDisconnected,
   state,
@@ -112,7 +111,7 @@ export function NaosRatingGroup({
             {...(ratingGroupApi()?.getItemProps({ index: ratingIndex }) ?? {})}
             part="item"
             data-state={current() >= ratingIndex ? "checked" : "unchecked"}
-            onKeyDown={on((event) => {
+            onKeyDown={(event) => {
               const api = ratingGroupApi()
               if (disabled || readOnly || api == null) return
 
@@ -133,7 +132,7 @@ export function NaosRatingGroup({
                 )
                 if (nextItem instanceof HTMLElement) nextItem.focus()
               })
-            })}
+            }}
           >
             *
           </span>

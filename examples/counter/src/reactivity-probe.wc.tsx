@@ -79,7 +79,7 @@ export function ReactivityProbe() {
       </button>
       <button
         data-probe-update-signal-button
-        onClick={on(async () => {
+        onClick={async () => {
           primary.set(primary() + 1)
           const updateSignal = await host().update()
           document.body.dataset.probeUpdateSignalAborted = String(
@@ -99,7 +99,7 @@ export function ReactivityProbe() {
             document.body.dataset.probeQueuedTaskPrimary =
               primaryNode?.textContent ?? ""
           })
-        })}
+        }}
       >
         Update signal
       </button>

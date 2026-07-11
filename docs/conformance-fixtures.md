@@ -12,8 +12,9 @@ Accepted fixtures belong in `accepted/`. Each fixture should be a small
 `.wc.tsx` component that maps to public authoring documentation and checks
 stable generated-output signals rather than every byte of emitted JavaScript.
 Use this group for supported component declarations, props, `state()`,
-`computed()`, `effect()`, `event()`, `host()`, `on()`, `<Show>`, keyed `.map()`,
-CSS `styles`, slots, parts, `data-*`, and `aria-*`.
+`computed()`, `effect()`, `event()`, `host()`, bare JSX event handlers,
+`on(handler, options?)`, `<Show>`, keyed `.map()`, CSS `styles`, slots, parts,
+`data-*`, and `aria-*`.
 
 Rejected fixtures belong in `rejected/`. Each fixture should demonstrate one
 unsupported authoring pattern and assert the diagnostic code, message fragment,

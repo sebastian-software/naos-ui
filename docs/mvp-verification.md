@@ -45,7 +45,9 @@ Rust core:
 * Computed values are generated as read-only derived bindings.
 * Effects run after mount/update and clean up on disconnect.
 * Events dispatch native `CustomEvent` instances.
-* `on()` compiles away to a native `addEventListener()` handler body.
+* Bare JSX event handlers compile to native `addEventListener()` callbacks;
+  `on(handler, options?)` adds native listener options or exposes the
+  invocation-scoped abort signal without adding a runtime wrapper.
 * `host()` exposes a generated lifecycle handle with an `AbortSignal`.
 * `<Show>` and keyed `.map()` compile as explicit control-flow containers.
 * Unsupported JSX `.map()` and conditional expression children produce

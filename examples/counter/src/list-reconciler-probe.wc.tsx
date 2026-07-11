@@ -1,4 +1,4 @@
-import { For, Index, on, state } from "@naos-ui/core"
+import { For, Index, state } from "@naos-ui/core"
 
 type Row = {
   id: string
@@ -54,13 +54,13 @@ export function ListReconcilerProbe() {
               data-probe-index-row
               data-index={index}
               value={name()}
-              onInput={on((event) => {
+              onInput={(event) => {
                 const input = event.currentTarget
                 if (!(input instanceof HTMLInputElement)) return
                 const next = [...names()]
                 next[index] = input.value
                 names.set(next)
-              })}
+              }}
             />
           )}
         </Index>

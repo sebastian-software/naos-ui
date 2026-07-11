@@ -1,4 +1,4 @@
-import { event, on, type ComponentOptions } from "@naos-ui/core"
+import { event, type ComponentOptions } from "@naos-ui/core"
 import css from "./button.wc.css?inline"
 
 export type NaosButtonProps = {
@@ -25,10 +25,10 @@ export function NaosButton({
       data-variant={variant}
       data-disabled={disabled || undefined}
       disabled={disabled}
-      onClick={on(() => {
+      onClick={() => {
         if (disabled) return
         pressed.emit({ variant })
-      })}
+      }}
     >
       <slot name="icon" />
       <slot>{label}</slot>
