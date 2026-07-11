@@ -2878,11 +2878,17 @@ struct IdentifierUse {
 
 fn identifier_uses(source: &str) -> Option<Vec<IdentifierUse>> {
     let allocator = Allocator::default();
-    let expression = Parser::new(&allocator, source, SourceType::tsx())
-        .parse_expression()
-        .ok()?;
     let mut visitor = DependencyVisitor::default();
-    visitor.visit_expression(&expression);
+    if let Ok(expression) = Parser::new(&allocator, source, SourceType::tsx()).parse_expression() {
+        visitor.visit_expression(&expression);
+        return Some(visitor.identifiers);
+    }
+
+    let parsed = Parser::new(&allocator, source, SourceType::tsx()).parse();
+    if !parsed.errors.is_empty() {
+        return None;
+    }
+    visitor.visit_program(&parsed.program);
     Some(visitor.identifiers)
 }
 
@@ -4448,6 +4454,23 @@ fn source_map_line_mappings(code: &str) -> String {
 #[cfg(test)]
 mod dependency_tests {
     use super::identifier_uses;
+
+    #[test]
+    fn ast_dependency_visitor_parses_effect_block_bodies() {
+        let identifiers = identifier_uses(
+            r#"{
+                const runs = Number(document.body.dataset.runs ?? "0") + 1;
+                document.body.dataset.value = String(primary());
+            }"#,
+        )
+        .expect("valid effect block should parse");
+
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "primary" && identifier.is_call)
+        );
+    }
 
     #[test]
     fn ast_dependency_visitor_ignores_lexically_shadowed_callback_bindings() {
