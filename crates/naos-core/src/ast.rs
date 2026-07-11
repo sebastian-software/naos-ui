@@ -13,16 +13,17 @@ use oxc_span::{GetSpan, SourceType, Span};
 use crate::error::{
     CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
     DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK,
-    DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER, DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
-    DIAGNOSTIC_HINT_COMPONENT_OPTIONS, DIAGNOSTIC_HINT_INSTANCE_SETUP,
-    removed_authoring_api_with_span, unsupported, unsupported_with_code,
-    unsupported_with_code_and_span,
+    DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER, DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+    DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS, DIAGNOSTIC_HINT_COMPONENT_OPTIONS,
+    DIAGNOSTIC_HINT_INSTANCE_SETUP, DIAGNOSTIC_HINT_LISTS, removed_authoring_api_with_span,
+    unsupported, unsupported_with_code, unsupported_with_code_and_span,
 };
 use crate::model::{
     AttributeValue, ComponentImport, ComponentOptions, ComputedDefinition, DiagnosticSpan,
     EffectDefinition, EventDefinition, FormControlDefinition, KeyedSelectorDefinition,
     LifecycleCallbackDefinition, RuntimeImport, StateDefinition, StateKind, StyleImport,
-    TemplateAttribute, TemplateChild, TemplateElement,
+    TemplateAttribute, TemplateChild, TemplateElement, TemplateList, TemplateListKey,
+    TemplateListKind, TemplateListMotion,
 };
 use crate::naming::is_pascal_case_identifier;
 
@@ -480,17 +481,30 @@ fn lower_jsx_element(source: &str, element: &JSXElement<'_>) -> CompilerResult<T
         .iter()
         .map(|attribute| lower_jsx_attribute(source, attribute))
         .collect::<CompilerResult<Vec<_>>>()?;
-    let children = element
-        .children
-        .iter()
-        .filter_map(|child| lower_jsx_child(source, child).transpose())
-        .collect::<CompilerResult<Vec<_>>>()?;
+    let children = lower_jsx_children(source, &tag_name, &attributes, &element.children)?;
 
     Ok(TemplateElement {
         tag_name,
         attributes,
         children,
     })
+}
+
+fn lower_jsx_children(
+    source: &str,
+    tag_name: &str,
+    attributes: &[TemplateAttribute],
+    children: &[JSXChild<'_>],
+) -> CompilerResult<Vec<TemplateChild>> {
+    if matches!(tag_name, "For" | "Index") {
+        return lower_list_control(source, tag_name, attributes, children)
+            .map(|list| vec![TemplateChild::List(list)]);
+    }
+
+    children
+        .iter()
+        .filter_map(|child| lower_jsx_child(source, child).transpose())
+        .collect()
 }
 
 fn lower_jsx_attribute(
@@ -544,13 +558,281 @@ fn lower_jsx_child(source: &str, child: &JSXChild<'_>) -> CompilerResult<Option<
             .map(TemplateChild::Element)
             .map(Some),
         JSXChild::ExpressionContainer(container) => {
-            lower_jsx_expression(source, &container.expression)
-                .map(|expression| expression.map(TemplateChild::Expression))
+            lower_jsx_expression_child(source, &container.expression)
         }
         JSXChild::Fragment(_) | JSXChild::Spread(_) => Err(unsupported(
             "JSX fragments and spread children are not supported in this milestone.",
         )),
     }
+}
+
+fn lower_jsx_expression_child(
+    source: &str,
+    expression: &JSXExpression<'_>,
+) -> CompilerResult<Option<TemplateChild>> {
+    if matches!(expression, JSXExpression::EmptyExpression(_)) {
+        return Ok(None);
+    }
+    if let JSXExpression::CallExpression(call) = expression
+        && let Some(list) = lower_map_list(source, call)?
+    {
+        return Ok(Some(TemplateChild::List(list)));
+    }
+    expression_source(source, expression)
+        .map(TemplateChild::Expression)
+        .map(Some)
+}
+
+fn lower_map_list(source: &str, call: &CallExpression<'_>) -> CompilerResult<Option<TemplateList>> {
+    let Expression::StaticMemberExpression(member) = call.callee.get_inner_expression() else {
+        return Ok(None);
+    };
+    if member.property.name.as_str() != "map" {
+        return Ok(None);
+    }
+    if call.arguments.len() != 1 {
+        return Err(unsupported_list(
+            "Naos .map() list expressions support exactly one callback argument.",
+        ));
+    }
+    let Argument::ArrowFunctionExpression(callback) = &call.arguments[0] else {
+        return Err(unsupported_list(
+            ".map() callback must be an arrow function.",
+        ));
+    };
+    let each_expression = expression_source(source, &member.object)?;
+    if each_expression.is_empty() {
+        return Err(unsupported_list(
+            "Naos .map() list expressions must have an array expression before .map().",
+        ));
+    }
+    lower_list_callback(
+        source,
+        callback,
+        each_expression,
+        ListControlKind::ItemKeyed,
+        None,
+        ".map() callback",
+    )
+    .map(Some)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ListControlKind {
+    ItemKeyed,
+    IndexKeyed,
+}
+
+fn lower_list_control(
+    source: &str,
+    tag_name: &str,
+    attributes: &[TemplateAttribute],
+    children: &[JSXChild<'_>],
+) -> CompilerResult<TemplateList> {
+    let label = if tag_name == "For" {
+        "<For>"
+    } else {
+        "<Index>"
+    };
+    let allowed = if tag_name == "For" {
+        &["each", "motion"][..]
+    } else {
+        &["each"][..]
+    };
+    reject_list_control_attributes(attributes, allowed, label)?;
+    let each_expression = required_list_expression_attribute(attributes, "each", label)?;
+    let motion = if tag_name == "For" {
+        lower_list_motion(attributes)?
+    } else {
+        None
+    };
+    let mut callback_expression = None;
+    for child in children {
+        match child {
+            JSXChild::Text(text) if text.value.trim().is_empty() => {}
+            JSXChild::ExpressionContainer(container)
+                if matches!(container.expression, JSXExpression::EmptyExpression(_)) => {}
+            JSXChild::ExpressionContainer(container) if callback_expression.is_none() => {
+                callback_expression = Some(&container.expression);
+            }
+            _ => {
+                return Err(unsupported_list(format!(
+                    "{label} requires exactly one braced arrow-function child."
+                )));
+            }
+        }
+    }
+    let Some(JSXExpression::ArrowFunctionExpression(callback)) = callback_expression else {
+        return Err(unsupported_list(format!(
+            "{label} requires exactly one braced arrow-function child."
+        )));
+    };
+    let kind = if tag_name == "For" {
+        ListControlKind::ItemKeyed
+    } else {
+        ListControlKind::IndexKeyed
+    };
+    lower_list_callback(
+        source,
+        callback,
+        each_expression,
+        kind,
+        motion,
+        &format!("{label} child"),
+    )
+}
+
+fn lower_list_callback(
+    source: &str,
+    callback: &ArrowFunctionExpression<'_>,
+    each_expression: String,
+    kind: ListControlKind,
+    motion: Option<TemplateListMotion>,
+    label: &str,
+) -> CompilerResult<TemplateList> {
+    if !callback.expression {
+        return Err(unsupported_list(format!(
+            "{label} must use an expression body that returns JSX."
+        )));
+    }
+    if callback.params.rest.is_some() || !(1..=2).contains(&callback.params.items.len()) {
+        return Err(unsupported_list(format!(
+            "{label} currently supports item and index parameters only."
+        )));
+    }
+    let Some(item_name) = binding_identifier_name(&callback.params.items[0].pattern) else {
+        return Err(unsupported_list(format!(
+            "{label} parameters must be simple identifiers."
+        )));
+    };
+    let index_name = match callback.params.items.get(1) {
+        Some(parameter) => binding_identifier_name(&parameter.pattern).ok_or_else(|| {
+            unsupported_list(format!("{label} parameters must be simple identifiers."))
+        })?,
+        None => "index",
+    };
+    let Some(Statement::ExpressionStatement(statement)) = callback.body.statements.first() else {
+        return Err(unsupported_list(format!(
+            "{label} must return a JSX element expression."
+        )));
+    };
+    if callback.body.statements.len() != 1 {
+        return Err(unsupported_list(format!(
+            "{label} must return a JSX element expression."
+        )));
+    }
+    let template = lower_return_template(source, &statement.expression)
+        .map_err(|_| unsupported_list(format!("{label} must return a JSX element expression.")))?;
+    let kind = match kind {
+        ListControlKind::ItemKeyed => TemplateListKind::ItemKeyed {
+            key: required_list_key(&template)?,
+        },
+        ListControlKind::IndexKeyed => TemplateListKind::IndexKeyed,
+    };
+    Ok(TemplateList {
+        each_expression,
+        item_name: item_name.to_owned(),
+        index_name: index_name.to_owned(),
+        kind,
+        motion,
+        template,
+    })
+}
+
+fn reject_list_control_attributes(
+    attributes: &[TemplateAttribute],
+    allowed: &[&str],
+    label: &str,
+) -> CompilerResult<()> {
+    for attribute in attributes {
+        let TemplateAttribute::Named { name, .. } = attribute else {
+            return Err(unsupported_list(format!(
+                "{label} does not support JSX spread attributes."
+            )));
+        };
+        if !allowed.iter().any(|allowed_name| *allowed_name == name) {
+            return Err(unsupported_list(format!(
+                "{label} supports only `{}`.",
+                allowed.join("`, `")
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn required_list_expression_attribute(
+    attributes: &[TemplateAttribute],
+    name: &str,
+    label: &str,
+) -> CompilerResult<String> {
+    let Some(value) = attributes.iter().find_map(|attribute| match attribute {
+        TemplateAttribute::Named {
+            name: attribute_name,
+            value,
+        } if attribute_name == name => Some(value),
+        _ => None,
+    }) else {
+        return Err(unsupported_list(format!(
+            "{label} requires the `{name}` attribute."
+        )));
+    };
+    match value {
+        AttributeValue::Expression(expression) if !expression.trim().is_empty() => {
+            Ok(expression.trim().to_owned())
+        }
+        _ => Err(unsupported_list(format!(
+            "{label} `{name}` must use a non-empty braced expression."
+        ))),
+    }
+}
+
+fn lower_list_motion(
+    attributes: &[TemplateAttribute],
+) -> CompilerResult<Option<TemplateListMotion>> {
+    let Some(value) = attributes.iter().find_map(|attribute| match attribute {
+        TemplateAttribute::Named { name, value } if name == "motion" => Some(value),
+        _ => None,
+    }) else {
+        return Ok(None);
+    };
+    match value {
+        AttributeValue::Static(value) if value == "flip" => Ok(Some(TemplateListMotion::Flip)),
+        _ => Err(unsupported_list(
+            "<For> `motion` currently supports only the static value \"flip\".",
+        )),
+    }
+}
+
+fn required_list_key(element: &TemplateElement) -> CompilerResult<TemplateListKey> {
+    let Some(value) = element
+        .attributes
+        .iter()
+        .find_map(|attribute| match attribute {
+            TemplateAttribute::Named { name, value } if name == "key" => Some(value),
+            _ => None,
+        })
+    else {
+        return Err(unsupported_list(
+            "Dynamic .map() lists require a key attribute on the returned root JSX element.",
+        ));
+    };
+    match value {
+        AttributeValue::Expression(expression) if !expression.trim().is_empty() => {
+            Ok(TemplateListKey::Expression(expression.trim().to_owned()))
+        }
+        AttributeValue::Static(value) => Ok(TemplateListKey::Static(value.clone())),
+        _ => Err(unsupported_list(
+            "Dynamic .map() list keys must use a non-empty expression or static value.",
+        )),
+    }
+}
+
+fn unsupported_list(message: impl Into<String>) -> CompilerError {
+    unsupported_with_code(
+        DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+        message,
+        DIAGNOSTIC_HINT_LISTS,
+    )
 }
 
 fn decode_jsx_entities(value: &str) -> String {

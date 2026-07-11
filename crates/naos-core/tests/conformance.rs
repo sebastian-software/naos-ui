@@ -9,6 +9,7 @@ struct AcceptedFixture {
     filename: &'static str,
     source: &'static str,
     snippets: &'static [&'static str],
+    expected_dependency_guards: &'static str,
 }
 
 struct RejectedFixture {
@@ -43,6 +44,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
             "setAttribute(\"data-count\"",
             "setAttribute(\"part\", \"button\")",
         ],
+        expected_dependency_guards: "",
     },
     AcceptedFixture {
         filename: "composition-toggle-list.wc.tsx",
@@ -57,6 +59,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
             ".replaceChildren(",
             "setAttribute(\"aria-pressed\"",
         ],
+        expected_dependency_guards: "",
     },
     AcceptedFixture {
         filename: "styled-slots.wc.tsx",
@@ -71,6 +74,20 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
             "setAttribute(\"name\", \"icon\")",
             "setAttribute(\"part\", \"root label\")",
         ],
+        expected_dependency_guards: "",
+    },
+    AcceptedFixture {
+        filename: "dependency-ast-edge-cases.wc.tsx",
+        source: include_str!("fixtures/conformance/accepted/dependency-ast-edge-cases.wc.tsx"),
+        snippets: &[
+            "class DependencyAstEdgeCasesElement extends HTMLElement",
+            "customElements.define(\"dependency-ast-edge-cases\", DependencyAstEdgeCasesElement)",
+            "data-naos-control\", \"for",
+            "/a{2}/.test(\"aa\")",
+        ],
+        expected_dependency_guards: include_str!(
+            "fixtures/conformance/accepted/dependency-ast-edge-cases.expected.txt"
+        ),
     },
 ];
 
@@ -201,6 +218,19 @@ fn accepted_fixtures_should_transform_through_public_compiler_boundary() {
                 result.code
             );
         }
+        for guard in fixture
+            .expected_dependency_guards
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+        {
+            assert!(
+                result.code.contains(guard),
+                "{} output should contain dependency guard {guard:?}\n\n{}",
+                fixture.filename,
+                result.code
+            );
+        }
     }
 }
 
@@ -271,6 +301,35 @@ fn dsd_fixtures_should_prerender_static_shells_without_event_code() {
                 "{} DSD output should not contain {snippet:?}\n\n{}",
                 fixture.filename,
                 result.html
+            );
+        }
+    }
+}
+
+#[test]
+fn production_compiler_should_not_contain_legacy_parser_or_panic_paths() {
+    let compiler_sources = [
+        ("ast.rs", include_str!("../src/ast.rs")),
+        ("codegen.rs", include_str!("../src/codegen.rs")),
+        ("parse.rs", include_str!("../src/parse.rs")),
+    ];
+    let forbidden = [
+        concat!("Template", "Parser"),
+        concat!("panic", "!("),
+        concat!("unwrap", "()"),
+        concat!("expect", "("),
+        concat!("unreachable", "!("),
+    ];
+
+    for (filename, source) in compiler_sources {
+        let production = source
+            .split("#[cfg(test)]")
+            .next()
+            .expect("compiler source should contain production code");
+        for pattern in forbidden {
+            assert!(
+                !production.contains(pattern),
+                "{filename} production source must not contain {pattern}"
             );
         }
     }

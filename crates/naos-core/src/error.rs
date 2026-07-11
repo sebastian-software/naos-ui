@@ -26,6 +26,7 @@ pub(crate) const DIAGNOSTIC_CODE_DSD_INPUT: &str = "NAOS_DSD_INPUT";
 pub(crate) const DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED: &str =
     "NAOS_COMPONENT_TEMPLATE_REQUIRED";
 pub(crate) const DIAGNOSTIC_CODE_REMOVED_AUTHORING_API: &str = "NAOS_REMOVED_AUTHORING_API";
+#[cfg(test)]
 pub(crate) const DIAGNOSTIC_CODE_TEMPLATE_PARSE: &str = "NAOS_TEMPLATE_PARSE";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS: &str =
     "NAOS_UNSUPPORTED_COMPONENT_OPTIONS";
@@ -152,14 +153,6 @@ pub(crate) fn removed_authoring_api_with_span(
         message,
         DIAGNOSTIC_HINT_REMOVED_API,
         span,
-    )
-}
-
-pub(crate) fn template_parse(message: impl Into<String>) -> CompilerError {
-    unsupported_with_code(
-        DIAGNOSTIC_CODE_TEMPLATE_PARSE,
-        message,
-        DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
     )
 }
 

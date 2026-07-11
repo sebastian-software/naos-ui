@@ -87,10 +87,57 @@ pub enum AttributeValue {
 pub enum TemplateChild {
     /// A nested JSX element.
     Element(TemplateElement),
+    /// A dynamic keyed list lowered from `.map()`, `<For>`, or `<Index>`.
+    List(TemplateList),
     /// A dynamic JSX expression.
     Expression(String),
     /// A JSX text node.
     Text(String),
+}
+
+/// Owned dynamic-list renderer lowered from the OXC syntax tree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TemplateList {
+    /// Authored collection expression.
+    pub each_expression: String,
+    /// Callback item parameter name.
+    pub item_name: String,
+    /// Callback index parameter name.
+    pub index_name: String,
+    /// Reconciliation strategy and its required data.
+    pub kind: TemplateListKind,
+    /// Optional list motion behavior.
+    pub motion: Option<TemplateListMotion>,
+    /// Structured JSX row template.
+    pub template: TemplateElement,
+}
+
+/// Reconciliation strategy for a dynamic list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateListKind {
+    /// Items retain identity through an authored root `key` attribute.
+    ItemKeyed {
+        /// Required key value for every item-keyed renderer.
+        key: TemplateListKey,
+    },
+    /// Rows retain identity by collection index.
+    IndexKeyed,
+}
+
+/// Authored key value for an item-keyed list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateListKey {
+    /// Dynamic key expression.
+    Expression(String),
+    /// Static key value.
+    Static(String),
+}
+
+/// Supported motion behavior for dynamic lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateListMotion {
+    /// Animate retained rows from their previous to their next position.
+    Flip,
 }
 
 /// Imported component used as a PascalCase JSX element.

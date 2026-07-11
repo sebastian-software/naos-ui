@@ -22,7 +22,8 @@ pub use model::{
     ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan,
     EffectDefinition, EventDefinition, KeyedSelectorDefinition, PropAccess, PropDefinition,
     PropKind, SourceMap, StateDefinition, StateKind, StyleImport, TemplateAttribute, TemplateChild,
-    TemplateElement, TransformResult,
+    TemplateElement, TemplateList, TemplateListKey, TemplateListKind, TemplateListMotion,
+    TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -36,7 +37,8 @@ pub fn core_version() -> &'static str {
 mod tests {
     use super::{
         AttributeValue, DiagnosticSeverity, StateKind, TemplateAttribute, TemplateChild,
-        analyze_component_module, core_version, render_declarative_shadow_dom_module,
+        TemplateListKey, TemplateListKind, TemplateListMotion, analyze_component_module,
+        core_version, render_declarative_shadow_dom_module,
         render_declarative_shadow_dom_module_with_inline_styles, transform_component_module,
     };
     use crate::error::{
@@ -362,16 +364,6 @@ mod tests {
             "DSD prerender props must be a JSON object",
             "JSON objects",
         );
-
-        assert_diagnostic(
-            Result::<(), super::CompilerError>::Err(crate::error::template_parse(
-                "Attribute `data-count` must use a quoted or braced value.",
-            )),
-            "template-parse.wc.tsx",
-            DIAGNOSTIC_CODE_TEMPLATE_PARSE,
-            "Attribute `data-count` must use a quoted or braced value",
-            "authoring limitations",
-        );
     }
 
     #[test]
@@ -506,6 +498,83 @@ mod tests {
     }
 
     #[test]
+    fn analyze_component_module_should_lower_dynamic_lists_into_owned_ir() {
+        let source = r#"
+            import { For, Index, state } from "@naos-ui/core";
+
+            export function Lists() {
+              const rows = state([{ id: "a" }]);
+              return (
+                <section>
+                  {rows().map((row) => <span key={row.id}>{row.id}</span>)}
+                  <For each={rows()} motion="flip">
+                    {(row, position) => <strong key={row.id}>{position}</strong>}
+                  </For>
+                  <Index each={rows()}>
+                    {(row) => <em>{row().id}</em>}
+                  </Index>
+                </section>
+              );
+            }
+        "#;
+
+        let module = analyze_component_module(source, "lists.wc.tsx")
+            .expect("valid list syntax should lower into the compiler IR");
+        let map = module
+            .template
+            .children
+            .iter()
+            .find_map(|child| match child {
+                TemplateChild::List(list) => Some(list),
+                _ => None,
+            });
+        let for_list = module
+            .template
+            .children
+            .iter()
+            .find_map(|child| match child {
+                TemplateChild::Element(element) if element.tag_name == "For" => {
+                    element.children.first()
+                }
+                _ => None,
+            });
+        let index_list = module
+            .template
+            .children
+            .iter()
+            .find_map(|child| match child {
+                TemplateChild::Element(element) if element.tag_name == "Index" => {
+                    element.children.first()
+                }
+                _ => None,
+            });
+
+        assert!(matches!(
+            (map, for_list, index_list),
+            (
+                Some(list),
+                Some(TemplateChild::List(for_list)),
+                Some(TemplateChild::List(index_list)),
+            ) if matches!(
+                &list.kind,
+                TemplateListKind::ItemKeyed {
+                    key: TemplateListKey::Expression(key),
+                } if key == "row.id"
+            ) && list.template.tag_name == "span"
+                && matches!(
+                    &for_list.kind,
+                    TemplateListKind::ItemKeyed {
+                        key: TemplateListKey::Expression(key),
+                    } if key == "row.id"
+                )
+                && for_list.index_name == "position"
+                && for_list.motion == Some(TemplateListMotion::Flip)
+                && matches!(index_list.kind, TemplateListKind::IndexKeyed)
+                && index_list.item_name == "row"
+        ));
+    }
+
+    #[test]
     fn analyze_component_module_should_extract_function_component_model() {
         let source = r#"
             import { computed, effect, event, state, type ComponentOptions } from "@naos-ui/core";
@@ -630,8 +699,10 @@ mod tests {
 
             export function Counter() {
               const count = state(0);
-              const message = "component() signal() useHost() prop.value()";
-              // component(); signal(); useHost(); prop.value();
+              const message = "component() signal() useHost() prop.value() export const options";
+              const myprop = { value: () => "safe" };
+              myprop.value();
+              // component(); signal(); useHost(); prop.value(); export const options = { styles: [] };
               return <button title={message}>{count()}</button>;
             }
         "#;
