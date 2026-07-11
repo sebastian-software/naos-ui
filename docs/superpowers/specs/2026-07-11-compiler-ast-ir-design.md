@@ -1,6 +1,6 @@
 # Compiler AST-to-IR foundation design
 
-Status: Proposed
+Status: Implemented
 
 Related issues: #92, #98, #99, #95, #123
 
@@ -28,8 +28,8 @@ and makes the compiler harder to extend safely.
   removed authoring APIs.
 * Make keyed-list renderer invariants unrepresentable instead of relying on
   `expect()` or `unreachable!()` in production code.
-* Keep source spans in the IR so #96/#97 can build accurate source maps and
-  diagnostics without another representation change.
+* Keep syntax ownership in OXC so #96/#97 can extend source-map and diagnostic
+  metadata without reintroducing a second TSX parser.
 
 ## Non-goals
 
@@ -52,12 +52,11 @@ owned model types:
 
 * `TemplateNode`, `TemplateElement`, attributes, children, and control-flow
   nodes represent supported JSX structure.
-* `ReactiveExpression` retains the exact source text needed by code generation,
-  a UTF-8 source span, and AST-collected reference facts.
-* A resolved `ReactiveDependencies` value is attached after all component
-  declarations are known. It is either a deterministic set of state/prop
-  sources or `Unknown`, which keeps the current conservative update behavior.
-* Keyed-list variants carry their required key expression in the variant that
+* Authored expressions retain the exact source text needed by code generation;
+  dependency facts are derived by an OXC expression walk.
+* Dependency resolution produces either a deterministic set of state/prop
+  sources or `Unknown`, which keeps the conservative update behavior.
+* Keyed-list variants carry their required typed key value in the variant that
   needs it, so an item-keyed renderer cannot exist without a key.
 
 This is an owned, serializable compiler IR, not a public API. It protects the
@@ -80,9 +79,9 @@ to `Unknown`; member calls and non-reactive global calls follow the existing
 conservative semantics. Parse or lowering uncertainty must select `Unknown` or
 return a structured compiler diagnostic, never panic.
 
-The existing lexical dependency scanner remains only in the test harness while
-the golden corpus compares it with the new analysis. It is removed from all
-production paths at cutover.
+The lexical dependency scanner is removed. A checked-in conformance fixture
+freezes exact generated dependency guards for comments, template literals,
+regex literals, computed dependencies, and lexical callback bindings.
 
 ### Module facts and error handling
 
@@ -122,10 +121,10 @@ components plus focused cases for:
 * options/style bindings and removed-API false positives;
 * keyed-list renderer construction and malformed/unsupported forms.
 
-During migration, tests compare the legacy lexical result and AST result for
-unchanged fixtures. Every intentional difference has a fixture name and a
-short reason. After cutover, the expected IR/output fixtures remain while the
-legacy scanner is deleted.
+The conformance suite records exact expected dependency guards for its focused
+AST edge-case fixture. Intentional improvements are documented in the fixture
+expectation and ADR. A source-level invariant test prevents the legacy parser
+or production panic paths from returning.
 
 ## Alternatives considered
 

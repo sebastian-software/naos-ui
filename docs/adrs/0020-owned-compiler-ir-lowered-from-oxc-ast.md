@@ -30,6 +30,11 @@ The remaining nested control-flow lowering follows the same boundary: no
 production code generator path may re-parse TSX text once the migration is
 complete.
 
+Dynamic lists are represented as owned list nodes. The item-keyed variant owns
+its required static or expression key, while the index-keyed variant has no key
+field. This makes an item-keyed renderer without a key unrepresentable and
+removes the former production `expect()` path.
+
 ## Alternatives
 
 * Keep the existing template parser and strengthen its token scanning.
@@ -44,6 +49,9 @@ complete.
   through to parser accidents.
 * The IR is an owned boundary that can be tested directly and later consumed by
   alternate code generators.
+* Exact expression text remains available for code generation. Granular
+  source-map emission and broader per-node diagnostic span coverage remain in
+  #96/#97, but they no longer require another TSX parser.
 * The migration temporarily touches analysis, code generation, tests, and
   compiler documentation together; it therefore ships as one coherent PR.
 
