@@ -34,6 +34,7 @@ than chronological trivia.
 * [ADR 0017: Theme Package And Token Boundary](0017-theme-package-and-token-boundary.md)
 * [ADR 0018: Form-Associated Custom Element Support](0018-form-associated-custom-element-support.md)
 * [ADR 0019: Canonical Public Release Inventory](0019-canonical-public-release-inventory.md)
+* [ADR 0020: Owned Compiler IR Lowered From OXC AST](0020-owned-compiler-ir-lowered-from-oxc-ast.md)
 
 ### P2: Conventions And Implementation Guidance
 
