@@ -3,7 +3,6 @@ import {
   event,
   formControl,
   host,
-  on,
   onConnected,
   onDisconnected,
   state,
@@ -93,10 +92,10 @@ export function NaosCheckbox({
         data-state={mixed() ? "indeterminate" : selected() ? "checked" : "unchecked"}
         data-disabled={disabled || undefined}
         disabled={disabled}
-        onClick={on("click", () => {
+        onClick={() => {
           if (disabled) return
           checkboxApi()?.toggleChecked()
-        })}
+        }}
       >
         <span
           {...(checkboxApi()?.getControlProps() ?? {})}

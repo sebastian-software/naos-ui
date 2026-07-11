@@ -22,7 +22,7 @@ without carrying a framework runtime along for the ride. The components ship as
 the `@naos-ui` package family.
 
 ```tsx
-import { computed, event, on, state } from "@naos-ui/core"
+import { computed, event, state } from "@naos-ui/core"
 
 export type CounterProps = {
   label?: string
@@ -37,10 +37,10 @@ export function Counter({ label = "Count" }: CounterProps = {}) {
     <button
       part="button"
       data-count={count()}
-      onClick={on("click", () => {
+      onClick={() => {
         count.set(count() + 1)
         change.emit(count())
-      })}
+      }}
     >
       {text()}
     </button>
@@ -198,7 +198,7 @@ compiler detail. `Counter` compiles to `x-counter`, while multi-word names such
 as `CounterButton` compile to `counter-button`.
 
 ```tsx
-import { Show, computed, event, on, state, type ComponentOptions } from "@naos-ui/core"
+import { Show, computed, event, state, type ComponentOptions } from "@naos-ui/core"
 import css from "./button.css?inline"
 
 export type ButtonProps = {
@@ -219,10 +219,10 @@ export function Button({ label = "Save" }: ButtonProps = {}) {
       part="root control"
       data-state={pressed() ? "on" : "off"}
       aria-pressed={pressed()}
-      onClick={on("click", () => {
+      onClick={() => {
         pressed.set(true)
         submit.emit({ label })
-      })}
+      }}
     >
       <slot name="icon" />
       {label}
@@ -254,7 +254,7 @@ Current APIs:
 * `computed(() => value)` for read-only derived values
 * `effect(() => cleanup?)` for lifecycle side effects
 * `event<Detail>(name)`
-* `on(name, handler)` for typed DOM event composition
+* JSX-owned event names with bare handlers or `on(handler, options?)`
 * `host()` for element, root, update, and abort-signal access
 * `<Show>`, `<For>`, `<Index>`, and keyed `.map()` as explicit compile-time
   control flow

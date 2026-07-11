@@ -58,8 +58,6 @@ export type HostHandle<Props extends object = Record<string, unknown>> = {
   flushSync(): void
 }
 
-export type KnownDomEventMap = HTMLElementEventMap
-
 export type EventOptions = {
   bubbles?: boolean
   cancelable?: boolean
@@ -115,13 +113,7 @@ export function Index<T>(props: IndexProps<T>): JSX.Element {
   return authoringRuntimeError("Index")
 }
 
-export function on<Name extends keyof KnownDomEventMap & string>(
-  name: Name,
-  handler: (event: KnownDomEventMap[Name], signal: AbortSignal) => void | Promise<void>,
-  options?: ListenerOptions
-): (event: KnownDomEventMap[Name] & { currentTarget: EventTarget }) => void
-export function on<Name extends string, EventType extends Event = Event>(
-  name: Name extends keyof KnownDomEventMap ? never : Name,
+export function on<EventType extends Event = Event>(
   handler: (event: EventType, signal: AbortSignal) => void | Promise<void>,
   options?: ListenerOptions
 ): (event: EventType & { currentTarget: EventTarget }) => void

@@ -1,4 +1,4 @@
-import { event, on, type ComponentOptions } from "@naos-ui/core"
+import { event, type ComponentOptions } from "@naos-ui/core"
 import { createNaosToast } from "./internal/zag/toast.js"
 import css from "./toast.wc.css?inline"
 
@@ -30,7 +30,7 @@ export function NaosToast({
       part="trigger"
       type="button"
       data-type={type}
-      onClick={on("click", () => {
+      onClick={() => {
         const id = createNaosToast({
           closable,
           description,
@@ -39,7 +39,7 @@ export function NaosToast({
           type,
         })
         created.emit({ id })
-      })}
+      }}
     >
       <slot>{label}</slot>
     </button>

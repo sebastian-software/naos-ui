@@ -22,8 +22,8 @@ pub use model::{
     ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan,
     EffectDefinition, EventDefinition, KeyedSelectorDefinition, PropAccess, PropDefinition,
     PropKind, SourceMap, StateDefinition, StateKind, StyleImport, TemplateAttribute, TemplateChild,
-    TemplateElement, TemplateList, TemplateListKey, TemplateListKind, TemplateListMotion,
-    TransformResult,
+    TemplateElement, TemplateEventHandler, TemplateList, TemplateListKey, TemplateListKind,
+    TemplateListMotion, TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -46,10 +46,10 @@ mod tests {
         DIAGNOSTIC_CODE_REMOVED_AUTHORING_API, DIAGNOSTIC_CODE_TEMPLATE_PARSE,
         DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
         DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
-        DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
-        DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS, DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-        DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
-        DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
+        DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER,
+        DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER, DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
+        DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
+        DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH, DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
     };
 
     #[test]
@@ -85,6 +85,10 @@ mod tests {
             (
                 DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK,
                 "NAOS_UNSUPPORTED_EFFECT_CALLBACK",
+            ),
+            (
+                DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER,
+                "NAOS_UNSUPPORTED_EVENT_HANDLER",
             ),
             (
                 DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
@@ -454,8 +458,10 @@ mod tests {
             module.template.attributes.as_slice(),
             [TemplateAttribute::Named {
                 name,
-                value: AttributeValue::Expression(expression),
-            }] if name == "onClick" && expression == "() => change.emit(count())"
+                value: AttributeValue::EventHandler(handler),
+            }] if name == "onClick"
+                && handler.handler_expression == "() => change.emit(count())"
+                && handler.options_expression.is_none()
         ));
         assert!(matches!(
             module.template.children.as_slice(),
@@ -1439,14 +1445,14 @@ mod tests {
             export function KeyboardButton() {
               return (
                 <button
-                  onKeyDown={on("keydown", () => {})}
-                  onPointerDown={on("pointerdown", () => {})}
-                  onPointerMove={on("pointermove", () => {})}
-                  onPointerOver={on("pointerover", () => {})}
-                  onPointerLeave={on("pointerleave", () => {})}
-                  onPointerCancel={on("pointercancel", () => {})}
-                  onContextMenu={on("contextmenu", () => {})}
-                  onBeforeInput={on("beforeinput", () => {})}
+                  onKeyDown={() => {}}
+                  onPointerDown={() => {}}
+                  onPointerMove={() => {}}
+                  onPointerOver={() => {}}
+                  onPointerLeave={() => {}}
+                  onPointerCancel={() => {}}
+                  onContextMenu={() => {}}
+                  onBeforeInput={() => {}}
                 >
                   Move
                 </button>
@@ -1478,6 +1484,71 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_lower_event_handlers_and_options_from_ast() {
+        let source = r#"
+            import { on } from "@naos-ui/core";
+
+            export function EventOptions() {
+              const handleInput = async (event, signal) => {
+                if (!signal.aborted) event.preventDefault();
+              };
+              return (
+                <section>
+                  <button onClick={(event) => event.preventDefault()}>Bare</button>
+                  <input onBeforeInput={on(handleInput, { capture: true, passive: false, once: true })} />
+                </section>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "event-options.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            result
+                .code
+                .contains("((event) => event.preventDefault())(event")
+        );
+        assert!(
+            result
+                .code
+                .contains("handleInput(event, __naosEventSignal);")
+        );
+        assert!(
+            result
+                .code
+                .contains("}, { capture: true, passive: false, once: true });")
+        );
+    }
+
+    #[test]
+    fn transform_component_module_should_reject_string_first_event_helpers() {
+        let source = r#"
+            import { on } from "@naos-ui/core";
+
+            export function LegacyEvent() {
+              return <button onClick={on("click", () => {})}>Legacy</button>;
+            }
+        "#;
+
+        assert_diagnostic(
+            transform_component_module(source, "legacy-event.wc.tsx"),
+            "legacy-event.wc.tsx",
+            DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER,
+            "JSX attribute supplies the event name",
+            "on(handler, options?)",
+        );
+        assert_diagnostic_source_span(
+            transform_component_module(source, "legacy-event.wc.tsx"),
+            source,
+            "legacy-event.wc.tsx",
+            "on(\"click\", () => {})",
+        );
+    }
+
+    #[test]
     fn transform_component_module_should_generate_control_flow_and_web_composition_helpers() {
         let source = r#"
             import { Show, computed, effect, event, host, on, state } from "@naos-ui/core";
@@ -1500,10 +1571,10 @@ mod tests {
                   part="root control"
                   data-state={pressed() ? "on" : "off"}
                   aria-pressed={pressed()}
-                  onClick={on("click", () => {
+                  onClick={() => {
                     pressed.update((value) => !value);
                     toggled.emit(pressed());
-                  })}
+                  }}
                 >
                   <Show when={visible} fallback={<span part="label">Hidden</span>}>
                     <span part="label">Visible</span>
@@ -1638,11 +1709,11 @@ mod tests {
                         key={row.id}
                         data-id={row.id}
                         data-index={index}
-                        onClick={on("click", async (event, signal) => {
+                        onClick={on(async (event, signal) => {
                           event.preventDefault();
                           if (signal.aborted) return;
                           rows.update((current) => current.filter((item) => item.id !== row.id));
-                        })}
+                        }, { capture: true })}
                       >
                         {row.label}
                       </button>
@@ -1692,6 +1763,17 @@ mod tests {
                 "const __naosEventSignal = node1Record.for1Node0ListenerclickAbort.signal;"
             )
         );
+        assert!(
+            result
+                .code
+                .contains("node1Record.for1Node0ListenerclickOptions = { capture: true };")
+        );
+        assert!(result.code.contains(
+            "removeEventListener(\"click\", node1Record.for1Node0Listenerclick, node1Record.for1Node0ListenerclickOptions?.capture ?? false)"
+        ));
+        assert!(result.code.contains(
+            "addEventListener(\"click\", node1Record.for1Node0Listenerclick, node1Record.for1Node0ListenerclickOptions)"
+        ));
         assert!(
             result
                 .code
@@ -2377,11 +2459,11 @@ mod tests {
               data-disabled={disabled || undefined}
               aria-pressed={pressed()}
               disabled={disabled}
-              onClick={on("click", () => {
+              onClick={() => {
                 if (disabled) return;
                 pressed.update((value) => !value);
                 changed.emit(pressed());
-              })}
+              }}
             >
               <span part="label">{label}</span>
               <Show when={pressed()} fallback={<span part="indicator">Off</span>}>

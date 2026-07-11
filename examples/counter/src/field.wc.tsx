@@ -1,4 +1,4 @@
-import { event, on, state, type ComponentOptions } from "@naos-ui/core"
+import { event, state, type ComponentOptions } from "@naos-ui/core"
 import css from "./field.wc.css?inline"
 
 export type FieldProps = {
@@ -29,10 +29,10 @@ export function Field({
       <button
         part="action"
         type="button"
-        onClick={on("click", () => {
+        onClick={() => {
           currentValue.set("@naos-ui/labs")
           changed.emit("@naos-ui/labs")
-        })}
+        }}
       >
         Use lab scope
       </button>

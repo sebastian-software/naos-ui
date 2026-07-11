@@ -4,7 +4,6 @@ import {
   effect,
   event,
   host,
-  on,
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
@@ -48,11 +47,11 @@ export function Toggle({ disabled = false, label = "Toggle" }: ToggleProps = {})
       data-disabled={disabled || undefined}
       aria-pressed={pressed()}
       disabled={disabled}
-      onClick={on("click", () => {
+      onClick={() => {
         if (disabled) return
         pressed.update((value) => !value)
         changed.emit(pressed())
-      })}
+      }}
     >
       <span part="label">{label}</span>
       <Show when={pressed()} fallback={<span part="indicator">Off</span>}>

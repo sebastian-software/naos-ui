@@ -16,6 +16,8 @@ pub(crate) const DIAGNOSTIC_HINT_INSTANCE_SETUP: &str =
     "Return a single JSX template from the component setup function.";
 pub(crate) const DIAGNOSTIC_HINT_LISTS: &str =
     "Use a keyed .map() expression or <For> child that returns one JSX element.";
+pub(crate) const DIAGNOSTIC_HINT_EVENT_HANDLER: &str =
+    "Use a bare handler or `on(handler, options?)`; the JSX attribute supplies the event name.";
 pub(crate) const DIAGNOSTIC_HINT_REMOVED_API: &str =
     "Use the v0.1 function component authoring API instead.";
 pub(crate) const DIAGNOSTIC_HINT_SHOW: &str =
@@ -41,6 +43,7 @@ pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS: &str =
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER: &str =
     "NAOS_UNSUPPORTED_FACTORY_RENDER";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER: &str = "NAOS_UNSUPPORTED_LIST_RENDERER";
+pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER: &str = "NAOS_UNSUPPORTED_EVENT_HANDLER";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK: &str = "NAOS_UNSUPPORTED_SHOW_FALLBACK";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH: &str = "NAOS_UNSUPPORTED_SWITCH_MATCH";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX: &str = "NAOS_UNSUPPORTED_SYNTAX";

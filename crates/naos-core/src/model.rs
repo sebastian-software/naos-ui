@@ -76,10 +76,21 @@ pub enum AttributeValue {
     Static(String),
     /// A dynamic expression value.
     Expression(String),
+    /// A JSX event handler lowered into compiler-owned listener semantics.
+    EventHandler(TemplateEventHandler),
     /// A nested JSX element attribute value.
     Element(TemplateElement),
     /// A boolean JSX attribute without an explicit value.
     Boolean,
+}
+
+/// Structured event handler captured from a JSX event attribute.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TemplateEventHandler {
+    /// Authored handler expression, without the optional `on()` wrapper.
+    pub handler_expression: String,
+    /// Authored `AddEventListenerOptions` expression, when supplied through `on()`.
+    pub options_expression: Option<String>,
 }
 
 /// Owned JSX child node.

@@ -20,10 +20,10 @@ export function CompositionToggleList({
       part="root control"
       data-state={pressed() ? "on" : "off"}
       aria-pressed={pressed()}
-      onClick={on("click", () => {
+      onClick={() => {
         pressed.update((value) => !value)
         toggled.emit(pressed())
-      })}
+      }}
     >
       <Show when={visible} fallback={<span part="label">Hidden</span>}>
         <span part="label">Visible</span>

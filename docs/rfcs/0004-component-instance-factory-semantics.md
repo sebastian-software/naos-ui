@@ -30,7 +30,7 @@ export function Counter({ label = "Count" }: CounterProps = {}) {
   const count = state(0)
 
   return (
-    <button onClick={on("click", () => count.update((value) => value + 1))}>
+    <button onClick={() => count.update((value) => value + 1)}>
       {label}: {count()}
     </button>
   )
@@ -132,7 +132,8 @@ This RFC must fit the accepted Naos architecture:
 * Side effects use `effect()`.
 * Host access uses `host()`.
 * Component-level events use `event()`.
-* DOM event listeners use `on()`.
+* DOM event listeners use bare JSX handlers by default; `on(handler, options?)`
+  is reserved for listener options or the invocation-scoped abort signal.
 * Generated output owns Custom Element construction, observed attributes,
   property accessors, mount, update, form callbacks, effect cleanup, and DSD
   hydration.
@@ -170,10 +171,10 @@ export function Counter(handle: ComponentHandle<CounterProps>) {
 
   return () => (
     <button
-      onClick={on("click", () => {
+      onClick={() => {
         count += 1
         handle.update()
-      })}
+      }}
     >
       {handle.props.label}: {count}
     </button>
@@ -251,7 +252,7 @@ export function ClipboardButton(handle: ComponentHandle<ClipboardButtonProps>) {
     return (
       <button
         aria-label={label}
-        onClick={on("click", async () => {
+        onClick={async () => {
           try {
             await navigator.clipboard.writeText(handle.props.value)
             state = "copied"
@@ -259,7 +260,7 @@ export function ClipboardButton(handle: ComponentHandle<ClipboardButtonProps>) {
             state = "error"
           }
           handle.update()
-        })}
+        }}
       >
         {label}
       </button>
@@ -385,14 +386,14 @@ export function ClipboardButton({
   return (
     <button
       aria-label={label()}
-      onClick={on("click", async () => {
+      onClick={async () => {
         try {
           await navigator.clipboard.writeText(value)
           status.set("copied")
         } catch {
           status.set("error")
         }
-      })}
+      }}
     >
       {label()}
     </button>
@@ -732,7 +733,7 @@ Possible later API:
 ```tsx
 const { update, signal } = host()
 
-on("click", async () => {
+on(async () => {
   const updateSignal = await update()
   if (signal.aborted || updateSignal.aborted) return
 })
@@ -741,7 +742,7 @@ on("click", async () => {
 Another possible API is an event helper that passes a signal:
 
 ```tsx
-on("click", async (event, signal) => {
+on(async (event, signal) => {
   await doWork(signal)
 })
 ```

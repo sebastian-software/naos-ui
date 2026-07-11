@@ -231,6 +231,31 @@ test("compiled async lifecycle signals abort stale work", async ({ page }) => {
   await expect(body).toHaveAttribute("data-probe-update-abort-count", "1")
 })
 
+test("compiled event helpers preserve native listener options", async ({ page }) => {
+  await page.goto("/")
+
+  const button = page.locator(
+    "#reactivity-probe-case [data-probe-event-options-button]"
+  )
+  const body = page.locator("body")
+
+  await button.click()
+  await expect(body).toHaveAttribute(
+    "data-probe-event-options-order",
+    "capture,bubble"
+  )
+  await expect(body).toHaveAttribute(
+    "data-probe-passive-default-prevented",
+    "false"
+  )
+
+  await button.click()
+  await expect(body).toHaveAttribute(
+    "data-probe-event-options-order",
+    "capture,bubble,bubble"
+  )
+})
+
 test("compiled list reconcilers preserve keyed and indexed row nodes", async ({
   page,
 }) => {

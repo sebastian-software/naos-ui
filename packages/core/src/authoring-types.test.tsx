@@ -106,24 +106,29 @@ function FunctionCounter({
   const typedLabel: string | undefined = typedHostHandle.props.label
   void typedLabel
 
-  // @ts-expect-error click handlers receive MouseEvent, not KeyboardEvent
-  on("click", (event: KeyboardEvent) => event.key)
-
-  on("click", (event, signal) => {
+  on((event: MouseEvent, signal) => {
     event.preventDefault()
     signal.throwIfAborted()
   }, { once: true })
+
+  // @ts-expect-error the JSX attribute owns the event name
+  on("click", () => undefined)
 
   return (
     <button
       ref={buttonRef}
       disabled={!enabled}
-      onClick={on("click", (event) => {
+      onClick={on((event, signal) => {
+        const pointerEvent: PointerEvent = event
+        const mouseButton: number = event.button
         event.preventDefault()
+        signal.throwIfAborted()
         void buttonRef
         count.update((value) => value + 1)
         change.emit(count())
         onChange?.(new CustomEvent("change", { detail: count() }))
+        void mouseButton
+        void pointerEvent
       })}
     >
       {label}: {count()}

@@ -227,13 +227,15 @@ documented per component.
 Naos has two different event concepts:
 
 * `event()` creates typed `CustomEvent` emitters for component-level events.
-* `on()` attaches typed native DOM listeners in source and lowers to normal
-  platform event handling in generated output.
+* JSX event attributes attach typed native DOM listeners and lower to normal
+  platform event handling in generated output. `on(handler, options?)` is the
+  exceptional form for listener options or an invocation-scoped abort signal.
 
-Primitives should keep using `on()` for local DOM listeners because it gives
-TypeScript event types, listener options, and compiler-readable intent without
-introducing a synthetic event system. `on()` is not a React-style event layer
-and should not normalize browser events globally.
+Primitives should use bare handlers for ordinary local DOM listeners. JSX
+provides the event type and compiler-readable intent without a helper call.
+Use `on(handler, options?)` only when a primitive needs native listener options
+or the compiler-provided abort signal. It is not a React-style event layer and
+must not normalize browser events globally.
 
 Behavior kernels may normalize input only at the primitive boundary. Allowed
 normalization:

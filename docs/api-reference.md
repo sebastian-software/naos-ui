@@ -42,7 +42,7 @@ stable class without injecting inline `style` strings at render time.
 | `computed(() => value)` | Public | Read-only derived value. |
 | `effect(() => cleanup?)` | Public | Lifecycle-aware side effect with optional cleanup. |
 | `event<Detail>(name)` | Public | Typed `CustomEvent` dispatcher. |
-| `on(name, handler, options?)` | Public | Typed DOM listener helper with invocation-scoped abort signals. |
+| `on(handler, options?)` | Public | Optional listener-options and invocation-scoped abort-signal marker. Normal JSX listeners use bare handlers. |
 | `host()` | Public | Current element, root, props, lifecycle signals, and update/task handle. |
 | `Show` | Public | Explicit conditional control-flow primitive. |
 | `Switch` | Public | First-match-wins multi-way control-flow primitive. |

@@ -3,7 +3,6 @@ import {
   event,
   formControl,
   host,
-  on,
   onConnected,
   onDisconnected,
   state,
@@ -82,10 +81,10 @@ export function NaosToggle({
       data-disabled={disabled || undefined}
       aria-pressed={active()}
       disabled={disabled}
-      onClick={on("click", () => {
+      onClick={() => {
         if (disabled) return
         toggleApi()?.setPressed(!active())
-      })}
+      }}
     >
       <span part="label">
         <slot>{label}</slot>

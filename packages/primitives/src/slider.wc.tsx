@@ -3,7 +3,6 @@ import {
   event,
   formControl,
   host,
-  on,
   onConnected,
   onDisconnected,
   state,
@@ -132,7 +131,7 @@ export function NaosSlider({
           {...(sliderApi()?.getThumbProps({ index: 0, name }) ?? {})}
           part="thumb"
           data-value={String(current())}
-          onKeyDown={on("keydown", (event) => {
+          onKeyDown={(event) => {
             const api = sliderApi()
             if (disabled || api == null) return
 
@@ -158,7 +157,7 @@ export function NaosSlider({
               event.preventDefault()
               api.setValue([max])
             }
-          })}
+          }}
         />
       </div>
       <input
