@@ -6,22 +6,31 @@ manual release runs.
 
 ## Package Set
 
-The public npm release set is:
+The public npm release set is generated from `scripts/release-set.mjs` and
+verified by `pnpm check-release-set`:
 
-* `@naos-ui/core`
-* `@naos-ui/runtime`
-* `@naos-ui/router`
-* `@naos-ui/compiler`
-* `@naos-ui/vite`
-* `@naos-ui/cli`
-* `@naos-ui/compiler-darwin-arm64`
-* `@naos-ui/compiler-darwin-x64`
-* `@naos-ui/compiler-linux-arm64-gnu`
-* `@naos-ui/compiler-linux-arm64-musl`
-* `@naos-ui/compiler-linux-x64-gnu`
-* `@naos-ui/compiler-linux-x64-musl`
-* `@naos-ui/compiler-win32-arm64-msvc`
-* `@naos-ui/compiler-win32-x64-msvc`
+<!-- release-set:start -->
+| npm package | Workspace path |
+| --- | --- |
+| `@naos-ui/core` | `packages/core` |
+| `@naos-ui/data` | `packages/data` |
+| `@naos-ui/data-convex` | `packages/data-convex` |
+| `@naos-ui/motion` | `packages/motion` |
+| `@naos-ui/runtime` | `packages/runtime` |
+| `@naos-ui/primitives` | `packages/primitives` |
+| `@naos-ui/router` | `packages/router` |
+| `@naos-ui/compiler` | `packages/compiler` |
+| `@naos-ui/vite` | `packages/vite` |
+| `@naos-ui/cli` | `packages/cli` |
+| `@naos-ui/compiler-linux-x64-gnu` | `packages/compiler-linux-x64-gnu` |
+| `@naos-ui/compiler-linux-arm64-gnu` | `packages/compiler-linux-arm64-gnu` |
+| `@naos-ui/compiler-linux-x64-musl` | `packages/compiler-linux-x64-musl` |
+| `@naos-ui/compiler-linux-arm64-musl` | `packages/compiler-linux-arm64-musl` |
+| `@naos-ui/compiler-darwin-x64` | `packages/compiler-darwin-x64` |
+| `@naos-ui/compiler-darwin-arm64` | `packages/compiler-darwin-arm64` |
+| `@naos-ui/compiler-win32-x64-msvc` | `packages/compiler-win32-x64-msvc` |
+| `@naos-ui/compiler-win32-arm64-msvc` | `packages/compiler-win32-arm64-msvc` |
+<!-- release-set:end -->
 
 The native packages must be published before `@naos-ui/compiler`, because
 `@naos-ui/compiler` declares them as optional dependencies.
@@ -37,8 +46,8 @@ builds the complete native matrix on the matching hosted runners.
 
 Prerequisites:
 
-* The npm organization `naos` exists.
-* The publisher is an owner of the `naos` npm organization.
+* The npm organization `naos-ui` exists.
+* The publisher is an owner of the `naos-ui` npm organization.
 * The GitHub repository is public.
 * The GitHub repository has a temporary `NPM_TOKEN` secret with publish access.
   Use a granular access token with read/write access for the `naos` scope and
@@ -51,7 +60,7 @@ Local preflight:
 
 ```sh
 npm whoami
-npm org ls naos
+npm org ls naos-ui
 pnpm install --frozen-lockfile
 pnpm check-release-set
 pnpm check-native-types
@@ -60,14 +69,12 @@ pnpm check
 pnpm test
 ```
 
-Package preflight:
+JavaScript-package preflight:
 
 ```sh
-(cd packages/core && npm pack --dry-run --json)
-(cd packages/runtime && npm pack --dry-run --json)
-(cd packages/compiler && npm pack --dry-run --json)
-(cd packages/vite && npm pack --dry-run --json)
-(cd packages/cli && npm pack --dry-run --json)
+while IFS= read -r package_path; do
+  (cd "$package_path" && npm pack --dry-run --json)
+done < <(node scripts/release-set.mjs --js-paths)
 ```
 
 For native packages, only dry-run the package that matches the current host
@@ -96,7 +103,7 @@ package:
 
 * Provider: GitHub Actions
 * Organization or user: `sebastian-software`
-* Repository: `naos`
+* Repository: `naos-ui`
 * Workflow filename: `release.yml`
 * Allowed actions: `npm publish`
 * Environment name: empty, unless the release workflow starts using a protected

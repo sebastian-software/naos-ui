@@ -19,6 +19,25 @@ permissions:
   id-token: write
 
 jobs:
+  release-set:
+    name: Resolve Release Inventory
+    runs-on: ubuntu-latest
+    outputs:
+      native_matrix: ${{ steps.inventory.outputs.native_matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.18.0
+          package-manager-cache: false
+
+      - name: Resolve native matrix
+        id: inventory
+        run: node scripts/release-set.mjs --github-output
+
   validate:
     name: Validate Release Set
     runs-on: ubuntu-latest
@@ -52,44 +71,12 @@ jobs:
 
   native:
     name: Native Package (${{ matrix.package }})
-    needs: validate
+    needs: [validate, release-set]
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - package: "@naos-ui/compiler-linux-x64-gnu"
-            path: packages/compiler-linux-x64-gnu
-            os: ubuntu-latest
-            rust_target: x86_64-unknown-linux-gnu
-          - package: "@naos-ui/compiler-linux-arm64-gnu"
-            path: packages/compiler-linux-arm64-gnu
-            os: ubuntu-24.04-arm
-            rust_target: aarch64-unknown-linux-gnu
-          - package: "@naos-ui/compiler-linux-x64-musl"
-            path: packages/compiler-linux-x64-musl
-            os: ubuntu-latest
-            rust_target: x86_64-unknown-linux-musl
-          - package: "@naos-ui/compiler-linux-arm64-musl"
-            path: packages/compiler-linux-arm64-musl
-            os: ubuntu-24.04-arm
-            rust_target: aarch64-unknown-linux-musl
-          - package: "@naos-ui/compiler-darwin-x64"
-            path: packages/compiler-darwin-x64
-            os: macos-13
-            rust_target: x86_64-apple-darwin
-          - package: "@naos-ui/compiler-darwin-arm64"
-            path: packages/compiler-darwin-arm64
-            os: macos-14
-            rust_target: aarch64-apple-darwin
-          - package: "@naos-ui/compiler-win32-x64-msvc"
-            path: packages/compiler-win32-x64-msvc
-            os: windows-latest
-            rust_target: x86_64-pc-windows-msvc
-          - package: "@naos-ui/compiler-win32-arm64-msvc"
-            path: packages/compiler-win32-arm64-msvc
-            os: windows-11-arm
-            rust_target: aarch64-pc-windows-msvc
+        include: ${{ fromJSON(needs.release-set.outputs.native_matrix) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -183,14 +170,6 @@ jobs:
       - name: Publish JavaScript packages
         shell: bash
         run: |
-          packages=(
-            packages/core
-            packages/runtime
-            packages/primitives
-            packages/compiler
-            packages/vite
-            packages/cli
-          )
           args=(--access public --provenance)
           should_dry_run=true
           if [[ "${{ github.event_name }}" == "release" || "${{ inputs.dry_run }}" == "false" ]]; then
@@ -199,8 +178,8 @@ jobs:
           if [[ "$should_dry_run" == "true" ]]; then
             args+=(--dry-run)
           fi
-          for package in "${packages[@]}"; do
-            npm publish "$package" "${args[@]}"
-          done
+          while IFS= read -r package_path; do
+            npm publish "$package_path" "${args[@]}"
+          done < <(node scripts/release-set.mjs --js-paths)
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
