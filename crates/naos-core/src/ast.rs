@@ -13,8 +13,9 @@ use oxc_span::{GetSpan, SourceType, Span};
 use crate::error::{
     CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
     DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK,
-    DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER, DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-    DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS, DIAGNOSTIC_HINT_COMPONENT_OPTIONS,
+    DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER, DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
+    DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
+    DIAGNOSTIC_HINT_COMPONENT_OPTIONS, DIAGNOSTIC_HINT_EVENT_HANDLER,
     DIAGNOSTIC_HINT_INSTANCE_SETUP, DIAGNOSTIC_HINT_LISTS, removed_authoring_api_with_span,
     unsupported, unsupported_with_code, unsupported_with_code_and_span,
 };
@@ -22,10 +23,10 @@ use crate::model::{
     AttributeValue, ComponentImport, ComponentOptions, ComputedDefinition, DiagnosticSpan,
     EffectDefinition, EventDefinition, FormControlDefinition, KeyedSelectorDefinition,
     LifecycleCallbackDefinition, RuntimeImport, StateDefinition, StateKind, StyleImport,
-    TemplateAttribute, TemplateChild, TemplateElement, TemplateList, TemplateListKey,
-    TemplateListKind, TemplateListMotion,
+    TemplateAttribute, TemplateChild, TemplateElement, TemplateEventHandler, TemplateList,
+    TemplateListKey, TemplateListKind, TemplateListMotion,
 };
-use crate::naming::is_pascal_case_identifier;
+use crate::naming::{event_name_from_attribute, is_pascal_case_identifier};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct SourceSpan {
@@ -517,36 +518,129 @@ fn lower_jsx_attribute(
         }),
         JSXAttributeItem::Attribute(attribute) => {
             let name = source_span(source, SourceSpan::from_oxc(attribute.name.span()))?.to_owned();
-            let value = match &attribute.value {
-                None => AttributeValue::Boolean,
-                Some(JSXAttributeValue::StringLiteral(value)) => {
-                    AttributeValue::Static(decode_jsx_entities(value.value.as_str()))
-                }
-                Some(JSXAttributeValue::ExpressionContainer(container)) => {
-                    if let JSXExpression::JSXElement(element) = &container.expression {
-                        AttributeValue::Element(lower_jsx_element(source, element)?)
-                    } else {
-                        let Some(expression) = lower_jsx_expression(source, &container.expression)?
-                        else {
-                            return Err(unsupported(
-                                "JSX attribute expressions must not be empty.",
-                            ));
-                        };
-                        AttributeValue::Expression(expression)
+            let value = if event_name_from_attribute(&name).is_some() {
+                lower_event_attribute_value(
+                    source,
+                    &name,
+                    attribute.value.as_ref(),
+                    SourceSpan::from_oxc(attribute.span).to_diagnostic(),
+                )?
+            } else {
+                match &attribute.value {
+                    None => AttributeValue::Boolean,
+                    Some(JSXAttributeValue::StringLiteral(value)) => {
+                        AttributeValue::Static(decode_jsx_entities(value.value.as_str()))
                     }
-                }
-                Some(JSXAttributeValue::Element(element)) => {
-                    AttributeValue::Element(lower_jsx_element(source, element)?)
-                }
-                Some(JSXAttributeValue::Fragment(_)) => {
-                    return Err(unsupported(
-                        "JSX fragments are not supported as attribute values in this milestone.",
-                    ));
+                    Some(JSXAttributeValue::ExpressionContainer(container)) => {
+                        if let JSXExpression::JSXElement(element) = &container.expression {
+                            AttributeValue::Element(lower_jsx_element(source, element)?)
+                        } else {
+                            let Some(expression) =
+                                lower_jsx_expression(source, &container.expression)?
+                            else {
+                                return Err(unsupported(
+                                    "JSX attribute expressions must not be empty.",
+                                ));
+                            };
+                            AttributeValue::Expression(expression)
+                        }
+                    }
+                    Some(JSXAttributeValue::Element(element)) => {
+                        AttributeValue::Element(lower_jsx_element(source, element)?)
+                    }
+                    Some(JSXAttributeValue::Fragment(_)) => {
+                        return Err(unsupported(
+                            "JSX fragments are not supported as attribute values in this milestone.",
+                        ));
+                    }
                 }
             };
             Ok(TemplateAttribute::Named { name, value })
         }
     }
+}
+
+fn lower_event_attribute_value(
+    source: &str,
+    name: &str,
+    value: Option<&JSXAttributeValue<'_>>,
+    span: DiagnosticSpan,
+) -> CompilerResult<AttributeValue> {
+    let Some(JSXAttributeValue::ExpressionContainer(container)) = value else {
+        return Err(unsupported_event_handler(
+            format!("Event attribute `{name}` must use a braced handler expression."),
+            span,
+        ));
+    };
+    let JSXExpression::CallExpression(call) = &container.expression else {
+        let Some(handler_expression) = lower_jsx_expression(source, &container.expression)? else {
+            return Err(unsupported_event_handler(
+                format!("Event attribute `{name}` must not be empty."),
+                span,
+            ));
+        };
+        return Ok(AttributeValue::EventHandler(TemplateEventHandler {
+            handler_expression,
+            options_expression: None,
+        }));
+    };
+    if call_name(call) != Some("on") {
+        return Ok(AttributeValue::EventHandler(TemplateEventHandler {
+            handler_expression: expression_source(source, &container.expression)?,
+            options_expression: None,
+        }));
+    }
+
+    if call
+        .arguments
+        .first()
+        .and_then(argument_string_literal)
+        .is_some()
+    {
+        return Err(unsupported_event_handler(
+            "`on(eventName, handler)` is no longer supported. The JSX attribute supplies the event name.",
+            SourceSpan::from_oxc(call.span).to_diagnostic(),
+        ));
+    }
+    if !(1..=2).contains(&call.arguments.len()) {
+        return Err(unsupported_event_handler(
+            "`on()` requires a handler and accepts one optional listener-options argument.",
+            SourceSpan::from_oxc(call.span).to_diagnostic(),
+        ));
+    }
+    if call
+        .arguments
+        .iter()
+        .any(|argument| matches!(argument, Argument::SpreadElement(_)))
+    {
+        return Err(unsupported_event_handler(
+            "`on()` does not accept spread arguments.",
+            SourceSpan::from_oxc(call.span).to_diagnostic(),
+        ));
+    }
+
+    let handler_expression =
+        source_span(source, SourceSpan::from_oxc(call.arguments[0].span()))?.to_owned();
+    let options_expression = call
+        .arguments
+        .get(1)
+        .map(|argument| {
+            source_span(source, SourceSpan::from_oxc(argument.span())).map(str::to_owned)
+        })
+        .transpose()?;
+    Ok(AttributeValue::EventHandler(TemplateEventHandler {
+        handler_expression,
+        options_expression,
+    }))
+}
+
+fn unsupported_event_handler(message: impl Into<String>, span: DiagnosticSpan) -> CompilerError {
+    unsupported_with_code_and_span(
+        DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER,
+        message,
+        DIAGNOSTIC_HINT_EVENT_HANDLER,
+        span,
+    )
 }
 
 fn lower_jsx_child(source: &str, child: &JSXChild<'_>) -> CompilerResult<Option<TemplateChild>> {

@@ -319,6 +319,7 @@ fn production_compiler_should_not_contain_legacy_parser_or_panic_paths() {
         concat!("unwrap", "()"),
         concat!("expect", "("),
         concat!("unreachable", "!("),
+        concat!("on_helper_", "handler"),
     ];
 
     for (filename, source) in compiler_sources {

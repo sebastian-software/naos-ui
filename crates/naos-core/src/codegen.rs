@@ -25,7 +25,8 @@ use crate::model::{
     TransformResult,
 };
 use crate::naming::{
-    custom_element_tag_for_component, is_pascal_case_identifier, kebab_case_identifier,
+    custom_element_tag_for_component, event_name_from_attribute, is_pascal_case_identifier,
+    kebab_case_identifier,
 };
 use crate::parse::analyze_component_module;
 use serde_json::Value as JsonValue;
@@ -1819,6 +1820,9 @@ impl<'a> CodeGenerator<'a> {
                     DIAGNOSTIC_HINT_SHOW,
                 ));
             }
+            AttributeValue::EventHandler(_) => {
+                return Err(unsupported("Show fallback cannot be an event handler."));
+            }
         }
         Ok(())
     }
@@ -2276,7 +2280,7 @@ impl<'a> CodeGenerator<'a> {
             ));
         }
         if let Some(event_name) = event_name_from_attribute(name) {
-            let AttributeValue::Expression(expression) = value else {
+            let AttributeValue::EventHandler(event_handler) = value else {
                 return Err(unsupported(format!(
                     "Event attribute `{}` must use a braced handler expression.",
                     name
@@ -2284,6 +2288,7 @@ impl<'a> CodeGenerator<'a> {
             };
             let listener_property = format!("{variable}Listener{}", event_name.replace('-', "_"));
             let listener_abort_property = format!("{listener_property}Abort");
+            let listener_options_property = format!("{listener_property}Options");
             build.uses_event_abort_signals = true;
             build
                 .record_properties
@@ -2291,9 +2296,20 @@ impl<'a> CodeGenerator<'a> {
             build
                 .record_properties
                 .push(format!("{listener_abort_property}: null"));
+            build
+                .record_properties
+                .push(format!("{listener_options_property}: null"));
             build.update_lines.push(ListRowUpdateLine::plain(format!(
-                "if ({}.{listener_property}) {{ {}.{variable}.removeEventListener(\"{event_name}\", {}.{listener_property}); {}.{listener_abort_property}?.abort(); }}",
-                build.record_variable, build.record_variable, build.record_variable, build.record_variable
+                "if ({}.{listener_property}) {{ {}.{variable}.removeEventListener(\"{event_name}\", {}.{listener_property}, {}.{listener_options_property}?.capture ?? false); {}.{listener_abort_property}?.abort(); }}",
+                build.record_variable, build.record_variable, build.record_variable, build.record_variable, build.record_variable
+            )));
+            let options_expression = event_handler
+                .options_expression
+                .as_deref()
+                .unwrap_or("undefined");
+            build.update_lines.push(ListRowUpdateLine::plain(format!(
+                "{}.{listener_options_property} = {options_expression};",
+                build.record_variable
             )));
             build.update_lines.push(ListRowUpdateLine::plain(format!(
                 "{}.{listener_property} = (event) => {{",
@@ -2315,7 +2331,7 @@ impl<'a> CodeGenerator<'a> {
                 "  __naosEventSignal.addEventListener(\"abort\", () => {}.__naosEventAbortControllers.delete({}.{listener_abort_property}), {{ once: true }});",
                 build.record_variable, build.record_variable
             )));
-            for line in handler_body(expression, "__naosEventSignal")
+            for line in handler_body(&event_handler.handler_expression, "__naosEventSignal")
                 .lines()
                 .map(str::trim)
                 .filter(|line| !line.is_empty())
@@ -2328,8 +2344,8 @@ impl<'a> CodeGenerator<'a> {
                 .update_lines
                 .push(ListRowUpdateLine::plain("};".to_owned()));
             build.update_lines.push(ListRowUpdateLine::plain(format!(
-                "{}.{variable}.addEventListener(\"{event_name}\", {}.{listener_property});",
-                build.record_variable, build.record_variable
+                "{}.{variable}.addEventListener(\"{event_name}\", {}.{listener_property}, {}.{listener_options_property});",
+                build.record_variable, build.record_variable, build.record_variable
             )));
             return Ok(());
         }
@@ -2378,6 +2394,11 @@ impl<'a> CodeGenerator<'a> {
             AttributeValue::Element(_) => {
                 return Err(unsupported(
                     "JSX element attribute values are supported only for Show fallback.",
+                ));
+            }
+            AttributeValue::EventHandler(_) => {
+                return Err(unsupported(
+                    "Event handlers must use an `on*` JSX attribute.",
                 ));
             }
         }
@@ -2466,17 +2487,20 @@ impl<'a> CodeGenerator<'a> {
             return Ok(());
         }
         if let Some(event_name) = event_name_from_attribute(name) {
-            let AttributeValue::Expression(expression) = value else {
+            let AttributeValue::EventHandler(event_handler) = value else {
                 return Err(unsupported(format!(
                     "Event attribute `{}` must use a braced handler expression.",
                     name
                 )));
             };
-            let body = handler_body(expression, "__naosEventSignal");
+            let body = handler_body(&event_handler.handler_expression, "__naosEventSignal");
             let listener_abort_variable = format!(
                 "{field_name}{}AbortController",
                 event_name.replace('-', "_")
             );
+            if event_handler.options_expression.is_some() {
+                self.listener_lines.push("{".to_owned());
+            }
             self.listener_lines
                 .push(format!("let {listener_abort_variable} = null;"));
             self.listener_lines.push(format!(
@@ -2505,7 +2529,13 @@ impl<'a> CodeGenerator<'a> {
             for line in body.lines().map(str::trim).filter(|line| !line.is_empty()) {
                 self.listener_lines.push(format!("  {line}"));
             }
-            self.listener_lines.push("});".to_owned());
+            match &event_handler.options_expression {
+                Some(options) => {
+                    self.listener_lines.push(format!("}}, {options});"));
+                    self.listener_lines.push("}".to_owned());
+                }
+                None => self.listener_lines.push("});".to_owned()),
+            }
             return Ok(());
         }
 
@@ -2562,6 +2592,11 @@ impl<'a> CodeGenerator<'a> {
             AttributeValue::Element(_) => {
                 return Err(unsupported(
                     "JSX element attribute values are supported only for Show fallback.",
+                ));
+            }
+            AttributeValue::EventHandler(_) => {
+                return Err(unsupported(
+                    "Event handlers must use an `on*` JSX attribute.",
                 ));
             }
         }
@@ -2643,6 +2678,12 @@ fn collect_template_expressions<'a>(element: &'a TemplateElement, expressions: &
                 AttributeValue::Expression(expression) => expressions.push(expression),
                 AttributeValue::Element(element) => {
                     collect_template_expressions(element, expressions);
+                }
+                AttributeValue::EventHandler(event_handler) => {
+                    expressions.push(&event_handler.handler_expression);
+                    if let Some(options) = &event_handler.options_expression {
+                        expressions.push(options);
+                    }
                 }
                 AttributeValue::Static(_) | AttributeValue::Boolean => {}
             },
@@ -3195,6 +3236,7 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
                     "JSX element attribute values are supported only for Show fallback.",
                 ));
             }
+            AttributeValue::EventHandler(_) => return Ok(()),
         }
         Ok(())
     }
@@ -3284,6 +3326,9 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
                 "Show fallback must have a value.",
                 DIAGNOSTIC_HINT_SHOW,
             )),
+            AttributeValue::EventHandler(_) => {
+                Err(unsupported("Show fallback cannot be an event handler."))
+            }
         }
     }
 
@@ -4212,59 +4257,13 @@ fn normalize_jsx_text(value: &str) -> String {
     format!("{prefix}{collapsed}{suffix}")
 }
 
-fn event_name_from_attribute(name: &str) -> Option<String> {
-    let event_name = name.strip_prefix("on")?;
-    if event_name.is_empty() {
-        return None;
-    }
-    let event_name = kebab_case_identifier(event_name);
-    Some(match event_name.as_str() {
-        "key-down" => "keydown".to_owned(),
-        "key-up" => "keyup".to_owned(),
-        "before-input" => "beforeinput".to_owned(),
-        "context-menu" => "contextmenu".to_owned(),
-        "pointer-cancel" => "pointercancel".to_owned(),
-        "pointer-down" => "pointerdown".to_owned(),
-        "pointer-enter" => "pointerenter".to_owned(),
-        "pointer-leave" => "pointerleave".to_owned(),
-        "pointer-move" => "pointermove".to_owned(),
-        "pointer-out" => "pointerout".to_owned(),
-        "pointer-over" => "pointerover".to_owned(),
-        "pointer-up" => "pointerup".to_owned(),
-        "focus-in" => "focusin".to_owned(),
-        "focus-out" => "focusout".to_owned(),
-        _ => event_name,
-    })
-}
-
 fn handler_body(expression: &str, signal_argument: &str) -> String {
     let trimmed = expression.trim();
-    if let Some(handler) = on_helper_handler(trimmed) {
-        return handler_body(handler, signal_argument);
-    }
     if trimmed.contains("=>") || trimmed.starts_with("function") {
         format!("({trimmed})(event, {signal_argument});")
     } else {
         format!("{trimmed}(event, {signal_argument});")
     }
-}
-
-fn on_helper_handler(expression: &str) -> Option<&str> {
-    let rest = expression.strip_prefix("on")?.trim_start();
-    if !rest.starts_with('(') {
-        return None;
-    }
-    let open = expression.find('(')?;
-    let close = find_matching_delimiter(expression, open, '(', ')').ok()?;
-    if !expression[close + 1..].trim().is_empty() {
-        return None;
-    }
-    let arguments = &expression[open + 1..close];
-    let parts = split_top_level_commas(arguments);
-    if parts.len() != 2 {
-        return None;
-    }
-    Some(parts[1].trim())
 }
 
 fn split_top_level_commas(source: &str) -> Vec<&str> {
