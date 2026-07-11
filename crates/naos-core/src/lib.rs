@@ -18,10 +18,12 @@ pub use codegen::{
 };
 pub use error::{CompilerError, CompilerResult};
 pub use model::{
-    CompilerDiagnostic, ComponentImport, ComponentModule, ComponentOptions, ComputedDefinition,
-    DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan, EffectDefinition,
-    EventDefinition, KeyedSelectorDefinition, PropAccess, PropDefinition, PropKind, SourceMap,
-    StateDefinition, StateKind, StyleImport, TransformResult,
+    AttributeValue, CompilerDiagnostic, ComponentImport, ComponentModule, ComponentOptions,
+    ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan,
+    EffectDefinition, EventDefinition, KeyedSelectorDefinition, PropAccess, PropDefinition,
+    PropKind, SourceMap, StateDefinition, StateKind, StyleImport, TemplateAttribute, TemplateChild,
+    TemplateElement, TemplateList, TemplateListKey, TemplateListKind, TemplateListMotion,
+    TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -34,8 +36,9 @@ pub fn core_version() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{
-        DiagnosticSeverity, StateKind, analyze_component_module, core_version,
-        render_declarative_shadow_dom_module,
+        AttributeValue, DiagnosticSeverity, StateKind, TemplateAttribute, TemplateChild,
+        TemplateListKey, TemplateListKind, TemplateListMotion, analyze_component_module,
+        core_version, render_declarative_shadow_dom_module,
         render_declarative_shadow_dom_module_with_inline_styles, transform_component_module,
     };
     use crate::error::{
@@ -361,16 +364,6 @@ mod tests {
             "DSD prerender props must be a JSON object",
             "JSON objects",
         );
-
-        assert_diagnostic(
-            Result::<(), super::CompilerError>::Err(crate::error::template_parse(
-                "Attribute `data-count` must use a quoted or braced value.",
-            )),
-            "template-parse.wc.tsx",
-            DIAGNOSTIC_CODE_TEMPLATE_PARSE,
-            "Attribute `data-count` must use a quoted or braced value",
-            "authoring limitations",
-        );
     }
 
     #[test]
@@ -455,7 +448,130 @@ mod tests {
         assert_eq!(module.states.len(), 1);
         assert_eq!(module.states[0].kind, StateKind::State);
         assert_eq!(module.events.len(), 1);
-        assert!(module.template_source.contains("<button"));
+        assert_eq!(module.template.tag_name, "button");
+        assert_eq!(module.template.attributes.len(), 1);
+        assert!(matches!(
+            module.template.attributes.as_slice(),
+            [TemplateAttribute::Named {
+                name,
+                value: AttributeValue::Expression(expression),
+            }] if name == "onClick" && expression == "() => change.emit(count())"
+        ));
+        assert!(matches!(
+            module.template.children.as_slice(),
+            [TemplateChild::Text(_), TemplateChild::Expression(expression), ..]
+                if expression == "label"
+        ));
+    }
+
+    #[test]
+    fn analyze_component_module_should_lower_jsx_comments_entities_and_regex_literals() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+
+            export function Probe() {
+              const value = state("aa");
+
+              return (
+                <p title="Bread &amp; Butter">
+                  Hello &amp; welcome{/* author note */}{/a{2}/.test(value())}
+                </p>
+              );
+            }
+        "#;
+
+        let module = analyze_component_module(source, "probe.wc.tsx")
+            .expect("valid TSX should lower into the compiler IR");
+
+        assert!(matches!(
+            module.template.attributes.as_slice(),
+            [TemplateAttribute::Named {
+                name,
+                value: AttributeValue::Static(value),
+            }] if name == "title" && value == "Bread & Butter"
+        ));
+        assert!(matches!(
+            module.template.children.as_slice(),
+            [TemplateChild::Text(text), TemplateChild::Expression(expression), TemplateChild::Text(_)]
+                if text.contains("Hello & welcome") && expression == "/a{2}/.test(value())"
+        ));
+    }
+
+    #[test]
+    fn analyze_component_module_should_lower_dynamic_lists_into_owned_ir() {
+        let source = r#"
+            import { For, Index, state } from "@naos-ui/core";
+
+            export function Lists() {
+              const rows = state([{ id: "a" }]);
+              return (
+                <section>
+                  {rows().map((row) => <span key={row.id}>{row.id}</span>)}
+                  <For each={rows()} motion="flip">
+                    {(row, position) => <strong key={row.id}>{position}</strong>}
+                  </For>
+                  <Index each={rows()}>
+                    {(row) => <em>{row().id}</em>}
+                  </Index>
+                </section>
+              );
+            }
+        "#;
+
+        let module = analyze_component_module(source, "lists.wc.tsx")
+            .expect("valid list syntax should lower into the compiler IR");
+        let map = module
+            .template
+            .children
+            .iter()
+            .find_map(|child| match child {
+                TemplateChild::List(list) => Some(list),
+                _ => None,
+            });
+        let for_list = module
+            .template
+            .children
+            .iter()
+            .find_map(|child| match child {
+                TemplateChild::Element(element) if element.tag_name == "For" => {
+                    element.children.first()
+                }
+                _ => None,
+            });
+        let index_list = module
+            .template
+            .children
+            .iter()
+            .find_map(|child| match child {
+                TemplateChild::Element(element) if element.tag_name == "Index" => {
+                    element.children.first()
+                }
+                _ => None,
+            });
+
+        assert!(matches!(
+            (map, for_list, index_list),
+            (
+                Some(list),
+                Some(TemplateChild::List(for_list)),
+                Some(TemplateChild::List(index_list)),
+            ) if matches!(
+                &list.kind,
+                TemplateListKind::ItemKeyed {
+                    key: TemplateListKey::Expression(key),
+                } if key == "row.id"
+            ) && list.template.tag_name == "span"
+                && matches!(
+                    &for_list.kind,
+                    TemplateListKind::ItemKeyed {
+                        key: TemplateListKey::Expression(key),
+                    } if key == "row.id"
+                )
+                && for_list.index_name == "position"
+                && for_list.motion == Some(TemplateListMotion::Flip)
+                && matches!(index_list.kind, TemplateListKind::IndexKeyed)
+                && index_list.item_name == "row"
+        ));
     }
 
     #[test]
@@ -574,6 +690,27 @@ mod tests {
                 .to_string()
                 .contains("prop.*() and prop() were removed")
         );
+    }
+
+    #[test]
+    fn analyze_component_module_should_ignore_removed_api_names_in_comments_and_strings() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+
+            export function Counter() {
+              const count = state(0);
+              const message = "component() signal() useHost() prop.value() export const options";
+              const myprop = { value: () => "safe" };
+              myprop.value();
+              // component(); signal(); useHost(); prop.value(); export const options = { styles: [] };
+              return <button title={message}>{count()}</button>;
+            }
+        "#;
+
+        let module = analyze_component_module(source, "counter.wc.tsx")
+            .expect("removed API names in non-code positions must not fail analysis");
+
+        assert_eq!(module.template.tag_name, "button");
     }
 
     #[test]

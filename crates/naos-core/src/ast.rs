@@ -2,23 +2,28 @@ use oxc_allocator::Allocator;
 use oxc_ast::ast::{
     Argument, ArrowFunctionExpression, BinaryExpression, BindingPattern, CallExpression,
     Declaration, ExportDefaultDeclarationKind, Expression, Function, FunctionBody,
-    ImportDeclarationSpecifier, ImportOrExportKind, ModuleExportName, Program, Statement,
-    VariableDeclarationKind,
+    ImportDeclarationSpecifier, ImportOrExportKind, JSXAttributeItem, JSXAttributeValue, JSXChild,
+    JSXElement, JSXExpression, ModuleExportName, ObjectPropertyKind, Program, PropertyKey,
+    Statement, VariableDeclarationKind,
 };
+use oxc_ast_visit::{Visit, walk};
 use oxc_parser::Parser;
 use oxc_span::{GetSpan, SourceType, Span};
 
 use crate::error::{
-    CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK,
-    DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
-    DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS, DIAGNOSTIC_HINT_INSTANCE_SETUP, removed_authoring_api,
-    removed_authoring_api_with_span, unsupported, unsupported_with_code,
-    unsupported_with_code_and_span,
+    CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
+    DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK,
+    DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER, DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+    DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS, DIAGNOSTIC_HINT_COMPONENT_OPTIONS,
+    DIAGNOSTIC_HINT_INSTANCE_SETUP, DIAGNOSTIC_HINT_LISTS, removed_authoring_api_with_span,
+    unsupported, unsupported_with_code, unsupported_with_code_and_span,
 };
 use crate::model::{
-    ComponentImport, ComputedDefinition, DiagnosticSpan, EffectDefinition, EventDefinition,
-    FormControlDefinition, KeyedSelectorDefinition, LifecycleCallbackDefinition, RuntimeImport,
-    StateDefinition, StateKind, StyleImport,
+    AttributeValue, ComponentImport, ComponentOptions, ComputedDefinition, DiagnosticSpan,
+    EffectDefinition, EventDefinition, FormControlDefinition, KeyedSelectorDefinition,
+    LifecycleCallbackDefinition, RuntimeImport, StateDefinition, StateKind, StyleImport,
+    TemplateAttribute, TemplateChild, TemplateElement, TemplateList, TemplateListKey,
+    TemplateListKind, TemplateListMotion,
 };
 use crate::naming::is_pascal_case_identifier;
 
@@ -55,7 +60,7 @@ pub(crate) struct AstComponentSemantics {
     pub(crate) disconnected_callbacks: Vec<LifecycleCallbackDefinition>,
     pub(crate) events: Vec<EventDefinition>,
     pub(crate) uses_host_helpers: bool,
-    pub(crate) template_source: Option<String>,
+    pub(crate) template: Option<TemplateElement>,
 }
 
 #[derive(Debug, Clone)]
@@ -67,6 +72,7 @@ pub(crate) struct AstFunctionComponent {
 
 #[derive(Debug, Default)]
 pub(crate) struct AstModuleFacts {
+    pub(crate) component_options: ComponentOptions,
     pub(crate) component_imports: Vec<ComponentImport>,
     pub(crate) runtime_imports: Vec<RuntimeImport>,
     pub(crate) style_imports: Vec<StyleImport>,
@@ -92,6 +98,7 @@ pub(crate) fn analyze_module(source: &str, filename: &str) -> CompilerResult<Ast
         });
     }
 
+    reject_removed_apis_in_program(&parsed.program)?;
     AstAnalyzer::new(source, &parsed.program).analyze()
 }
 
@@ -124,26 +131,94 @@ impl<'a, 'program> AstAnalyzer<'a, 'program> {
                 capture_style_imports(import, facts);
                 capture_runtime_import(self.source, import, facts)?;
             }
-            Statement::ExportNamedDeclaration(export) => {
-                if let Some(Declaration::FunctionDeclaration(function)) = &export.declaration {
+            Statement::ExportNamedDeclaration(export) => match &export.declaration {
+                Some(Declaration::FunctionDeclaration(function)) => {
                     push_function_component(self.source, function, facts)?;
                 }
-            }
-            Statement::ExportDefaultDeclaration(export) => match &export.declaration {
-                ExportDefaultDeclarationKind::FunctionDeclaration(function) => {
-                    push_function_component(self.source, function, facts)?;
+                Some(Declaration::VariableDeclaration(declaration)) => {
+                    capture_exported_component_options(self.source, declaration, facts)?;
                 }
-                ExportDefaultDeclarationKind::CallExpression(call) => reject_removed_call(call)?,
                 _ => {}
             },
-            Statement::ExpressionStatement(statement) => {
-                if let Expression::CallExpression(call) = &statement.expression {
-                    reject_removed_call(call)?;
+            Statement::ExportDefaultDeclaration(export) => {
+                if let ExportDefaultDeclarationKind::FunctionDeclaration(function) =
+                    &export.declaration
+                {
+                    push_function_component(self.source, function, facts)?;
                 }
             }
             _ => {}
         }
         Ok(())
+    }
+}
+
+fn capture_exported_component_options(
+    source: &str,
+    declaration: &oxc_ast::ast::VariableDeclaration<'_>,
+    facts: &mut AstModuleFacts,
+) -> CompilerResult<()> {
+    for declarator in &declaration.declarations {
+        if binding_identifier_name(&declarator.id) != Some("options") {
+            continue;
+        }
+        let Some(Expression::ObjectExpression(options)) = declarator
+            .init
+            .as_ref()
+            .map(Expression::get_inner_expression)
+        else {
+            continue;
+        };
+        facts.component_options = lower_component_options(source, options)?;
+    }
+    Ok(())
+}
+
+fn lower_component_options(
+    source: &str,
+    options: &oxc_ast::ast::ObjectExpression<'_>,
+) -> CompilerResult<ComponentOptions> {
+    let mut styles = Vec::new();
+    for property in &options.properties {
+        let ObjectPropertyKind::ObjectProperty(property) = property else {
+            continue;
+        };
+        let Some(key) = property_key_name(&property.key) else {
+            continue;
+        };
+        if matches!(key, "shadow" | "define") {
+            return Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
+                "Component options only support `styles` in the public v0.1 API.",
+                DIAGNOSTIC_HINT_COMPONENT_OPTIONS,
+            ));
+        }
+        if key != "styles" {
+            continue;
+        }
+        let Expression::ArrayExpression(values) = &property.value else {
+            continue;
+        };
+        for value in &values.elements {
+            styles.push(
+                source_span(source, SourceSpan::from_oxc(value.span()))?
+                    .trim()
+                    .to_owned(),
+            );
+        }
+    }
+    Ok(ComponentOptions {
+        shadow: true,
+        define: true,
+        styles,
+    })
+}
+
+fn property_key_name<'a>(key: &'a PropertyKey<'a>) -> Option<&'a str> {
+    match key {
+        PropertyKey::StaticIdentifier(identifier) => Some(identifier.name.as_str()),
+        PropertyKey::StringLiteral(value) => Some(value.value.as_str()),
+        _ => None,
     }
 }
 
@@ -287,30 +362,13 @@ fn analyze_component_body(
     source: &str,
     body: &FunctionBody<'_>,
 ) -> CompilerResult<AstComponentSemantics> {
-    let mut semantics = AstComponentSemantics::default();
-    let body_source = source_span(source, SourceSpan::from_oxc(body.span))?;
-    semantics.uses_host_helpers = contains_call(body_source, "host");
+    let mut semantics = AstComponentSemantics {
+        uses_host_helpers: contains_direct_call_in_body(body, "host"),
+        ..AstComponentSemantics::default()
+    };
 
-    // Walk statements before string fallbacks so direct helper calls keep AST spans.
     for statement in &body.statements {
         capture_body_statement(source, statement, &mut semantics)?;
-    }
-
-    // These are span-less fallbacks for nested or otherwise unsupported helper shapes.
-    if contains_call(body_source, "signal") {
-        return Err(removed_authoring_api(
-            "signal() was removed from the v0.1 authoring API. Use state() for local component state.",
-        ));
-    }
-    if contains_prop_call(body_source) {
-        return Err(removed_authoring_api(
-            "prop.*() and prop() were removed from the v0.1 authoring API. Declare props with typed function parameters instead.",
-        ));
-    }
-    if contains_call(body_source, "useHost") {
-        return Err(removed_authoring_api(
-            "useHost() was removed from the v0.1 authoring API. Use host() instead.",
-        ));
     }
 
     Ok(semantics)
@@ -388,13 +446,415 @@ fn capture_body_statement(
                         SourceSpan::from_oxc(argument.span()).to_diagnostic(),
                     ));
                 }
-                let template = source_span(source, SourceSpan::from_oxc(argument.span()))?;
-                semantics.template_source = Some(strip_wrapping_parentheses(template).to_owned());
+                semantics.template = Some(lower_return_template(source, argument)?);
             }
         }
         _ => {}
     }
     Ok(())
+}
+
+fn lower_return_template(
+    source: &str,
+    expression: &Expression<'_>,
+) -> CompilerResult<TemplateElement> {
+    match expression {
+        Expression::JSXElement(element) => lower_jsx_element(source, element),
+        Expression::ParenthesizedExpression(parenthesized) => {
+            lower_return_template(source, &parenthesized.expression)
+        }
+        _ => Err(unsupported(
+            "Function components must return a TSX element.",
+        )),
+    }
+}
+
+fn lower_jsx_element(source: &str, element: &JSXElement<'_>) -> CompilerResult<TemplateElement> {
+    let tag_name = source_span(
+        source,
+        SourceSpan::from_oxc(element.opening_element.name.span()),
+    )?
+    .to_owned();
+    let attributes = element
+        .opening_element
+        .attributes
+        .iter()
+        .map(|attribute| lower_jsx_attribute(source, attribute))
+        .collect::<CompilerResult<Vec<_>>>()?;
+    let children = lower_jsx_children(source, &tag_name, &attributes, &element.children)?;
+
+    Ok(TemplateElement {
+        tag_name,
+        attributes,
+        children,
+    })
+}
+
+fn lower_jsx_children(
+    source: &str,
+    tag_name: &str,
+    attributes: &[TemplateAttribute],
+    children: &[JSXChild<'_>],
+) -> CompilerResult<Vec<TemplateChild>> {
+    if matches!(tag_name, "For" | "Index") {
+        return lower_list_control(source, tag_name, attributes, children)
+            .map(|list| vec![TemplateChild::List(list)]);
+    }
+
+    children
+        .iter()
+        .filter_map(|child| lower_jsx_child(source, child).transpose())
+        .collect()
+}
+
+fn lower_jsx_attribute(
+    source: &str,
+    attribute: &JSXAttributeItem<'_>,
+) -> CompilerResult<TemplateAttribute> {
+    match attribute {
+        JSXAttributeItem::SpreadAttribute(spread) => Ok(TemplateAttribute::Spread {
+            expression: expression_source(source, &spread.argument)?,
+        }),
+        JSXAttributeItem::Attribute(attribute) => {
+            let name = source_span(source, SourceSpan::from_oxc(attribute.name.span()))?.to_owned();
+            let value = match &attribute.value {
+                None => AttributeValue::Boolean,
+                Some(JSXAttributeValue::StringLiteral(value)) => {
+                    AttributeValue::Static(decode_jsx_entities(value.value.as_str()))
+                }
+                Some(JSXAttributeValue::ExpressionContainer(container)) => {
+                    if let JSXExpression::JSXElement(element) = &container.expression {
+                        AttributeValue::Element(lower_jsx_element(source, element)?)
+                    } else {
+                        let Some(expression) = lower_jsx_expression(source, &container.expression)?
+                        else {
+                            return Err(unsupported(
+                                "JSX attribute expressions must not be empty.",
+                            ));
+                        };
+                        AttributeValue::Expression(expression)
+                    }
+                }
+                Some(JSXAttributeValue::Element(element)) => {
+                    AttributeValue::Element(lower_jsx_element(source, element)?)
+                }
+                Some(JSXAttributeValue::Fragment(_)) => {
+                    return Err(unsupported(
+                        "JSX fragments are not supported as attribute values in this milestone.",
+                    ));
+                }
+            };
+            Ok(TemplateAttribute::Named { name, value })
+        }
+    }
+}
+
+fn lower_jsx_child(source: &str, child: &JSXChild<'_>) -> CompilerResult<Option<TemplateChild>> {
+    match child {
+        JSXChild::Text(text) => Ok(Some(TemplateChild::Text(decode_jsx_entities(
+            text.value.as_str(),
+        )))),
+        JSXChild::Element(element) => lower_jsx_element(source, element)
+            .map(TemplateChild::Element)
+            .map(Some),
+        JSXChild::ExpressionContainer(container) => {
+            lower_jsx_expression_child(source, &container.expression)
+        }
+        JSXChild::Fragment(_) | JSXChild::Spread(_) => Err(unsupported(
+            "JSX fragments and spread children are not supported in this milestone.",
+        )),
+    }
+}
+
+fn lower_jsx_expression_child(
+    source: &str,
+    expression: &JSXExpression<'_>,
+) -> CompilerResult<Option<TemplateChild>> {
+    if matches!(expression, JSXExpression::EmptyExpression(_)) {
+        return Ok(None);
+    }
+    if let JSXExpression::CallExpression(call) = expression
+        && let Some(list) = lower_map_list(source, call)?
+    {
+        return Ok(Some(TemplateChild::List(list)));
+    }
+    expression_source(source, expression)
+        .map(TemplateChild::Expression)
+        .map(Some)
+}
+
+fn lower_map_list(source: &str, call: &CallExpression<'_>) -> CompilerResult<Option<TemplateList>> {
+    let Expression::StaticMemberExpression(member) = call.callee.get_inner_expression() else {
+        return Ok(None);
+    };
+    if member.property.name.as_str() != "map" {
+        return Ok(None);
+    }
+    if call.arguments.len() != 1 {
+        return Err(unsupported_list(
+            "Naos .map() list expressions support exactly one callback argument.",
+        ));
+    }
+    let Argument::ArrowFunctionExpression(callback) = &call.arguments[0] else {
+        return Err(unsupported_list(
+            ".map() callback must be an arrow function.",
+        ));
+    };
+    let each_expression = expression_source(source, &member.object)?;
+    if each_expression.is_empty() {
+        return Err(unsupported_list(
+            "Naos .map() list expressions must have an array expression before .map().",
+        ));
+    }
+    lower_list_callback(
+        source,
+        callback,
+        each_expression,
+        ListControlKind::ItemKeyed,
+        None,
+        ".map() callback",
+    )
+    .map(Some)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ListControlKind {
+    ItemKeyed,
+    IndexKeyed,
+}
+
+fn lower_list_control(
+    source: &str,
+    tag_name: &str,
+    attributes: &[TemplateAttribute],
+    children: &[JSXChild<'_>],
+) -> CompilerResult<TemplateList> {
+    let label = if tag_name == "For" {
+        "<For>"
+    } else {
+        "<Index>"
+    };
+    let allowed = if tag_name == "For" {
+        &["each", "motion"][..]
+    } else {
+        &["each"][..]
+    };
+    reject_list_control_attributes(attributes, allowed, label)?;
+    let each_expression = required_list_expression_attribute(attributes, "each", label)?;
+    let motion = if tag_name == "For" {
+        lower_list_motion(attributes)?
+    } else {
+        None
+    };
+    let mut callback_expression = None;
+    for child in children {
+        match child {
+            JSXChild::Text(text) if text.value.trim().is_empty() => {}
+            JSXChild::ExpressionContainer(container)
+                if matches!(container.expression, JSXExpression::EmptyExpression(_)) => {}
+            JSXChild::ExpressionContainer(container) if callback_expression.is_none() => {
+                callback_expression = Some(&container.expression);
+            }
+            _ => {
+                return Err(unsupported_list(format!(
+                    "{label} requires exactly one braced arrow-function child."
+                )));
+            }
+        }
+    }
+    let Some(JSXExpression::ArrowFunctionExpression(callback)) = callback_expression else {
+        return Err(unsupported_list(format!(
+            "{label} requires exactly one braced arrow-function child."
+        )));
+    };
+    let kind = if tag_name == "For" {
+        ListControlKind::ItemKeyed
+    } else {
+        ListControlKind::IndexKeyed
+    };
+    lower_list_callback(
+        source,
+        callback,
+        each_expression,
+        kind,
+        motion,
+        &format!("{label} child"),
+    )
+}
+
+fn lower_list_callback(
+    source: &str,
+    callback: &ArrowFunctionExpression<'_>,
+    each_expression: String,
+    kind: ListControlKind,
+    motion: Option<TemplateListMotion>,
+    label: &str,
+) -> CompilerResult<TemplateList> {
+    if !callback.expression {
+        return Err(unsupported_list(format!(
+            "{label} must use an expression body that returns JSX."
+        )));
+    }
+    if callback.params.rest.is_some() || !(1..=2).contains(&callback.params.items.len()) {
+        return Err(unsupported_list(format!(
+            "{label} currently supports item and index parameters only."
+        )));
+    }
+    let Some(item_name) = binding_identifier_name(&callback.params.items[0].pattern) else {
+        return Err(unsupported_list(format!(
+            "{label} parameters must be simple identifiers."
+        )));
+    };
+    let index_name = match callback.params.items.get(1) {
+        Some(parameter) => binding_identifier_name(&parameter.pattern).ok_or_else(|| {
+            unsupported_list(format!("{label} parameters must be simple identifiers."))
+        })?,
+        None => "index",
+    };
+    let Some(Statement::ExpressionStatement(statement)) = callback.body.statements.first() else {
+        return Err(unsupported_list(format!(
+            "{label} must return a JSX element expression."
+        )));
+    };
+    if callback.body.statements.len() != 1 {
+        return Err(unsupported_list(format!(
+            "{label} must return a JSX element expression."
+        )));
+    }
+    let template = lower_return_template(source, &statement.expression)
+        .map_err(|_| unsupported_list(format!("{label} must return a JSX element expression.")))?;
+    let kind = match kind {
+        ListControlKind::ItemKeyed => TemplateListKind::ItemKeyed {
+            key: required_list_key(&template)?,
+        },
+        ListControlKind::IndexKeyed => TemplateListKind::IndexKeyed,
+    };
+    Ok(TemplateList {
+        each_expression,
+        item_name: item_name.to_owned(),
+        index_name: index_name.to_owned(),
+        kind,
+        motion,
+        template,
+    })
+}
+
+fn reject_list_control_attributes(
+    attributes: &[TemplateAttribute],
+    allowed: &[&str],
+    label: &str,
+) -> CompilerResult<()> {
+    for attribute in attributes {
+        let TemplateAttribute::Named { name, .. } = attribute else {
+            return Err(unsupported_list(format!(
+                "{label} does not support JSX spread attributes."
+            )));
+        };
+        if !allowed.iter().any(|allowed_name| *allowed_name == name) {
+            return Err(unsupported_list(format!(
+                "{label} supports only `{}`.",
+                allowed.join("`, `")
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn required_list_expression_attribute(
+    attributes: &[TemplateAttribute],
+    name: &str,
+    label: &str,
+) -> CompilerResult<String> {
+    let Some(value) = attributes.iter().find_map(|attribute| match attribute {
+        TemplateAttribute::Named {
+            name: attribute_name,
+            value,
+        } if attribute_name == name => Some(value),
+        _ => None,
+    }) else {
+        return Err(unsupported_list(format!(
+            "{label} requires the `{name}` attribute."
+        )));
+    };
+    match value {
+        AttributeValue::Expression(expression) if !expression.trim().is_empty() => {
+            Ok(expression.trim().to_owned())
+        }
+        _ => Err(unsupported_list(format!(
+            "{label} `{name}` must use a non-empty braced expression."
+        ))),
+    }
+}
+
+fn lower_list_motion(
+    attributes: &[TemplateAttribute],
+) -> CompilerResult<Option<TemplateListMotion>> {
+    let Some(value) = attributes.iter().find_map(|attribute| match attribute {
+        TemplateAttribute::Named { name, value } if name == "motion" => Some(value),
+        _ => None,
+    }) else {
+        return Ok(None);
+    };
+    match value {
+        AttributeValue::Static(value) if value == "flip" => Ok(Some(TemplateListMotion::Flip)),
+        _ => Err(unsupported_list(
+            "<For> `motion` currently supports only the static value \"flip\".",
+        )),
+    }
+}
+
+fn required_list_key(element: &TemplateElement) -> CompilerResult<TemplateListKey> {
+    let Some(value) = element
+        .attributes
+        .iter()
+        .find_map(|attribute| match attribute {
+            TemplateAttribute::Named { name, value } if name == "key" => Some(value),
+            _ => None,
+        })
+    else {
+        return Err(unsupported_list(
+            "Dynamic .map() lists require a key attribute on the returned root JSX element.",
+        ));
+    };
+    match value {
+        AttributeValue::Expression(expression) if !expression.trim().is_empty() => {
+            Ok(TemplateListKey::Expression(expression.trim().to_owned()))
+        }
+        AttributeValue::Static(value) => Ok(TemplateListKey::Static(value.clone())),
+        _ => Err(unsupported_list(
+            "Dynamic .map() list keys must use a non-empty expression or static value.",
+        )),
+    }
+}
+
+fn unsupported_list(message: impl Into<String>) -> CompilerError {
+    unsupported_with_code(
+        DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+        message,
+        DIAGNOSTIC_HINT_LISTS,
+    )
+}
+
+fn decode_jsx_entities(value: &str) -> String {
+    html_escape::decode_html_entities(value).into_owned()
+}
+
+fn lower_jsx_expression(
+    source: &str,
+    expression: &JSXExpression<'_>,
+) -> CompilerResult<Option<String>> {
+    if matches!(expression, JSXExpression::EmptyExpression(_)) {
+        return Ok(None);
+    }
+    expression_source(source, expression).map(Some)
+}
+
+fn expression_source(source: &str, expression: &impl GetSpan) -> CompilerResult<String> {
+    Ok(
+        source_span(source, SourceSpan::from_oxc(expression.span()))?
+            .trim()
+            .to_owned(),
+    )
 }
 
 fn capture_authoring_const(
@@ -631,32 +1091,57 @@ fn call_name<'a>(call: &'a CallExpression<'a>) -> Option<&'a str> {
     }
 }
 
+fn reject_removed_apis_in_program(program: &Program<'_>) -> CompilerResult<()> {
+    let mut visitor = RemovedAuthoringApiVisitor { error: None };
+    visitor.visit_program(program);
+    visitor.error.map_or(Ok(()), Err)
+}
+
+struct RemovedAuthoringApiVisitor {
+    error: Option<CompilerError>,
+}
+
+impl<'a> Visit<'a> for RemovedAuthoringApiVisitor {
+    fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
+        if self.error.is_none() {
+            self.error = removed_authoring_api_for_call(call);
+        }
+        if self.error.is_none() {
+            walk::walk_call_expression(self, call);
+        }
+    }
+}
+
 fn reject_removed_call(call: &CallExpression<'_>) -> CompilerResult<()> {
+    removed_authoring_api_for_call(call).map_or(Ok(()), Err)
+}
+
+fn removed_authoring_api_for_call(call: &CallExpression<'_>) -> Option<CompilerError> {
     if call_name(call) == Some("component") {
-        return Err(removed_authoring_api_with_span(
+        return Some(removed_authoring_api_with_span(
             "component() was removed from the v0.1 authoring API. Export a PascalCase function component instead.",
             SourceSpan::from_oxc(call.span).to_diagnostic(),
         ));
     }
     if call_name(call) == Some("signal") {
-        return Err(removed_authoring_api_with_span(
+        return Some(removed_authoring_api_with_span(
             "signal() was removed from the v0.1 authoring API. Use state() for local component state.",
             SourceSpan::from_oxc(call.span).to_diagnostic(),
         ));
     }
     if call_name(call) == Some("useHost") {
-        return Err(removed_authoring_api_with_span(
+        return Some(removed_authoring_api_with_span(
             "useHost() was removed from the v0.1 authoring API. Use host() instead.",
             SourceSpan::from_oxc(call.span).to_diagnostic(),
         ));
     }
     if is_prop_call(call) {
-        return Err(removed_authoring_api_with_span(
+        return Some(removed_authoring_api_with_span(
             "prop.*() and prop() were removed from the v0.1 authoring API. Declare props with typed function parameters instead.",
             SourceSpan::from_oxc(call.span).to_diagnostic(),
         ));
     }
-    Ok(())
+    None
 }
 
 fn is_prop_call(call: &CallExpression<'_>) -> bool {
@@ -669,30 +1154,24 @@ fn is_prop_call(call: &CallExpression<'_>) -> bool {
     matches!(&member.object, Expression::Identifier(identifier) if identifier.name.as_str() == "prop")
 }
 
-fn contains_call(source: &str, name: &str) -> bool {
-    let mut offset = 0;
-    while let Some(relative_index) = source[offset..].find(name) {
-        let index = offset + relative_index;
-        let before = source[..index].chars().next_back();
-        let after_name = index + name.len();
-        let after = source[after_name..].chars().next();
-        if !before.is_some_and(is_identifier_char) && !after.is_some_and(is_identifier_char) {
-            let rest = source[after_name..].trim_start();
-            if rest.starts_with('(') {
-                return true;
-            }
+fn contains_direct_call_in_body(body: &FunctionBody<'_>, name: &str) -> bool {
+    let mut visitor = DirectCallVisitor { name, found: false };
+    visitor.visit_function_body(body);
+    visitor.found
+}
+
+struct DirectCallVisitor<'a> {
+    name: &'a str,
+    found: bool,
+}
+
+impl<'a> Visit<'a> for DirectCallVisitor<'_> {
+    fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
+        self.found |= call_name(call) == Some(self.name);
+        if !self.found {
+            walk::walk_call_expression(self, call);
         }
-        offset = after_name;
     }
-    false
-}
-
-fn contains_prop_call(source: &str) -> bool {
-    contains_call(source, "prop") || source.contains("prop.")
-}
-
-fn is_identifier_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || matches!(ch, '_' | '$')
 }
 
 fn argument_string_literal<'a>(argument: &'a Argument<'a>) -> Option<&'a str> {

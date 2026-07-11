@@ -5,10 +5,11 @@ the native compiler API and rendered by the CLI and Vite plugin. Each diagnostic
 has a stable `code`, `severity`, `message`, `filename`, optional `span`, and
 optional `hint`.
 
-Source spans are part of the public diagnostic shape. Some unsupported
-authoring boundaries already report source spans, while broader generated
-template parse failures may still report `span: null` until those rejection
-paths move fully onto AST-backed analysis.
+Source spans are part of the public diagnostic shape. AST-owned authoring
+failures report spans where the compiler has a precise offending node. Broader
+unsupported-shape diagnostics may still report `span: null`; the template is
+already AST-backed, so extending span coverage no longer requires another TSX
+parser.
 
 ## Catalog
 
@@ -27,7 +28,7 @@ paths move fully onto AST-backed analysis.
 | `NAOS_UNSUPPORTED_CONDITIONAL_JSX` | Conditional JSX was authored outside the explicit control-flow primitive. | Use `<Show when={...} fallback={...}>` or `<Switch>/<Match>`. |
 | `NAOS_UNSUPPORTED_SHOW_FALLBACK` | `<Show fallback>` was present without a value. | Provide a static, expression, or JSX fallback value. |
 | `NAOS_UNSUPPORTED_SWITCH_MATCH` | `<Switch>` / `<Match>` did not match the static first-match-wins shape. | Use direct static `<Match when={...}>` children and one optional trailing default `<Match>`. |
-| `NAOS_TEMPLATE_PARSE` | The TSX template slice did not match Naos's supported template grammar. | Check the v0.1 authoring limitations. |
+| `NAOS_TEMPLATE_PARSE` | Reserved legacy code from the removed template source parser; no new compiler path emits it. | Check the v0.1 authoring limitations. |
 | `NAOS_DSD_INPUT` | Declarative Shadow DOM props or inline styles were not valid JSON objects. | Pass JSON objects for DSD props and inline styles. |
 | `NAOS_UNSUPPORTED_SYNTAX` | A syntax boundary is unsupported but not yet assigned a narrower catalog code. | Check the v0.1 authoring limitations. |
 | `NAOS_INTERNAL_PATTERN` | A compiler-internal pattern failed. | Report this as an Naos compiler bug. |

@@ -3,9 +3,8 @@ use crate::ast::{
 };
 use crate::error::{
     CompilerError, CompilerResult, DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
-    DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS, DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
-    DIAGNOSTIC_HINT_COMPONENT_OPTIONS, DIAGNOSTIC_HINT_FUNCTION_COMPONENT,
-    DIAGNOSTIC_HINT_FUNCTION_PROPS, removed_authoring_api, unsupported, unsupported_with_code,
+    DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS, DIAGNOSTIC_HINT_FUNCTION_COMPONENT,
+    DIAGNOSTIC_HINT_FUNCTION_PROPS, unsupported, unsupported_with_code,
 };
 use crate::model::{
     ComponentImport, ComponentModule, ComponentOptions, PropAccess, PropDefinition, PropKind,
@@ -25,17 +24,17 @@ pub fn analyze_component_module(source: &str, filename: &str) -> CompilerResult<
     let component_imports = ast_facts.component_imports.clone();
     let runtime_imports = ast_facts.runtime_imports.clone();
     let style_imports = ast_facts.style_imports.clone();
+    let component_options = ast_facts.component_options.clone();
     if let Some(function_component) = capture_function_component(source, &ast_facts)? {
         return analyze_function_component(
-            source,
             function_component,
             component_imports,
             runtime_imports,
             style_imports,
+            component_options,
         );
     }
 
-    reject_removed_module_apis(source)?;
     Err(CompilerError::ComponentNotFound {
         filename: filename.to_owned(),
     })
@@ -48,21 +47,19 @@ struct FunctionComponent<'a> {
 }
 
 fn analyze_function_component(
-    source: &str,
     function_component: FunctionComponent<'_>,
     component_imports: Vec<ComponentImport>,
     runtime_imports: Vec<RuntimeImport>,
     style_imports: Vec<StyleImport>,
+    component_options: ComponentOptions,
 ) -> CompilerResult<ComponentModule> {
     let tag_name = custom_element_tag_for_component(&function_component.name);
     let class_name = format!("{}Element", function_component.name);
-    let options = capture_exported_component_options(source)?;
-
     Ok(ComponentModule {
         class_name,
         tag_name,
         export_name: Some(function_component.name),
-        options,
+        options: component_options,
         component_imports,
         runtime_imports,
         style_imports,
@@ -76,16 +73,13 @@ fn analyze_function_component(
         disconnected_callbacks: function_component.semantics.disconnected_callbacks,
         uses_host_helpers: function_component.semantics.uses_host_helpers,
         events: function_component.semantics.events,
-        template_source: function_component
-            .semantics
-            .template_source
-            .ok_or_else(|| {
-                unsupported_with_code(
-                    DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
-                    "Function components must return a TSX template.",
-                    DIAGNOSTIC_HINT_FUNCTION_COMPONENT,
-                )
-            })?,
+        template: function_component.semantics.template.ok_or_else(|| {
+            unsupported_with_code(
+                DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
+                "Function components must return a TSX template.",
+                DIAGNOSTIC_HINT_FUNCTION_COMPONENT,
+            )
+        })?,
     })
 }
 
@@ -124,82 +118,6 @@ fn strip_optional_delimiters(source: &str, open: char, close: char) -> &str {
         return trimmed[open.len_utf8()..trimmed.len() - close.len_utf8()].trim();
     }
     trimmed
-}
-
-fn capture_component_options(component_call: &str) -> CompilerResult<ComponentOptions> {
-    for property in
-        split_top_level_commas(strip_optional_delimiters(component_call.trim(), '{', '}'))
-    {
-        if starts_with_property_key(property, "shadow")
-            || starts_with_property_key(property, "define")
-        {
-            return Err(unsupported_with_code(
-                DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
-                "Component options only support `styles` in the public v0.1 API.",
-                DIAGNOSTIC_HINT_COMPONENT_OPTIONS,
-            ));
-        }
-    }
-
-    Ok(ComponentOptions {
-        shadow: true,
-        define: true,
-        styles: capture_style_expressions(component_call)?,
-    })
-}
-
-fn starts_with_property_key(source: &str, key: &str) -> bool {
-    let trimmed = source.trim_start();
-    if let Some(rest) = trimmed.strip_prefix(key) {
-        return rest.trim_start().starts_with(':');
-    }
-
-    for quote in ['"', '\''] {
-        let Some(after_quote) = trimmed.strip_prefix(quote) else {
-            continue;
-        };
-        let Some(rest) = after_quote.strip_prefix(key) else {
-            continue;
-        };
-        let Some(rest) = rest.strip_prefix(quote) else {
-            continue;
-        };
-
-        return rest.trim_start().starts_with(':');
-    }
-
-    false
-}
-
-fn capture_exported_component_options(source: &str) -> CompilerResult<ComponentOptions> {
-    let Some(options_start) = source.find("export const options") else {
-        return Ok(ComponentOptions::default());
-    };
-    let after_options = &source[options_start..];
-    let Some(open_relative) = after_options.find('{') else {
-        return Ok(ComponentOptions::default());
-    };
-    let open = options_start + open_relative;
-    let close = find_matching_delimiter(source, open, '{', '}')?;
-    capture_component_options(&source[open..=close])
-}
-
-fn capture_style_expressions(component_call: &str) -> CompilerResult<Vec<String>> {
-    let Some(styles_index) = component_call.find("styles") else {
-        return Ok(Vec::new());
-    };
-    let after_styles = &component_call[styles_index..];
-    let Some(open_relative) = after_styles.find('[') else {
-        return Ok(Vec::new());
-    };
-    let open = styles_index + open_relative;
-    let close = find_matching_delimiter(component_call, open, '[', ']')?;
-    Ok(split_top_level_commas(&component_call[open + 1..close])
-        .into_iter()
-        .map(str::trim)
-        .filter(|style| !style.is_empty())
-        .map(ToOwned::to_owned)
-        .collect())
 }
 
 fn capture_function_props(params: &str) -> CompilerResult<Vec<PropDefinition>> {
@@ -326,56 +244,6 @@ fn default_for_kind(kind: PropKind) -> String {
         PropKind::Boolean => "false".to_owned(),
         PropKind::Number => "0".to_owned(),
     }
-}
-
-fn reject_removed_module_apis(source: &str) -> CompilerResult<()> {
-    if contains_call(source, "component") {
-        return Err(removed_authoring_api(
-            "component() was removed from the v0.1 authoring API. Export a PascalCase function component instead.",
-        ));
-    }
-    if contains_prop_call(source) {
-        return Err(removed_authoring_api(
-            "prop.*() and prop() were removed from the v0.1 authoring API. Declare props with typed function parameters instead.",
-        ));
-    }
-    if contains_call(source, "signal") {
-        return Err(removed_authoring_api(
-            "signal() was removed from the v0.1 authoring API. Use state() for local component state.",
-        ));
-    }
-    if contains_call(source, "useHost") {
-        return Err(removed_authoring_api(
-            "useHost() was removed from the v0.1 authoring API. Use host() instead.",
-        ));
-    }
-    Ok(())
-}
-
-fn contains_call(source: &str, name: &str) -> bool {
-    let mut offset = 0;
-    while let Some(relative_index) = source[offset..].find(name) {
-        let index = offset + relative_index;
-        let before = source[..index].chars().next_back();
-        let after_name = index + name.len();
-        let after = source[after_name..].chars().next();
-        if !before.is_some_and(is_identifier_char) && !after.is_some_and(is_identifier_char) {
-            let rest = source[after_name..].trim_start();
-            if rest.starts_with('(') {
-                return true;
-            }
-        }
-        offset = after_name;
-    }
-    false
-}
-
-fn contains_prop_call(source: &str) -> bool {
-    contains_call(source, "prop") || source.contains("prop.")
-}
-
-fn is_identifier_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || matches!(ch, '_' | '$')
 }
 
 fn find_matching_delimiter(

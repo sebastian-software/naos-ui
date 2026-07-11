@@ -1,16 +1,28 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
+use oxc_allocator::Allocator;
+use oxc_ast::ast::{
+    ArrowFunctionExpression, BlockStatement, CallExpression, FormalParameters, Function,
+    IdentifierReference, VariableDeclarator,
+};
+use oxc_ast_visit::{Visit, walk};
+use oxc_parser::Parser;
+use oxc_span::SourceType;
+use oxc_syntax::scope::ScopeFlags;
+
 use crate::error::{
     CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
     DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
     DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH, DIAGNOSTIC_HINT_LISTS, DIAGNOSTIC_HINT_SHOW,
-    DIAGNOSTIC_HINT_SWITCH, dsd_input, template_parse, unsupported, unsupported_with_code,
+    DIAGNOSTIC_HINT_SWITCH, dsd_input, unsupported, unsupported_with_code,
 };
 use crate::model::{
-    ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult, EffectDefinition,
-    EventDefinition, FormControlDefinition, KeyedSelectorDefinition, PropDefinition, PropKind,
-    SourceMap, StateDefinition, TransformResult,
+    AttributeValue, ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult,
+    EffectDefinition, EventDefinition, FormControlDefinition, KeyedSelectorDefinition,
+    PropDefinition, PropKind, SourceMap, StateDefinition, TemplateAttribute, TemplateChild,
+    TemplateElement, TemplateList, TemplateListKey, TemplateListKind, TemplateListMotion,
+    TransformResult,
 };
 use crate::naming::{
     custom_element_tag_for_component, is_pascal_case_identifier, kebab_case_identifier,
@@ -26,9 +38,8 @@ use serde_json::Value as JsonValue;
 /// pattern outside the current compiler milestone.
 pub fn transform_component_module(source: &str, filename: &str) -> CompilerResult<TransformResult> {
     let module = analyze_component_module(source, filename)?;
-    let template = TemplateParser::new(&module.template_source).parse_element()?;
     let mut generator = CodeGenerator::new(&module);
-    let code = generator.generate(&template)?;
+    let code = generator.generate(&module.template)?;
     let map = Some(source_map_for_transform(source, filename, &code));
     Ok(TransformResult {
         code,
@@ -71,38 +82,10 @@ pub fn render_declarative_shadow_dom_module_with_inline_styles(
     inline_styles_json: Option<&str>,
 ) -> CompilerResult<DeclarativeShadowDomRenderResult> {
     let module = analyze_component_module(source, filename)?;
-    let template = TemplateParser::new(&module.template_source).parse_element()?;
     let props = parse_prerender_props(props_json)?;
     let inline_styles = parse_inline_styles(inline_styles_json)?;
     let mut renderer = DeclarativeShadowDomRenderer::new(&module, props, inline_styles)?;
-    renderer.render(&template)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct TemplateElement {
-    tag_name: String,
-    attributes: Vec<TemplateAttribute>,
-    children: Vec<TemplateChild>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum TemplateAttribute {
-    Named { name: String, value: AttributeValue },
-    Spread { expression: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum AttributeValue {
-    Static(String),
-    Expression(String),
-    Boolean,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum TemplateChild {
-    Element(TemplateElement),
-    Expression(String),
-    Text(String),
+    renderer.render(&module.template)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -130,240 +113,6 @@ impl UpdateStep {
             lines,
             dependencies,
         }
-    }
-}
-
-struct TemplateParser<'a> {
-    input: &'a str,
-    position: usize,
-}
-
-impl<'a> TemplateParser<'a> {
-    const fn new(input: &'a str) -> Self {
-        Self { input, position: 0 }
-    }
-
-    fn parse_element(&mut self) -> CompilerResult<TemplateElement> {
-        self.skip_whitespace();
-        self.expect_char('<')?;
-        if self.peek_char() == Some('/') {
-            return Err(template_parse("Unexpected closing tag in TSX template."));
-        }
-
-        let tag_name = self.parse_name()?;
-        let mut attributes = Vec::new();
-
-        loop {
-            self.skip_whitespace();
-            if self.starts_with("/>") {
-                self.position += 2;
-                return Ok(TemplateElement {
-                    tag_name,
-                    attributes,
-                    children: Vec::new(),
-                });
-            }
-            if self.consume_char('>') {
-                break;
-            }
-            attributes.push(self.parse_attribute()?);
-        }
-
-        let mut children = Vec::new();
-        loop {
-            if self.starts_with("</") {
-                self.position += 2;
-                let close_name = self.parse_name()?;
-                if close_name != tag_name {
-                    return Err(template_parse(format!(
-                        "Mismatched closing tag. Expected </{tag_name}> but found </{close_name}>."
-                    )));
-                }
-                self.skip_whitespace();
-                self.expect_char('>')?;
-                break;
-            }
-            if self.is_eof() {
-                return Err(template_parse(format!(
-                    "Missing closing tag for <{tag_name}> in TSX template."
-                )));
-            }
-            if self.peek_char() == Some('<') {
-                children.push(TemplateChild::Element(self.parse_element()?));
-            } else if self.peek_char() == Some('{') {
-                children.push(TemplateChild::Expression(self.parse_braced_expression()?));
-            } else {
-                children.push(TemplateChild::Text(self.parse_text()));
-            }
-        }
-
-        Ok(TemplateElement {
-            tag_name,
-            attributes,
-            children,
-        })
-    }
-
-    fn parse_attribute(&mut self) -> CompilerResult<TemplateAttribute> {
-        if self.starts_with("{...") {
-            let expression = self.parse_braced_expression()?;
-            let Some(expression) = expression.trim().strip_prefix("...") else {
-                return Err(unsupported(
-                    "JSX spread attributes must use `{...expression}`.",
-                ));
-            };
-            let expression = expression.trim();
-            if expression.is_empty() {
-                return Err(unsupported("JSX spread attributes require an expression."));
-            }
-            return Ok(TemplateAttribute::Spread {
-                expression: expression.to_owned(),
-            });
-        }
-        let name = self.parse_name()?;
-        self.skip_whitespace();
-        if !self.consume_char('=') {
-            return Ok(TemplateAttribute::Named {
-                name,
-                value: AttributeValue::Boolean,
-            });
-        }
-        self.skip_whitespace();
-        let value = match self.peek_char() {
-            Some('"') | Some('\'') => AttributeValue::Static(self.parse_quoted_string()?),
-            Some('{') => AttributeValue::Expression(self.parse_braced_expression()?),
-            _ => {
-                return Err(template_parse(format!(
-                    "Attribute `{name}` must use a quoted or braced value."
-                )));
-            }
-        };
-        Ok(TemplateAttribute::Named { name, value })
-    }
-
-    fn parse_text(&mut self) -> String {
-        let start = self.position;
-        while let Some(ch) = self.peek_char() {
-            if matches!(ch, '<' | '{') {
-                break;
-            }
-            self.position += ch.len_utf8();
-        }
-        self.input[start..self.position].to_owned()
-    }
-
-    fn parse_name(&mut self) -> CompilerResult<String> {
-        let start = self.position;
-        while let Some(ch) = self.peek_char() {
-            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | ':' | '$') {
-                self.position += ch.len_utf8();
-            } else {
-                break;
-            }
-        }
-        if start == self.position {
-            return Err(template_parse("Expected a tag or attribute name."));
-        }
-        Ok(self.input[start..self.position].to_owned())
-    }
-
-    fn parse_quoted_string(&mut self) -> CompilerResult<String> {
-        let Some(quote) = self.peek_char() else {
-            return Err(template_parse("Expected a quoted string."));
-        };
-        self.position += quote.len_utf8();
-        let start = self.position;
-        while let Some(ch) = self.peek_char() {
-            if ch == quote {
-                let value = self.input[start..self.position].to_owned();
-                self.position += quote.len_utf8();
-                return Ok(value);
-            }
-            self.position += ch.len_utf8();
-        }
-        Err(template_parse("Unterminated quoted attribute value."))
-    }
-
-    fn parse_braced_expression(&mut self) -> CompilerResult<String> {
-        self.expect_char('{')?;
-        let start = self.position;
-        let mut depth = 1usize;
-        let mut in_string: Option<char> = None;
-        let mut escaped = false;
-
-        while let Some(ch) = self.peek_char() {
-            if let Some(quote) = in_string {
-                self.position += ch.len_utf8();
-                if escaped {
-                    escaped = false;
-                } else if ch == '\\' {
-                    escaped = true;
-                } else if ch == quote {
-                    in_string = None;
-                }
-                continue;
-            }
-
-            if matches!(ch, '"' | '\'' | '`') {
-                in_string = Some(ch);
-                self.position += ch.len_utf8();
-                continue;
-            }
-
-            if ch == '{' {
-                depth += 1;
-            } else if ch == '}' {
-                depth = depth.saturating_sub(1);
-                if depth == 0 {
-                    let expression = self.input[start..self.position].trim().to_owned();
-                    self.position += ch.len_utf8();
-                    return Ok(expression);
-                }
-            }
-            self.position += ch.len_utf8();
-        }
-
-        Err(template_parse("Unterminated braced TSX expression."))
-    }
-
-    fn expect_char(&mut self, expected: char) -> CompilerResult<()> {
-        if self.consume_char(expected) {
-            Ok(())
-        } else {
-            Err(unsupported(format!(
-                "Expected `{expected}` in TSX template."
-            )))
-        }
-    }
-
-    fn consume_char(&mut self, expected: char) -> bool {
-        if self.peek_char() == Some(expected) {
-            self.position += expected.len_utf8();
-            true
-        } else {
-            false
-        }
-    }
-
-    fn skip_whitespace(&mut self) {
-        while let Some(ch) = self.peek_char() {
-            if !ch.is_whitespace() {
-                break;
-            }
-            self.position += ch.len_utf8();
-        }
-    }
-
-    fn starts_with(&self, value: &str) -> bool {
-        self.input[self.position..].starts_with(value)
-    }
-
-    fn peek_char(&self) -> Option<char> {
-        self.input[self.position..].chars().next()
-    }
-
-    fn is_eof(&self) -> bool {
-        self.position >= self.input.len()
     }
 }
 
@@ -512,8 +261,14 @@ impl<'a> CodeGenerator<'a> {
         }
 
         for child in &element.children {
-            if let TemplateChild::Element(child_element) = child {
-                self.collect_element_refs(child_element)?;
+            match child {
+                TemplateChild::Element(child_element) => {
+                    self.collect_element_refs(child_element)?;
+                }
+                TemplateChild::List(renderer) => {
+                    self.collect_element_refs(&renderer.template)?;
+                }
+                TemplateChild::Expression(_) | TemplateChild::Text(_) => {}
             }
         }
         Ok(())
@@ -524,6 +279,26 @@ impl<'a> CodeGenerator<'a> {
         expression: &str,
     ) -> ReactiveDependencies {
         expression_dependencies_without_keyed_selectors(expression, self.module)
+    }
+
+    fn dependencies_for_list_renderer(&self, renderer: &ListRenderer) -> ReactiveDependencies {
+        let mut expressions = vec![renderer.each_expression.as_str()];
+        if let TemplateListKind::ItemKeyed {
+            key: TemplateListKey::Expression(key),
+        } = &renderer.kind
+        {
+            expressions.push(key);
+        }
+        collect_template_expressions(&renderer.template, &mut expressions);
+
+        let mut dependencies = BTreeSet::new();
+        for expression in expressions {
+            match self.dependencies_for_expression_without_keyed_selectors(expression) {
+                ReactiveDependencies::Known(sources) => dependencies.extend(sources),
+                ReactiveDependencies::Unknown => return ReactiveDependencies::Unknown,
+            }
+        }
+        ReactiveDependencies::Known(dependencies)
     }
 
     fn uses_scheduled_updates(&self) -> bool {
@@ -1936,13 +1711,12 @@ impl<'a> CodeGenerator<'a> {
                 self.mount_lines
                     .push(format!("{parent_variable}.append({child_variable});"));
             }
+            TemplateChild::List(renderer) => {
+                let child_variable = self.emit_list_control(renderer)?;
+                self.mount_lines
+                    .push(format!("{parent_variable}.append({child_variable});"));
+            }
             TemplateChild::Expression(expression) => {
-                if let Some(renderer) = parse_map_renderer(expression)? {
-                    let child_variable = self.emit_list_control(&renderer)?;
-                    self.mount_lines
-                        .push(format!("{parent_variable}.append({child_variable});"));
-                    return Ok(());
-                }
                 self.emit_expression(parent_variable, expression)?;
             }
             TemplateChild::Text(text) => {
@@ -2028,14 +1802,12 @@ impl<'a> CodeGenerator<'a> {
         match value {
             AttributeValue::Expression(expression) => {
                 let trimmed = expression.trim();
-                if trimmed.starts_with('<') {
-                    let fallback = TemplateParser::new(trimmed).parse_element()?;
-                    let fallback_child = self.emit_element(&fallback)?;
-                    self.mount_lines
-                        .push(format!("{fallback_variable}.append({fallback_child});"));
-                } else {
-                    self.emit_expression(fallback_variable, trimmed)?;
-                }
+                self.emit_expression(fallback_variable, trimmed)?;
+            }
+            AttributeValue::Element(fallback) => {
+                let fallback_child = self.emit_element(fallback)?;
+                self.mount_lines
+                    .push(format!("{fallback_variable}.append({fallback_child});"));
             }
             AttributeValue::Static(value) => {
                 self.emit_text(fallback_variable, value);
@@ -2131,16 +1903,15 @@ impl<'a> CodeGenerator<'a> {
 
     fn emit_for_control(&mut self, element: &TemplateElement) -> CompilerResult<String> {
         let renderer = parse_for_renderer(element)?;
-        self.emit_list_control(&renderer)
+        self.emit_list_control(renderer)
     }
 
     fn emit_index_control(&mut self, element: &TemplateElement) -> CompilerResult<String> {
         let renderer = parse_index_renderer(element)?;
-        self.emit_list_control(&renderer)
+        self.emit_list_control(renderer)
     }
 
     fn emit_list_control(&mut self, renderer: &ListRenderer) -> CompilerResult<String> {
-        let rendered_template = TemplateParser::new(&renderer.template_source).parse_element()?;
         let index = self.next_node_index;
         self.next_node_index += 1;
         let variable = format!("node{index}");
@@ -2160,8 +1931,8 @@ impl<'a> CodeGenerator<'a> {
         let flip_record_variable = format!("{field}FlipRecord");
         let render_prefix = format!("for{index}");
         let row_template =
-            self.emit_list_row_template(&rendered_template, &render_prefix, &record_variable)?;
-        let uses_flip = matches!(renderer.motion, Some(ListMotion::Flip));
+            self.emit_list_row_template(&renderer.template, &render_prefix, &record_variable)?;
+        let uses_flip = matches!(renderer.motion, Some(TemplateListMotion::Flip));
         if uses_flip {
             self.uses_motion_flip = true;
         }
@@ -2201,19 +1972,16 @@ impl<'a> CodeGenerator<'a> {
             ),
             format!("  const {} = {loop_index_variable};", renderer.index_name),
         ]);
-        match renderer.kind {
-            ListRendererKind::ItemKeyed => {
-                let key_expression = renderer
-                    .key_expression
-                    .as_deref()
-                    .expect("item-keyed renderers require key expressions");
+        match &renderer.kind {
+            TemplateListKind::ItemKeyed { key } => {
+                let key_expression = list_key_expression(key);
                 update_lines.push(format!(
                     "  const {} = {items_variable}[{loop_index_variable}];",
                     renderer.item_name
                 ));
                 update_lines.push(format!("  const {render_prefix}Key = {key_expression};"));
             }
-            ListRendererKind::IndexKeyed => {
+            TemplateListKind::IndexKeyed => {
                 update_lines.push(format!(
                     "  const {render_prefix}Key = {loop_index_variable};"
                 ));
@@ -2231,14 +1999,14 @@ impl<'a> CodeGenerator<'a> {
             row_template.record_properties.join(", ")
         ));
         update_lines.push("  }".to_owned());
-        match renderer.kind {
-            ListRendererKind::ItemKeyed => {
+        match &renderer.kind {
+            TemplateListKind::ItemKeyed { .. } => {
                 update_lines.push(format!(
                     "  {record_variable}.value = {};",
                     renderer.item_name
                 ));
             }
-            ListRendererKind::IndexKeyed => {
+            TemplateListKind::IndexKeyed => {
                 update_lines.push(format!(
                     "  {record_variable}.value = {items_variable}[{loop_index_variable}];"
                 ));
@@ -2331,15 +2099,7 @@ impl<'a> CodeGenerator<'a> {
         if uses_flip {
             update_lines.push(format!("__naosFlipMovedElements({flip_rects_variable});"));
         }
-        self.push_update_lines(
-            update_lines,
-            self.dependencies_for_expression_without_keyed_selectors(&format!(
-                "{} {} {}",
-                renderer.each_expression,
-                renderer.key_expression.as_deref().unwrap_or(""),
-                renderer.template_source
-            )),
-        );
+        self.push_update_lines(update_lines, self.dependencies_for_list_renderer(renderer));
 
         Ok(variable)
     }
@@ -2424,6 +2184,13 @@ impl<'a> CodeGenerator<'a> {
                         .create_lines
                         .push(format!("{variable}.append({child_variable});"));
                 }
+                TemplateChild::List(_) => {
+                    return Err(unsupported_with_code(
+                        DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+                        "Nested dynamic lists are not supported in list row templates.",
+                        DIAGNOSTIC_HINT_LISTS,
+                    ));
+                }
                 TemplateChild::Expression(expression) => {
                     let text_variable = format!("{}Text{}", build.prefix, build.next_index);
                     build.next_index += 1;
@@ -2479,26 +2246,26 @@ impl<'a> CodeGenerator<'a> {
         follows_spread: bool,
         build: &mut ListRowBuild,
     ) -> CompilerResult<()> {
-        let TemplateAttribute::Named { name, value } = attribute else {
-            if is_component_element {
-                return Err(unsupported(
-                    "JSX spread attributes are supported only on native elements.",
+        let (name, value) = match attribute {
+            TemplateAttribute::Named { name, value } => (name, value),
+            TemplateAttribute::Spread { expression } => {
+                if is_component_element {
+                    return Err(unsupported(
+                        "JSX spread attributes are supported only on native elements.",
+                    ));
+                }
+                self.uses_spread_attributes = true;
+                let spread_cache = format!("{variable}Spread{}", build.record_properties.len());
+                build.create_lines.push(format!(
+                    "const {spread_cache} = {{ names: new Set(), listeners: new Map(), styles: new Set() }};"
                 ));
+                build.record_properties.push(spread_cache.clone());
+                build.update_lines.push(ListRowUpdateLine::plain(format!(
+                    "this.#applySpreadAttributes({}.{variable}, {}.{spread_cache}, {expression});",
+                    build.record_variable, build.record_variable
+                )));
+                return Ok(());
             }
-            let TemplateAttribute::Spread { expression } = attribute else {
-                unreachable!();
-            };
-            self.uses_spread_attributes = true;
-            let spread_cache = format!("{variable}Spread{}", build.record_properties.len());
-            build.create_lines.push(format!(
-                "const {spread_cache} = {{ names: new Set(), listeners: new Map(), styles: new Set() }};"
-            ));
-            build.record_properties.push(spread_cache.clone());
-            build.update_lines.push(ListRowUpdateLine::plain(format!(
-                "this.#applySpreadAttributes({}.{variable}, {}.{spread_cache}, {expression});",
-                build.record_variable, build.record_variable
-            )));
-            return Ok(());
         };
         if name == "key" {
             return Ok(());
@@ -2608,6 +2375,11 @@ impl<'a> CodeGenerator<'a> {
                     ),
                 );
             }
+            AttributeValue::Element(_) => {
+                return Err(unsupported(
+                    "JSX element attribute values are supported only for Show fallback.",
+                ));
+            }
         }
         Ok(())
     }
@@ -2666,25 +2438,25 @@ impl<'a> CodeGenerator<'a> {
         is_component_element: bool,
         follows_spread: bool,
     ) -> CompilerResult<()> {
-        let TemplateAttribute::Named { name, value } = attribute else {
-            if is_component_element {
-                return Err(unsupported(
-                    "JSX spread attributes are supported only on native elements.",
-                ));
+        let (name, value) = match attribute {
+            TemplateAttribute::Named { name, value } => (name, value),
+            TemplateAttribute::Spread { expression } => {
+                if is_component_element {
+                    return Err(unsupported(
+                        "JSX spread attributes are supported only on native elements.",
+                    ));
+                }
+                self.uses_spread_attributes = true;
+                let spread_field = format!("{field_name}Spread{}", self.spread_fields.len());
+                self.spread_fields.push(spread_field.clone());
+                self.push_update_line(
+                    format!(
+                        "this.#applySpreadAttributes({field_reference}, this.#{spread_field}, {expression});"
+                    ),
+                    self.dependencies_for_expression(expression),
+                );
+                return Ok(());
             }
-            let TemplateAttribute::Spread { expression } = attribute else {
-                unreachable!();
-            };
-            self.uses_spread_attributes = true;
-            let spread_field = format!("{field_name}Spread{}", self.spread_fields.len());
-            self.spread_fields.push(spread_field.clone());
-            self.push_update_line(
-                format!(
-                    "this.#applySpreadAttributes({field_reference}, this.#{spread_field}, {expression});"
-                ),
-                self.dependencies_for_expression(expression),
-            );
-            return Ok(());
         };
         if name == "key" {
             return Ok(());
@@ -2787,6 +2559,11 @@ impl<'a> CodeGenerator<'a> {
                     dependencies,
                 );
             }
+            AttributeValue::Element(_) => {
+                return Err(unsupported(
+                    "JSX element attribute values are supported only for Show fallback.",
+                ));
+            }
         }
         Ok(())
     }
@@ -2851,16 +2628,55 @@ fn dependencies_argument(dependencies: &ReactiveDependencies) -> String {
     }
 }
 
+fn list_key_expression(key: &TemplateListKey) -> String {
+    match key {
+        TemplateListKey::Expression(expression) => expression.clone(),
+        TemplateListKey::Static(value) => format!("\"{}\"", escape_js_string(value)),
+    }
+}
+
+fn collect_template_expressions<'a>(element: &'a TemplateElement, expressions: &mut Vec<&'a str>) {
+    for attribute in &element.attributes {
+        match attribute {
+            TemplateAttribute::Spread { expression } => expressions.push(expression),
+            TemplateAttribute::Named { value, .. } => match value {
+                AttributeValue::Expression(expression) => expressions.push(expression),
+                AttributeValue::Element(element) => {
+                    collect_template_expressions(element, expressions);
+                }
+                AttributeValue::Static(_) | AttributeValue::Boolean => {}
+            },
+        }
+    }
+    for child in &element.children {
+        match child {
+            TemplateChild::Element(element) => collect_template_expressions(element, expressions),
+            TemplateChild::List(renderer) => {
+                expressions.push(&renderer.each_expression);
+                if let TemplateListKind::ItemKeyed {
+                    key: TemplateListKey::Expression(key),
+                } = &renderer.kind
+                {
+                    expressions.push(key);
+                }
+                collect_template_expressions(&renderer.template, expressions);
+            }
+            TemplateChild::Expression(expression) => expressions.push(expression),
+            TemplateChild::Text(_) => {}
+        }
+    }
+}
+
 fn list_row_binding_scope_lines(renderer: &ListRenderer, record_variable: &str) -> Vec<String> {
     let mut lines = Vec::new();
-    match renderer.kind {
-        ListRendererKind::ItemKeyed => {
+    match &renderer.kind {
+        TemplateListKind::ItemKeyed { .. } => {
             lines.push(format!(
                 "const {} = {record_variable}.value;",
                 renderer.item_name
             ));
         }
-        ListRendererKind::IndexKeyed => {
+        TemplateListKind::IndexKeyed => {
             lines.push(format!(
                 "const {} = () => {record_variable}.value;",
                 renderer.item_name
@@ -2974,10 +2790,10 @@ impl<'a> DependencyContext<'a> {
         let mut sources = BTreeSet::new();
         let mut unknown = false;
 
-        for identifier in identifier_uses(expression) {
-            if identifier.is_property {
-                continue;
-            }
+        let Some(identifier_uses) = identifier_uses(expression) else {
+            return ReactiveDependencies::Unknown;
+        };
+        for identifier in identifier_uses {
             if self
                 .module
                 .props
@@ -3058,211 +2874,122 @@ impl<'a> DependencyContext<'a> {
 struct IdentifierUse {
     name: String,
     is_call: bool,
-    is_property: bool,
 }
 
-fn identifier_uses(source: &str) -> Vec<IdentifierUse> {
-    let mut identifiers = Vec::new();
-    collect_identifier_uses(source, &mut identifiers);
-    identifiers
+fn identifier_uses(source: &str) -> Option<Vec<IdentifierUse>> {
+    let allocator = Allocator::default();
+    let mut visitor = DependencyVisitor::default();
+    if let Ok(expression) = Parser::new(&allocator, source, SourceType::tsx()).parse_expression() {
+        visitor.visit_expression(&expression);
+        return Some(visitor.identifiers);
+    }
+
+    let parsed = Parser::new(&allocator, source, SourceType::tsx()).parse();
+    if !parsed.errors.is_empty() {
+        return None;
+    }
+    visitor.visit_program(&parsed.program);
+    Some(visitor.identifiers)
 }
 
-fn collect_identifier_uses(source: &str, identifiers: &mut Vec<IdentifierUse>) {
-    let mut index = 0usize;
-    while index < source.len() {
-        let Some(ch) = source[index..].chars().next() else {
-            break;
-        };
-        if ch == '/' && source[index..].starts_with("//") {
-            index = skip_line_comment(source, index);
-            continue;
+#[derive(Default)]
+struct DependencyVisitor {
+    identifiers: Vec<IdentifierUse>,
+    scopes: Vec<BTreeSet<String>>,
+}
+
+impl DependencyVisitor {
+    fn is_shadowed(&self, name: &str) -> bool {
+        self.scopes.iter().rev().any(|scope| scope.contains(name))
+    }
+
+    fn push_bindings<I>(&mut self, bindings: I)
+    where
+        I: IntoIterator<Item = String>,
+    {
+        self.scopes.push(bindings.into_iter().collect());
+    }
+
+    fn record(&mut self, name: &str, is_call: bool) {
+        if !self.is_shadowed(name) {
+            self.identifiers.push(IdentifierUse {
+                name: name.to_owned(),
+                is_call,
+            });
         }
-        if ch == '/' && source[index..].starts_with("/*") {
-            index = skip_block_comment(source, index);
-            continue;
-        }
-        if ch == '\'' || ch == '"' {
-            index = skip_quoted_literal(source, index, ch);
-            continue;
-        }
-        if ch == '`' {
-            index = skip_template_literal(source, index, identifiers);
-            continue;
-        }
-        if !is_dependency_identifier_start(ch) {
-            index += ch.len_utf8();
-            continue;
-        }
-        let end = consume_dependency_identifier(source, index);
-        let name = source[index..end].to_owned();
-        identifiers.push(IdentifierUse {
-            name,
-            is_call: next_non_whitespace(source, end) == Some('('),
-            is_property: previous_non_whitespace(source, index) == Some('.'),
-        });
-        index = end;
     }
 }
 
-fn consume_dependency_identifier(source: &str, start: usize) -> usize {
-    let mut end = start;
-    for (offset, ch) in source[start..].char_indices() {
-        if offset == 0 {
-            end = start + ch.len_utf8();
-            continue;
-        }
-        if !is_dependency_identifier_char(ch) {
-            return start + offset;
-        }
-        end = start + offset + ch.len_utf8();
+impl<'a> Visit<'a> for DependencyVisitor {
+    fn visit_identifier_reference(&mut self, identifier: &IdentifierReference<'a>) {
+        self.record(identifier.name.as_str(), false);
     }
-    end
+
+    fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
+        if let Some(identifier) = call.callee.get_identifier_reference() {
+            self.record(identifier.name.as_str(), true);
+        }
+        walk::walk_call_expression(self, call);
+    }
+
+    fn visit_arrow_function_expression(&mut self, function: &ArrowFunctionExpression<'a>) {
+        self.push_bindings(parameter_bindings(&function.params));
+        walk::walk_arrow_function_expression(self, function);
+        self.scopes.pop();
+    }
+
+    fn visit_function(&mut self, function: &Function<'a>, flags: ScopeFlags) {
+        let mut bindings = parameter_bindings(&function.params);
+        if let Some(identifier) = &function.id {
+            bindings.push(identifier.name.to_string());
+        }
+        self.push_bindings(bindings);
+        walk::walk_function(self, function, flags);
+        self.scopes.pop();
+    }
+
+    fn visit_block_statement(&mut self, statement: &BlockStatement<'a>) {
+        self.push_bindings(std::iter::empty());
+        walk::walk_block_statement(self, statement);
+        self.scopes.pop();
+    }
+
+    fn visit_variable_declarator(&mut self, declarator: &VariableDeclarator<'a>) {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.extend(
+                declarator
+                    .id
+                    .get_binding_identifiers()
+                    .into_iter()
+                    .map(|identifier| identifier.name.to_string()),
+            );
+        }
+        walk::walk_variable_declarator(self, declarator);
+    }
+}
+
+fn parameter_bindings(parameters: &FormalParameters<'_>) -> Vec<String> {
+    parameters
+        .items
+        .iter()
+        .flat_map(|parameter| parameter.pattern.get_binding_identifiers())
+        .map(|identifier| identifier.name.to_string())
+        .chain(
+            parameters
+                .rest
+                .iter()
+                .flat_map(|rest| rest.rest.argument.get_binding_identifiers())
+                .map(|identifier| identifier.name.to_string()),
+        )
+        .collect()
+}
+
+fn is_dependency_identifier_char(ch: char) -> bool {
+    ch == '_' || ch == '$' || ch.is_ascii_alphanumeric()
 }
 
 fn previous_non_whitespace(source: &str, index: usize) -> Option<char> {
     source[..index].chars().rev().find(|ch| !ch.is_whitespace())
-}
-
-fn next_non_whitespace(source: &str, index: usize) -> Option<char> {
-    let mut cursor = index;
-    while cursor < source.len() {
-        let ch = source[cursor..].chars().next()?;
-        if ch.is_whitespace() {
-            cursor += ch.len_utf8();
-            continue;
-        }
-        if ch == '/' && source[cursor..].starts_with("//") {
-            cursor = skip_line_comment(source, cursor);
-            continue;
-        }
-        if ch == '/' && source[cursor..].starts_with("/*") {
-            cursor = skip_block_comment(source, cursor);
-            continue;
-        }
-        return Some(ch);
-    }
-    None
-}
-
-fn skip_line_comment(source: &str, start: usize) -> usize {
-    source[start..]
-        .find('\n')
-        .map_or(source.len(), |offset| start + offset + 1)
-}
-
-fn skip_block_comment(source: &str, start: usize) -> usize {
-    source[start + 2..]
-        .find("*/")
-        .map_or(source.len(), |offset| start + 2 + offset + 2)
-}
-
-fn skip_quoted_literal(source: &str, start: usize, quote: char) -> usize {
-    let mut cursor = start + quote.len_utf8();
-    let mut escaped = false;
-    while cursor < source.len() {
-        let Some(ch) = source[cursor..].chars().next() else {
-            break;
-        };
-        cursor += ch.len_utf8();
-        if escaped {
-            escaped = false;
-            continue;
-        }
-        if ch == '\\' {
-            escaped = true;
-            continue;
-        }
-        if ch == quote {
-            return cursor;
-        }
-    }
-    source.len()
-}
-
-fn skip_template_literal(
-    source: &str,
-    start: usize,
-    identifiers: &mut Vec<IdentifierUse>,
-) -> usize {
-    let mut cursor = start + 1;
-    let mut escaped = false;
-    while cursor < source.len() {
-        let Some(ch) = source[cursor..].chars().next() else {
-            break;
-        };
-        if escaped {
-            escaped = false;
-            cursor += ch.len_utf8();
-            continue;
-        }
-        if ch == '\\' {
-            escaped = true;
-            cursor += ch.len_utf8();
-            continue;
-        }
-        if ch == '`' {
-            return cursor + 1;
-        }
-        if ch == '$' && source[cursor..].starts_with("${") {
-            let expression_start = cursor + 2;
-            let Some(expression_end) = template_expression_end(source, expression_start) else {
-                return source.len();
-            };
-            collect_identifier_uses(&source[expression_start..expression_end], identifiers);
-            cursor = expression_end + 1;
-            continue;
-        }
-        cursor += ch.len_utf8();
-    }
-    source.len()
-}
-
-fn template_expression_end(source: &str, start: usize) -> Option<usize> {
-    let mut cursor = start;
-    let mut depth = 1usize;
-    while cursor < source.len() {
-        let ch = source[cursor..].chars().next()?;
-        if ch == '/' && source[cursor..].starts_with("//") {
-            cursor = skip_line_comment(source, cursor);
-            continue;
-        }
-        if ch == '/' && source[cursor..].starts_with("/*") {
-            cursor = skip_block_comment(source, cursor);
-            continue;
-        }
-        if ch == '\'' || ch == '"' {
-            cursor = skip_quoted_literal(source, cursor, ch);
-            continue;
-        }
-        if ch == '`' {
-            let mut nested_identifiers = Vec::new();
-            cursor = skip_template_literal(source, cursor, &mut nested_identifiers);
-            continue;
-        }
-        if ch == '{' {
-            depth += 1;
-            cursor += ch.len_utf8();
-            continue;
-        }
-        if ch == '}' {
-            depth -= 1;
-            if depth == 0 {
-                return Some(cursor);
-            }
-            cursor += ch.len_utf8();
-            continue;
-        }
-        cursor += ch.len_utf8();
-    }
-    None
-}
-
-fn is_dependency_identifier_start(ch: char) -> bool {
-    ch == '_' || ch == '$' || ch.is_ascii_alphabetic()
-}
-
-fn is_dependency_identifier_char(ch: char) -> bool {
-    is_dependency_identifier_start(ch) || ch.is_ascii_digit()
 }
 
 fn is_allowed_dependency_call(name: &str) -> bool {
@@ -3415,12 +3142,8 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
     fn render_child(&mut self, child: &TemplateChild) -> CompilerResult<String> {
         match child {
             TemplateChild::Element(element) => self.render_element(element, false),
-            TemplateChild::Expression(expression) => {
-                if parse_map_renderer(expression)?.is_some() {
-                    return self.render_list_control();
-                }
-                self.render_expression_text(expression)
-            }
+            TemplateChild::List(_) => self.render_list_control(),
+            TemplateChild::Expression(expression) => self.render_expression_text(expression),
             TemplateChild::Text(text) => self.render_text(text),
         }
     }
@@ -3466,6 +3189,11 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
                 if let Some(value) = evaluate_expression(expression, &self.context) {
                     push_serialized_dynamic_attribute(output, &attribute_name, &value, false);
                 }
+            }
+            AttributeValue::Element(_) => {
+                return Err(unsupported(
+                    "JSX element attribute values are supported only for Show fallback.",
+                ));
             }
         }
         Ok(())
@@ -3547,13 +3275,9 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         match value {
             AttributeValue::Expression(expression) => {
                 let trimmed = expression.trim();
-                if trimmed.starts_with('<') {
-                    let fallback = TemplateParser::new(trimmed).parse_element()?;
-                    self.render_element(&fallback, false)
-                } else {
-                    self.render_expression_text(trimmed)
-                }
+                self.render_expression_text(trimmed)
             }
+            AttributeValue::Element(fallback) => self.render_element(fallback, false),
             AttributeValue::Static(value) => Ok(self.text_marker(value)),
             AttributeValue::Boolean => Err(unsupported_with_code(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
@@ -4188,26 +3912,7 @@ struct KeyedSelectorUse {
     key_expression: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ListRendererKind {
-    ItemKeyed,
-    IndexKeyed,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ListMotion {
-    Flip,
-}
-
-struct ListRenderer {
-    each_expression: String,
-    item_name: String,
-    index_name: String,
-    key_expression: Option<String>,
-    kind: ListRendererKind,
-    motion: Option<ListMotion>,
-    template_source: String,
-}
+type ListRenderer = TemplateList;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct SwitchMatch {
@@ -4310,264 +4015,38 @@ fn parse_match_when(element: &TemplateElement) -> CompilerResult<Option<String>>
     Ok(when)
 }
 
-fn parse_for_renderer(element: &TemplateElement) -> CompilerResult<ListRenderer> {
-    let each_expression = required_expression_attribute(element, "each")?.to_owned();
-    let motion = parse_for_motion(element)?;
-    let expressions = element
-        .children
-        .iter()
-        .filter_map(|child| match child {
-            TemplateChild::Expression(expression) if !expression.trim().is_empty() => {
-                Some(expression.trim())
-            }
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-
-    if expressions.len() != 1 {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "<For> requires exactly one braced arrow-function child.",
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    }
-
-    let renderer = parse_list_callback(expressions[0], "<For> child", true)?;
-    Ok(ListRenderer {
-        each_expression,
-        kind: ListRendererKind::ItemKeyed,
-        motion,
-        ..renderer
+fn parse_for_renderer(element: &TemplateElement) -> CompilerResult<&ListRenderer> {
+    list_renderer_child(element, "<For>", |kind| {
+        matches!(kind, TemplateListKind::ItemKeyed { .. })
     })
 }
 
-fn parse_index_renderer(element: &TemplateElement) -> CompilerResult<ListRenderer> {
-    let each_expression = required_expression_attribute(element, "each")?.to_owned();
-    reject_list_control_attributes(element, &["each"], "<Index>")?;
-    let expressions = element
-        .children
-        .iter()
-        .filter_map(|child| match child {
-            TemplateChild::Expression(expression) if !expression.trim().is_empty() => {
-                Some(expression.trim())
-            }
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-
-    if expressions.len() != 1 {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "<Index> requires exactly one braced arrow-function child.",
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    }
-
-    let renderer = parse_list_callback(expressions[0], "<Index> child", false)?;
-    Ok(ListRenderer {
-        each_expression,
-        kind: ListRendererKind::IndexKeyed,
-        motion: None,
-        ..renderer
+fn parse_index_renderer(element: &TemplateElement) -> CompilerResult<&ListRenderer> {
+    list_renderer_child(element, "<Index>", |kind| {
+        matches!(kind, TemplateListKind::IndexKeyed)
     })
 }
 
-fn parse_map_renderer(expression: &str) -> CompilerResult<Option<ListRenderer>> {
-    let trimmed = expression.trim();
-    let Some(map_index) = trimmed.find(".map") else {
-        return Ok(None);
-    };
-    let each_expression = trimmed[..map_index].trim();
-    if each_expression.is_empty() {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "Naos .map() list expressions must have an array expression before .map().",
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    }
-    let map_name_end = map_index + ".map".len();
-    let after_map = &trimmed[map_name_end..];
-    let open_offset = after_map.len() - after_map.trim_start().len();
-    let open = map_name_end + open_offset;
-    if !trimmed[open..].starts_with('(') {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "Naos .map() list expressions must call .map(...).",
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    }
-    let close = find_matching_delimiter(trimmed, open, '(', ')')?;
-    if !trimmed[close + 1..].trim().is_empty() {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "Naos .map() list expressions must be the full JSX child expression.",
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    }
-    let arguments = split_top_level_commas(&trimmed[open + 1..close]);
-    if arguments.len() != 1 {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "Naos .map() list expressions support exactly one callback argument.",
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    }
-    let renderer = parse_list_callback(arguments[0].trim(), ".map() callback", true)?;
-    Ok(Some(ListRenderer {
-        each_expression: each_expression.to_owned(),
-        kind: ListRendererKind::ItemKeyed,
-        motion: None,
-        ..renderer
-    }))
-}
-
-fn parse_list_callback(
-    expression: &str,
+fn list_renderer_child<'a>(
+    element: &'a TemplateElement,
     label: &str,
-    requires_key: bool,
-) -> CompilerResult<ListRenderer> {
-    let Some(arrow_index) = expression.find("=>") else {
+    expected_kind: impl FnOnce(&TemplateListKind) -> bool,
+) -> CompilerResult<&'a ListRenderer> {
+    let [TemplateChild::List(renderer)] = element.children.as_slice() else {
         return Err(unsupported_with_code(
             DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            format!("{label} must be an arrow function."),
+            format!("{label} requires exactly one braced arrow-function child."),
             DIAGNOSTIC_HINT_LISTS,
         ));
     };
-    let params = expression[..arrow_index].trim();
-    let raw_body = expression[arrow_index + 2..].trim();
-    if raw_body.starts_with('{') {
+    if !expected_kind(&renderer.kind) {
         return Err(unsupported_with_code(
             DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            format!("{label} must use an expression body that returns JSX."),
+            format!("{label} contains an invalid list reconciliation strategy."),
             DIAGNOSTIC_HINT_LISTS,
         ));
     }
-    let body = strip_wrapping_parentheses(raw_body);
-    if !body.starts_with('<') {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            format!("{label} must return a JSX element expression."),
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    }
-    let params = strip_wrapping_parentheses(params);
-    let mut param_parts = split_top_level_commas(params)
-        .into_iter()
-        .map(str::trim)
-        .filter(|value| !value.is_empty());
-    let Some(item_name) = param_parts.next() else {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            format!("{label} must name an item parameter."),
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    };
-    let index_name = param_parts.next().unwrap_or("index");
-    if param_parts.next().is_some() {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            format!("{label} currently supports item and index parameters only.",),
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    }
-    if !is_identifier(item_name) || !is_identifier(index_name) {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            format!("{label} parameters must be simple identifiers.",),
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    }
-
-    let template = TemplateParser::new(body).parse_element()?;
-    let key_expression = if requires_key {
-        Some(required_key_expression(&template)?)
-    } else {
-        None
-    };
-
-    Ok(ListRenderer {
-        each_expression: String::new(),
-        item_name: item_name.to_owned(),
-        index_name: index_name.to_owned(),
-        key_expression,
-        kind: ListRendererKind::ItemKeyed,
-        motion: None,
-        template_source: body.to_owned(),
-    })
-}
-
-fn parse_for_motion(element: &TemplateElement) -> CompilerResult<Option<ListMotion>> {
-    reject_list_control_attributes(element, &["each", "motion"], "<For>")?;
-    let Some(attribute) = optional_attribute(element, "motion") else {
-        return Ok(None);
-    };
-    let TemplateAttribute::Named { value, .. } = attribute else {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "<For> `motion` does not support JSX spread attributes.",
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    };
-    match value {
-        AttributeValue::Static(value) if value == "flip" => Ok(Some(ListMotion::Flip)),
-        AttributeValue::Static(_) | AttributeValue::Boolean | AttributeValue::Expression(_) => {
-            Err(unsupported_with_code(
-                DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-                "<For> `motion` currently supports only the static value \"flip\".",
-                DIAGNOSTIC_HINT_LISTS,
-            ))
-        }
-    }
-}
-
-fn reject_list_control_attributes(
-    element: &TemplateElement,
-    allowed: &[&str],
-    label: &str,
-) -> CompilerResult<()> {
-    for attribute in &element.attributes {
-        let TemplateAttribute::Named { name, .. } = attribute else {
-            return Err(unsupported_with_code(
-                DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-                format!("{label} does not support JSX spread attributes."),
-                DIAGNOSTIC_HINT_LISTS,
-            ));
-        };
-        if !allowed.iter().any(|allowed_name| allowed_name == name) {
-            return Err(unsupported_with_code(
-                DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-                format!("{label} supports only `{}`.", allowed.join("`, `")),
-                DIAGNOSTIC_HINT_LISTS,
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn required_key_expression(element: &TemplateElement) -> CompilerResult<String> {
-    let Some(attribute) = optional_attribute(element, "key") else {
-        return Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "Dynamic .map() lists require a key attribute on the returned root JSX element.",
-            DIAGNOSTIC_HINT_LISTS,
-        ));
-    };
-    let TemplateAttribute::Named { value, .. } = attribute else {
-        return Err(unsupported(
-            "Dynamic .map() list keys do not support JSX spread attributes.",
-        ));
-    };
-    match value {
-        AttributeValue::Expression(expression) if !expression.trim().is_empty() => {
-            Ok(expression.trim().to_owned())
-        }
-        AttributeValue::Static(value) => Ok(format!("\"{}\"", escape_js_string(value))),
-        AttributeValue::Boolean | AttributeValue::Expression(_) => Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "Dynamic .map() list keys must use a non-empty expression or static value.",
-            DIAGNOSTIC_HINT_LISTS,
-        )),
-    }
+    Ok(renderer)
 }
 
 fn setter_parse_expression(prop: &PropDefinition) -> String {
@@ -4970,4 +4449,84 @@ fn source_map_line_mappings(code: &str) -> String {
     std::iter::repeat_n("AAAA", line_count)
         .collect::<Vec<_>>()
         .join(";")
+}
+
+#[cfg(test)]
+mod dependency_tests {
+    use super::identifier_uses;
+
+    #[test]
+    fn ast_dependency_visitor_parses_effect_block_bodies() {
+        let identifiers = identifier_uses(
+            r#"{
+                const runs = Number(document.body.dataset.runs ?? "0") + 1;
+                document.body.dataset.value = String(primary());
+            }"#,
+        )
+        .expect("valid effect block should parse");
+
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "primary" && identifier.is_call)
+        );
+    }
+
+    #[test]
+    fn ast_dependency_visitor_ignores_lexically_shadowed_callback_bindings() {
+        let identifiers = identifier_uses(
+            r#"items().map(({ count }) => `${count}-${label}-${/a{2}/.test(note)}`)"#,
+        )
+        .expect("valid JavaScript expression should parse");
+
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "items" && identifier.is_call)
+        );
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "label" && !identifier.is_call)
+        );
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "note" && !identifier.is_call)
+        );
+        assert!(
+            !identifiers
+                .iter()
+                .any(|identifier| identifier.name == "count")
+        );
+        assert!(
+            !identifiers
+                .iter()
+                .any(|identifier| identifier.name == "test")
+        );
+    }
+
+    #[test]
+    fn ast_dependency_visitor_ignores_classic_function_callback_bindings() {
+        let identifiers = identifier_uses(
+            r#"items().map(function countMapper(count) { return `${count}-${label}`; })"#,
+        )
+        .expect("valid JavaScript expression should parse");
+
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "items" && identifier.is_call)
+        );
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "label" && !identifier.is_call)
+        );
+        assert!(
+            !identifiers
+                .iter()
+                .any(|identifier| identifier.name == "count")
+        );
+    }
 }

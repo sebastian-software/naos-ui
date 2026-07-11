@@ -54,9 +54,11 @@ binary conditionals and `<Switch>/<Match>` when exactly one state view should
 win. The compiler boundary rejects arbitrary returned render functions, not
 conditional UI.
 
-Some MVP detail parsers remain intentionally conservative: function prop
-destructuring, component options, inline style arrays, and generated-template
-parsing still use narrow source-slice analysis fed by AST-selected regions.
+Some MVP extraction remains intentionally conservative. Function prop
+destructuring and supported callback bodies preserve exact source text selected
+by OXC nodes. Component options, inline style arrays, returned JSX, list
+callbacks, removed APIs, and reactive dependencies are derived from the OXC
+AST rather than module-wide or template-wide string scans.
 
 `state(propName)` is supported for string, number, and boolean props. The
 compiler initializes that state once from current props after initial attributes
@@ -71,7 +73,7 @@ currently maps to a boolean prop identifier so generated
 
 ## Template Support
 
-The MVP template parser supports:
+The owned template IR supports:
 
 * Native element tags, including custom element names.
 * Self-closing elements.
@@ -123,13 +125,14 @@ previous and next keys, without rerunning the full keyed list reconciliation.
 
 ## Dependency Detection Boundary
 
-Reactive update dependencies are detected from AST-selected source slices with
-a narrow lexical scan, not a full expression AST walk. The scan skips comments
-and string literals and reads template-literal interpolation, but complex
-JavaScript syntax such as regex literals, dynamic helper indirection, and
-dependencies hidden inside arbitrary callbacks may still fall back to broad
-reruns. That fallback is conservative: it may update more DOM or rerun an
-effect, but it should not skip a known state, prop, or computed dependency.
+Reactive update dependencies are detected by parsing each authored expression
+with OXC and walking its AST. The visitor understands comments, strings,
+template-literal interpolation, regex literals, direct calls, and lexical
+bindings introduced by arrow and classic function callbacks. Computed
+dependencies resolve recursively. Expressions that cannot be parsed or whose
+direct calls cannot be classified fall back to broad reruns. That fallback is
+conservative: it may update more DOM or rerun an effect, but it does not skip a
+known state, prop, or computed dependency.
 
 Keyed selector lowering stays inside that static boundary. The compiler
 recognizes direct local one-parameter arrow helpers in either comparison order,

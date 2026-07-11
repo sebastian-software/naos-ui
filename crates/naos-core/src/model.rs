@@ -37,8 +37,107 @@ pub struct ComponentModule {
     pub uses_host_helpers: bool,
     /// Custom event declarations.
     pub events: Vec<EventDefinition>,
-    /// Raw JSX template returned by the component callback.
-    pub template_source: String,
+    /// Structured JSX template returned by the component callback.
+    pub template: TemplateElement,
+}
+
+/// Owned JSX element lowered from the OXC syntax tree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TemplateElement {
+    /// Element or component tag name.
+    pub tag_name: String,
+    /// Authored attributes in source order.
+    pub attributes: Vec<TemplateAttribute>,
+    /// Authored child nodes in source order.
+    pub children: Vec<TemplateChild>,
+}
+
+/// Owned JSX attribute lowered from the OXC syntax tree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateAttribute {
+    /// A named JSX attribute.
+    Named {
+        /// Attribute name.
+        name: String,
+        /// Attribute value.
+        value: AttributeValue,
+    },
+    /// A JSX spread attribute expression.
+    Spread {
+        /// Authored spread expression source.
+        expression: String,
+    },
+}
+
+/// Owned JSX attribute value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AttributeValue {
+    /// A static string value.
+    Static(String),
+    /// A dynamic expression value.
+    Expression(String),
+    /// A nested JSX element attribute value.
+    Element(TemplateElement),
+    /// A boolean JSX attribute without an explicit value.
+    Boolean,
+}
+
+/// Owned JSX child node.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateChild {
+    /// A nested JSX element.
+    Element(TemplateElement),
+    /// A dynamic keyed list lowered from `.map()`, `<For>`, or `<Index>`.
+    List(TemplateList),
+    /// A dynamic JSX expression.
+    Expression(String),
+    /// A JSX text node.
+    Text(String),
+}
+
+/// Owned dynamic-list renderer lowered from the OXC syntax tree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TemplateList {
+    /// Authored collection expression.
+    pub each_expression: String,
+    /// Callback item parameter name.
+    pub item_name: String,
+    /// Callback index parameter name.
+    pub index_name: String,
+    /// Reconciliation strategy and its required data.
+    pub kind: TemplateListKind,
+    /// Optional list motion behavior.
+    pub motion: Option<TemplateListMotion>,
+    /// Structured JSX row template.
+    pub template: TemplateElement,
+}
+
+/// Reconciliation strategy for a dynamic list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateListKind {
+    /// Items retain identity through an authored root `key` attribute.
+    ItemKeyed {
+        /// Required key value for every item-keyed renderer.
+        key: TemplateListKey,
+    },
+    /// Rows retain identity by collection index.
+    IndexKeyed,
+}
+
+/// Authored key value for an item-keyed list.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateListKey {
+    /// Dynamic key expression.
+    Expression(String),
+    /// Static key value.
+    Static(String),
+}
+
+/// Supported motion behavior for dynamic lists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateListMotion {
+    /// Animate retained rows from their previous to their next position.
+    Flip,
 }
 
 /// Imported component used as a PascalCase JSX element.

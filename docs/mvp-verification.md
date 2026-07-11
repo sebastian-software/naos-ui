@@ -31,8 +31,13 @@ Rust core:
   template.
 * Unsupported public-authoring aliases produce clear compiler errors.
 * The OXC AST analyzer owns `.wc` import discovery, component entrypoint
-  discovery, local authoring declarations, host helper detection, and return
-  template spans.
+  discovery, local authoring declarations, host helper detection, and lowering
+  of returned JSX into the owned compiler IR.
+* Reactive dependency guards come from OXC expression walks and fixture-backed
+  expected outputs, including comments, template literals, regex literals, and
+  lexical callback bindings.
+* Production compiler sources contain no legacy `TemplateParser` and no
+  `panic!`, `unwrap()`, `expect()`, or `unreachable!` paths.
 * Codegen emits native `HTMLElement` classes without a framework runtime.
 * Props synchronize with attributes.
 * State writes update generated text, dynamic attributes, control-flow
