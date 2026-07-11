@@ -624,6 +624,25 @@ mod tests {
     }
 
     #[test]
+    fn analyze_component_module_should_ignore_removed_api_names_in_comments_and_strings() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+
+            export function Counter() {
+              const count = state(0);
+              const message = "component() signal() useHost() prop.value()";
+              // component(); signal(); useHost(); prop.value();
+              return <button title={message}>{count()}</button>;
+            }
+        "#;
+
+        let module = analyze_component_module(source, "counter.wc.tsx")
+            .expect("removed API names in non-code positions must not fail analysis");
+
+        assert_eq!(module.template.tag_name, "button");
+    }
+
+    #[test]
     fn analyze_component_module_should_reject_public_shadow_option() {
         let source = r#"
             import { state, type ComponentOptions } from "@naos-ui/core";

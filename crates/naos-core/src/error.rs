@@ -143,14 +143,6 @@ pub(crate) fn dsd_input(message: impl Into<String>) -> CompilerError {
     )
 }
 
-pub(crate) fn removed_authoring_api(message: impl Into<String>) -> CompilerError {
-    unsupported_with_code(
-        DIAGNOSTIC_CODE_REMOVED_AUTHORING_API,
-        message,
-        DIAGNOSTIC_HINT_REMOVED_API,
-    )
-}
-
 pub(crate) fn removed_authoring_api_with_span(
     message: impl Into<String>,
     span: DiagnosticSpan,
