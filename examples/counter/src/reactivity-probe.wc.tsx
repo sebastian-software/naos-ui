@@ -55,7 +55,7 @@ export function ReactivityProbe() {
       </button>
       <button
         data-probe-event-signal-button
-        onClick={on("click", async (_event, signal) => {
+        onClick={on(async (_event, signal) => {
           const run = Number(document.body.dataset.probeEventRun ?? "0") + 1
           document.body.dataset.probeEventRun = String(run)
           document.body.dataset.probeEventSignalAborted = String(signal.aborted)
@@ -79,7 +79,7 @@ export function ReactivityProbe() {
       </button>
       <button
         data-probe-update-signal-button
-        onClick={on("click", async () => {
+        onClick={on(async () => {
           primary.set(primary() + 1)
           const updateSignal = await host().update()
           document.body.dataset.probeUpdateSignalAborted = String(
@@ -103,6 +103,30 @@ export function ReactivityProbe() {
       >
         Update signal
       </button>
+      <div
+        onClick={() => {
+          const order = document.body.dataset.probeEventOptionsOrder
+          document.body.dataset.probeEventOptionsOrder = order
+            ? `${order},bubble`
+            : "bubble"
+        }}
+      >
+        <button
+          data-probe-event-options-button
+          onClick={on((event) => {
+            event.preventDefault()
+            const order = document.body.dataset.probeEventOptionsOrder
+            document.body.dataset.probeEventOptionsOrder = order
+              ? `${order},capture`
+              : "capture"
+            document.body.dataset.probePassiveDefaultPrevented = String(
+              event.defaultPrevented
+            )
+          }, { capture: true, passive: true, once: true })}
+        >
+          Event options
+        </button>
+      </div>
     </section>
   )
 }

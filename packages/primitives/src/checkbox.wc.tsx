@@ -93,7 +93,7 @@ export function NaosCheckbox({
         data-state={mixed() ? "indeterminate" : selected() ? "checked" : "unchecked"}
         data-disabled={disabled || undefined}
         disabled={disabled}
-        onClick={on("click", () => {
+        onClick={on(() => {
           if (disabled) return
           checkboxApi()?.toggleChecked()
         })}

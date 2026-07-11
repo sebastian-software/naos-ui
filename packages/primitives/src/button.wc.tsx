@@ -25,7 +25,7 @@ export function NaosButton({
       data-variant={variant}
       data-disabled={disabled || undefined}
       disabled={disabled}
-      onClick={on("click", () => {
+      onClick={on(() => {
         if (disabled) return
         pressed.emit({ variant })
       })}

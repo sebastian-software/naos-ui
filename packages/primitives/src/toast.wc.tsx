@@ -30,7 +30,7 @@ export function NaosToast({
       part="trigger"
       type="button"
       data-type={type}
-      onClick={on("click", () => {
+      onClick={on(() => {
         const id = createNaosToast({
           closable,
           description,

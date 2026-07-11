@@ -82,7 +82,7 @@ export function NaosToggle({
       data-disabled={disabled || undefined}
       aria-pressed={active()}
       disabled={disabled}
-      onClick={on("click", () => {
+      onClick={on(() => {
         if (disabled) return
         toggleApi()?.setPressed(!active())
       })}

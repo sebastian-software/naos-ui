@@ -49,14 +49,14 @@ export function NaosDropdown({
         type="button"
         aria-expanded={expanded()}
         aria-controls="naos-dropdown-panel"
-        onKeyDown={on("keydown", (event) => {
+        onKeyDown={on((event) => {
           if (!shouldCloseDisclosureForKey(event.key)) return
           if (!expanded()) return
           event.preventDefault()
           expanded.set(false)
           changed.emit({ open: expanded() })
         })}
-        onClick={on("click", () => {
+        onClick={on(() => {
           expanded.set(nextDisclosureOpen(expanded()))
           changed.emit({ open: expanded() })
         })}

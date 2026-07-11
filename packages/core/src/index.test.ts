@@ -17,7 +17,7 @@ describe("authoring runtime stubs", () => {
     expect(() => computed(() => true)).toThrow("Naos computed()")
     expect(() => effect(() => undefined)).toThrow("Naos effect()")
     expect(() => Show({ when: true })).toThrow("Naos Show()")
-    expect(() => on("click", () => undefined)).toThrow("Naos on()")
+    expect(() => on(() => undefined)).toThrow("Naos on()")
     expect(() => host()).toThrow("Naos host()")
     expect(() => event<number>("change")).toThrow("Naos event()")
     expect(() => formControl({ value: () => null })).toThrow("Naos formControl()")

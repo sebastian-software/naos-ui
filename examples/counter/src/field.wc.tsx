@@ -29,7 +29,7 @@ export function Field({
       <button
         part="action"
         type="button"
-        onClick={on("click", () => {
+        onClick={on(() => {
           currentValue.set("@naos-ui/labs")
           changed.emit("@naos-ui/labs")
         })}

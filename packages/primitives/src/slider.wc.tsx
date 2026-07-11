@@ -132,7 +132,7 @@ export function NaosSlider({
           {...(sliderApi()?.getThumbProps({ index: 0, name }) ?? {})}
           part="thumb"
           data-value={String(current())}
-          onKeyDown={on("keydown", (event) => {
+          onKeyDown={on((event) => {
             const api = sliderApi()
             if (disabled || api == null) return
 

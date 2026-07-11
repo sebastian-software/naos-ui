@@ -19,7 +19,7 @@ export function Disclosure({ label = "Details" }: DisclosureProps = {}) {
         part="trigger"
         aria-expanded={open()}
         aria-controls="naos-disclosure-panel"
-        onClick={on("click", () => {
+        onClick={on(() => {
           open.update((value) => !value)
           changed.emit(open())
         })}

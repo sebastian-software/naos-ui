@@ -54,7 +54,7 @@ export function ListReconcilerProbe() {
               data-probe-index-row
               data-index={index}
               value={name()}
-              onInput={on("input", (event) => {
+              onInput={on((event) => {
                 const input = event.currentTarget
                 if (!(input instanceof HTMLInputElement)) return
                 const next = [...names()]

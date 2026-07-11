@@ -48,7 +48,7 @@ export function Toggle({ disabled = false, label = "Toggle" }: ToggleProps = {})
       data-disabled={disabled || undefined}
       aria-pressed={pressed()}
       disabled={disabled}
-      onClick={on("click", () => {
+      onClick={on(() => {
         if (disabled) return
         pressed.update((value) => !value)
         changed.emit(pressed())

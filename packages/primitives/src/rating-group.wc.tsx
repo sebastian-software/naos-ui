@@ -112,7 +112,7 @@ export function NaosRatingGroup({
             {...(ratingGroupApi()?.getItemProps({ index: ratingIndex }) ?? {})}
             part="item"
             data-state={current() >= ratingIndex ? "checked" : "unchecked"}
-            onKeyDown={on("keydown", (event) => {
+            onKeyDown={on((event) => {
               const api = ratingGroupApi()
               if (disabled || readOnly || api == null) return
 
