@@ -1,6 +1,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
+use oxc_allocator::Allocator;
+use oxc_ast::ast::{
+    ArrowFunctionExpression, BlockStatement, CallExpression, FormalParameters, Function,
+    IdentifierReference, VariableDeclarator,
+};
+use oxc_ast_visit::{Visit, walk};
+use oxc_parser::Parser;
+use oxc_span::SourceType;
+use oxc_syntax::scope::ScopeFlags;
+
 use crate::error::{
     CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
     DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
@@ -2946,10 +2956,10 @@ impl<'a> DependencyContext<'a> {
         let mut sources = BTreeSet::new();
         let mut unknown = false;
 
-        for identifier in identifier_uses(expression) {
-            if identifier.is_property {
-                continue;
-            }
+        let Some(identifier_uses) = identifier_uses(expression) else {
+            return ReactiveDependencies::Unknown;
+        };
+        for identifier in identifier_uses {
             if self
                 .module
                 .props
@@ -3030,211 +3040,116 @@ impl<'a> DependencyContext<'a> {
 struct IdentifierUse {
     name: String,
     is_call: bool,
-    is_property: bool,
 }
 
-fn identifier_uses(source: &str) -> Vec<IdentifierUse> {
-    let mut identifiers = Vec::new();
-    collect_identifier_uses(source, &mut identifiers);
-    identifiers
+fn identifier_uses(source: &str) -> Option<Vec<IdentifierUse>> {
+    let allocator = Allocator::default();
+    let expression = Parser::new(&allocator, source, SourceType::tsx())
+        .parse_expression()
+        .ok()?;
+    let mut visitor = DependencyVisitor::default();
+    visitor.visit_expression(&expression);
+    Some(visitor.identifiers)
 }
 
-fn collect_identifier_uses(source: &str, identifiers: &mut Vec<IdentifierUse>) {
-    let mut index = 0usize;
-    while index < source.len() {
-        let Some(ch) = source[index..].chars().next() else {
-            break;
-        };
-        if ch == '/' && source[index..].starts_with("//") {
-            index = skip_line_comment(source, index);
-            continue;
+#[derive(Default)]
+struct DependencyVisitor {
+    identifiers: Vec<IdentifierUse>,
+    scopes: Vec<BTreeSet<String>>,
+}
+
+impl DependencyVisitor {
+    fn is_shadowed(&self, name: &str) -> bool {
+        self.scopes.iter().rev().any(|scope| scope.contains(name))
+    }
+
+    fn push_bindings<I>(&mut self, bindings: I)
+    where
+        I: IntoIterator<Item = String>,
+    {
+        self.scopes.push(bindings.into_iter().collect());
+    }
+
+    fn record(&mut self, name: &str, is_call: bool) {
+        if !self.is_shadowed(name) {
+            self.identifiers.push(IdentifierUse {
+                name: name.to_owned(),
+                is_call,
+            });
         }
-        if ch == '/' && source[index..].starts_with("/*") {
-            index = skip_block_comment(source, index);
-            continue;
-        }
-        if ch == '\'' || ch == '"' {
-            index = skip_quoted_literal(source, index, ch);
-            continue;
-        }
-        if ch == '`' {
-            index = skip_template_literal(source, index, identifiers);
-            continue;
-        }
-        if !is_dependency_identifier_start(ch) {
-            index += ch.len_utf8();
-            continue;
-        }
-        let end = consume_dependency_identifier(source, index);
-        let name = source[index..end].to_owned();
-        identifiers.push(IdentifierUse {
-            name,
-            is_call: next_non_whitespace(source, end) == Some('('),
-            is_property: previous_non_whitespace(source, index) == Some('.'),
-        });
-        index = end;
     }
 }
 
-fn consume_dependency_identifier(source: &str, start: usize) -> usize {
-    let mut end = start;
-    for (offset, ch) in source[start..].char_indices() {
-        if offset == 0 {
-            end = start + ch.len_utf8();
-            continue;
-        }
-        if !is_dependency_identifier_char(ch) {
-            return start + offset;
-        }
-        end = start + offset + ch.len_utf8();
+impl<'a> Visit<'a> for DependencyVisitor {
+    fn visit_identifier_reference(&mut self, identifier: &IdentifierReference<'a>) {
+        self.record(identifier.name.as_str(), false);
     }
-    end
+
+    fn visit_call_expression(&mut self, call: &CallExpression<'a>) {
+        if let Some(identifier) = call.callee.get_identifier_reference() {
+            self.record(identifier.name.as_str(), true);
+        }
+        walk::walk_call_expression(self, call);
+    }
+
+    fn visit_arrow_function_expression(&mut self, function: &ArrowFunctionExpression<'a>) {
+        self.push_bindings(parameter_bindings(&function.params));
+        walk::walk_arrow_function_expression(self, function);
+        self.scopes.pop();
+    }
+
+    fn visit_function(&mut self, function: &Function<'a>, flags: ScopeFlags) {
+        let mut bindings = parameter_bindings(&function.params);
+        if let Some(identifier) = &function.id {
+            bindings.push(identifier.name.to_string());
+        }
+        self.push_bindings(bindings);
+        walk::walk_function(self, function, flags);
+        self.scopes.pop();
+    }
+
+    fn visit_block_statement(&mut self, statement: &BlockStatement<'a>) {
+        self.push_bindings(std::iter::empty());
+        walk::walk_block_statement(self, statement);
+        self.scopes.pop();
+    }
+
+    fn visit_variable_declarator(&mut self, declarator: &VariableDeclarator<'a>) {
+        if let Some(scope) = self.scopes.last_mut() {
+            scope.extend(
+                declarator
+                    .id
+                    .get_binding_identifiers()
+                    .into_iter()
+                    .map(|identifier| identifier.name.to_string()),
+            );
+        }
+        walk::walk_variable_declarator(self, declarator);
+    }
+}
+
+fn parameter_bindings(parameters: &FormalParameters<'_>) -> Vec<String> {
+    parameters
+        .items
+        .iter()
+        .flat_map(|parameter| parameter.pattern.get_binding_identifiers())
+        .map(|identifier| identifier.name.to_string())
+        .chain(
+            parameters
+                .rest
+                .iter()
+                .flat_map(|rest| rest.rest.argument.get_binding_identifiers())
+                .map(|identifier| identifier.name.to_string()),
+        )
+        .collect()
+}
+
+fn is_dependency_identifier_char(ch: char) -> bool {
+    ch == '_' || ch == '$' || ch.is_ascii_alphanumeric()
 }
 
 fn previous_non_whitespace(source: &str, index: usize) -> Option<char> {
     source[..index].chars().rev().find(|ch| !ch.is_whitespace())
-}
-
-fn next_non_whitespace(source: &str, index: usize) -> Option<char> {
-    let mut cursor = index;
-    while cursor < source.len() {
-        let ch = source[cursor..].chars().next()?;
-        if ch.is_whitespace() {
-            cursor += ch.len_utf8();
-            continue;
-        }
-        if ch == '/' && source[cursor..].starts_with("//") {
-            cursor = skip_line_comment(source, cursor);
-            continue;
-        }
-        if ch == '/' && source[cursor..].starts_with("/*") {
-            cursor = skip_block_comment(source, cursor);
-            continue;
-        }
-        return Some(ch);
-    }
-    None
-}
-
-fn skip_line_comment(source: &str, start: usize) -> usize {
-    source[start..]
-        .find('\n')
-        .map_or(source.len(), |offset| start + offset + 1)
-}
-
-fn skip_block_comment(source: &str, start: usize) -> usize {
-    source[start + 2..]
-        .find("*/")
-        .map_or(source.len(), |offset| start + 2 + offset + 2)
-}
-
-fn skip_quoted_literal(source: &str, start: usize, quote: char) -> usize {
-    let mut cursor = start + quote.len_utf8();
-    let mut escaped = false;
-    while cursor < source.len() {
-        let Some(ch) = source[cursor..].chars().next() else {
-            break;
-        };
-        cursor += ch.len_utf8();
-        if escaped {
-            escaped = false;
-            continue;
-        }
-        if ch == '\\' {
-            escaped = true;
-            continue;
-        }
-        if ch == quote {
-            return cursor;
-        }
-    }
-    source.len()
-}
-
-fn skip_template_literal(
-    source: &str,
-    start: usize,
-    identifiers: &mut Vec<IdentifierUse>,
-) -> usize {
-    let mut cursor = start + 1;
-    let mut escaped = false;
-    while cursor < source.len() {
-        let Some(ch) = source[cursor..].chars().next() else {
-            break;
-        };
-        if escaped {
-            escaped = false;
-            cursor += ch.len_utf8();
-            continue;
-        }
-        if ch == '\\' {
-            escaped = true;
-            cursor += ch.len_utf8();
-            continue;
-        }
-        if ch == '`' {
-            return cursor + 1;
-        }
-        if ch == '$' && source[cursor..].starts_with("${") {
-            let expression_start = cursor + 2;
-            let Some(expression_end) = template_expression_end(source, expression_start) else {
-                return source.len();
-            };
-            collect_identifier_uses(&source[expression_start..expression_end], identifiers);
-            cursor = expression_end + 1;
-            continue;
-        }
-        cursor += ch.len_utf8();
-    }
-    source.len()
-}
-
-fn template_expression_end(source: &str, start: usize) -> Option<usize> {
-    let mut cursor = start;
-    let mut depth = 1usize;
-    while cursor < source.len() {
-        let ch = source[cursor..].chars().next()?;
-        if ch == '/' && source[cursor..].starts_with("//") {
-            cursor = skip_line_comment(source, cursor);
-            continue;
-        }
-        if ch == '/' && source[cursor..].starts_with("/*") {
-            cursor = skip_block_comment(source, cursor);
-            continue;
-        }
-        if ch == '\'' || ch == '"' {
-            cursor = skip_quoted_literal(source, cursor, ch);
-            continue;
-        }
-        if ch == '`' {
-            let mut nested_identifiers = Vec::new();
-            cursor = skip_template_literal(source, cursor, &mut nested_identifiers);
-            continue;
-        }
-        if ch == '{' {
-            depth += 1;
-            cursor += ch.len_utf8();
-            continue;
-        }
-        if ch == '}' {
-            depth -= 1;
-            if depth == 0 {
-                return Some(cursor);
-            }
-            cursor += ch.len_utf8();
-            continue;
-        }
-        cursor += ch.len_utf8();
-    }
-    None
-}
-
-fn is_dependency_identifier_start(ch: char) -> bool {
-    ch == '_' || ch == '$' || ch.is_ascii_alphabetic()
-}
-
-fn is_dependency_identifier_char(ch: char) -> bool {
-    is_dependency_identifier_start(ch) || ch.is_ascii_digit()
 }
 
 fn is_allowed_dependency_call(name: &str) -> bool {
@@ -4942,4 +4857,67 @@ fn source_map_line_mappings(code: &str) -> String {
     std::iter::repeat_n("AAAA", line_count)
         .collect::<Vec<_>>()
         .join(";")
+}
+
+#[cfg(test)]
+mod dependency_tests {
+    use super::identifier_uses;
+
+    #[test]
+    fn ast_dependency_visitor_ignores_lexically_shadowed_callback_bindings() {
+        let identifiers = identifier_uses(
+            r#"items().map(({ count }) => `${count}-${label}-${/a{2}/.test(note)}`)"#,
+        )
+        .expect("valid JavaScript expression should parse");
+
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "items" && identifier.is_call)
+        );
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "label" && !identifier.is_call)
+        );
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "note" && !identifier.is_call)
+        );
+        assert!(
+            !identifiers
+                .iter()
+                .any(|identifier| identifier.name == "count")
+        );
+        assert!(
+            !identifiers
+                .iter()
+                .any(|identifier| identifier.name == "test")
+        );
+    }
+
+    #[test]
+    fn ast_dependency_visitor_ignores_classic_function_callback_bindings() {
+        let identifiers = identifier_uses(
+            r#"items().map(function countMapper(count) { return `${count}-${label}`; })"#,
+        )
+        .expect("valid JavaScript expression should parse");
+
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "items" && identifier.is_call)
+        );
+        assert!(
+            identifiers
+                .iter()
+                .any(|identifier| identifier.name == "label" && !identifier.is_call)
+        );
+        assert!(
+            !identifiers
+                .iter()
+                .any(|identifier| identifier.name == "count")
+        );
+    }
 }
