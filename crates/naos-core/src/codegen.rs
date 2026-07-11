@@ -8,9 +8,10 @@ use crate::error::{
     DIAGNOSTIC_HINT_SWITCH, dsd_input, template_parse, unsupported, unsupported_with_code,
 };
 use crate::model::{
-    ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult, EffectDefinition,
-    EventDefinition, FormControlDefinition, KeyedSelectorDefinition, PropDefinition, PropKind,
-    SourceMap, StateDefinition, TransformResult,
+    AttributeValue, ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult,
+    EffectDefinition, EventDefinition, FormControlDefinition, KeyedSelectorDefinition,
+    PropDefinition, PropKind, SourceMap, StateDefinition, TemplateAttribute, TemplateChild,
+    TemplateElement, TransformResult,
 };
 use crate::naming::{
     custom_element_tag_for_component, is_pascal_case_identifier, kebab_case_identifier,
@@ -26,9 +27,8 @@ use serde_json::Value as JsonValue;
 /// pattern outside the current compiler milestone.
 pub fn transform_component_module(source: &str, filename: &str) -> CompilerResult<TransformResult> {
     let module = analyze_component_module(source, filename)?;
-    let template = TemplateParser::new(&module.template_source).parse_element()?;
     let mut generator = CodeGenerator::new(&module);
-    let code = generator.generate(&template)?;
+    let code = generator.generate(&module.template)?;
     let map = Some(source_map_for_transform(source, filename, &code));
     Ok(TransformResult {
         code,
@@ -71,38 +71,10 @@ pub fn render_declarative_shadow_dom_module_with_inline_styles(
     inline_styles_json: Option<&str>,
 ) -> CompilerResult<DeclarativeShadowDomRenderResult> {
     let module = analyze_component_module(source, filename)?;
-    let template = TemplateParser::new(&module.template_source).parse_element()?;
     let props = parse_prerender_props(props_json)?;
     let inline_styles = parse_inline_styles(inline_styles_json)?;
     let mut renderer = DeclarativeShadowDomRenderer::new(&module, props, inline_styles)?;
-    renderer.render(&template)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct TemplateElement {
-    tag_name: String,
-    attributes: Vec<TemplateAttribute>,
-    children: Vec<TemplateChild>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum TemplateAttribute {
-    Named { name: String, value: AttributeValue },
-    Spread { expression: String },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum AttributeValue {
-    Static(String),
-    Expression(String),
-    Boolean,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum TemplateChild {
-    Element(TemplateElement),
-    Expression(String),
-    Text(String),
+    renderer.render(&module.template)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -18,10 +18,11 @@ pub use codegen::{
 };
 pub use error::{CompilerError, CompilerResult};
 pub use model::{
-    CompilerDiagnostic, ComponentImport, ComponentModule, ComponentOptions, ComputedDefinition,
-    DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan, EffectDefinition,
-    EventDefinition, KeyedSelectorDefinition, PropAccess, PropDefinition, PropKind, SourceMap,
-    StateDefinition, StateKind, StyleImport, TransformResult,
+    AttributeValue, CompilerDiagnostic, ComponentImport, ComponentModule, ComponentOptions,
+    ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan,
+    EffectDefinition, EventDefinition, KeyedSelectorDefinition, PropAccess, PropDefinition,
+    PropKind, SourceMap, StateDefinition, StateKind, StyleImport, TemplateAttribute, TemplateChild,
+    TemplateElement, TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -34,8 +35,8 @@ pub fn core_version() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{
-        DiagnosticSeverity, StateKind, analyze_component_module, core_version,
-        render_declarative_shadow_dom_module,
+        AttributeValue, DiagnosticSeverity, StateKind, TemplateAttribute, TemplateChild,
+        analyze_component_module, core_version, render_declarative_shadow_dom_module,
         render_declarative_shadow_dom_module_with_inline_styles, transform_component_module,
     };
     use crate::error::{
@@ -455,7 +456,53 @@ mod tests {
         assert_eq!(module.states.len(), 1);
         assert_eq!(module.states[0].kind, StateKind::State);
         assert_eq!(module.events.len(), 1);
-        assert!(module.template_source.contains("<button"));
+        assert_eq!(module.template.tag_name, "button");
+        assert_eq!(module.template.attributes.len(), 1);
+        assert!(matches!(
+            module.template.attributes.as_slice(),
+            [TemplateAttribute::Named {
+                name,
+                value: AttributeValue::Expression(expression),
+            }] if name == "onClick" && expression == "() => change.emit(count())"
+        ));
+        assert!(matches!(
+            module.template.children.as_slice(),
+            [TemplateChild::Text(_), TemplateChild::Expression(expression), ..]
+                if expression == "label"
+        ));
+    }
+
+    #[test]
+    fn analyze_component_module_should_lower_jsx_comments_entities_and_regex_literals() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+
+            export function Probe() {
+              const value = state("aa");
+
+              return (
+                <p title="Bread &amp; Butter">
+                  Hello &amp; welcome{/* author note */}{/a{2}/.test(value())}
+                </p>
+              );
+            }
+        "#;
+
+        let module = analyze_component_module(source, "probe.wc.tsx")
+            .expect("valid TSX should lower into the compiler IR");
+
+        assert!(matches!(
+            module.template.attributes.as_slice(),
+            [TemplateAttribute::Named {
+                name,
+                value: AttributeValue::Static(value),
+            }] if name == "title" && value == "Bread & Butter"
+        ));
+        assert!(matches!(
+            module.template.children.as_slice(),
+            [TemplateChild::Text(text), TemplateChild::Expression(expression), TemplateChild::Text(_)]
+                if text.contains("Hello & welcome") && expression == "/a{2}/.test(value())"
+        ));
     }
 
     #[test]

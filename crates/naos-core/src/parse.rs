@@ -76,16 +76,13 @@ fn analyze_function_component(
         disconnected_callbacks: function_component.semantics.disconnected_callbacks,
         uses_host_helpers: function_component.semantics.uses_host_helpers,
         events: function_component.semantics.events,
-        template_source: function_component
-            .semantics
-            .template_source
-            .ok_or_else(|| {
-                unsupported_with_code(
-                    DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
-                    "Function components must return a TSX template.",
-                    DIAGNOSTIC_HINT_FUNCTION_COMPONENT,
-                )
-            })?,
+        template: function_component.semantics.template.ok_or_else(|| {
+            unsupported_with_code(
+                DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
+                "Function components must return a TSX template.",
+                DIAGNOSTIC_HINT_FUNCTION_COMPONENT,
+            )
+        })?,
     })
 }
 

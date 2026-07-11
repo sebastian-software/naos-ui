@@ -2,8 +2,8 @@ use oxc_allocator::Allocator;
 use oxc_ast::ast::{
     Argument, ArrowFunctionExpression, BinaryExpression, BindingPattern, CallExpression,
     Declaration, ExportDefaultDeclarationKind, Expression, Function, FunctionBody,
-    ImportDeclarationSpecifier, ImportOrExportKind, ModuleExportName, Program, Statement,
-    VariableDeclarationKind,
+    ImportDeclarationSpecifier, ImportOrExportKind, JSXAttributeItem, JSXAttributeValue, JSXChild,
+    JSXElement, JSXExpression, ModuleExportName, Program, Statement, VariableDeclarationKind,
 };
 use oxc_parser::Parser;
 use oxc_span::{GetSpan, SourceType, Span};
@@ -16,9 +16,10 @@ use crate::error::{
     unsupported_with_code_and_span,
 };
 use crate::model::{
-    ComponentImport, ComputedDefinition, DiagnosticSpan, EffectDefinition, EventDefinition,
-    FormControlDefinition, KeyedSelectorDefinition, LifecycleCallbackDefinition, RuntimeImport,
-    StateDefinition, StateKind, StyleImport,
+    AttributeValue, ComponentImport, ComputedDefinition, DiagnosticSpan, EffectDefinition,
+    EventDefinition, FormControlDefinition, KeyedSelectorDefinition, LifecycleCallbackDefinition,
+    RuntimeImport, StateDefinition, StateKind, StyleImport, TemplateAttribute, TemplateChild,
+    TemplateElement,
 };
 use crate::naming::is_pascal_case_identifier;
 
@@ -55,7 +56,7 @@ pub(crate) struct AstComponentSemantics {
     pub(crate) disconnected_callbacks: Vec<LifecycleCallbackDefinition>,
     pub(crate) events: Vec<EventDefinition>,
     pub(crate) uses_host_helpers: bool,
-    pub(crate) template_source: Option<String>,
+    pub(crate) template: Option<TemplateElement>,
 }
 
 #[derive(Debug, Clone)]
@@ -388,13 +389,125 @@ fn capture_body_statement(
                         SourceSpan::from_oxc(argument.span()).to_diagnostic(),
                     ));
                 }
-                let template = source_span(source, SourceSpan::from_oxc(argument.span()))?;
-                semantics.template_source = Some(strip_wrapping_parentheses(template).to_owned());
+                semantics.template = Some(lower_return_template(source, argument)?);
             }
         }
         _ => {}
     }
     Ok(())
+}
+
+fn lower_return_template(
+    source: &str,
+    expression: &Expression<'_>,
+) -> CompilerResult<TemplateElement> {
+    match expression {
+        Expression::JSXElement(element) => lower_jsx_element(source, element),
+        Expression::ParenthesizedExpression(parenthesized) => {
+            lower_return_template(source, &parenthesized.expression)
+        }
+        _ => Err(unsupported(
+            "Function components must return a TSX element.",
+        )),
+    }
+}
+
+fn lower_jsx_element(source: &str, element: &JSXElement<'_>) -> CompilerResult<TemplateElement> {
+    let tag_name = source_span(
+        source,
+        SourceSpan::from_oxc(element.opening_element.name.span()),
+    )?
+    .to_owned();
+    let attributes = element
+        .opening_element
+        .attributes
+        .iter()
+        .map(|attribute| lower_jsx_attribute(source, attribute))
+        .collect::<CompilerResult<Vec<_>>>()?;
+    let children = element
+        .children
+        .iter()
+        .filter_map(|child| lower_jsx_child(source, child).transpose())
+        .collect::<CompilerResult<Vec<_>>>()?;
+
+    Ok(TemplateElement {
+        tag_name,
+        attributes,
+        children,
+    })
+}
+
+fn lower_jsx_attribute(
+    source: &str,
+    attribute: &JSXAttributeItem<'_>,
+) -> CompilerResult<TemplateAttribute> {
+    match attribute {
+        JSXAttributeItem::SpreadAttribute(spread) => Ok(TemplateAttribute::Spread {
+            expression: expression_source(source, &spread.argument)?,
+        }),
+        JSXAttributeItem::Attribute(attribute) => {
+            let name = source_span(source, SourceSpan::from_oxc(attribute.name.span()))?.to_owned();
+            let value = match &attribute.value {
+                None => AttributeValue::Boolean,
+                Some(JSXAttributeValue::StringLiteral(value)) => {
+                    AttributeValue::Static(decode_jsx_entities(value.value.as_str()))
+                }
+                Some(JSXAttributeValue::ExpressionContainer(container)) => {
+                    let Some(expression) = lower_jsx_expression(source, &container.expression)?
+                    else {
+                        return Err(unsupported("JSX attribute expressions must not be empty."));
+                    };
+                    AttributeValue::Expression(expression)
+                }
+                Some(JSXAttributeValue::Element(_)) | Some(JSXAttributeValue::Fragment(_)) => {
+                    return Err(unsupported(
+                        "JSX attribute values must use strings or braced expressions.",
+                    ));
+                }
+            };
+            Ok(TemplateAttribute::Named { name, value })
+        }
+    }
+}
+
+fn lower_jsx_child(source: &str, child: &JSXChild<'_>) -> CompilerResult<Option<TemplateChild>> {
+    match child {
+        JSXChild::Text(text) => Ok(Some(TemplateChild::Text(decode_jsx_entities(
+            text.value.as_str(),
+        )))),
+        JSXChild::Element(element) => lower_jsx_element(source, element)
+            .map(TemplateChild::Element)
+            .map(Some),
+        JSXChild::ExpressionContainer(container) => {
+            lower_jsx_expression(source, &container.expression)
+                .map(|expression| expression.map(TemplateChild::Expression))
+        }
+        JSXChild::Fragment(_) | JSXChild::Spread(_) => Err(unsupported(
+            "JSX fragments and spread children are not supported in this milestone.",
+        )),
+    }
+}
+
+fn decode_jsx_entities(value: &str) -> String {
+    html_escape::decode_html_entities(value).into_owned()
+}
+
+fn lower_jsx_expression(
+    source: &str,
+    expression: &JSXExpression<'_>,
+) -> CompilerResult<Option<String>> {
+    if matches!(expression, JSXExpression::EmptyExpression(_)) {
+        return Ok(None);
+    }
+    expression_source(source, expression).map(Some)
+}
+
+fn expression_source(source: &str, expression: &impl GetSpan) -> CompilerResult<String> {
+    Ok(
+        source_span(source, SourceSpan::from_oxc(expression.span()))?
+            .trim()
+            .to_owned(),
+    )
 }
 
 fn capture_authoring_const(

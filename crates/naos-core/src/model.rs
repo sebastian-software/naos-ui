@@ -37,8 +37,58 @@ pub struct ComponentModule {
     pub uses_host_helpers: bool,
     /// Custom event declarations.
     pub events: Vec<EventDefinition>,
-    /// Raw JSX template returned by the component callback.
-    pub template_source: String,
+    /// Structured JSX template returned by the component callback.
+    pub template: TemplateElement,
+}
+
+/// Owned JSX element lowered from the OXC syntax tree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TemplateElement {
+    /// Element or component tag name.
+    pub tag_name: String,
+    /// Authored attributes in source order.
+    pub attributes: Vec<TemplateAttribute>,
+    /// Authored child nodes in source order.
+    pub children: Vec<TemplateChild>,
+}
+
+/// Owned JSX attribute lowered from the OXC syntax tree.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateAttribute {
+    /// A named JSX attribute.
+    Named {
+        /// Attribute name.
+        name: String,
+        /// Attribute value.
+        value: AttributeValue,
+    },
+    /// A JSX spread attribute expression.
+    Spread {
+        /// Authored spread expression source.
+        expression: String,
+    },
+}
+
+/// Owned JSX attribute value.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AttributeValue {
+    /// A static string value.
+    Static(String),
+    /// A dynamic expression value.
+    Expression(String),
+    /// A boolean JSX attribute without an explicit value.
+    Boolean,
+}
+
+/// Owned JSX child node.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TemplateChild {
+    /// A nested JSX element.
+    Element(TemplateElement),
+    /// A dynamic JSX expression.
+    Expression(String),
+    /// A JSX text node.
+    Text(String),
 }
 
 /// Imported component used as a PascalCase JSX element.

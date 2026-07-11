@@ -12,6 +12,7 @@ publish = false
 path = "src/lib.rs"
 
 [dependencies]
+html-escape = "0.2.13"
 oxc_allocator = "0.132.0"
 oxc_ast = "0.132.0"
 oxc_parser = "0.132.0"
