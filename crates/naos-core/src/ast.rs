@@ -509,15 +509,24 @@ fn lower_jsx_attribute(
                     AttributeValue::Static(decode_jsx_entities(value.value.as_str()))
                 }
                 Some(JSXAttributeValue::ExpressionContainer(container)) => {
-                    let Some(expression) = lower_jsx_expression(source, &container.expression)?
-                    else {
-                        return Err(unsupported("JSX attribute expressions must not be empty."));
-                    };
-                    AttributeValue::Expression(expression)
+                    if let JSXExpression::JSXElement(element) = &container.expression {
+                        AttributeValue::Element(lower_jsx_element(source, element)?)
+                    } else {
+                        let Some(expression) = lower_jsx_expression(source, &container.expression)?
+                        else {
+                            return Err(unsupported(
+                                "JSX attribute expressions must not be empty.",
+                            ));
+                        };
+                        AttributeValue::Expression(expression)
+                    }
                 }
-                Some(JSXAttributeValue::Element(_)) | Some(JSXAttributeValue::Fragment(_)) => {
+                Some(JSXAttributeValue::Element(element)) => {
+                    AttributeValue::Element(lower_jsx_element(source, element)?)
+                }
+                Some(JSXAttributeValue::Fragment(_)) => {
                     return Err(unsupported(
-                        "JSX attribute values must use strings or braced expressions.",
+                        "JSX fragments are not supported as attribute values in this milestone.",
                     ));
                 }
             };

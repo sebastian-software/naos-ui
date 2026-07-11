@@ -2010,14 +2010,12 @@ impl<'a> CodeGenerator<'a> {
         match value {
             AttributeValue::Expression(expression) => {
                 let trimmed = expression.trim();
-                if trimmed.starts_with('<') {
-                    let fallback = TemplateParser::new(trimmed).parse_element()?;
-                    let fallback_child = self.emit_element(&fallback)?;
-                    self.mount_lines
-                        .push(format!("{fallback_variable}.append({fallback_child});"));
-                } else {
-                    self.emit_expression(fallback_variable, trimmed)?;
-                }
+                self.emit_expression(fallback_variable, trimmed)?;
+            }
+            AttributeValue::Element(fallback) => {
+                let fallback_child = self.emit_element(fallback)?;
+                self.mount_lines
+                    .push(format!("{fallback_variable}.append({fallback_child});"));
             }
             AttributeValue::Static(value) => {
                 self.emit_text(fallback_variable, value);
@@ -2590,6 +2588,11 @@ impl<'a> CodeGenerator<'a> {
                     ),
                 );
             }
+            AttributeValue::Element(_) => {
+                return Err(unsupported(
+                    "JSX element attribute values are supported only for Show fallback.",
+                ));
+            }
         }
         Ok(())
     }
@@ -2768,6 +2771,11 @@ impl<'a> CodeGenerator<'a> {
                     ),
                     dependencies,
                 );
+            }
+            AttributeValue::Element(_) => {
+                return Err(unsupported(
+                    "JSX element attribute values are supported only for Show fallback.",
+                ));
             }
         }
         Ok(())
@@ -3354,6 +3362,11 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
                     push_serialized_dynamic_attribute(output, &attribute_name, &value, false);
                 }
             }
+            AttributeValue::Element(_) => {
+                return Err(unsupported(
+                    "JSX element attribute values are supported only for Show fallback.",
+                ));
+            }
         }
         Ok(())
     }
@@ -3434,13 +3447,9 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         match value {
             AttributeValue::Expression(expression) => {
                 let trimmed = expression.trim();
-                if trimmed.starts_with('<') {
-                    let fallback = TemplateParser::new(trimmed).parse_element()?;
-                    self.render_element(&fallback, false)
-                } else {
-                    self.render_expression_text(trimmed)
-                }
+                self.render_expression_text(trimmed)
             }
+            AttributeValue::Element(fallback) => self.render_element(fallback, false),
             AttributeValue::Static(value) => Ok(self.text_marker(value)),
             AttributeValue::Boolean => Err(unsupported_with_code(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
@@ -4397,13 +4406,14 @@ fn parse_for_motion(element: &TemplateElement) -> CompilerResult<Option<ListMoti
     };
     match value {
         AttributeValue::Static(value) if value == "flip" => Ok(Some(ListMotion::Flip)),
-        AttributeValue::Static(_) | AttributeValue::Boolean | AttributeValue::Expression(_) => {
-            Err(unsupported_with_code(
-                DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-                "<For> `motion` currently supports only the static value \"flip\".",
-                DIAGNOSTIC_HINT_LISTS,
-            ))
-        }
+        AttributeValue::Static(_)
+        | AttributeValue::Boolean
+        | AttributeValue::Expression(_)
+        | AttributeValue::Element(_) => Err(unsupported_with_code(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+            "<For> `motion` currently supports only the static value \"flip\".",
+            DIAGNOSTIC_HINT_LISTS,
+        )),
     }
 }
 
@@ -4449,11 +4459,13 @@ fn required_key_expression(element: &TemplateElement) -> CompilerResult<String> 
             Ok(expression.trim().to_owned())
         }
         AttributeValue::Static(value) => Ok(format!("\"{}\"", escape_js_string(value))),
-        AttributeValue::Boolean | AttributeValue::Expression(_) => Err(unsupported_with_code(
-            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
-            "Dynamic .map() list keys must use a non-empty expression or static value.",
-            DIAGNOSTIC_HINT_LISTS,
-        )),
+        AttributeValue::Boolean | AttributeValue::Expression(_) | AttributeValue::Element(_) => {
+            Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+                "Dynamic .map() list keys must use a non-empty expression or static value.",
+                DIAGNOSTIC_HINT_LISTS,
+            ))
+        }
     }
 }
 

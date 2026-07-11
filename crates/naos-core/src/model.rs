@@ -76,6 +76,8 @@ pub enum AttributeValue {
     Static(String),
     /// A dynamic expression value.
     Expression(String),
+    /// A nested JSX element attribute value.
+    Element(TemplateElement),
     /// A boolean JSX attribute without an explicit value.
     Boolean,
 }
