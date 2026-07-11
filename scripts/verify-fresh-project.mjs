@@ -3,39 +3,12 @@ import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promis
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import { publicPackagePaths, publicPackages, javaScriptPackages } from "./release-set.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, "..")
 const args = new Set(process.argv.slice(2))
 const keep = args.has("--keep")
-
-const publicPackages = [
-  "packages/core",
-  "packages/runtime",
-  "packages/primitives",
-  "packages/compiler",
-  "packages/vite",
-  "packages/cli",
-  "packages/compiler-darwin-arm64",
-  "packages/compiler-darwin-x64",
-  "packages/compiler-linux-arm64-gnu",
-  "packages/compiler-linux-arm64-musl",
-  "packages/compiler-linux-x64-gnu",
-  "packages/compiler-linux-x64-musl",
-  "packages/compiler-win32-arm64-msvc",
-  "packages/compiler-win32-x64-msvc",
-]
-
-const nativePackageNames = [
-  "@naos-ui/compiler-darwin-arm64",
-  "@naos-ui/compiler-darwin-x64",
-  "@naos-ui/compiler-linux-arm64-gnu",
-  "@naos-ui/compiler-linux-arm64-musl",
-  "@naos-ui/compiler-linux-x64-gnu",
-  "@naos-ui/compiler-linux-x64-musl",
-  "@naos-ui/compiler-win32-arm64-msvc",
-  "@naos-ui/compiler-win32-x64-msvc",
-]
 
 const thirdPartyVersions = {
   typescript: "^6.0.3",
@@ -54,7 +27,7 @@ try {
   const tarballs = await phase("pack workspace packages", async () => {
     await mkdir(artifactsDir, { recursive: true })
     const packed = new Map()
-    for (const packagePath of publicPackages) {
+    for (const packagePath of publicPackagePaths) {
       const packageJson = JSON.parse(
         await readFile(join(root, packagePath, "package.json"), "utf8")
       )
@@ -99,9 +72,9 @@ try {
     const assetText = await readBuiltAssets(join(appDir, "dist"))
     assertIncludes(assetText, "smoke-counter")
     assertIncludes(assetText, "CustomEvent")
-    assertIncludes(assetText, 'new CustomEvent("change"')
-    assertIncludes(assetText, 'setAttribute("data-count"')
-    assertIncludes(assetText, 'customElements.define("naos-button"')
+    assertMatches(assetText, /new CustomEvent\([`"']change[`"']/)
+    assertMatches(assetText, /setAttribute\([`"']data-count[`"']/)
+    assertMatches(assetText, /customElements\.define\([`"']naos-button[`"']/)
     assertIncludes(assetText, "--naos-button-bg")
     const indexHtml = await readFile(join(appDir, "dist", "index.html"), "utf8")
     assertIncludes(indexHtml, "smoke-counter")
@@ -137,12 +110,9 @@ async function writeProjectFiles(projectDir, tarballs) {
     private: true,
     type: "module",
     dependencies: {
-      "@naos-ui/cli": fileSpec(tarballs.get("@naos-ui/cli")),
-      "@naos-ui/compiler": fileSpec(tarballs.get("@naos-ui/compiler")),
-      "@naos-ui/core": fileSpec(tarballs.get("@naos-ui/core")),
-      "@naos-ui/primitives": fileSpec(tarballs.get("@naos-ui/primitives")),
-      "@naos-ui/runtime": fileSpec(tarballs.get("@naos-ui/runtime")),
-      "@naos-ui/vite": fileSpec(tarballs.get("@naos-ui/vite")),
+      ...Object.fromEntries(
+        javaScriptPackages.map(({ name }) => [name, fileSpec(tarballs.get(name))])
+      ),
       [currentNativePackageName()]: fileSpec(tarballs.get(currentNativePackageName())),
       typescript: thirdPartyVersions.typescript,
       vite: thirdPartyVersions.vite,
@@ -197,12 +167,10 @@ async function writeProjectFiles(projectDir, tarballs) {
 }
 
 function pnpmWorkspaceYaml(tarballs) {
-  const overrideLines = [
-    ["@naos-ui/compiler", fileSpec(tarballs.get("@naos-ui/compiler"))],
-    ...nativePackageNames.map((packageName) => [packageName, fileSpec(tarballs.get(packageName))]),
-  ].map(([name, spec]) => `  ${JSON.stringify(name)}: ${JSON.stringify(spec)}`)
+  const overrideLines = publicPackages.map(({ name }) => [name, fileSpec(tarballs.get(name))])
+    .map(([name, spec]) => `  ${JSON.stringify(name)}: ${JSON.stringify(spec)}`)
 
-  return ["packages:", "  - .", "overrides:", ...overrideLines, ""].join("\n")
+  return ["packages:", "  - .", "allowBuilds:", "  esbuild: true", "overrides:", ...overrideLines, ""].join("\n")
 }
 
 async function readBuiltAssets(distDir) {
@@ -268,6 +236,12 @@ function fileSpec(path) {
 function assertIncludes(value, expected) {
   if (!value.includes(expected)) {
     throw new Error(`Expected output to include ${JSON.stringify(expected)}.`)
+  }
+}
+
+function assertMatches(value, expected) {
+  if (!expected.test(value)) {
+    throw new Error(`Expected output to match ${expected}.`)
   }
 }
 
