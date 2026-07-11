@@ -17,7 +17,7 @@ export function Counter({ label = "Label" }: CounterProps = {}) {
   const count = state(0)
 
   return (
-    <button onClick={on("click", () => count.update((value) => value + 1))}>
+    <button onClick={() => count.update((value) => value + 1)}>
       {label}: {count()}
     </button>
   )

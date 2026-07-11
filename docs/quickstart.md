@@ -61,7 +61,7 @@ cache invalidation.
 Create `src/counter.wc.tsx`:
 
 ```tsx
-import { computed, event, on, state } from "@naos-ui/core"
+import { computed, event, state } from "@naos-ui/core"
 
 export type CounterProps = {
   label?: string
@@ -76,10 +76,10 @@ export function Counter({ label = "Count" }: CounterProps = {}) {
     <button
       part="button"
       data-count={count()}
-      onClick={on("click", () => {
+      onClick={() => {
         count.set(count() + 1)
         change.emit(count())
-      })}
+      }}
     >
       {text()}
     </button>

@@ -35,10 +35,10 @@ export function Counter({ label = "Count" }: CounterProps = {}) {
     <button
       part="button"
       data-count={count()}
-      onClick={on("click", () => {
+      onClick={() => {
         count.set(count() + 1)
         change.emit(count())
-      })}
+      }}
     >
       {text()}
     </button>
@@ -379,19 +379,22 @@ change.emit(count())
 The generated emitter dispatches a `CustomEvent` with `bubbles: true`,
 `composed: true`, and `cancelable: false` in the current MVP.
 
-Use `on(name, handler)` when you want DOM event typing at the callsite while
-keeping the generated output as a plain `addEventListener()` callback. The
-handler receives an invocation-scoped `AbortSignal` as its second argument. It
-aborts when the same listener runs again or the host disconnects.
+The JSX attribute owns the DOM event name: `onClick` compiles to `click`,
+`onKeyDown` to `keydown`, and `onDataReady` to the custom event name
+`data-ready`. Use a bare callback for ordinary handlers. Use
+`on(handler, options?)` when the handler needs an invocation-scoped
+`AbortSignal` or native `addEventListener()` options such as `capture`,
+`passive`, or `once`. The signal aborts when the same listener runs again or
+the host disconnects.
 
 ```tsx
 <button
-  onClick={on("click", async (event, signal) => {
+  onClick={on(async (event, signal) => {
     event.preventDefault()
     await save(signal)
     if (signal.aborted) return
     count.update((value) => value + 1)
-  })}
+  }, { capture: true })}
 >
   {count()}
 </button>

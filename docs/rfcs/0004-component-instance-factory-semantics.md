@@ -30,7 +30,7 @@ export function Counter({ label = "Count" }: CounterProps = {}) {
   const count = state(0)
 
   return (
-    <button onClick={on("click", () => count.update((value) => value + 1))}>
+    <button onClick={() => count.update((value) => value + 1)}>
       {label}: {count()}
     </button>
   )
@@ -170,7 +170,7 @@ export function Counter(handle: ComponentHandle<CounterProps>) {
 
   return () => (
     <button
-      onClick={on("click", () => {
+      onClick={on(() => {
         count += 1
         handle.update()
       })}
@@ -251,7 +251,7 @@ export function ClipboardButton(handle: ComponentHandle<ClipboardButtonProps>) {
     return (
       <button
         aria-label={label}
-        onClick={on("click", async () => {
+        onClick={on(async () => {
           try {
             await navigator.clipboard.writeText(handle.props.value)
             state = "copied"
@@ -385,7 +385,7 @@ export function ClipboardButton({
   return (
     <button
       aria-label={label()}
-      onClick={on("click", async () => {
+      onClick={on(async () => {
         try {
           await navigator.clipboard.writeText(value)
           status.set("copied")
@@ -732,7 +732,7 @@ Possible later API:
 ```tsx
 const { update, signal } = host()
 
-on("click", async () => {
+on(async () => {
   const updateSignal = await update()
   if (signal.aborted || updateSignal.aborted) return
 })
@@ -741,7 +741,7 @@ on("click", async () => {
 Another possible API is an event helper that passes a signal:
 
 ```tsx
-on("click", async (event, signal) => {
+on(async (event, signal) => {
   await doWork(signal)
 })
 ```
