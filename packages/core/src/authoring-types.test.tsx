@@ -18,16 +18,16 @@ import {
 type NaosCore = typeof import("@naos-ui/core")
 
 // @ts-expect-error component() is not part of the v0.1 public API
-type RemovedComponentApi = NaosCore["component"]
+type _RemovedComponentApi = NaosCore["component"]
 
 // @ts-expect-error prop.*() is not part of the v0.1 public API
-type RemovedPropApi = NaosCore["prop"]
+type _RemovedPropApi = NaosCore["prop"]
 
 // @ts-expect-error signal() is not part of the v0.1 public API
-type RemovedSignalApi = NaosCore["signal"]
+type _RemovedSignalApi = NaosCore["signal"]
 
 // @ts-expect-error useHost() is not part of the v0.1 public API
-type RemovedUseHostApi = NaosCore["useHost"]
+type _RemovedUseHostApi = NaosCore["useHost"]
 
 const componentOptions = {
   styles: [":host { display: block; }"],

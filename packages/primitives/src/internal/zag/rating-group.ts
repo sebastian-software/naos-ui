@@ -18,7 +18,6 @@ type NaosZagRatingGroupServiceOptions = {
   disabled: boolean
   host: HTMLElement
   id: string
-  label: string
   name: string
   onHoverChange(details: HoverChangeDetails): void
   onValueChange(value: number): void
@@ -72,7 +71,6 @@ export function createNaosZagRatingGroupService({
   disabled,
   host,
   id,
-  label,
   name,
   onHoverChange,
   onValueChange,

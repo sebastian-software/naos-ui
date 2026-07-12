@@ -1,4 +1,4 @@
-import { Show, computed, effect, event, host, on, state } from "@naos-ui/core"
+import { Show, computed, effect, event, host, state } from "@naos-ui/core"
 
 export function CompositionToggleList({
   visible = true,

@@ -71,7 +71,6 @@ export function NaosRatingGroup({
       disabled,
       host: host().element,
       id: "naos-rating-group",
-      label,
       name,
       onHoverChange(details) {
         hoverChanged.emit({ hoveredValue: details.hoveredValue })
