@@ -9,6 +9,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, "..")
 const args = new Set(process.argv.slice(2))
 const keep = args.has("--keep")
+const smokePackageName = "naos-fresh-project-smoke"
+const smokeTagName = "naos-fresh-project-smoke-smoke-counter"
 
 const thirdPartyVersions = {
   typescript: "^6.0.3",
@@ -70,14 +72,14 @@ try {
 
   await phase("inspect Vite output", async () => {
     const assetText = await readBuiltAssets(join(appDir, "dist"))
-    assertIncludes(assetText, "smoke-counter")
+    assertIncludes(assetText, smokeTagName)
     assertIncludes(assetText, "CustomEvent")
     assertMatches(assetText, /new CustomEvent\([`"']change[`"']/)
     assertMatches(assetText, /setAttribute\([`"']data-count[`"']/)
     assertMatches(assetText, /customElements\.define\([`"']naos-button[`"']/)
     assertIncludes(assetText, "--naos-button-bg")
     const indexHtml = await readFile(join(appDir, "dist", "index.html"), "utf8")
-    assertIncludes(indexHtml, "smoke-counter")
+    assertIncludes(indexHtml, smokeTagName)
     assertIncludes(indexHtml, "naos-button")
   })
 
@@ -106,7 +108,7 @@ async function phase(name, action) {
 
 async function writeProjectFiles(projectDir, tarballs) {
   const packageJson = {
-    name: "naos-fresh-project-smoke",
+    name: smokePackageName,
     private: true,
     type: "module",
     dependencies: {
@@ -150,7 +152,7 @@ async function writeProjectFiles(projectDir, tarballs) {
   )
   await writeFile(
     join(projectDir, "index.html"),
-    `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>Naos fresh project smoke</title>\n  </head>\n  <body>\n    <smoke-counter label="Smoke"></smoke-counter>\n    <naos-button label="Primitive smoke" variant="primary"></naos-button>\n    <script type="module" src="/src/main.ts"></script>\n  </body>\n</html>\n`
+    `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>Naos fresh project smoke</title>\n  </head>\n  <body>\n    <${smokeTagName} label="Smoke"></${smokeTagName}>\n    <naos-button label="Primitive smoke" variant="primary"></naos-button>\n    <script type="module" src="/src/main.ts"></script>\n  </body>\n</html>\n`
   )
   await writeFile(
     join(projectDir, "src", "main.ts"),
@@ -162,7 +164,7 @@ async function writeProjectFiles(projectDir, tarballs) {
   )
   await writeFile(
     join(projectDir, "verify-native.mjs"),
-    `import { getNativeInfo, transformComponent } from "@naos-ui/compiler"\n\nconst info = getNativeInfo()\nif (!info || typeof info.coreVersion !== "string") {\n  throw new Error("native compiler info did not expose a coreVersion")\n}\n\nconst source = await import("node:fs/promises").then((fs) => fs.readFile("src/smoke-counter.wc.tsx", "utf8"))\nconst result = transformComponent({ filename: "src/smoke-counter.wc.tsx", source })\nif (!result.code.includes("customElements.define(\\\"smoke-counter\\\"")) {\n  throw new Error("native compiler transform did not generate smoke-counter")\n}\n`
+    `import { getNativeInfo, transformComponent } from "@naos-ui/compiler"\n\nconst expectedTag = ${JSON.stringify(smokeTagName)}\nconst info = getNativeInfo()\nif (!info || typeof info.coreVersion !== "string") {\n  throw new Error("native compiler info did not expose a coreVersion")\n}\n\nconst source = await import("node:fs/promises").then((fs) => fs.readFile("src/smoke-counter.wc.tsx", "utf8"))\nconst result = transformComponent({ filename: "src/smoke-counter.wc.tsx", source })\nconst definition = "customElements.define(\\\"" + expectedTag + "\\\""\nif (result.tagName !== expectedTag || !result.code.includes(definition)) {\n  throw new Error(\`native compiler transform generated <\${result.tagName}> instead of <\${expectedTag}>\`)\n}\n`
   )
 }
 
