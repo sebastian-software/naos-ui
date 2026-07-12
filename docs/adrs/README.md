@@ -19,6 +19,7 @@ than chronological trivia.
 * [ADR 0003: TypeScript Authoring Boundary](0003-typescript-authoring-boundary.md)
 * [ADR 0004: No Framework Runtime](0004-no-framework-runtime.md)
 * [ADR 0005: Static Analyzability Over JavaScript Generalism](0005-static-analyzability-over-js-generalism.md)
+* [ADR 0023: Oxlint-Enforced Dependency Boundaries](0023-oxlint-enforced-dependency-boundaries.md)
 
 ### P1: Major API And Compiler Direction
 
