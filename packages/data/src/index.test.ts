@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 
 import {
-  ResourceCache,
+  NaosResourceCache,
   fetchResource,
   normalizeResourceKey,
   subscriptionResource,
@@ -33,7 +33,7 @@ describe("fetchResource", () => {
   })
 
   it("loads data and notifies subscribers", async () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const listener = vi.fn()
     const resource = fetchResource("task-list", async () => ["a", "b"], { cache })
     resource.subscribe(listener)
@@ -45,7 +45,7 @@ describe("fetchResource", () => {
   })
 
   it("dedupes in-flight fetches by normalized key", async () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => ({ name: "Ada" }))
 
     const left = fetchResource(["profile", 1], fetcher, { cache })
@@ -59,7 +59,7 @@ describe("fetchResource", () => {
   })
 
   it("aborts an in-flight fetch when the last resource is disposed", async () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     let signal: AbortSignal | undefined
     const resource = fetchResource(
       "slow",
@@ -77,7 +77,7 @@ describe("fetchResource", () => {
   })
 
   it("keeps cached data as stale while refetching", async () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => (fetcher.mock.calls.length === 1 ? "first" : "second"))
 
     const first = fetchResource("cache-key", fetcher, { cache })
@@ -93,7 +93,7 @@ describe("fetchResource", () => {
   })
 
   it("can reuse cached data without stale revalidation", async () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => "cached")
 
     const first = fetchResource("cache-key", fetcher, { cache })
@@ -110,7 +110,7 @@ describe("fetchResource", () => {
   })
 
   it("still refetches explicitly when stale revalidation is disabled", async () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => (fetcher.mock.calls.length === 1 ? "cached" : "fresh"))
 
     const resource = fetchResource("cache-key", fetcher, {
@@ -126,7 +126,7 @@ describe("fetchResource", () => {
   })
 
   it("supports optimistic mutation rollback", async () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const resource = fetchResource("count", async () => 1, { cache })
     await waitForSnapshot(resource, { data: 1, status: "success" })
 
@@ -141,7 +141,7 @@ describe("fetchResource", () => {
   })
 
   it("can revalidate after a cache mutation", async () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => (fetcher.mock.calls.length === 1 ? 1 : 3))
     const resource = fetchResource("count", fetcher, { cache })
     await waitForSnapshot(resource, { data: 1, status: "success" })
@@ -154,7 +154,7 @@ describe("fetchResource", () => {
 
 describe("subscriptionResource", () => {
   it("shares one subscription for equivalent keys", () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const dispose = vi.fn()
     const subscribe = vi.fn(() => dispose)
 
@@ -171,7 +171,7 @@ describe("subscriptionResource", () => {
   })
 
   it("updates resource state from subscription events", () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const resource = subscriptionResource<string, string>(
       "feed",
       (_key, { next }) => {
@@ -186,7 +186,7 @@ describe("subscriptionResource", () => {
   })
 
   it("retains stale data when a subscription reports an error", () => {
-    const cache = new ResourceCache()
+    const cache = new NaosResourceCache()
     const error = new Error("offline")
     const resource = subscriptionResource<string, string, Error>(
       "feed",
