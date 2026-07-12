@@ -1,4 +1,5 @@
 import { NaosCompilerError, setNativeBindingsForTesting } from "@naos-ui/compiler"
+import { readFileSync } from "node:fs"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
@@ -6,11 +7,14 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { naos } from "./vite.js"
 
+const { version: packageVersion } = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8")
+) as { version: string }
 const nativeMetadata = {
   className: "CounterElement",
   exportName: "Counter",
   packageName: "@naos-ui/vite",
-  packageVersion: "0.0.0",
+  packageVersion,
   shadow: true,
   tagName: "naos-ui-vite-counter",
   tagPrefix: "naos-ui-vite",
@@ -204,7 +208,7 @@ describe("naos", () => {
       {
         fileName: "naos-manifest.json",
         source:
-          '{\n  "schemaVersion": 1,\n  "package": {\n    "name": "@naos-ui/vite",\n    "version": "0.0.0",\n    "tagPrefix": "naos-ui-vite"\n  },\n  "components": [\n    {\n      "className": "CounterElement",\n      "exportName": "Counter",\n      "importPath": "src/counter.wc.tsx",\n      "shadow": true,\n      "tagName": "naos-ui-vite-counter",\n      "usesDeclarativeShadowDom": true\n    }\n  ]\n}\n',
+          `{\n  "schemaVersion": 1,\n  "package": {\n    "name": "@naos-ui/vite",\n    "version": "${packageVersion}",\n    "tagPrefix": "naos-ui-vite"\n  },\n  "components": [\n    {\n      "className": "CounterElement",\n      "exportName": "Counter",\n      "importPath": "src/counter.wc.tsx",\n      "shadow": true,\n      "tagName": "naos-ui-vite-counter",\n      "usesDeclarativeShadowDom": true\n    }\n  ]\n}\n`,
         type: "asset",
       },
     ])
