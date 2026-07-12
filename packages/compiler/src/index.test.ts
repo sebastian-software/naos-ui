@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { afterEach, describe, expect, it } from "vitest"
 
 import {
@@ -16,6 +17,9 @@ const nativeMetadata = {
   tagName: "naos-ui-compiler-counter",
   tagPrefix: "naos-ui-compiler",
 }
+const { version: packageVersion } = JSON.parse(
+  readFileSync(new URL("../package.json", import.meta.url), "utf8")
+) as { version: string }
 
 describe("@naos-ui/compiler wrapper", () => {
   afterEach(() => {
@@ -83,7 +87,7 @@ describe("@naos-ui/compiler wrapper", () => {
         name: "@naos-ui/compiler",
         packageJsonPath: `${process.cwd()}/package.json`,
         tagPrefix: "naos-ui-compiler",
-        version: "0.0.0",
+        version: packageVersion,
       },
       shadow: true,
       tagName: "naos-ui-compiler-counter",
@@ -160,7 +164,7 @@ describe("@naos-ui/compiler wrapper", () => {
         name: "@naos-ui/compiler",
         packageJsonPath: `${process.cwd()}/package.json`,
         tagPrefix: "naos-ui-compiler",
-        version: "0.0.0",
+        version: packageVersion,
       },
       shadow: true,
       tagName: "naos-ui-compiler-counter",

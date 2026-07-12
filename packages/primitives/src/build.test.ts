@@ -4,6 +4,9 @@ import { join } from "node:path"
 import { describe, expect, it } from "vitest"
 
 const distRoot = join(import.meta.dirname, "..", "dist")
+const { version: packageVersion } = JSON.parse(
+  readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")
+) as { version: string }
 
 describe("@naos-ui/primitives build output", () => {
   it("ships compiled component modules without Vite-only CSS imports", () => {
@@ -27,7 +30,7 @@ describe("@naos-ui/primitives build output", () => {
     expect(manifest.package).toEqual({
       name: "@naos-ui/primitives",
       tagPrefix: "naos",
-      version: "0.0.0",
+      version: packageVersion,
     })
     expect(manifest.components).toContainEqual(
       expect.objectContaining({
