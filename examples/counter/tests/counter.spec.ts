@@ -179,6 +179,7 @@ test("compiled reactive output batches and gates DOM updates", async ({
   const primary = probe.locator("[data-probe-primary]")
   const secondary = probe.locator("[data-probe-secondary]")
   const primaryButton = probe.locator("[data-probe-primary-button]")
+  const equalButton = probe.locator("[data-probe-equal-button]")
   const secondaryButton = probe.locator("[data-probe-secondary-button]")
   const batchButton = probe.locator("[data-probe-batch-button]")
   const flushButton = probe.locator("[data-probe-flush-button]")
@@ -186,6 +187,10 @@ test("compiled reactive output batches and gates DOM updates", async ({
 
   await expect(primary).toHaveText("0")
   await expect(secondary).toHaveText("0")
+  await expect(body).toHaveAttribute("data-probe-effect-runs", "1")
+
+  await equalButton.click()
+  await expect(primary).toHaveText("0")
   await expect(body).toHaveAttribute("data-probe-effect-runs", "1")
 
   await probe.evaluate((element) => {
