@@ -385,6 +385,20 @@ between documents also preserves its state; Naos does not currently expose an
 authoring-level `adoptedCallback`, and connection setup resumes when the host is
 inserted into its destination document.
 
+## Runtime Errors
+
+Generated render and effect errors do not leave an update scope open. Pending
+`host().update()` promises still resolve, queued host tasks are isolated from
+one another, and the next state change performs a full recovery update. The
+host dispatches a bubbling, composed `naos-error` event whose detail is
+`{ error }`, then forwards the same value to the platform `reportError()`
+channel. The event is observational and is not cancelable.
+
+Errors thrown by native event handlers follow the browser's native event error
+path. They do not run inside the generated update scope, so they cannot leave
+`host().update()` pending. Naos does not currently expose an authoring-level
+error hook; consumers can observe `naos-error` on the host or an ancestor.
+
 ## Events
 
 Events are typed at authoring time.

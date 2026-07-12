@@ -1695,6 +1695,15 @@ mod tests {
         assert!(result.code.contains("flushSync: () => this.#flushSync(),"));
         assert!(result.code.contains("this.#beginHostUpdateScope();"));
         assert!(result.code.contains("this.#finishHostUpdateScope();"));
+        assert!(result.code.contains("} catch (error) {"));
+        assert!(result.code.contains("} finally {"));
+        assert!(
+            result
+                .code
+                .contains("if (didFail) this.#reportError(flushError);")
+        );
+        assert!(result.code.contains("new CustomEvent(\"naos-error\""));
+        assert!(result.code.contains("reporter.call(globalThis, error);"));
         assert!(result.code.contains("this.#abortController.abort();"));
         assert!(result.code.contains("this.#abortHostUpdateScope();"));
         assert!(result.code.contains("#eventAbortControllers = new Set();"));

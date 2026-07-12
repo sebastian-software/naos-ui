@@ -17,6 +17,7 @@ declare global {
     __naosPrimitiveEvents?: PrimitiveEventRecord[]
     __naosProbeSecondaryMutationCount?: () => number
     __naosProbeSecondaryMutationObserver?: MutationObserver
+    __naosReportedErrors?: string[]
     __naosSelectorMutationCounts?: Record<string, number>
     __naosSelectorMutationObserver?: MutationObserver
   }
@@ -343,6 +344,46 @@ test("compiled async lifecycle signals abort stale work", async ({ page }) => {
   await primaryButton.click()
   await expect(primary).toHaveText("2")
   await expect(body).toHaveAttribute("data-probe-update-abort-count", "1")
+})
+
+test("compiled update errors settle awaiters and recover", async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__naosReportedErrors = []
+    Object.defineProperty(globalThis, "reportError", {
+      configurable: true,
+      value: (error: unknown) => {
+        window.__naosReportedErrors?.push(
+          error instanceof Error ? error.message : String(error)
+        )
+      },
+    })
+  })
+  await page.goto("/")
+
+  const probe = page.locator("#reactivity-probe-case demo-reactivity-probe")
+  const primary = probe.locator("[data-probe-primary]")
+  const body = page.locator("body")
+  await probe.evaluate((element) => {
+    element.addEventListener("naos-error", (event) => {
+      const error = (event as CustomEvent<{ error: unknown }>).detail.error
+      document.body.dataset.probeErrorEvent =
+        error instanceof Error ? error.message : String(error)
+    })
+  })
+
+  await probe.locator("[data-probe-error-button]").click()
+  await expect(body).toHaveAttribute("data-probe-error-update-settled", "true")
+  await expect(body).toHaveAttribute("data-probe-error-queued-task", "true")
+  await expect(body).toHaveAttribute(
+    "data-probe-error-event",
+    "intentional lifecycle probe failure"
+  )
+  await expect
+    .poll(() => page.evaluate(() => window.__naosReportedErrors ?? []))
+    .toContain("intentional lifecycle probe failure")
+
+  await probe.locator("[data-probe-recover-button]").click()
+  await expect(primary).toHaveText("1")
 })
 
 test("compiled event helpers preserve native listener options", async ({ page }) => {
