@@ -1,11 +1,16 @@
 import { readFile } from "node:fs/promises"
-import { dirname, isAbsolute, relative, resolve } from "node:path"
+import { dirname, resolve } from "node:path"
 
 import {
+  createNaosManifest,
   isNaosCompilerError,
   renderDeclarativeShadowDom,
+  serializeNaosManifest,
   transformComponent,
   type NaosDiagnostic,
+  type NaosManifest,
+  type NaosManifestComponent,
+  type NaosManifestComponentInput,
   type RenderDeclarativeShadowDomRequest,
   type RenderDeclarativeShadowDomResult,
 } from "@naos-ui/compiler"
@@ -15,38 +20,29 @@ export type NaosVitePluginOptions = {
   include?: FilterPattern
   exclude?: FilterPattern
   prerender?: boolean | NaosDeclarativeShadowDomPrerenderOptions
+  manifestFile?: string | false
 }
 
 export type NaosDeclarativeShadowDomPrerenderOptions = {
   include?: FilterPattern
   exclude?: FilterPattern
-  manifestFile?: string | false
 }
 
-export type NaosDeclarativeShadowDomManifestEntry = {
-  tagName: string
-  className: string
-  exportName?: string | null
-  importPath: string
-  clientModule: string
-  shadow: boolean
-  usesDeclarativeShadowDom: boolean
-}
-
-export type NaosDeclarativeShadowDomManifest = {
-  components: NaosDeclarativeShadowDomManifestEntry[]
-}
+export type NaosDeclarativeShadowDomManifestEntry = NaosManifestComponent
+export type NaosDeclarativeShadowDomManifest = NaosManifest
 
 export function naos(options: NaosVitePluginOptions = {}): Plugin {
   const filter = createFilter(options.include ?? /\.wc\.tsx$/, options.exclude ?? /node_modules/)
   const prerenderOptions = normalizePrerenderOptions(options.prerender)
+  const manifestFile =
+    options.manifestFile === undefined ? "naos-manifest.json" : options.manifestFile
   const prerenderFilter = prerenderOptions
     ? createFilter(
         prerenderOptions.include ?? options.include ?? /\.wc\.tsx$/,
         prerenderOptions.exclude ?? options.exclude ?? /node_modules/
       )
     : null
-  const manifest = new Map<string, NaosDeclarativeShadowDomManifestEntry>()
+  const manifest = new Map<string, NaosManifestComponentInput>()
 
   return {
     name: "naos:transform",
@@ -67,6 +63,16 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
           return null
         }
 
+        manifest.set(filename, {
+          className: result.className,
+          exportName: result.exportName,
+          filename,
+          package: result.package,
+          shadow: result.shadow,
+          tagName: result.tagName,
+          usesDeclarativeShadowDom: false,
+        })
+
         if (prerenderFilter?.(filename)) {
           const inlineStyles = await resolveInlineStyles(code, filename)
           const prerendered = renderNaosDeclarativeShadowDom({
@@ -74,12 +80,11 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
             inlineStyles,
             source: code,
           })
-          const manifestPath = manifestComponentPath(filename)
           manifest.set(filename, {
             className: prerendered.className,
-            clientModule: manifestPath,
             exportName: prerendered.exportName,
-            importPath: manifestPath,
+            filename,
+            package: prerendered.package,
             shadow: prerendered.shadow,
             tagName: prerendered.tagName,
             usesDeclarativeShadowDom: prerendered.usesDeclarativeShadowDom,
@@ -99,19 +104,15 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
       }
     },
     generateBundle() {
-      if (!prerenderOptions?.manifestFile || manifest.size === 0) {
+      if (!manifestFile || manifest.size === 0) {
         return
       }
 
-      const manifestJson: NaosDeclarativeShadowDomManifest = {
-        components: [...manifest.values()].sort((left, right) =>
-          left.importPath.localeCompare(right.importPath)
-        ),
-      }
+      const manifestJson = createNaosManifest([...manifest.values()])
 
       this.emitFile({
-        fileName: prerenderOptions.manifestFile,
-        source: `${JSON.stringify(manifestJson, null, 2)}\n`,
+        fileName: manifestFile,
+        source: serializeNaosManifest(manifestJson),
         type: "asset",
       })
     },
@@ -179,18 +180,6 @@ function stripQuery(id: string): string {
   return id.split("?")[0] ?? id
 }
 
-function manifestComponentPath(filename: string): string {
-  if (!isAbsolute(filename)) {
-    return filename
-  }
-
-  const relativePath = relative(process.cwd(), filename).replaceAll("\\", "/")
-  if (relativePath.startsWith("..")) {
-    return filename
-  }
-  return relativePath
-}
-
 function normalizePrerenderOptions(
   options: NaosVitePluginOptions["prerender"]
 ): NaosDeclarativeShadowDomPrerenderOptions | null {
@@ -198,12 +187,7 @@ function normalizePrerenderOptions(
     return null
   }
   if (options === undefined || options === true) {
-    return {
-      manifestFile: "naos-manifest.json",
-    }
+    return {}
   }
-  return {
-    ...options,
-    manifestFile: options.manifestFile ?? "naos-manifest.json",
-  }
+  return options
 }

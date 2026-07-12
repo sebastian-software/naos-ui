@@ -6,6 +6,17 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { naos } from "./vite.js"
 
+const nativeMetadata = {
+  className: "CounterElement",
+  exportName: "Counter",
+  packageName: "@naos-ui/vite",
+  packageVersion: "0.0.0",
+  shadow: true,
+  tagName: "naos-ui-vite-counter",
+  tagPrefix: "naos-ui-vite",
+}
+const fixtureFilename = join(process.cwd(), "src/counter.wc.tsx")
+
 describe("naos", () => {
   afterEach(() => {
     setNativeBindingsForTesting(null)
@@ -27,15 +38,17 @@ describe("naos", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "test" }),
       renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
         className: "CounterElement",
         exportName: "Counter",
         html: "",
         shadow: true,
-        tagName: "x-counter",
+        tagName: "naos-ui-vite-counter",
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
       transformComponent: (request) => ({
+        ...nativeMetadata,
         code: `compiled:${request.filename}:${request.source}`,
         hasChanged: true,
       }),
@@ -47,10 +60,14 @@ describe("naos", () => {
       throw new Error("Expected transform hook")
     }
 
-    const result = await transform.call(mockPluginContext(), "source", "/src/counter.wc.tsx?raw")
+    const result = await transform.call(
+      mockPluginContext(),
+      "source",
+      `${fixtureFilename}?raw`
+    )
 
     expect(result).toEqual({
-      code: "compiled:/src/counter.wc.tsx:source",
+      code: `compiled:${fixtureFilename}:source`,
       map: null,
     })
   })
@@ -59,14 +76,16 @@ describe("naos", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "test" }),
       renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
         className: "CounterElement",
         html: "",
         shadow: true,
-        tagName: "x-counter",
+        tagName: "naos-ui-vite-counter",
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
       transformComponent: (request) => ({
+        ...nativeMetadata,
         code: "compiled",
         hasChanged: true,
         map: {
@@ -86,15 +105,15 @@ describe("naos", () => {
       throw new Error("Expected transform hook")
     }
 
-    const result = await transform.call(mockPluginContext(), "source", "/src/counter.wc.tsx")
+    const result = await transform.call(mockPluginContext(), "source", fixtureFilename)
 
     expect(result).toEqual({
       code: "compiled",
       map: {
-        file: "/src/counter.wc.tsx",
+        file: fixtureFilename,
         mappings: "AAAA",
         names: [],
-        sources: ["/src/counter.wc.tsx"],
+        sources: [fixtureFilename],
         sourcesContent: ["source"],
         version: 3,
       },
@@ -105,10 +124,11 @@ describe("naos", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "test" }),
       renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
         className: "CounterElement",
         html: "",
         shadow: true,
-        tagName: "x-counter",
+        tagName: "naos-ui-vite-counter",
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
@@ -116,7 +136,7 @@ describe("naos", () => {
         throw new NaosCompilerError("Unsupported JSX", [
           {
             code: "NAOS_UNSUPPORTED_SYNTAX",
-            filename: "/src/counter.wc.tsx",
+            filename: fixtureFilename,
             hint: "Use supported syntax.",
             message: "Unsupported JSX",
             severity: "error",
@@ -133,9 +153,9 @@ describe("naos", () => {
     }
 
     await expect(
-      transform.call(mockPluginContext(), "source", "/src/counter.wc.tsx")
+      transform.call(mockPluginContext(), "source", fixtureFilename)
     ).rejects.toThrow(
-      "/src/counter.wc.tsx:4-12 error NAOS_UNSUPPORTED_SYNTAX: Unsupported JSX\nhint: Use supported syntax."
+      `${fixtureFilename}:4-12 error NAOS_UNSUPPORTED_SYNTAX: Unsupported JSX\nhint: Use supported syntax.`
     )
   })
 
@@ -144,15 +164,17 @@ describe("naos", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "test" }),
       renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
         className: "CounterElement",
         exportName: "Counter",
-        html: "<x-counter></x-counter>",
+        html: "<naos-ui-vite-counter></naos-ui-vite-counter>",
         shadow: true,
-        tagName: "x-counter",
+        tagName: "naos-ui-vite-counter",
         templateHtml: '<template shadowrootmode="open"></template>',
         usesDeclarativeShadowDom: true,
       }),
       transformComponent: () => ({
+        ...nativeMetadata,
         code: "compiled",
         hasChanged: true,
       }),
@@ -165,7 +187,7 @@ describe("naos", () => {
       throw new Error("Expected transform and generateBundle hooks")
     }
 
-    await transform.call(mockPluginContext(), "source", "/src/counter.wc.tsx")
+    await transform.call(mockPluginContext(), "source", fixtureFilename)
     await generateBundle.call(
       {
         emitFile(file: unknown) {
@@ -182,7 +204,7 @@ describe("naos", () => {
       {
         fileName: "naos-manifest.json",
         source:
-          '{\n  "components": [\n    {\n      "className": "CounterElement",\n      "clientModule": "/src/counter.wc.tsx",\n      "exportName": "Counter",\n      "importPath": "/src/counter.wc.tsx",\n      "shadow": true,\n      "tagName": "x-counter",\n      "usesDeclarativeShadowDom": true\n    }\n  ]\n}\n',
+          '{\n  "schemaVersion": 1,\n  "package": {\n    "name": "@naos-ui/vite",\n    "version": "0.0.0",\n    "tagPrefix": "naos-ui-vite"\n  },\n  "components": [\n    {\n      "className": "CounterElement",\n      "exportName": "Counter",\n      "importPath": "src/counter.wc.tsx",\n      "shadow": true,\n      "tagName": "naos-ui-vite-counter",\n      "usesDeclarativeShadowDom": true\n    }\n  ]\n}\n',
         type: "asset",
       },
     ])
@@ -196,15 +218,17 @@ describe("naos", () => {
       renderDeclarativeShadowDom: () => {
         prerenderCalls += 1
         return {
+          ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
-          tagName: "x-counter",
+          tagName: "naos-ui-vite-counter",
           templateHtml: "",
           usesDeclarativeShadowDom: true,
         }
       },
       transformComponent: () => ({
+        ...nativeMetadata,
         code: "compiled",
         hasChanged: true,
       }),
@@ -217,7 +241,7 @@ describe("naos", () => {
       throw new Error("Expected transform and generateBundle hooks")
     }
 
-    await transform.call(mockPluginContext(), "source", "/src/counter.wc.tsx")
+    await transform.call(mockPluginContext(), "source", fixtureFilename)
     await generateBundle.call(
       {
         emitFile(file: unknown) {
@@ -231,13 +255,21 @@ describe("naos", () => {
     )
 
     expect(prerenderCalls).toBe(0)
-    expect(emitted).toEqual([])
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]).toMatchObject({ fileName: "naos-manifest.json", type: "asset" })
+    expect(String((emitted[0] as { source: string }).source)).toContain(
+      '"usesDeclarativeShadowDom": false'
+    )
   })
 
   it("passes resolved inline CSS imports to DSD prerendering", async () => {
     const root = await mkdtemp(join(tmpdir(), "naos-vite-"))
     try {
       const filename = join(root, "counter.wc.tsx")
+      await writeFile(
+        join(root, "package.json"),
+        '{"name":"@example/counter","version":"1.0.0"}\n'
+      )
       await writeFile(join(root, "counter.css"), ":host { display: block; }\n")
       let inlineStylesJson: string | undefined
 
@@ -246,16 +278,18 @@ describe("naos", () => {
         renderDeclarativeShadowDom: (request) => {
           inlineStylesJson = request.inlineStylesJson
           return {
+            ...nativeMetadata,
             className: "CounterElement",
             exportName: "Counter",
-            html: "<x-counter></x-counter>",
+            html: "<naos-ui-vite-counter></naos-ui-vite-counter>",
             shadow: true,
-            tagName: "x-counter",
+            tagName: "naos-ui-vite-counter",
             templateHtml: '<template shadowrootmode="open"></template>',
             usesDeclarativeShadowDom: true,
           }
         },
         transformComponent: () => ({
+          ...nativeMetadata,
           code: "compiled",
           hasChanged: true,
         }),

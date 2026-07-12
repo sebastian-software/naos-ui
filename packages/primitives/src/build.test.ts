@@ -14,6 +14,29 @@ describe("@naos-ui/primitives build output", () => {
     expect(button).not.toContain("?inline")
   })
 
+  it("ships a package-stable component manifest", () => {
+    const manifest = JSON.parse(
+      readFileSync(join(distRoot, "naos-manifest.json"), "utf8")
+    ) as {
+      schemaVersion: number
+      package: { name: string; tagPrefix: string; version: string | null }
+      components: Array<{ importPath: string; tagName: string }>
+    }
+
+    expect(manifest.schemaVersion).toBe(1)
+    expect(manifest.package).toEqual({
+      name: "@naos-ui/primitives",
+      tagPrefix: "naos",
+      version: "0.0.0",
+    })
+    expect(manifest.components).toContainEqual(
+      expect.objectContaining({
+        importPath: "src/button.wc.tsx",
+        tagName: "naos-button",
+      })
+    )
+  })
+
   it("exports every first-version primitive from the package entry", () => {
     const index = readFileSync(join(distRoot, "index.mjs"), "utf8")
 

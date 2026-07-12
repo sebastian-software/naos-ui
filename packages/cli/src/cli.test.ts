@@ -7,6 +7,25 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import { runCli, type CliIo } from "./cli.js"
 
+const nativeMetadata = {
+  className: "CounterElement",
+  exportName: "Counter",
+  packageName: "@example/counter",
+  packageVersion: "1.0.0",
+  shadow: true,
+  tagName: "example-counter-counter",
+  tagPrefix: "example-counter",
+}
+
+async function createProjectRoot(): Promise<string> {
+  const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
+  await writeFile(
+    join(root, "package.json"),
+    '{"name":"@example/counter","version":"1.0.0"}\n'
+  )
+  return root
+}
+
 function createIo(cwd?: string): CliIo & { stderrText(): string; stdoutText(): string } {
   let stdout = ""
   let stderr = ""
@@ -40,14 +59,15 @@ describe("@naos-ui/cli", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
       renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
         className: "CounterElement",
         html: "",
         shadow: true,
-        tagName: "x-counter",
+        tagName: "example-counter-counter",
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
-      transformComponent: () => ({ code: "", hasChanged: false }),
+      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
     })
     const io = createIo()
 
@@ -61,14 +81,15 @@ describe("@naos-ui/cli", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
       renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
         className: "CounterElement",
         html: "",
         shadow: true,
-        tagName: "x-counter",
+        tagName: "example-counter-counter",
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
-      transformComponent: () => ({ code: "", hasChanged: false }),
+      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
     })
     const io = createIo()
 
@@ -93,20 +114,22 @@ describe("@naos-ui/cli", () => {
   })
 
   it("compiles to stdout", async () => {
-    const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
+    const root = await createProjectRoot()
     try {
       await writeFile(join(root, "counter.wc.tsx"), "source")
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
-          tagName: "x-counter",
+          tagName: "example-counter-counter",
           templateHtml: "",
           usesDeclarativeShadowDom: true,
         }),
         transformComponent: (request) => ({
+          ...nativeMetadata,
           code: `compiled:${request.filename}:${request.source}`,
           hasChanged: true,
         }),
@@ -121,20 +144,22 @@ describe("@naos-ui/cli", () => {
   })
 
   it("writes compiled code and source maps to files", async () => {
-    const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
+    const root = await createProjectRoot()
     try {
       await writeFile(join(root, "counter.wc.tsx"), "source")
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
-          tagName: "x-counter",
+          tagName: "example-counter-counter",
           templateHtml: "",
           usesDeclarativeShadowDom: true,
         }),
         transformComponent: (request) => ({
+          ...nativeMetadata,
           code: "compiled",
           hasChanged: true,
           map: {
@@ -166,20 +191,22 @@ describe("@naos-ui/cli", () => {
   })
 
   it("writes compile JSON summaries when output is file-backed", async () => {
-    const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
+    const root = await createProjectRoot()
     try {
       await writeFile(join(root, "counter.wc.tsx"), "source")
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
-          tagName: "x-counter",
+          tagName: "example-counter-counter",
           templateHtml: "",
           usesDeclarativeShadowDom: true,
         }),
         transformComponent: (request) => ({
+          ...nativeMetadata,
           code: "compiled",
           hasChanged: true,
           map: {
@@ -198,11 +225,19 @@ describe("@naos-ui/cli", () => {
         runCli(["compile", "counter.wc.tsx", "-o", "counter.js", "--json"], io)
       ).resolves.toBe(0)
       expect(JSON.parse(io.stdoutText())).toEqual({
+        className: "CounterElement",
         command: "compile",
         hasChanged: true,
         input: join(root, "counter.wc.tsx"),
         map: join(root, "counter.js.map"),
         output: join(root, "counter.js"),
+        package: {
+          name: "@example/counter",
+          tagPrefix: "example-counter",
+          version: "1.0.0",
+        },
+        shadow: true,
+        tagName: "example-counter-counter",
       })
       expect(io.stderrText()).toBe("")
     } finally {
@@ -211,7 +246,7 @@ describe("@naos-ui/cli", () => {
   })
 
   it("prerenders with props and resolved inline styles", async () => {
-    const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
+    const root = await createProjectRoot()
     try {
       await writeFile(
         join(root, "counter.wc.tsx"),
@@ -227,15 +262,16 @@ describe("@naos-ui/cli", () => {
           propsJson = request.propsJson
           inlineStylesJson = request.inlineStylesJson
           return {
+            ...nativeMetadata,
             className: "CounterElement",
-            html: "<x-counter></x-counter>",
+            html: "<example-counter-counter></example-counter-counter>",
             shadow: true,
-            tagName: "x-counter",
+            tagName: "example-counter-counter",
             templateHtml: '<template shadowrootmode="open"></template>',
             usesDeclarativeShadowDom: true,
           }
         },
-        transformComponent: () => ({ code: "", hasChanged: false }),
+        transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
       })
       const io = createIo(root)
 
@@ -250,7 +286,7 @@ describe("@naos-ui/cli", () => {
         ], io)
       ).resolves.toBe(0)
       expect(await readFile(join(root, "counter.html"), "utf8")).toBe(
-        "<x-counter></x-counter>\n"
+        "<example-counter-counter></example-counter-counter>\n"
       )
       expect(propsJson).toBe('{"label":"Count"}')
       expect(inlineStylesJson).toBe('{"css":":host { display: block; }\\n"}')
@@ -260,21 +296,22 @@ describe("@naos-ui/cli", () => {
   })
 
   it("writes prerender JSON summaries when output is file-backed", async () => {
-    const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
+    const root = await createProjectRoot()
     try {
       await writeFile(join(root, "counter.wc.tsx"), "source")
 
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
           className: "CounterElement",
-          html: "<x-counter></x-counter>",
+          html: "<example-counter-counter></example-counter-counter>",
           shadow: true,
-          tagName: "x-counter",
+          tagName: "example-counter-counter",
           templateHtml: '<template shadowrootmode="open"></template>',
           usesDeclarativeShadowDom: true,
         }),
-        transformComponent: () => ({ code: "", hasChanged: false }),
+        transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
       })
       const io = createIo(root)
 
@@ -286,7 +323,7 @@ describe("@naos-ui/cli", () => {
         input: join(root, "counter.wc.tsx"),
         output: join(root, "counter.html"),
         shadow: true,
-        tagName: "x-counter",
+        tagName: "example-counter-counter",
         usesDeclarativeShadowDom: true,
       })
       expect(io.stdoutText()).toContain("\n  ")
@@ -296,20 +333,21 @@ describe("@naos-ui/cli", () => {
   })
 
   it("rejects JSON summaries when stdout carries generated output", async () => {
-    const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
+    const root = await createProjectRoot()
     try {
       await writeFile(join(root, "counter.wc.tsx"), "source")
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
-          tagName: "x-counter",
+          tagName: "example-counter-counter",
           templateHtml: "",
           usesDeclarativeShadowDom: true,
         }),
-        transformComponent: () => ({ code: "compiled", hasChanged: true }),
+        transformComponent: () => ({ ...nativeMetadata, code: "compiled", hasChanged: true }),
       })
       const io = createIo(root)
 
@@ -326,7 +364,7 @@ describe("@naos-ui/cli", () => {
   })
 
   it("renders missing input files as stable CLI errors", async () => {
-    const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
+    const root = await createProjectRoot()
     try {
       const io = createIo(root)
 
@@ -339,16 +377,17 @@ describe("@naos-ui/cli", () => {
   })
 
   it("renders structured compiler diagnostics to stderr", async () => {
-    const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
+    const root = await createProjectRoot()
     try {
       await writeFile(join(root, "counter.wc.tsx"), "source")
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
-          tagName: "x-counter",
+          tagName: "example-counter-counter",
           templateHtml: "",
           usesDeclarativeShadowDom: true,
         }),

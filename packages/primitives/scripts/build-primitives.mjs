@@ -1,7 +1,11 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 
-import { transformComponent } from "@naos-ui/compiler"
+import {
+  createNaosManifest,
+  serializeNaosManifest,
+  transformComponent,
+} from "@naos-ui/compiler"
 import { springMotionTokenCss } from "@naos-ui/motion"
 import ts from "typescript"
 
@@ -102,6 +106,7 @@ await rm(distRoot, { force: true, recursive: true })
 await mkdir(distRoot, { recursive: true })
 
 const exports = []
+const manifestEntries = []
 
 for (const component of components) {
   const filename = join(sourceRoot, `${component}.wc.tsx`)
@@ -111,13 +116,29 @@ for (const component of components) {
     motionCss: motionCssForComponentSource(source),
   })
   await writeFile(join(distRoot, `${component}.mjs`), `${code}\n`)
-  await writeFile(join(distRoot, `${component}.d.mts`), declarationFor(component))
+  await writeFile(
+    join(distRoot, `${component}.d.mts`),
+    declarationFor(component, transformed.tagName)
+  )
+  manifestEntries.push({
+    className: transformed.className,
+    exportName: transformed.exportName,
+    filename,
+    package: transformed.package,
+    shadow: transformed.shadow,
+    tagName: transformed.tagName,
+    usesDeclarativeShadowDom: false,
+  })
   exports.push(component)
 }
 
 await writeFile(
   join(distRoot, "index.mjs"),
   `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`
+)
+await writeFile(
+  join(distRoot, "naos-manifest.json"),
+  serializeNaosManifest(createNaosManifest(manifestEntries))
 )
 await writeFile(
   join(distRoot, "index.d.mts"),
@@ -192,9 +213,8 @@ async function buildTypeScriptFile({ distRoot, filename, sourceRoot }) {
   await writeFile(join(distRoot, filename.replace(/\.ts$/, ".js")), `${output.outputText}\n`)
 }
 
-function declarationFor(component) {
+function declarationFor(component, tagName) {
   const className = classNameFor(component)
-  const tagName = `naos-${component}`
   return `export declare class ${className} extends HTMLElement {}
 export { ${className} as ${exportNameFor(component)} };
 export default ${className};
