@@ -269,15 +269,37 @@ see [docs/authoring.md](docs/authoring.md).
 ## Packages
 
 ```txt
-@naos-ui/core       Authoring API and JSX runtime types
-@naos-ui/motion     Framework-free motion kernels for generated output and primitives
-@naos-ui/runtime    Tiny platform helpers for generated elements
-@naos-ui/router     Tiny platform router for Custom Element app shells
-@naos-ui/compiler   Node wrapper around the Rust compiler
-@naos-ui/compiler-* Platform-specific optional native compiler bindings
-@naos-ui/cli        Minimal compile, prerender, and info commands
-@naos-ui/vite       Vite transform and prerender metadata integration
+Foundations
+  @naos-ui/core       Authoring API and JSX runtime types
+  @naos-ui/runtime    Tiny platform helpers for generated elements
+  @naos-ui/motion     Framework-free motion kernels for generated output and primitives
+  @naos-ui/data       Framework-free reactive data primitives
+  @naos-ui/compiler   Node wrapper around the Rust compiler
+  @naos-ui/compiler-* Platform-specific optional native compiler bindings
+
+Optional layers and adapters
+  @naos-ui/primitives  Accessible native Custom Element primitives
+  @naos-ui/router      Tiny platform router for Custom Element app shells
+  @naos-ui/vite        Vite transform and prerender metadata integration
+  @naos-ui/cli         Minimal compile, prerender, and info commands
+  @naos-ui/data-convex Convex adapter for Naos data primitives
 ```
+
+```text
+Applications and examples
+          |
+          v
+Optional layers and adapters
+  primitives, router, vite, cli, data-convex
+          |
+          v
+Foundations
+  core, runtime, motion, data, compiler
+```
+
+Optional packages may depend on Naos foundations. Foundations never import
+optional product layers. CI checks both source imports and package manifests,
+so this boundary is enforced rather than conventional.
 
 `@naos-ui/runtime` is intentionally not a component runtime. It may expose small
 platform helpers such as event creation, scheduling, or hydration helpers, but
