@@ -400,7 +400,9 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
         transformed
       )
     if (!inlineMap) throw new Error("Missing inline source map from Vite.")
-    const map = JSON.parse(atob(inlineMap[1])) as { mappings: string }
+    const encodedMap = inlineMap[1]
+    if (!encodedMap) throw new Error("Missing inline source map payload.")
+    const map = JSON.parse(atob(encodedMap)) as { mappings: string }
     let originalLine = 0
     let originalColumn = 0
     let originalSource = 0
