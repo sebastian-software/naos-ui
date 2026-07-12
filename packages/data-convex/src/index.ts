@@ -1,8 +1,8 @@
 import {
-  ResourceCache,
-  type Resource,
-  type ResourceKey,
-  defaultResourceCache,
+  NaosResourceCache,
+  type NaosResource,
+  type NaosResourceKey,
+  defaultNaosResourceCache,
   normalizeResourceKey,
   subscriptionResource,
 } from "@naos-ui/data"
@@ -15,22 +15,22 @@ import type {
   OptionalRestArgs,
 } from "convex/server"
 
-export type ConvexUnsubscribe<Data> = {
+export type NaosConvexUnsubscribe<Data> = {
   (): void
   unsubscribe(): void
   getCurrentValue(): Data | undefined
 }
 
-export type ConvexQueryClient = {
+export type NaosConvexQueryClient = {
   onUpdate<Query extends FunctionReference<"query">>(
     query: Query,
     args: FunctionArgs<Query>,
     callback: (result: FunctionReturnType<Query>) => unknown,
     onError?: (error: Error) => unknown
-  ): ConvexUnsubscribe<FunctionReturnType<Query>>
+  ): NaosConvexUnsubscribe<FunctionReturnType<Query>>
 }
 
-export type ConvexMutationClient = {
+export type NaosConvexMutationClient = {
   mutation<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
     args: FunctionArgs<Mutation>,
@@ -38,42 +38,42 @@ export type ConvexMutationClient = {
   ): Promise<Awaited<FunctionReturnType<Mutation>>>
 }
 
-export type ConvexActionClient = {
+export type NaosConvexActionClient = {
   action<Action extends FunctionReference<"action">>(
     action: Action,
     args: FunctionArgs<Action>
   ): Promise<Awaited<FunctionReturnType<Action>>>
 }
 
-export type ConvexConnectionClient = {
+export type NaosConvexConnectionClient = {
   connectionState(): ConnectionState
   subscribeToConnectionState(callback: (connectionState: ConnectionState) => void): () => void
 }
 
-export type ConvexResourceOptions<Data> = {
-  cache?: ResourceCache
+export type NaosConvexResourceOptions<Data> = {
+  cache?: NaosResourceCache
   initialData?: Data
-  key?: ResourceKey
+  key?: NaosResourceKey
 }
 
-export type ConvexConnectionResourceOptions = {
-  cache?: ResourceCache
+export type NaosConvexConnectionResourceOptions = {
+  cache?: NaosResourceCache
   initialData?: ConnectionState
-  key?: ResourceKey
+  key?: NaosResourceKey
 }
 
 export function convexResource<Query extends FunctionReference<"query">>(
-  client: ConvexQueryClient,
+  client: NaosConvexQueryClient,
   query: Query,
   args: FunctionArgs<Query> | "skip",
-  options: ConvexResourceOptions<FunctionReturnType<Query>> = {}
-): Resource<FunctionReturnType<Query>, Error> {
+  options: NaosConvexResourceOptions<FunctionReturnType<Query>> = {}
+): NaosResource<FunctionReturnType<Query>, Error> {
   if (args === "skip") {
     return subscriptionResource(null, () => () => {}, { cache: options.cache })
   }
 
   const resourceKey = options.key ?? convexQueryKey(query, args)
-  return subscriptionResource<FunctionReturnType<Query>, ResourceKey, Error>(
+  return subscriptionResource<FunctionReturnType<Query>, NaosResourceKey, Error>(
     resourceKey,
     (_key, { next }) => {
       const unsubscribe = client.onUpdate(
@@ -109,7 +109,7 @@ export function convexQueryKey<Query extends FunctionReference<"query">>(
 }
 
 export function convexMutation<Mutation extends FunctionReference<"mutation">>(
-  client: ConvexMutationClient,
+  client: NaosConvexMutationClient,
   mutation: Mutation,
   options?: MutationOptions
 ): (...args: OptionalRestArgs<Mutation>) => Promise<Awaited<FunctionReturnType<Mutation>>> {
@@ -117,18 +117,18 @@ export function convexMutation<Mutation extends FunctionReference<"mutation">>(
 }
 
 export function convexAction<Action extends FunctionReference<"action">>(
-  client: ConvexActionClient,
+  client: NaosConvexActionClient,
   action: Action
 ): (...args: OptionalRestArgs<Action>) => Promise<Awaited<FunctionReturnType<Action>>> {
   return (...args) => client.action(action, (args[0] ?? {}) as FunctionArgs<Action>)
 }
 
 export function convexConnectionResource(
-  client: ConvexConnectionClient,
-  options: ConvexConnectionResourceOptions = {}
-): Resource<ConnectionState, Error> {
-  const cache = options.cache ?? defaultResourceCache
-  return subscriptionResource<ConnectionState, ResourceKey, Error>(
+  client: NaosConvexConnectionClient,
+  options: NaosConvexConnectionResourceOptions = {}
+): NaosResource<ConnectionState, Error> {
+  const cache = options.cache ?? defaultNaosResourceCache
+  return subscriptionResource<ConnectionState, NaosResourceKey, Error>(
     options.key ?? "convex:connection",
     (_key, { next }) => {
       try {
@@ -146,7 +146,7 @@ export function convexConnectionResource(
   )
 }
 
-function unsubscribeConvex(unsubscribe: ConvexUnsubscribe<unknown>): void {
+function unsubscribeConvex(unsubscribe: NaosConvexUnsubscribe<unknown>): void {
   unsubscribe.unsubscribe()
 }
 

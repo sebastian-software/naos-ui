@@ -1,10 +1,10 @@
-export type DisabledResourceKey = null | undefined | false
+export type NaosDisabledResourceKey = null | undefined | false
 
-export type EnabledResourceKey = string | readonly unknown[] | Record<string, unknown>
+export type NaosEnabledResourceKey = string | readonly unknown[] | Record<string, unknown>
 
-export type ResourceKey = EnabledResourceKey | DisabledResourceKey
+export type NaosResourceKey = NaosEnabledResourceKey | NaosDisabledResourceKey
 
-export type NormalizedResourceKey<Key extends ResourceKey = ResourceKey> =
+export type NaosNormalizedResourceKey<Key extends NaosResourceKey = NaosResourceKey> =
   | {
       readonly disabled: true
       readonly argument: Key
@@ -12,11 +12,11 @@ export type NormalizedResourceKey<Key extends ResourceKey = ResourceKey> =
     }
   | {
       readonly disabled: false
-      readonly argument: Exclude<Key, DisabledResourceKey>
+      readonly argument: Exclude<Key, NaosDisabledResourceKey>
       readonly key: string
     }
 
-export type ResourceState<Data, Error = unknown> =
+export type NaosResourceState<Data, Error = unknown> =
   | {
       readonly status: "pending"
       readonly data?: Data
@@ -36,16 +36,16 @@ export type ResourceState<Data, Error = unknown> =
       readonly stale?: boolean
     }
 
-export type ResourceMutateOptions<Data, MutationData = Data> = {
+export type NaosResourceMutateOptions<Data, MutationData = Data> = {
   optimisticData?: Data | ((current: Data | undefined) => Data)
   populateCache?: boolean | ((result: MutationData, current: Data | undefined) => Data)
   revalidate?: boolean
   rollbackOnError?: boolean | ((error: unknown) => boolean)
 }
 
-export type Resource<Data, Error = unknown> = {
+export type NaosResource<Data, Error = unknown> = {
   readonly key: string | undefined
-  snapshot(): ResourceState<Data, Error>
+  snapshot(): NaosResourceState<Data, Error>
   subscribe(callback: () => void): () => void
   refetch?(): Promise<Data>
   mutate?<MutationData = Data>(
@@ -53,42 +53,42 @@ export type Resource<Data, Error = unknown> = {
       | MutationData
       | Promise<MutationData>
       | ((current: Data | undefined) => MutationData | Promise<MutationData>),
-    options?: ResourceMutateOptions<Data, MutationData>
+    options?: NaosResourceMutateOptions<Data, MutationData>
   ): Promise<MutationData | undefined>
   dispose(): void
 }
 
-export type ResourceFetchContext = {
+export type NaosResourceFetchContext = {
   readonly signal: AbortSignal
 }
 
-export type ResourceFetchOptions<Data> = {
+export type NaosResourceFetchOptions<Data> = {
   initialData?: Data
   revalidateIfStale?: boolean
 }
 
-export type ResourceFetcher<Data, Key extends EnabledResourceKey> = (
+export type NaosResourceFetcher<Data, Key extends NaosEnabledResourceKey> = (
   key: Key,
-  context: ResourceFetchContext
+  context: NaosResourceFetchContext
 ) => Data | Promise<Data>
 
-export type SubscriptionNext<Data, Error = unknown> = (
+export type NaosResourceSubscriptionNext<Data, Error = unknown> = (
   error: Error | null | undefined,
   data?: Data | ((current: Data | undefined) => Data)
 ) => void
 
-export type ResourceSubscriptionContext<Data, Error = unknown> = {
-  readonly next: SubscriptionNext<Data, Error>
+export type NaosResourceSubscriptionContext<Data, Error = unknown> = {
+  readonly next: NaosResourceSubscriptionNext<Data, Error>
   readonly signal: AbortSignal
 }
 
-export type ResourceSubscriber<Data, Key extends EnabledResourceKey, Error = unknown> = (
+export type NaosResourceSubscriber<Data, Key extends NaosEnabledResourceKey, Error = unknown> = (
   key: Key,
-  context: ResourceSubscriptionContext<Data, Error>
+  context: NaosResourceSubscriptionContext<Data, Error>
 ) => () => void
 
 type CacheEntry<Data, Error> = {
-  state: ResourceState<Data, Error>
+  state: NaosResourceState<Data, Error>
   listeners: Set<() => void>
 }
 
@@ -104,20 +104,20 @@ type ActiveSubscription = {
   references: number
 }
 
-export class ResourceCache {
+export class NaosResourceCache {
   readonly #entries = new Map<string, CacheEntry<unknown, unknown>>()
   readonly #fetches = new Map<string, InflightFetch<unknown>>()
   readonly #subscriptions = new Map<string, ActiveSubscription>()
 
-  snapshot<Data, Error = unknown>(key: string | undefined): ResourceState<Data, Error> {
+  snapshot<Data, Error = unknown>(key: string | undefined): NaosResourceState<Data, Error> {
     if (key === undefined) {
       return { status: "pending" }
     }
 
-    return (this.#entries.get(key)?.state as ResourceState<Data, Error> | undefined) ?? { status: "pending" }
+    return (this.#entries.get(key)?.state as NaosResourceState<Data, Error> | undefined) ?? { status: "pending" }
   }
 
-  set<Data, Error = unknown>(key: string, state: ResourceState<Data, Error>): void {
+  set<Data, Error = unknown>(key: string, state: NaosResourceState<Data, Error>): void {
     const entry = this.#entry<Data, Error>(key)
     entry.state = state
     for (const listener of entry.listeners) {
@@ -143,7 +143,7 @@ export class ResourceCache {
       | MutationData
       | Promise<MutationData>
       | ((current: Data | undefined) => MutationData | Promise<MutationData>),
-    options: ResourceMutateOptions<Data, MutationData> = {}
+    options: NaosResourceMutateOptions<Data, MutationData> = {}
   ): Promise<MutationData | undefined> {
     const previous = this.snapshot<Data>(key)
     const current = stateData(previous)
@@ -179,11 +179,11 @@ export class ResourceCache {
       })
   }
 
-  startFetch<Data, Error, Key extends EnabledResourceKey>(
+  startFetch<Data, Error, Key extends NaosEnabledResourceKey>(
     key: string,
     argument: Key,
-    fetcher: ResourceFetcher<Data, Key>,
-    options: ResourceFetchOptions<Data> = {}
+    fetcher: NaosResourceFetcher<Data, Key>,
+    options: NaosResourceFetchOptions<Data> = {}
   ): { promise: Promise<Data>; release: () => void } {
     const previous = this.snapshot<Data, Error>(key)
     if (previous.status === "success" && options.revalidateIfStale === false) {
@@ -238,10 +238,10 @@ export class ResourceCache {
     }
   }
 
-  attachSubscription<Data, Error, Key extends EnabledResourceKey>(
+  attachSubscription<Data, Error, Key extends NaosEnabledResourceKey>(
     key: string,
     argument: Key,
-    subscriber: ResourceSubscriber<Data, Key, Error>
+    subscriber: NaosResourceSubscriber<Data, Key, Error>
   ): () => void {
     const existing = this.#subscriptions.get(key)
     if (existing) {
@@ -250,7 +250,7 @@ export class ResourceCache {
     }
 
     const controller = new AbortController()
-    const next: SubscriptionNext<Data, Error> = (error, data) => {
+    const next: NaosResourceSubscriptionNext<Data, Error> = (error, data) => {
       if (controller.signal.aborted) {
         return
       }
@@ -320,37 +320,37 @@ export class ResourceCache {
   }
 }
 
-export const defaultResourceCache = new ResourceCache()
+export const defaultNaosResourceCache = new NaosResourceCache()
 
-export function normalizeResourceKey<Key extends ResourceKey>(key: Key): NormalizedResourceKey<Key> {
+export function normalizeResourceKey<Key extends NaosResourceKey>(key: Key): NaosNormalizedResourceKey<Key> {
   if (key === null || key === undefined || key === false) {
     return { argument: key, disabled: true, key: undefined }
   }
 
   if (typeof key === "string") {
-    return { argument: key as Exclude<Key, DisabledResourceKey>, disabled: false, key }
+    return { argument: key as Exclude<Key, NaosDisabledResourceKey>, disabled: false, key }
   }
 
   return {
-    argument: key as Exclude<Key, DisabledResourceKey>,
+    argument: key as Exclude<Key, NaosDisabledResourceKey>,
     disabled: false,
     key: stableStringify(key),
   }
 }
 
-export function fetchResource<Data, Key extends ResourceKey>(
+export function fetchResource<Data, Key extends NaosResourceKey>(
   key: Key,
-  fetcher: ResourceFetcher<Data, Exclude<Key, DisabledResourceKey> & EnabledResourceKey>,
-  options: ResourceFetchOptions<Data> & { cache?: ResourceCache } = {}
-): Resource<Data> {
-  const cache = options.cache ?? defaultResourceCache
+  fetcher: NaosResourceFetcher<Data, Exclude<Key, NaosDisabledResourceKey> & NaosEnabledResourceKey>,
+  options: NaosResourceFetchOptions<Data> & { cache?: NaosResourceCache } = {}
+): NaosResource<Data> {
+  const cache = options.cache ?? defaultNaosResourceCache
   const normalized = normalizeResourceKey(key)
   if (normalized.disabled) {
     return disabledResource<Data>()
   }
 
   const resourceKey = normalized.key
-  const resourceArgument = normalized.argument as Exclude<Key, DisabledResourceKey> & EnabledResourceKey
+  const resourceArgument = normalized.argument as Exclude<Key, NaosDisabledResourceKey> & NaosEnabledResourceKey
   let releaseFetch = startFetch(false).release
   let disposed = false
 
@@ -397,12 +397,12 @@ export function fetchResource<Data, Key extends ResourceKey>(
   }
 }
 
-export function subscriptionResource<Data, Key extends ResourceKey, Error = unknown>(
+export function subscriptionResource<Data, Key extends NaosResourceKey, Error = unknown>(
   key: Key,
-  subscriber: ResourceSubscriber<Data, Exclude<Key, DisabledResourceKey> & EnabledResourceKey, Error>,
-  options: { cache?: ResourceCache; initialData?: Data } = {}
-): Resource<Data, Error> {
-  const cache = options.cache ?? defaultResourceCache
+  subscriber: NaosResourceSubscriber<Data, Exclude<Key, NaosDisabledResourceKey> & NaosEnabledResourceKey, Error>,
+  options: { cache?: NaosResourceCache; initialData?: Data } = {}
+): NaosResource<Data, Error> {
+  const cache = options.cache ?? defaultNaosResourceCache
   const normalized = normalizeResourceKey(key)
   if (normalized.disabled) {
     return disabledResource<Data, Error>()
@@ -414,7 +414,7 @@ export function subscriptionResource<Data, Key extends ResourceKey, Error = unkn
 
   const releaseSubscription = cache.attachSubscription(
     normalized.key,
-    normalized.argument as Exclude<Key, DisabledResourceKey> & EnabledResourceKey,
+    normalized.argument as Exclude<Key, NaosDisabledResourceKey> & NaosEnabledResourceKey,
     subscriber
   )
   let disposed = false
@@ -440,7 +440,7 @@ export function subscriptionResource<Data, Key extends ResourceKey, Error = unkn
   }
 }
 
-function disabledResource<Data, Error = unknown>(): Resource<Data, Error> {
+function disabledResource<Data, Error = unknown>(): NaosResource<Data, Error> {
   return {
     key: undefined,
     dispose() {},
@@ -453,13 +453,13 @@ function disabledResource<Data, Error = unknown>(): Resource<Data, Error> {
   }
 }
 
-function stateData<Data>(state: ResourceState<Data>): Data | undefined {
+function stateData<Data>(state: NaosResourceState<Data>): Data | undefined {
   return state.data
 }
 
 function stableStringify(value: unknown): string {
   if (typeof value === "bigint" || typeof value === "function" || typeof value === "symbol") {
-    throw new TypeError("Resource keys must be JSON-serializable values.")
+    throw new TypeError("NaosResource keys must be JSON-serializable values.")
   }
 
   if (value === undefined) {

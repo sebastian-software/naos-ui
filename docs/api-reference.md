@@ -66,8 +66,8 @@ and resolves to an `AbortSignal` for work tied to that update pass.
 | --- | --- | --- |
 | `fetchResource(key, fetcher, options?)` | Experimental | Create an abortable, cached, stale-while-revalidate resource from a fetcher. |
 | `subscriptionResource(key, subscriber, options?)` | Experimental | Create a ref-counted resource from a push subscription source. |
-| `ResourceCache` | Experimental | Scope resource cache, in-flight fetches, and active subscriptions. |
-| `defaultResourceCache` | Experimental | Shared default cache for simple apps. |
+| `NaosResourceCache` | Experimental | Scope resource cache, in-flight fetches, and active subscriptions. |
+| `defaultNaosResourceCache` | Experimental | Shared default cache for simple apps. |
 | `normalizeResourceKey(key)` | Experimental | Convert string, tuple, or object keys into stable cache keys. |
 
 `null`, `undefined`, and `false` keys disable a resource. Fetchers receive an

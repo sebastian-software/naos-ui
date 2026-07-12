@@ -14,6 +14,14 @@ The base package supports two source types:
 The package is inspired by SWR's key, cache, revalidation, and mutate model,
 but it does not depend on SWR or React.
 
+## Public API Naming
+
+Public data and provider-adapter types use the `Naos` prefix, including
+`NaosResource`, `NaosResourceState`, `NaosResourceCache`, and
+`NaosConvexQueryClient`. Package-scoped functions remain concise verbs such as
+`fetchResource()` and `convexResource()`. The shared cache value is named
+`defaultNaosResourceCache`.
+
 ## Adapter Modularity
 
 `@naos-ui/data` must stay backend-neutral. It should not depend on Convex,
@@ -26,12 +34,12 @@ Provider integrations live in separate optional packages, such as
 Those adapters can depend on their provider SDKs while keeping the generic
 resource package small and usable for fetch-only applications.
 
-## Resource State
+## NaosResource State
 
 Every resource exposes the same shape:
 
 ```ts
-type ResourceState<Data, Error = unknown> =
+type NaosResourceState<Data, Error = unknown> =
   | { status: "pending"; data?: Data; stale?: boolean }
   | { status: "success"; data: Data; stale?: boolean }
   | { status: "error"; data?: Data; error: Error; stale?: boolean }
@@ -40,6 +48,11 @@ type ResourceState<Data, Error = unknown> =
 Use `snapshot()` to read the current state and `subscribe()` to receive change
 notifications. Naos component integration should subscribe for the element
 instance lifetime and schedule host updates from the subscription callback.
+
+Calling a resource's idempotent `dispose()` permanently releases the resource
+handle. The callback returned by `subscribe()` releases only that subscription.
+Fetchers receive a caller-owned `AbortSignal` for asynchronous cancellation;
+they do not dispose the resource itself.
 
 ## Fetch
 
@@ -111,7 +124,7 @@ const tasks = convexResource(convex, api.tasks.list, { projectId })
 const createTask = convexMutation(convex, api.tasks.create)
 ```
 
-The adapter uses the same `ResourceState` contract as `fetchResource()` and
+The adapter uses the same `NaosResourceState` contract as `fetchResource()` and
 `subscriptionResource()`, while leaving Convex client creation and auth
 configuration to the app.
 

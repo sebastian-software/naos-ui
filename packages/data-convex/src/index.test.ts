@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest"
 import { makeFunctionReference } from "convex/server"
 import type { ConnectionState } from "convex/browser"
 import type { FunctionArgs, FunctionReference, FunctionReturnType } from "convex/server"
-import { ResourceCache } from "@naos-ui/data"
+import { NaosResourceCache } from "@naos-ui/data"
 
-import type { ConvexUnsubscribe } from "./index.js"
+import type { NaosConvexUnsubscribe } from "./index.js"
 import {
   convexAction,
   convexConnectionResource,
@@ -34,7 +34,7 @@ describe("convexResource", () => {
 
   it("subscribes to Convex query updates", () => {
     const client = new FakeConvexClient()
-    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new ResourceCache() })
+    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new NaosResourceCache() })
 
     expect(resource.snapshot()).toEqual({ status: "pending" })
 
@@ -45,14 +45,14 @@ describe("convexResource", () => {
 
   it("uses the current Convex value immediately when available", () => {
     const client = new FakeConvexClient(["cached"])
-    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new ResourceCache() })
+    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new NaosResourceCache() })
 
     expect(resource.snapshot()).toEqual({ data: ["cached"], status: "success" })
   })
 
   it("stores Convex query errors in resource state", () => {
     const client = new FakeConvexClient(["cached"])
-    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new ResourceCache() })
+    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new NaosResourceCache() })
     const error = new Error("query failed")
 
     client.emitError(error)
@@ -62,7 +62,7 @@ describe("convexResource", () => {
 
   it("unsubscribes when disposed", () => {
     const client = new FakeConvexClient()
-    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new ResourceCache() })
+    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new NaosResourceCache() })
 
     expect(client.listenerCount()).toBe(1)
 
@@ -73,7 +73,7 @@ describe("convexResource", () => {
 
   it("does not subscribe when args are skipped", () => {
     const client = new FakeConvexClient()
-    const resource = convexResource(client, messagesQuery, "skip", { cache: new ResourceCache() })
+    const resource = convexResource(client, messagesQuery, "skip", { cache: new NaosResourceCache() })
 
     expect(client.listenerCount()).toBe(0)
     expect(resource.snapshot()).toEqual({ status: "pending" })
@@ -101,7 +101,7 @@ describe("convexMutation and convexAction", () => {
 describe("convexConnectionResource", () => {
   it("publishes connection state updates", () => {
     const client = new FakeConvexClient()
-    const resource = convexConnectionResource(client, { cache: new ResourceCache() })
+    const resource = convexConnectionResource(client, { cache: new NaosResourceCache() })
 
     expect(resource.snapshot()).toEqual({ data: disconnectedState, status: "success" })
 
@@ -144,13 +144,13 @@ class FakeConvexClient {
     _args: { channel: string },
     callback: (result: string[]) => unknown,
     onError?: (error: Error) => unknown
-  ): ConvexUnsubscribe<string[]> {
+  ): NaosConvexUnsubscribe<string[]> {
     const listener: Listener = { callback, onError }
     this.#listeners.add(listener)
 
     const unsubscribe = (() => {
       this.#listeners.delete(listener)
-    }) as ConvexUnsubscribe<string[]>
+    }) as NaosConvexUnsubscribe<string[]>
     unsubscribe.unsubscribe = unsubscribe
     unsubscribe.getCurrentValue = () => this.#current
     return unsubscribe
