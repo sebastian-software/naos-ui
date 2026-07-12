@@ -8,6 +8,15 @@ import {
   transformComponent,
 } from "./index.js"
 
+const nativeMetadata = {
+  className: "CounterElement",
+  exportName: "Counter",
+  packageName: "@naos-ui/compiler",
+  shadow: true,
+  tagName: "naos-ui-compiler-counter",
+  tagPrefix: "naos-ui-compiler",
+}
+
 describe("@naos-ui/compiler wrapper", () => {
   afterEach(() => {
     setNativeBindingsForTesting(null)
@@ -16,13 +25,10 @@ describe("@naos-ui/compiler wrapper", () => {
   it("forwards native info requests to the binding", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
-      transformComponent: () => ({ code: "", hasChanged: false }),
+      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
       renderDeclarativeShadowDom: () => ({
-        className: "CounterElement",
-        exportName: "Counter",
+        ...nativeMetadata,
         html: "",
-        shadow: true,
-        tagName: "x-counter",
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
@@ -35,6 +41,7 @@ describe("@naos-ui/compiler wrapper", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
       transformComponent: (request) => ({
+        ...nativeMetadata,
         code: `compiled:${request.filename}:${request.source.length}`,
         hasChanged: true,
         map: {
@@ -47,11 +54,8 @@ describe("@naos-ui/compiler wrapper", () => {
         },
       }),
       renderDeclarativeShadowDom: () => ({
-        className: "CounterElement",
-        exportName: "Counter",
+        ...nativeMetadata,
         html: "",
-        shadow: true,
-        tagName: "x-counter",
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
@@ -63,7 +67,9 @@ describe("@naos-ui/compiler wrapper", () => {
         source: "source",
       })
     ).toEqual({
+      className: "CounterElement",
       code: "compiled:counter.wc.tsx:6",
+      exportName: "Counter",
       hasChanged: true,
       map: {
         file: "counter.wc.tsx",
@@ -73,6 +79,14 @@ describe("@naos-ui/compiler wrapper", () => {
         sourcesContent: ["source"],
         version: 3,
       },
+      package: {
+        name: "@naos-ui/compiler",
+        packageJsonPath: `${process.cwd()}/package.json`,
+        tagPrefix: "naos-ui-compiler",
+        version: "0.0.0",
+      },
+      shadow: true,
+      tagName: "naos-ui-compiler-counter",
     })
   })
 
@@ -85,11 +99,8 @@ describe("@naos-ui/compiler wrapper", () => {
         )
       },
       renderDeclarativeShadowDom: () => ({
-        className: "CounterElement",
-        exportName: "Counter",
+        ...nativeMetadata,
         html: "",
-        shadow: true,
-        tagName: "x-counter",
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
@@ -125,13 +136,10 @@ describe("@naos-ui/compiler wrapper", () => {
   it("serializes prerender props and inline styles before forwarding DSD requests", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
-      transformComponent: () => ({ code: "", hasChanged: false }),
+      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
       renderDeclarativeShadowDom: (request) => ({
-        className: "CounterElement",
-        exportName: "Counter",
+        ...nativeMetadata,
         html: `props:${request.propsJson};styles:${request.inlineStylesJson}`,
-        shadow: true,
-        tagName: "x-counter",
         templateHtml: "<template shadowrootmode=\"open\"></template>",
         usesDeclarativeShadowDom: true,
       }),
@@ -148,8 +156,14 @@ describe("@naos-ui/compiler wrapper", () => {
       className: "CounterElement",
       exportName: "Counter",
       html: 'props:{"label":"Count"};styles:{"css":":host { display: block; }"}',
+      package: {
+        name: "@naos-ui/compiler",
+        packageJsonPath: `${process.cwd()}/package.json`,
+        tagPrefix: "naos-ui-compiler",
+        version: "0.0.0",
+      },
       shadow: true,
-      tagName: "x-counter",
+      tagName: "naos-ui-compiler-counter",
       templateHtml: '<template shadowrootmode="open"></template>',
       usesDeclarativeShadowDom: true,
     })

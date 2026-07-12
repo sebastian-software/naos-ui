@@ -42,6 +42,9 @@ importers:
         specifier: workspace:^
         version: link:../../packages/vite
     devDependencies:
+      '@naos-ui/compiler':
+        specifier: workspace:^
+        version: link:../../packages/compiler
       '@playwright/test':
         specifier: ^1.60.0
         version: 1.60.0

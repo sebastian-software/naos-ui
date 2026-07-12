@@ -11,6 +11,24 @@ import {
   loadNativeBindings,
   setNativeBindingsForTesting,
 } from "./native-loader.js"
+import {
+  resolveNaosPackageContext,
+  type NaosPackageContext,
+} from "./package-context.js"
+
+export {
+  createNaosManifest,
+  serializeNaosManifest,
+  type NaosManifest,
+  type NaosManifestComponent,
+  type NaosManifestComponentInput,
+  type NaosManifestPackage,
+} from "./manifest.js"
+export {
+  normalizePackageName,
+  resolveNaosPackageContext,
+} from "./package-context.js"
+export type { NaosPackageContext }
 
 export type NativeInfo = GeneratedNativeInfo
 export type SourceMap = NativeSourceMap
@@ -48,9 +66,21 @@ export class NaosCompilerError extends Error {
 export type TransformComponentRequest = {
   source: string
   filename: string
+  packageJsonPath?: string
 }
 
-export type TransformComponentResult = NativeTransformResult
+export type ComponentMetadata = {
+  tagName: string
+  className: string
+  exportName?: string | null
+  shadow: boolean
+  package: NaosPackageContext
+}
+
+export type TransformComponentResult = Omit<
+  NativeTransformResult,
+  "packageName" | "packageVersion" | "tagPrefix"
+> & ComponentMetadata
 
 export type DeclarativeShadowDomProps = Record<string, unknown>
 
@@ -59,9 +89,13 @@ export type RenderDeclarativeShadowDomRequest = {
   filename: string
   props?: DeclarativeShadowDomProps
   inlineStyles?: Record<string, string>
+  packageJsonPath?: string
 }
 
-export type RenderDeclarativeShadowDomResult = NativeDeclarativeShadowDomResult
+export type RenderDeclarativeShadowDomResult = Omit<
+  NativeDeclarativeShadowDomResult,
+  "packageName" | "packageVersion" | "tagPrefix"
+> & ComponentMetadata
 export type { NativeBindings, NativeDeclarativeShadowDomRequest, NativeTransformRequest }
 
 export function getNativeInfo(): NativeInfo {
@@ -71,22 +105,55 @@ export function getNativeInfo(): NativeInfo {
 export function transformComponent(
   request: TransformComponentRequest
 ): TransformComponentResult {
-  return withNativeDiagnostics(() => loadNativeBindings().transformComponent(request))
+  const packageContext = resolveNaosPackageContext(
+    request.filename,
+    request.packageJsonPath
+  )
+  const result = withNativeDiagnostics(() =>
+    loadNativeBindings().transformComponent({
+      filename: request.filename,
+      packageName: packageContext.name,
+      packageVersion: packageContext.version ?? undefined,
+      source: request.source,
+      tagPrefix: packageContext.tagPrefix,
+    })
+  )
+  const {
+    packageName: _packageName,
+    packageVersion: _packageVersion,
+    tagPrefix: _tagPrefix,
+    ...metadata
+  } = result
+  return { ...metadata, package: packageContext }
 }
 
 export function renderDeclarativeShadowDom(
   request: RenderDeclarativeShadowDomRequest
 ): RenderDeclarativeShadowDomResult {
-  return withNativeDiagnostics(() =>
+  const packageContext = resolveNaosPackageContext(
+    request.filename,
+    request.packageJsonPath
+  )
+  const result = withNativeDiagnostics(() =>
     loadNativeBindings().renderDeclarativeShadowDom({
       filename: request.filename,
       inlineStylesJson: request.inlineStyles
         ? JSON.stringify(request.inlineStyles)
         : undefined,
       propsJson: request.props ? JSON.stringify(request.props) : undefined,
+      packageName: packageContext.name,
+      packageVersion: packageContext.version ?? undefined,
       source: request.source,
+      tagPrefix: packageContext.tagPrefix,
     })
   )
+  const {
+    packageName: _packageName,
+    packageVersion: _packageVersion,
+    tagPrefix: _tagPrefix,
+    ...metadata
+  } = result
+  return { ...metadata, package: packageContext }
 }
 export { setNativeBindingsForTesting }
 

@@ -193,9 +193,11 @@ Pages workflow details.
 ## Authoring Model
 
 Exported PascalCase functions are the preferred component declaration form. The
-TypeScript name is the authoring contract; the native Custom Element tag is a
-compiler detail. `Counter` compiles to `x-counter`, while multi-word names such
-as `CounterButton` compile to `counter-button`.
+TypeScript name is the authoring contract. The compiler combines it with the
+owning package's stable prefix: `Counter` in `@acme/widgets` becomes
+`acme-widgets-counter`. Add `naos.tagPrefix` to that package's `package.json`
+when a shorter public namespace is intentional. Package versions never change
+the tag.
 
 ```tsx
 import { Show, computed, event, state, type ComponentOptions } from "@naos-ui/core"

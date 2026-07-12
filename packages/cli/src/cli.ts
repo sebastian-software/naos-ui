@@ -147,11 +147,19 @@ async function compileCommand(
       writeJson(
         io,
         {
+          className: result.className,
           command: "compile",
           hasChanged: result.hasChanged,
           input: filename,
           map: mapPath,
           output: outputPath,
+          package: {
+            name: result.package.name,
+            version: result.package.version,
+            tagPrefix: result.package.tagPrefix,
+          },
+          shadow: result.shadow,
+          tagName: result.tagName,
         },
         parsed.pretty
       )

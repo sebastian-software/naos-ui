@@ -126,7 +126,7 @@ async function expectObservedClosingPresence(page: Page, key: string) {
 test("compiled counter renders, updates, and emits detail", async ({ page }) => {
   await page.goto("/")
 
-  const counter = page.locator("#counter-case x-counter")
+  const counter = page.locator("#counter-case demo-counter")
   const button = counter.locator("button")
   await expect(counter).toHaveJSProperty("label", "Count")
   await expect(button).toHaveText("Count: 0")
@@ -138,12 +138,44 @@ test("compiled counter renders, updates, and emits detail", async ({ page }) => 
   await expect(page.locator("#counter-event")).toHaveText("Last counter event: 1")
 })
 
+test("duplicate package versions warn and keep the first registration", async ({
+  page,
+}) => {
+  const warnings: string[] = []
+  page.on("console", (message) => {
+    if (message.type() === "warning") warnings.push(message.text())
+  })
+
+  await page.goto("/")
+  const firstRegistrationWon = await page.evaluate(
+    async (conflictUrl) => {
+      const registered = customElements.get("demo-counter")
+      await import(conflictUrl)
+      return customElements.get("demo-counter") === registered
+    },
+    "/fixtures/version-conflict/counter.wc.tsx"
+  )
+
+  expect(firstRegistrationWon).toBe(true)
+  await expect
+    .poll(() =>
+      warnings.some(
+        (warning) =>
+          warning.includes("<demo-counter>") &&
+          warning.includes("@naos-ui/example-counter@0.0.0") &&
+          warning.includes("attempted: @naos-ui/example-counter@999.0.0") &&
+          warning.includes("the first registration wins")
+      )
+    )
+    .toBe(true)
+})
+
 test("compiled reactive output batches and gates DOM updates", async ({
   page,
 }) => {
   await page.goto("/")
 
-  const probe = page.locator("#reactivity-probe-case reactivity-probe")
+  const probe = page.locator("#reactivity-probe-case demo-reactivity-probe")
   const primary = probe.locator("[data-probe-primary]")
   const secondary = probe.locator("[data-probe-secondary]")
   const primaryButton = probe.locator("[data-probe-primary-button]")
@@ -204,7 +236,7 @@ test("compiled reactive output batches and gates DOM updates", async ({
 test("compiled async lifecycle signals abort stale work", async ({ page }) => {
   await page.goto("/")
 
-  const probe = page.locator("#reactivity-probe-case reactivity-probe")
+  const probe = page.locator("#reactivity-probe-case demo-reactivity-probe")
   const primary = probe.locator("[data-probe-primary]")
   const primaryButton = probe.locator("[data-probe-primary-button]")
   const eventSignalButton = probe.locator("[data-probe-event-signal-button]")
@@ -261,7 +293,7 @@ test("compiled list reconcilers preserve keyed and indexed row nodes", async ({
 }) => {
   await page.goto("/")
 
-  const probe = page.locator("#list-reconciler-probe-case list-reconciler-probe")
+  const probe = page.locator("#list-reconciler-probe-case demo-list-reconciler-probe")
   const forRows = probe.locator("[data-probe-for-row]")
   const indexRows = probe.locator("[data-probe-index-row]")
 
@@ -357,7 +389,7 @@ test("compiled keyed For FLIP respects reduced motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" })
   await page.goto("/")
 
-  const probe = page.locator("#list-reconciler-probe-case list-reconciler-probe")
+  const probe = page.locator("#list-reconciler-probe-case demo-list-reconciler-probe")
   const forRows = probe.locator("[data-probe-for-row]")
 
   await probe.locator("[data-probe-for-reorder]").click()
@@ -368,7 +400,7 @@ test("compiled keyed For FLIP respects reduced motion", async ({ page }) => {
 test("compiled toggle renders primitive contracts and control flow", async ({ page }) => {
   await page.goto("/")
 
-  const toggle = page.locator("#toggle-case x-toggle")
+  const toggle = page.locator("#toggle-case demo-toggle")
   const button = toggle.locator("button")
 
   await expect(toggle).toHaveAttribute("data-effect", "mounted")
@@ -394,9 +426,9 @@ test("compiled toggle renders primitive contracts and control flow", async ({ pa
 test("compiled toolbar composes nested PascalCase components", async ({ page }) => {
   await page.goto("/")
 
-  const toolbar = page.locator("#composition-case x-toolbar")
-  const counterButton = toolbar.locator("x-counter button")
-  const toggleButton = toolbar.locator("x-toggle button")
+  const toolbar = page.locator("#composition-case demo-toolbar")
+  const counterButton = toolbar.locator("demo-counter button")
+  const toggleButton = toolbar.locator("demo-toggle button")
 
   await expect(toolbar).toHaveJSProperty("label", "Composed controls")
   await expect(toolbar.locator("[part~='label']").first()).toHaveText(
@@ -419,8 +451,8 @@ test("compiled elements accept host-provided css custom properties", async ({
 }) => {
   await page.goto("/")
 
-  const counter = page.locator("#theme-case x-counter")
-  const toggle = page.locator("#theme-case x-toggle")
+  const counter = page.locator("#theme-case demo-counter")
+  const toggle = page.locator("#theme-case demo-toggle")
 
   await expect(counter.locator("button")).toHaveCSS("background-color", "rgb(245, 243, 255)")
   await expect(counter.locator("button")).toHaveCSS("color", "rgb(46, 16, 101)")
@@ -506,7 +538,7 @@ test("compiled design-system primitives expose native contracts", async ({
 }) => {
   await page.goto("/")
 
-  const disclosure = page.locator("#primitive-suite-case x-disclosure")
+  const disclosure = page.locator("#primitive-suite-case demo-disclosure")
   const disclosureRoot = disclosure.locator("section")
   const disclosureButton = disclosure.locator("button")
 
@@ -530,7 +562,7 @@ test("compiled design-system primitives expose native contracts", async ({
     "Last disclosure event: true"
   )
 
-  const field = page.locator("#primitive-suite-case x-field")
+  const field = page.locator("#primitive-suite-case demo-field")
   const fieldRoot = field.locator("label")
   const input = field.locator("input")
   const fieldAction = field.locator("button")
@@ -1584,10 +1616,10 @@ test("declarative shadow dom renders useful DOM before upgrade and hydrates afte
   await page.goto("/dsd.html?delayUpgrade=1")
 
   await expect
-    .poll(() => page.evaluate(() => customElements.get("x-counter") === undefined))
+    .poll(() => page.evaluate(() => customElements.get("demo-counter") === undefined))
     .toBe(true)
 
-  const counter = page.locator("#dsd-counter-case x-counter")
+  const counter = page.locator("#dsd-counter-case demo-counter")
   const counterButton = counter.locator("button")
   await expect(counterButton).toHaveText("Count: 0")
   await expect(counterButton).toHaveAttribute("data-count", "0")
@@ -1599,7 +1631,7 @@ test("declarative shadow dom renders useful DOM before upgrade and hydrates afte
     )
   ).resolves.toBe(true)
 
-  const toggle = page.locator("#dsd-toggle-case x-toggle")
+  const toggle = page.locator("#dsd-toggle-case demo-toggle")
   const toggleButton = toggle.locator("button")
   await expect(toggleButton).toHaveAttribute("part", "root control")
   await expect(toggleButton).toHaveAttribute("data-state", "off")
@@ -1615,7 +1647,7 @@ test("declarative shadow dom renders useful DOM before upgrade and hydrates afte
     ).__naosUpgrade()
   )
   await expect
-    .poll(() => page.evaluate(() => customElements.get("x-counter") !== undefined))
+    .poll(() => page.evaluate(() => customElements.get("demo-counter") !== undefined))
     .toBe(true)
 
   await counterButton.click()
@@ -1641,7 +1673,7 @@ test("declarative shadow dom reports development hydration mismatches", async ({
   })
 
   await page.goto("/dsd.html?delayUpgrade=1")
-  await page.locator("#dsd-counter-case x-counter").evaluate((element) => {
+  await page.locator("#dsd-counter-case demo-counter").evaluate((element) => {
     element.shadowRoot
       ?.querySelector("[data-naos-node='node0']")
       ?.removeAttribute("data-naos-node")
@@ -1671,7 +1703,7 @@ test("declarative shadow dom remounts on production hydration mismatches", async
   })
 
   await page.goto("/dsd.html?delayUpgrade=1")
-  const counter = page.locator("#dsd-counter-case x-counter")
+  const counter = page.locator("#dsd-counter-case demo-counter")
   await counter.evaluate((element) => {
     element.shadowRoot
       ?.querySelector("[data-naos-node='node0']")

@@ -36,6 +36,12 @@ pub struct NativeTransformRequest {
     pub source: String,
     /// Filename used for parser source-type detection and diagnostics.
     pub filename: String,
+    /// Package name read from the owning package file.
+    pub package_name: String,
+    /// Optional package version read from the owning package file.
+    pub package_version: Option<String>,
+    /// Validated Custom Element prefix for the owning package.
+    pub tag_prefix: String,
 }
 
 /// Source map returned by the native compiler transform.
@@ -64,6 +70,20 @@ pub struct NativeTransformResult {
     pub map: Option<NativeSourceMap>,
     /// Whether the compiler changed the input module.
     pub has_changed: bool,
+    /// Custom Element tag name derived from package and component names.
+    pub tag_name: String,
+    /// Generated JavaScript class name.
+    pub class_name: String,
+    /// Public authoring export name for function components.
+    pub export_name: Option<String>,
+    /// Whether the component renders into a shadow root.
+    pub shadow: bool,
+    /// Package name that owns this component.
+    pub package_name: String,
+    /// Optional version of the package that owns this component.
+    pub package_version: Option<String>,
+    /// Custom Element prefix resolved for the package.
+    pub tag_prefix: String,
 }
 
 impl From<naos_core::SourceMap> for NativeSourceMap {
@@ -86,6 +106,12 @@ pub struct NativeDeclarativeShadowDomRequest {
     pub source: String,
     /// Filename used for parser source-type detection and diagnostics.
     pub filename: String,
+    /// Package name read from the owning package file.
+    pub package_name: String,
+    /// Optional package version read from the owning package file.
+    pub package_version: Option<String>,
+    /// Validated Custom Element prefix for the owning package.
+    pub tag_prefix: String,
     /// Optional JSON object containing initial prop values.
     pub props_json: Option<String>,
     /// Optional JSON object containing resolved `?inline` CSS text by local import name.
@@ -95,7 +121,7 @@ pub struct NativeDeclarativeShadowDomRequest {
 /// Result returned by the native Declarative Shadow DOM prerender workflow.
 #[napi(object)]
 pub struct NativeDeclarativeShadowDomResult {
-    /// Custom element tag name, for example `x-counter`.
+    /// Package-stable Custom Element tag name, for example `acme-counter`.
     pub tag_name: String,
     /// Generated JavaScript class name.
     pub class_name: String,
@@ -109,6 +135,12 @@ pub struct NativeDeclarativeShadowDomResult {
     pub shadow: bool,
     /// Whether the result includes Declarative Shadow DOM.
     pub uses_declarative_shadow_dom: bool,
+    /// Package name that owns this component.
+    pub package_name: String,
+    /// Optional version of the package that owns this component.
+    pub package_version: Option<String>,
+    /// Custom Element prefix resolved for the package.
+    pub tag_prefix: String,
 }
 
 /// Transforms an Naos component module into native Custom Element source.
@@ -119,11 +151,23 @@ pub struct NativeDeclarativeShadowDomResult {
 #[napi]
 #[allow(clippy::needless_pass_by_value)]
 pub fn transform_component(request: NativeTransformRequest) -> napi::Result<NativeTransformResult> {
-    naos_core::transform_component_module(&request.source, &request.filename)
+    let package = naos_core::PackageContext {
+        name: request.package_name,
+        version: request.package_version,
+        tag_prefix: request.tag_prefix,
+    };
+    naos_core::transform_component_module(&request.source, &request.filename, &package)
         .map(|result| NativeTransformResult {
             code: result.code,
             map: result.map.map(Into::into),
             has_changed: result.has_changed,
+            tag_name: result.tag_name,
+            class_name: result.class_name,
+            export_name: result.export_name,
+            shadow: result.shadow,
+            package_name: result.package.name,
+            package_version: result.package.version,
+            tag_prefix: result.package.tag_prefix,
         })
         .map_err(|error| to_napi_error(error, &request.filename))
 }
@@ -138,9 +182,15 @@ pub fn transform_component(request: NativeTransformRequest) -> napi::Result<Nati
 pub fn render_declarative_shadow_dom(
     request: NativeDeclarativeShadowDomRequest,
 ) -> napi::Result<NativeDeclarativeShadowDomResult> {
+    let package = naos_core::PackageContext {
+        name: request.package_name,
+        version: request.package_version,
+        tag_prefix: request.tag_prefix,
+    };
     naos_core::render_declarative_shadow_dom_module_with_inline_styles(
         &request.source,
         &request.filename,
+        &package,
         request.props_json.as_deref(),
         request.inline_styles_json.as_deref(),
     )
@@ -152,6 +202,9 @@ pub fn render_declarative_shadow_dom(
         template_html: result.template_html,
         shadow: result.shadow,
         uses_declarative_shadow_dom: result.uses_declarative_shadow_dom,
+        package_name: result.package.name,
+        package_version: result.package.version,
+        tag_prefix: result.package.tag_prefix,
     })
     .map_err(|error| to_napi_error(error, &request.filename))
 }

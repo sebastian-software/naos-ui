@@ -20,10 +20,10 @@ pub use error::{CompilerError, CompilerResult};
 pub use model::{
     AttributeValue, CompilerDiagnostic, ComponentImport, ComponentModule, ComponentOptions,
     ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan,
-    EffectDefinition, EventDefinition, KeyedSelectorDefinition, PropAccess, PropDefinition,
-    PropKind, SourceMap, StateDefinition, StateKind, StyleImport, TemplateAttribute, TemplateChild,
-    TemplateElement, TemplateEventHandler, TemplateList, TemplateListKey, TemplateListKind,
-    TemplateListMotion, TransformResult,
+    EffectDefinition, EventDefinition, KeyedSelectorDefinition, PackageContext, PropAccess,
+    PropDefinition, PropKind, SourceMap, StateDefinition, StateKind, StyleImport,
+    TemplateAttribute, TemplateChild, TemplateElement, TemplateEventHandler, TemplateList,
+    TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -36,10 +36,15 @@ pub fn core_version() -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::{
-        AttributeValue, DiagnosticSeverity, StateKind, TemplateAttribute, TemplateChild,
-        TemplateListKey, TemplateListKind, TemplateListMotion, analyze_component_module,
-        core_version, render_declarative_shadow_dom_module,
-        render_declarative_shadow_dom_module_with_inline_styles, transform_component_module,
+        AttributeValue, CompilerResult, ComponentModule, DeclarativeShadowDomRenderResult,
+        DiagnosticSeverity, PackageContext, StateKind, TemplateAttribute, TemplateChild,
+        TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult, core_version,
+    };
+    use super::{
+        analyze_component_module as analyze_component_module_with_package,
+        render_declarative_shadow_dom_module as render_declarative_shadow_dom_module_with_package,
+        render_declarative_shadow_dom_module_with_inline_styles as render_declarative_shadow_dom_module_with_inline_styles_and_package,
+        transform_component_module as transform_component_module_with_package,
     };
     use crate::error::{
         DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED, DIAGNOSTIC_CODE_DSD_INPUT,
@@ -51,6 +56,50 @@ mod tests {
         DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
         DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH, DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
     };
+
+    fn test_package() -> PackageContext {
+        PackageContext {
+            name: "@naos-ui/test".to_owned(),
+            version: Some("1.0.0".to_owned()),
+            tag_prefix: "x".to_owned(),
+        }
+    }
+
+    fn analyze_component_module(source: &str, filename: &str) -> CompilerResult<ComponentModule> {
+        analyze_component_module_with_package(source, filename, &test_package())
+    }
+
+    fn transform_component_module(source: &str, filename: &str) -> CompilerResult<TransformResult> {
+        transform_component_module_with_package(source, filename, &test_package())
+    }
+
+    fn render_declarative_shadow_dom_module(
+        source: &str,
+        filename: &str,
+        props_json: Option<&str>,
+    ) -> CompilerResult<DeclarativeShadowDomRenderResult> {
+        render_declarative_shadow_dom_module_with_package(
+            source,
+            filename,
+            &test_package(),
+            props_json,
+        )
+    }
+
+    fn render_declarative_shadow_dom_module_with_inline_styles(
+        source: &str,
+        filename: &str,
+        props_json: Option<&str>,
+        inline_styles_json: Option<&str>,
+    ) -> CompilerResult<DeclarativeShadowDomRenderResult> {
+        render_declarative_shadow_dom_module_with_inline_styles_and_package(
+            source,
+            filename,
+            &test_package(),
+            props_json,
+            inline_styles_json,
+        )
+    }
 
     #[test]
     fn core_version_should_match_crate_version() {
@@ -813,6 +862,20 @@ mod tests {
                 .code
                 .contains("customElements.define(\"x-counter\", CounterElement)")
         );
+        assert!(
+            result
+                .code
+                .contains("Symbol.for(\"naos.component.metadata\")")
+        );
+        assert!(result.code.contains(
+            "Object.freeze({ packageName: \"@naos-ui/test\", packageVersion: \"1.0.0\", tagName: \"x-counter\" })"
+        ));
+        assert!(
+            result
+                .code
+                .contains("if (registered === CounterElement) return;")
+        );
+        assert!(result.code.contains("the first registration wins"));
         assert!(result.code.contains("new CustomEvent(\"change\""));
         assert!(result.code.contains("this.#text0.data"));
     }

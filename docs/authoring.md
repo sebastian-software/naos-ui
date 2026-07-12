@@ -107,19 +107,19 @@ naos({
 })
 ```
 
-Declarative Shadow DOM is a prerender/static-HTML path, not a component
-authoring option. The Vite plugin emits prerender metadata by default so static
-site builds can discover compiled Naos components.
+The Vite plugin emits `naos-manifest.json` for every normal build. The manifest
+records the package identity, stable tag names, source paths, and whether a
+component also received Declarative Shadow DOM output.
 
 ```ts
 naos({
-  prerender: {
-    manifestFile: "naos-manifest.json",
-  },
+  manifestFile: "naos-manifest.json",
+  prerender: true,
 })
 ```
 
-Set `prerender: false` only for builds that never need static HTML metadata.
+Set `manifestFile: false` to disable the artifact. `prerender: false` disables
+only static HTML generation; normal component metadata remains available.
 
 For direct prerendering, call the Node wrapper with source text and initial
 props. If the source uses `?inline` CSS imports outside the Vite plugin, pass
@@ -153,15 +153,19 @@ may assert only to protect hydration behavior.
 ## Function Components
 
 Exported PascalCase functions are the preferred component declaration form. The
-function name is the authoring name; the native Custom Element tag is inferred
-by the compiler.
+compiler combines the function's kebab-case name with the nearest package's
+normalized name.
 
-* `Counter` becomes `x-counter`.
-* `CounterButton` becomes `counter-button`.
-* `URLBadge` becomes `url-badge`.
+* `Counter` in `@acme/widgets` becomes `acme-widgets-counter`.
+* `CounterButton` in package `shop` becomes `shop-counter-button`.
+* `URLBadge` in a package with `naos.tagPrefix: "demo"` becomes
+  `demo-url-badge`.
 
-Single-word component names receive the `x-` prefix because native Custom
-Element tag names must contain a hyphen.
+`naos.tagPrefix` is the only override. It is package-wide, must use lowercase
+hyphen-separated words, and cannot begin with `xml`. The package version is
+included in metadata and diagnostics but never in the public tag. Loading two
+versions on one page is unsupported; the first registration wins and later
+conflicts warn.
 
 Function props use normal TypeScript types and destructuring defaults. The
 compiler turns those destructured names into observed properties and attributes.

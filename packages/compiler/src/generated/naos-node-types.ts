@@ -10,6 +10,12 @@ export interface NativeTransformRequest {
   source: string;
   /** Filename used for parser source-type detection and diagnostics. */
   filename: string;
+  /** Package name read from the owning package file. */
+  packageName: string;
+  /** Optional package version read from the owning package file. */
+  packageVersion?: string;
+  /** Validated Custom Element prefix for the owning package. */
+  tagPrefix: string;
 }
 export interface NativeSourceMap {
   /** Source map version. */
@@ -32,19 +38,39 @@ export interface NativeTransformResult {
   map?: NativeSourceMap;
   /** Whether the compiler changed the input module. */
   hasChanged: boolean;
+  /** Custom Element tag name derived from package and component names. */
+  tagName: string;
+  /** Generated JavaScript class name. */
+  className: string;
+  /** Public authoring export name for function components. */
+  exportName?: string;
+  /** Whether the component renders into a shadow root. */
+  shadow: boolean;
+  /** Package name that owns this component. */
+  packageName: string;
+  /** Optional version of the package that owns this component. */
+  packageVersion?: string;
+  /** Custom Element prefix resolved for the package. */
+  tagPrefix: string;
 }
 export interface NativeDeclarativeShadowDomRequest {
   /** Original TypeScript/TSX source. */
   source: string;
   /** Filename used for parser source-type detection and diagnostics. */
   filename: string;
+  /** Package name read from the owning package file. */
+  packageName: string;
+  /** Optional package version read from the owning package file. */
+  packageVersion?: string;
+  /** Validated Custom Element prefix for the owning package. */
+  tagPrefix: string;
   /** Optional JSON object containing initial prop values. */
   propsJson?: string;
   /** Optional JSON object containing resolved `?inline` CSS text by local import name. */
   inlineStylesJson?: string;
 }
 export interface NativeDeclarativeShadowDomResult {
-  /** Custom element tag name, for example `x-counter`. */
+  /** Package-stable Custom Element tag name, for example `acme-counter`. */
   tagName: string;
   /** Generated JavaScript class name. */
   className: string;
@@ -58,6 +84,12 @@ export interface NativeDeclarativeShadowDomResult {
   shadow: boolean;
   /** Whether the result includes Declarative Shadow DOM. */
   usesDeclarativeShadowDom: boolean;
+  /** Package name that owns this component. */
+  packageName: string;
+  /** Optional version of the package that owns this component. */
+  packageVersion?: string;
+  /** Custom Element prefix resolved for the package. */
+  tagPrefix: string;
 }
 
 export interface NativeBindings {

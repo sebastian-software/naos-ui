@@ -1,9 +1,22 @@
 use serde::{Deserialize, Serialize};
 
+/// Package identity used to derive stable Custom Element names.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PackageContext {
+    /// Package name read from the owning `package.json`.
+    pub name: String,
+    /// Optional package version read from the owning `package.json`.
+    pub version: Option<String>,
+    /// Validated package-specific Custom Element prefix.
+    pub tag_prefix: String,
+}
+
 /// Statically analyzed component module.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ComponentModule {
-    /// Custom element tag name, for example `x-counter`.
+    /// Package identity that owns this component.
+    pub package: PackageContext,
+    /// Package-stable Custom Element tag name, for example `acme-counter`.
     pub tag_name: String,
     /// JavaScript class name derived from the tag name.
     pub class_name: String,
@@ -374,12 +387,24 @@ pub struct TransformResult {
     pub map: Option<SourceMap>,
     /// Whether the compiler changed the input module.
     pub has_changed: bool,
+    /// Custom element tag name derived from the package and component names.
+    pub tag_name: String,
+    /// JavaScript class name generated for the component.
+    pub class_name: String,
+    /// Public authoring export name, when the source used function syntax.
+    pub export_name: Option<String>,
+    /// Whether the component renders into a shadow root.
+    pub shadow: bool,
+    /// Package identity that owns this component.
+    pub package: PackageContext,
 }
 
 /// Result of prerendering a component as Declarative Shadow DOM HTML.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DeclarativeShadowDomRenderResult {
-    /// Custom element tag name, for example `x-counter`.
+    /// Package identity that owns this component.
+    pub package: PackageContext,
+    /// Package-stable Custom Element tag name, for example `acme-counter`.
     pub tag_name: String,
     /// JavaScript class name generated for the component.
     pub class_name: String,
