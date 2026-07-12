@@ -7,8 +7,8 @@ use crate::error::{
     DIAGNOSTIC_HINT_FUNCTION_PROPS, unsupported, unsupported_with_code,
 };
 use crate::model::{
-    ComponentImport, ComponentModule, ComponentOptions, PropAccess, PropDefinition, PropKind,
-    RuntimeImport, StyleImport,
+    ComponentImport, ComponentModule, ComponentOptions, PackageContext, PropAccess, PropDefinition,
+    PropKind, RuntimeImport, StyleImport,
 };
 use crate::naming::{custom_element_tag_for_component, kebab_case_identifier};
 
@@ -18,7 +18,11 @@ use crate::naming::{custom_element_tag_for_component, kebab_case_identifier};
 ///
 /// Returns [`CompilerError`] when the source does not parse as TSX or when no
 /// supported PascalCase function component can be found.
-pub fn analyze_component_module(source: &str, filename: &str) -> CompilerResult<ComponentModule> {
+pub fn analyze_component_module(
+    source: &str,
+    filename: &str,
+    package: &PackageContext,
+) -> CompilerResult<ComponentModule> {
     let ast_facts = analyze_module(source, filename)?;
 
     let component_imports = ast_facts.component_imports.clone();
@@ -32,6 +36,7 @@ pub fn analyze_component_module(source: &str, filename: &str) -> CompilerResult<
             runtime_imports,
             style_imports,
             component_options,
+            package,
         );
     }
 
@@ -52,10 +57,12 @@ fn analyze_function_component(
     runtime_imports: Vec<RuntimeImport>,
     style_imports: Vec<StyleImport>,
     component_options: ComponentOptions,
+    package: &PackageContext,
 ) -> CompilerResult<ComponentModule> {
-    let tag_name = custom_element_tag_for_component(&function_component.name);
+    let tag_name = custom_element_tag_for_component(&function_component.name, package)?;
     let class_name = format!("{}Element", function_component.name);
     Ok(ComponentModule {
+        package: package.clone(),
         class_name,
         tag_name,
         export_name: Some(function_component.name),

@@ -25,6 +25,7 @@ pub(crate) const DIAGNOSTIC_HINT_SHOW: &str =
 pub(crate) const DIAGNOSTIC_HINT_SWITCH: &str = "Use static <Switch> children with <Match when={...}> arms and one optional trailing <Match> default.";
 
 pub(crate) const DIAGNOSTIC_CODE_DSD_INPUT: &str = "NAOS_DSD_INPUT";
+pub(crate) const DIAGNOSTIC_CODE_INVALID_PACKAGE_CONTEXT: &str = "NAOS_INVALID_PACKAGE_CONTEXT";
 pub(crate) const DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED: &str =
     "NAOS_COMPONENT_TEMPLATE_REQUIRED";
 pub(crate) const DIAGNOSTIC_CODE_REMOVED_AUTHORING_API: &str = "NAOS_REMOVED_AUTHORING_API";
@@ -144,6 +145,14 @@ pub(crate) fn dsd_input(message: impl Into<String>) -> CompilerError {
         DIAGNOSTIC_CODE_DSD_INPUT,
         message,
         DIAGNOSTIC_HINT_DSD_INPUTS,
+    )
+}
+
+pub(crate) fn invalid_package_context(message: impl Into<String>) -> CompilerError {
+    unsupported_with_code(
+        DIAGNOSTIC_CODE_INVALID_PACKAGE_CONTEXT,
+        message,
+        "Pass a package name, optional version, and a valid package-derived tag prefix.",
     )
 }
 

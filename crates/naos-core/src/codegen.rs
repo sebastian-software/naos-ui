@@ -20,9 +20,9 @@ use crate::error::{
 use crate::model::{
     AttributeValue, ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult,
     EffectDefinition, EventDefinition, FormControlDefinition, KeyedSelectorDefinition,
-    PropDefinition, PropKind, SourceMap, StateDefinition, TemplateAttribute, TemplateChild,
-    TemplateElement, TemplateList, TemplateListKey, TemplateListKind, TemplateListMotion,
-    TransformResult,
+    PackageContext, PropDefinition, PropKind, SourceMap, StateDefinition, TemplateAttribute,
+    TemplateChild, TemplateElement, TemplateList, TemplateListKey, TemplateListKind,
+    TemplateListMotion, TransformResult,
 };
 use crate::naming::{
     custom_element_tag_for_component, event_name_from_attribute, is_pascal_case_identifier,
@@ -37,8 +37,12 @@ use serde_json::Value as JsonValue;
 ///
 /// Returns [`CompilerError`] when analysis fails or the TSX template uses a
 /// pattern outside the current compiler milestone.
-pub fn transform_component_module(source: &str, filename: &str) -> CompilerResult<TransformResult> {
-    let module = analyze_component_module(source, filename)?;
+pub fn transform_component_module(
+    source: &str,
+    filename: &str,
+    package: &PackageContext,
+) -> CompilerResult<TransformResult> {
+    let module = analyze_component_module(source, filename, package)?;
     let mut generator = CodeGenerator::new(&module);
     let code = generator.generate(&module.template)?;
     let map = Some(source_map_for_transform(source, filename, &code));
@@ -46,6 +50,11 @@ pub fn transform_component_module(source: &str, filename: &str) -> CompilerResul
         code,
         map,
         has_changed: true,
+        tag_name: module.tag_name.clone(),
+        class_name: module.class_name.clone(),
+        export_name: module.export_name.clone(),
+        shadow: module.options.shadow,
+        package: module.package.clone(),
     })
 }
 
@@ -61,9 +70,12 @@ pub fn transform_component_module(source: &str, filename: &str) -> CompilerResul
 pub fn render_declarative_shadow_dom_module(
     source: &str,
     filename: &str,
+    package: &PackageContext,
     props_json: Option<&str>,
 ) -> CompilerResult<DeclarativeShadowDomRenderResult> {
-    render_declarative_shadow_dom_module_with_inline_styles(source, filename, props_json, None)
+    render_declarative_shadow_dom_module_with_inline_styles(
+        source, filename, package, props_json, None,
+    )
 }
 
 /// Prerenders a TSX module with explicit inline style values.
@@ -79,10 +91,11 @@ pub fn render_declarative_shadow_dom_module(
 pub fn render_declarative_shadow_dom_module_with_inline_styles(
     source: &str,
     filename: &str,
+    package: &PackageContext,
     props_json: Option<&str>,
     inline_styles_json: Option<&str>,
 ) -> CompilerResult<DeclarativeShadowDomRenderResult> {
-    let module = analyze_component_module(source, filename)?;
+    let module = analyze_component_module(source, filename, package)?;
     let props = parse_prerender_props(props_json)?;
     let inline_styles = parse_inline_styles(inline_styles_json)?;
     let mut renderer = DeclarativeShadowDomRenderer::new(&module, props, inline_styles)?;
@@ -1593,36 +1606,83 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_exports(&self, code: &mut String) -> CompilerResult<()> {
+        let package_version = self.module.package.version.as_ref().map_or_else(
+            || "null".to_owned(),
+            |version| format!("\"{}\"", escape_js_string(version)),
+        );
+        writeln!(
+            code,
+            "const __naosMetadataKey = Symbol.for(\"naos.component.metadata\");"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "const __naosComponentMetadata = Object.freeze({{ packageName: \"{}\", packageVersion: {}, tagName: \"{}\" }});",
+            escape_js_string(&self.module.package.name),
+            package_version,
+            escape_js_string(&self.module.tag_name)
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "Object.defineProperty({}, __naosMetadataKey, {{ value: __naosComponentMetadata }});",
+            self.module.class_name
+        )
+        .map_err(format_error)?;
+        writeln!(code, "let __naosRegistrationWarningEmitted = false;").map_err(format_error)?;
+        writeln!(code, "function __naosDefineComponent() {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "  const registered = customElements.get(\"{}\");",
+            self.module.tag_name
+        )
+        .map_err(format_error)?;
+        writeln!(code, "  if (!registered) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "    customElements.define(\"{}\", {});",
+            self.module.tag_name, self.module.class_name
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    return;").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(
+            code,
+            "  if (registered === {}) return;",
+            self.module.class_name
+        )
+        .map_err(format_error)?;
+        writeln!(code, "  const metadata = registered[__naosMetadataKey];")
+            .map_err(format_error)?;
+        writeln!(
+            code,
+            "  if (metadata?.packageName === __naosComponentMetadata.packageName && metadata?.packageVersion === __naosComponentMetadata.packageVersion) return;"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "  if (__naosRegistrationWarningEmitted) return;").map_err(format_error)?;
+        writeln!(code, "  __naosRegistrationWarningEmitted = true;").map_err(format_error)?;
+        writeln!(
+            code,
+            "  const registeredOwner = metadata?.packageName && metadata?.packageVersion ? `${{metadata.packageName}}@${{metadata.packageVersion}}` : \"unknown\";"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "  const attemptedOwner = __naosComponentMetadata.packageVersion ? `${{__naosComponentMetadata.packageName}}@${{__naosComponentMetadata.packageVersion}}` : `${{__naosComponentMetadata.packageName}}@unknown`;"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "  console.warn(`naos-ui: <${{__naosComponentMetadata.tagName}}> is already registered by ${{registeredOwner}} (attempted: ${{attemptedOwner}}). Running two versions of the same package on one page is not supported; the first registration wins.`);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "}}").map_err(format_error)?;
         if self.module.options.define {
-            writeln!(
-                code,
-                "if (!customElements.get(\"{}\")) {{",
-                self.module.tag_name
-            )
-            .map_err(format_error)?;
-            writeln!(
-                code,
-                "  customElements.define(\"{}\", {});",
-                self.module.tag_name, self.module.class_name
-            )
-            .map_err(format_error)?;
-            writeln!(code, "}}").map_err(format_error)?;
+            writeln!(code, "__naosDefineComponent();").map_err(format_error)?;
         } else {
             writeln!(code, "export function {}() {{", self.define_function_name())
                 .map_err(format_error)?;
-            writeln!(
-                code,
-                "  if (!customElements.get(\"{}\")) {{",
-                self.module.tag_name
-            )
-            .map_err(format_error)?;
-            writeln!(
-                code,
-                "    customElements.define(\"{}\", {});",
-                self.module.tag_name, self.module.class_name
-            )
-            .map_err(format_error)?;
-            writeln!(code, "  }}").map_err(format_error)?;
+            writeln!(code, "  __naosDefineComponent();").map_err(format_error)?;
             writeln!(code, "}}").map_err(format_error)?;
         }
         if let Some(export_name) = &self.module.export_name {
@@ -1672,7 +1732,7 @@ impl<'a> CodeGenerator<'a> {
         self.next_node_index += 1;
         let variable = format!("node{index}");
         let field = format!("node{index}");
-        let tag_name = self.element_tag_name(&element.tag_name);
+        let tag_name = self.element_tag_name(&element.tag_name)?;
         let is_component_element = is_pascal_case_identifier(&element.tag_name);
         self.node_fields.push(field.clone());
         self.mount_lines.push(format!(
@@ -2158,7 +2218,7 @@ impl<'a> CodeGenerator<'a> {
         let index = build.next_index;
         build.next_index += 1;
         let variable = format!("{}Node{index}", build.prefix);
-        let tag_name = self.element_tag_name(&element.tag_name);
+        let tag_name = self.element_tag_name(&element.tag_name)?;
         let is_component_element = is_pascal_case_identifier(&element.tag_name);
         build.create_lines.push(format!(
             "const {variable} = document.createElement(\"{}\");",
@@ -2436,9 +2496,9 @@ impl<'a> CodeGenerator<'a> {
         Ok(())
     }
 
-    fn element_tag_name(&self, tag_name: &str) -> String {
+    fn element_tag_name(&self, tag_name: &str) -> CompilerResult<String> {
         if !is_pascal_case_identifier(tag_name) {
-            return tag_name.to_owned();
+            return Ok(tag_name.to_owned());
         }
         let component_name = self
             .module
@@ -2447,7 +2507,7 @@ impl<'a> CodeGenerator<'a> {
             .find(|component_import| component_import.local_name == tag_name)
             .map(|component_import| component_import.imported_name.as_str())
             .unwrap_or(tag_name);
-        custom_element_tag_for_component(component_name)
+        custom_element_tag_for_component(component_name, &self.module.package)
     }
 
     fn emit_attribute(
@@ -3109,6 +3169,7 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         );
 
         Ok(DeclarativeShadowDomRenderResult {
+            package: self.module.package.clone(),
             tag_name: self.module.tag_name.clone(),
             class_name: self.module.class_name.clone(),
             export_name: self.module.export_name.clone(),
@@ -3156,7 +3217,7 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         }
 
         let field = self.next_node_field();
-        let tag_name = self.element_tag_name(&element.tag_name);
+        let tag_name = self.element_tag_name(&element.tag_name)?;
         let is_component_element = is_pascal_case_identifier(&element.tag_name);
         let mut output = String::new();
         write!(output, "<{tag_name}").map_err(format_error)?;
@@ -3415,9 +3476,9 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         format!("text{index}")
     }
 
-    fn element_tag_name(&self, tag_name: &str) -> String {
+    fn element_tag_name(&self, tag_name: &str) -> CompilerResult<String> {
         if !is_pascal_case_identifier(tag_name) {
-            return tag_name.to_owned();
+            return Ok(tag_name.to_owned());
         }
         let component_name = self
             .module
@@ -3426,7 +3487,7 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
             .find(|component_import| component_import.local_name == tag_name)
             .map(|component_import| component_import.imported_name.as_str())
             .unwrap_or(tag_name);
-        custom_element_tag_for_component(component_name)
+        custom_element_tag_for_component(component_name, &self.module.package)
     }
 }
 

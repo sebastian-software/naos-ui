@@ -16,12 +16,22 @@ function createBindings(): NativeBindings {
     renderDeclarativeShadowDom: () => ({
       className: "CounterElement",
       html: "",
+      packageName: "@naos-ui/test",
       shadow: true,
       tagName: "x-counter",
+      tagPrefix: "x",
       templateHtml: "",
       usesDeclarativeShadowDom: true,
     }),
-    transformComponent: () => ({ code: "", hasChanged: false }),
+    transformComponent: () => ({
+      className: "CounterElement",
+      code: "",
+      hasChanged: false,
+      packageName: "@naos-ui/test",
+      shadow: true,
+      tagName: "x-counter",
+      tagPrefix: "x",
+    }),
   }
 }
 

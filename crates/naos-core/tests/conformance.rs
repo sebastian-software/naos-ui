@@ -1,9 +1,17 @@
 //! Local compiler conformance fixtures for accepted, rejected, and DSD output.
 
 use naos_core::{
-    DiagnosticSeverity, render_declarative_shadow_dom_module_with_inline_styles,
+    DiagnosticSeverity, PackageContext, render_declarative_shadow_dom_module_with_inline_styles,
     transform_component_module,
 };
+
+fn test_package() -> PackageContext {
+    PackageContext {
+        name: "@naos-ui/test".to_owned(),
+        version: Some("1.0.0".to_owned()),
+        tag_prefix: "x".to_owned(),
+    }
+}
 
 struct AcceptedFixture {
     filename: &'static str,
@@ -35,7 +43,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         source: include_str!("fixtures/conformance/accepted/reactive-counter.wc.tsx"),
         snippets: &[
             "class ReactiveCounterElement extends HTMLElement",
-            "customElements.define(\"reactive-counter\", ReactiveCounterElement)",
+            "customElements.define(\"x-reactive-counter\", ReactiveCounterElement)",
             "static get observedAttributes()",
             "this.#computedCache.set(\"doubled\", (count() * 2));",
             "this.#scheduleFlush();",
@@ -51,7 +59,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         source: include_str!("fixtures/conformance/accepted/composition-toggle-list.wc.tsx"),
         snippets: &[
             "class CompositionToggleListElement extends HTMLElement",
-            "customElements.define(\"composition-toggle-list\", CompositionToggleListElement)",
+            "customElements.define(\"x-composition-toggle-list\", CompositionToggleListElement)",
             "const host = () => ({",
             "addEventListener(\"click\"",
             "data-naos-control\", \"show",
@@ -67,7 +75,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         snippets: &[
             "import css from \"./styled-slots.css?inline\";",
             "class StyledSlotsElement extends HTMLElement",
-            "customElements.define(\"styled-slots\", StyledSlotsElement)",
+            "customElements.define(\"x-styled-slots\", StyledSlotsElement)",
             "style.textContent",
             "[css].join(\"\\n\")",
             "document.createElement(\"slot\")",
@@ -81,7 +89,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         source: include_str!("fixtures/conformance/accepted/dependency-ast-edge-cases.wc.tsx"),
         snippets: &[
             "class DependencyAstEdgeCasesElement extends HTMLElement",
-            "customElements.define(\"dependency-ast-edge-cases\", DependencyAstEdgeCasesElement)",
+            "customElements.define(\"x-dependency-ast-edge-cases\", DependencyAstEdgeCasesElement)",
             "data-naos-control\", \"for",
             "/a{2}/.test(\"aa\")",
         ],
@@ -136,7 +144,7 @@ const DSD_FIXTURES: &[DsdFixture] = &[
         props: Some(r#"{"label":"Clicks"}"#),
         inline_styles: Some(r#"{"css":":host { display: block; }"}"#),
         snippets: &[
-            "<snapshot-shell label=\"Clicks\">",
+            "<x-snapshot-shell label=\"Clicks\">",
             "<template shadowrootmode=\"open\">",
             "<style>:host { display: block; }</style>",
             "part=\"root\"",
@@ -158,7 +166,7 @@ const DSD_FIXTURES: &[DsdFixture] = &[
         // render_declarative_shadow_dom_module_should_mark_unsupported_dynamic_values.
         // This fixture focuses on the prop/state/browser-only static boundary.
         snippets: &[
-            "<static-evaluation-boundary",
+            "<x-static-evaluation-boundary",
             "label=\"Runtime\"",
             "count=\"5\"",
             "enabled=\"true\"",
@@ -195,7 +203,7 @@ const DSD_FIXTURES: &[DsdFixture] = &[
 #[test]
 fn accepted_fixtures_should_transform_through_public_compiler_boundary() {
     for fixture in ACCEPTED_FIXTURES {
-        let result = transform_component_module(fixture.source, fixture.filename)
+        let result = transform_component_module(fixture.source, fixture.filename, &test_package())
             .unwrap_or_else(|error| panic!("{} should compile: {error}", fixture.filename));
 
         assert!(
@@ -237,7 +245,7 @@ fn accepted_fixtures_should_transform_through_public_compiler_boundary() {
 #[test]
 fn rejected_fixtures_should_emit_stable_diagnostics() {
     for fixture in REJECTED_FIXTURES {
-        let error = transform_component_module(fixture.source, fixture.filename)
+        let error = transform_component_module(fixture.source, fixture.filename, &test_package())
             .expect_err("rejected fixture should not compile");
         let diagnostics = error.diagnostics(fixture.filename);
         let diagnostic = diagnostics
@@ -279,6 +287,7 @@ fn dsd_fixtures_should_prerender_static_shells_without_event_code() {
         let result = render_declarative_shadow_dom_module_with_inline_styles(
             fixture.source,
             fixture.filename,
+            &test_package(),
             fixture.props,
             fixture.inline_styles,
         )
