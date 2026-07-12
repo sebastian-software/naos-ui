@@ -1008,6 +1008,11 @@ mod tests {
                 .contains("this.#computedCache.set(\"doubled\", (count() * 2));")
         );
         assert!(result.code.contains("#runEffects(dirtySources)"));
+        assert!(
+            result.code.contains(
+                "count.set = (value) => { if (Object.is(this.#state.count, value)) return;"
+            )
+        );
         assert!(result.code.contains("this.#markDirty(\"count\");"));
         assert!(result.code.contains("this.#scheduleFlush();"));
         assert!(
@@ -1954,6 +1959,9 @@ mod tests {
                 .code
                 .contains("this.#markKeyedSelectorDirty(\"isSelected\", previousValue, value);")
         );
+        assert!(result
+            .code
+            .contains("const previousValue = this.#state.selected;\n      if (Object.is(previousValue, value)) return;"));
         assert!(result.code.contains("#runKeyedBindings(dirtySources);"));
         assert!(
             result

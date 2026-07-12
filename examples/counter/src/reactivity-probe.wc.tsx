@@ -23,6 +23,14 @@ export function ReactivityProbe() {
         Primary
       </button>
       <button
+        data-probe-equal-button
+        onClick={() => {
+          primary.set(primary())
+        }}
+      >
+        Equal
+      </button>
+      <button
         data-probe-secondary-button
         onClick={() => {
           secondary.set(secondary() + 1)

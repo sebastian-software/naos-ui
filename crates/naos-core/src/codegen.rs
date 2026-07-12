@@ -942,8 +942,8 @@ impl<'a> CodeGenerator<'a> {
         if keyed_selectors.is_empty() {
             writeln!(
                 code,
-                "    {}.set = (value) => {{ this.#state.{} = value; this.#markDirty(\"{}\"); this.#scheduleFlush(); }};",
-                state.local_name, state.local_name, state.local_name
+                "    {}.set = (value) => {{ if (Object.is(this.#state.{}, value)) return; this.#state.{} = value; this.#markDirty(\"{}\"); this.#scheduleFlush(); }};",
+                state.local_name, state.local_name, state.local_name, state.local_name
             )
             .map_err(format_error)?;
         } else {
@@ -954,6 +954,8 @@ impl<'a> CodeGenerator<'a> {
                 state.local_name
             )
             .map_err(format_error)?;
+            writeln!(code, "      if (Object.is(previousValue, value)) return;")
+                .map_err(format_error)?;
             writeln!(code, "      this.#state.{} = value;", state.local_name)
                 .map_err(format_error)?;
             writeln!(code, "      this.#markDirty(\"{}\");", state.local_name)

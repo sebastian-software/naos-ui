@@ -275,8 +275,10 @@ count.set(count() + 1)
 count.update((current) => current + 1)
 ```
 
-State writes trigger an update pass for generated text, dynamic attributes,
-control-flow containers, and effects.
+State writes use `Object.is` equality. Writing the current value is a no-op: it
+does not invalidate computed values, schedule an update pass, mutate the DOM,
+or rerun effects. Changed values trigger an update pass for generated text,
+dynamic attributes, control-flow containers, and effects.
 
 State can be initialized from props:
 
