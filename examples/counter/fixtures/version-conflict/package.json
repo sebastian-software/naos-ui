@@ -1,0 +1,9 @@
+{
+  "name": "@naos-ui/example-counter",
+  "private": true,
+  "version": "999.0.0",
+  "type": "module",
+  "naos": {
+    "tagPrefix": "demo"
+  }
+}

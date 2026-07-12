@@ -138,6 +138,38 @@ test("compiled counter renders, updates, and emits detail", async ({ page }) => 
   await expect(page.locator("#counter-event")).toHaveText("Last counter event: 1")
 })
 
+test("duplicate package versions warn and keep the first registration", async ({
+  page,
+}) => {
+  const warnings: string[] = []
+  page.on("console", (message) => {
+    if (message.type() === "warning") warnings.push(message.text())
+  })
+
+  await page.goto("/")
+  const firstRegistrationWon = await page.evaluate(
+    async (conflictUrl) => {
+      const registered = customElements.get("demo-counter")
+      await import(conflictUrl)
+      return customElements.get("demo-counter") === registered
+    },
+    "/fixtures/version-conflict/counter.wc.tsx"
+  )
+
+  expect(firstRegistrationWon).toBe(true)
+  await expect
+    .poll(() =>
+      warnings.some(
+        (warning) =>
+          warning.includes("<demo-counter>") &&
+          warning.includes("@naos-ui/example-counter@0.0.0") &&
+          warning.includes("attempted: @naos-ui/example-counter@999.0.0") &&
+          warning.includes("the first registration wins")
+      )
+    )
+    .toBe(true)
+})
+
 test("compiled reactive output batches and gates DOM updates", async ({
   page,
 }) => {
