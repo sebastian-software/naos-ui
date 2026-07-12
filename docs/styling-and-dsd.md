@@ -45,20 +45,21 @@ The output contains host HTML with `<template shadowrootmode="open">`. The
 generated client module reuses that declarative shadow root during custom
 element upgrade before falling back to imperative Shadow DOM creation.
 
-## Vite Metadata
+## Vite Manifest
 
-The Vite plugin emits prerender metadata by default so static site and demo
-builds can discover compiled Naos components.
+The Vite plugin emits `naos-manifest.json` for normal builds, independently of
+Declarative Shadow DOM. Its sorted entries map package-stable tags to component
+modules and mark the entries that also use DSD.
 
 ```ts
 naos({
-  prerender: {
-    manifestFile: "naos-manifest.json",
-  },
+  manifestFile: "naos-manifest.json",
+  prerender: true,
 })
 ```
 
-Use `prerender: false` only for builds that never need static HTML metadata.
+Use `manifestFile: false` only when the build does not need the artifact.
+`prerender: false` leaves the normal manifest enabled.
 
 ## Hydration Markers
 

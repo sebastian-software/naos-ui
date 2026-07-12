@@ -148,14 +148,14 @@ export function Counter({ label = "Count" }: CounterProps = {}) {
 A prerendered host could eventually look like:
 
 ```html
-<x-counter label="Count">
+<demo-counter label="Count">
   <template shadowrootmode="open">
     <style>:host { display: inline-block; }</style>
     <button part="button" data-count="0" data-naos-node="0">
       <span data-naos-text="0">Count: 0</span>
     </button>
   </template>
-</x-counter>
+</demo-counter>
 ```
 
 After upgrade, the generated class should:
@@ -332,7 +332,7 @@ Recommended fallback:
 * Add a small optional FOUC rule for static demo pages:
 
   ```css
-  x-counter:not(:defined) > template[shadowrootmode] ~ * {
+  demo-counter:not(:defined) > template[shadowrootmode] ~ * {
     display: none;
   }
   ```

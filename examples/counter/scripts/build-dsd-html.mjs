@@ -1,13 +1,11 @@
 import { readFileSync, writeFileSync } from "node:fs"
-import { createRequire } from "node:module"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
+import { renderDeclarativeShadowDom } from "@naos-ui/compiler"
+
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const root = resolve(__dirname, "../../..")
-const native = createRequire(import.meta.url)(
-  resolve(root, "packages/compiler/native/naos-node.node")
-)
 
 const components = [
   {
@@ -27,10 +25,10 @@ const components = [
 
 function renderComponent(component) {
   const source = readFileSync(component.filename, "utf8")
-  const rendered = native.renderDeclarativeShadowDom({
+  const rendered = renderDeclarativeShadowDom({
     filename: component.filename,
-    inlineStylesJson: JSON.stringify(resolveInlineStyles(source, component.filename)),
-    propsJson: JSON.stringify(component.props),
+    inlineStyles: resolveInlineStyles(source, component.filename),
+    props: component.props,
     source,
   })
   const html = component.children

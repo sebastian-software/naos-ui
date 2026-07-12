@@ -42,7 +42,7 @@
           </ul>
         </div>
         <div class="case-surface">
-          <x-counter label="Count"></x-counter>
+          <demo-counter label="Count"></demo-counter>
           <output id="counter-event">Last counter event: none</output>
           <pre><code>const count = state(0)
 const text = computed(() =&gt; `Count: ${count()}`)</code></pre>
@@ -68,7 +68,7 @@ const text = computed(() =&gt; `Count: ${count()}`)</code></pre>
           </ul>
         </div>
         <div class="case-surface">
-          <reactivity-probe></reactivity-probe>
+          <demo-reactivity-probe></demo-reactivity-probe>
           <pre><code>primary.set(primary() + 1)
 host().flushSync()</code></pre>
         </div>
@@ -97,7 +97,7 @@ host().flushSync()</code></pre>
           </ul>
         </div>
         <div class="case-surface">
-          <list-reconciler-probe></list-reconciler-probe>
+          <demo-list-reconciler-probe></demo-list-reconciler-probe>
           <pre><code>&lt;For each={rows()}&gt;
 &lt;Index each={names()}&gt;</code></pre>
         </div>
@@ -119,7 +119,7 @@ host().flushSync()</code></pre>
           </ul>
         </div>
         <div class="case-surface">
-          <x-toggle label="Power">manual slot content</x-toggle>
+          <demo-toggle label="Power">manual slot content</demo-toggle>
           <output id="toggle-event">Last toggle event: none</output>
           <pre><code>&lt;button part="root control"
   data-state={pressed() ? "on" : "off"}&gt;</code></pre>
@@ -146,7 +146,7 @@ host().flushSync()</code></pre>
           </ul>
         </div>
         <div class="case-surface">
-          <x-toolbar label="Composed controls"></x-toolbar>
+          <demo-toolbar label="Composed controls"></demo-toolbar>
           <pre><code>import { Counter } from "./counter.wc.tsx"
 
 return &lt;Counter label="Nested count" /&gt;</code></pre>
@@ -168,7 +168,7 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
           </ul>
         </div>
         <div class="case-surface theme-surface">
-          <x-counter
+          <demo-counter
             label="Themed"
             style="
               --naos-control-border: #7c3aed;
@@ -176,8 +176,8 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
               --naos-control-bg-hover: #ede9fe;
               --naos-control-fg: #2e1065;
             "
-          ></x-counter>
-          <x-toggle
+          ></demo-counter>
+          <demo-toggle
             label="Theme"
             style="
               --naos-toggle-border: #0f766e;
@@ -189,7 +189,7 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
             "
           >
             themed slot
-          </x-toggle>
+          </demo-toggle>
           <pre><code>style="--naos-control-bg: #f5f3ff"</code></pre>
         </div>
       </section>
@@ -208,13 +208,13 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
             events, slots, parts, and CSS variables.
           </p>
           <ul>
-            <li><code>x-disclosure</code> pairs ARIA state with a typed event and slots.</li>
-            <li><code>x-field</code> exposes label, hint, status, and input contracts.</li>
+            <li><code>demo-disclosure</code> pairs ARIA state with a typed event and slots.</li>
+            <li><code>demo-field</code> exposes label, hint, status, and input contracts.</li>
             <li>The host page observes both controls with plain DOM listeners.</li>
           </ul>
         </div>
         <div class="case-surface primitive-surface">
-          <x-disclosure
+          <demo-disclosure
             label="Deployment settings"
             style="
               --naos-disclosure-border: #334155;
@@ -224,10 +224,10 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
           >
             <span slot="summary">Production</span>
             Publish native Custom Elements without a host framework adapter.
-          </x-disclosure>
+          </demo-disclosure>
           <output id="disclosure-event">Last disclosure event: none</output>
 
-          <x-field
+          <demo-field
             label="Package scope"
             style="
               --naos-field-border: #0f766e;
@@ -235,9 +235,9 @@ return &lt;Counter label="Nested count" /&gt;</code></pre>
             "
           >
             Used by generated package names and docs examples.
-          </x-field>
+          </demo-field>
           <output id="field-event">Last field event: none</output>
-          <pre><code>&lt;x-disclosure&gt; and &lt;x-field&gt;
+          <pre><code>&lt;demo-disclosure&gt; and &lt;demo-field&gt;
 dispatch native CustomEvents.</code></pre>
         </div>
       </section>

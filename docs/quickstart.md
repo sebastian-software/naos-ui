@@ -13,6 +13,19 @@ pnpm add -D @naos-ui/compiler @naos-ui/vite @naos-ui/cli
 `@naos-ui/compiler` resolves the matching optional native package for the current
 platform. npm installs do not build native code from source.
 
+Naos derives Custom Element tags from the nearest `package.json`. For this
+guide, add an explicit demo namespace:
+
+```json
+{
+  "name": "my-naos-app",
+  "private": true,
+  "naos": {
+    "tagPrefix": "demo"
+  }
+}
+```
+
 For browser app-shell routing, add the optional router package:
 
 ```sh
@@ -96,7 +109,7 @@ import "./counter.wc.tsx"
 Host pages consume the generated element as regular DOM:
 
 ```html
-<x-counter label="Clicks"></x-counter>
+<demo-counter label="Clicks"></demo-counter>
 ```
 
 ## Run Local Checks

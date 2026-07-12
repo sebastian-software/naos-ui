@@ -157,11 +157,11 @@ output {
   font-size: 0.88rem;
 }
 
-x-counter,
-x-disclosure,
-x-field,
-x-toggle,
-x-toolbar,
+demo-counter,
+demo-disclosure,
+demo-field,
+demo-toggle,
+demo-toolbar,
 naos-button,
 naos-button-group,
 naos-checkbox,
@@ -184,8 +184,8 @@ naos-toggle {
   align-content: start;
 }
 
-.primitive-surface x-disclosure,
-.primitive-surface x-field,
+.primitive-surface demo-disclosure,
+.primitive-surface demo-field,
 .primitive-surface naos-field,
 .primitive-surface naos-tabs,
 .primitive-surface naos-dropdown {
