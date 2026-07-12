@@ -1126,6 +1126,19 @@ impl<'a> CodeGenerator<'a> {
             writeln!(code, "    }});").map_err(format_error)?;
             writeln!(code, "  }}").map_err(format_error)?;
         }
+        writeln!(code, "  #reportError(error) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "    this.dispatchEvent(new CustomEvent(\"naos-error\", {{ detail: {{ error }}, bubbles: true, composed: true, cancelable: false }}));"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    const reporter = globalThis.reportError;").map_err(format_error)?;
+        writeln!(code, "    if (typeof reporter === \"function\") {{").map_err(format_error)?;
+        writeln!(code, "      reporter.call(globalThis, error);").map_err(format_error)?;
+        writeln!(code, "      return;").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    setTimeout(() => {{ throw error; }}, 0);").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #markDirty(source) {{").map_err(format_error)?;
         writeln!(code, "    this.#dirtySources.add(source);").map_err(format_error)?;
         if !self.module.computed.is_empty() {
@@ -1319,7 +1332,13 @@ impl<'a> CodeGenerator<'a> {
             .map_err(format_error)?;
             writeln!(code, "    const tasks = this.#queuedHostTasks;").map_err(format_error)?;
             writeln!(code, "    this.#queuedHostTasks = [];").map_err(format_error)?;
-            writeln!(code, "    for (const task of tasks) task();").map_err(format_error)?;
+            writeln!(code, "    for (const task of tasks) {{").map_err(format_error)?;
+            writeln!(code, "      try {{").map_err(format_error)?;
+            writeln!(code, "        task();").map_err(format_error)?;
+            writeln!(code, "      }} catch (error) {{").map_err(format_error)?;
+            writeln!(code, "        this.#reportError(error);").map_err(format_error)?;
+            writeln!(code, "      }}").map_err(format_error)?;
+            writeln!(code, "    }}").map_err(format_error)?;
             writeln!(code, "  }}").map_err(format_error)?;
             writeln!(code, "  #abortHostUpdateScope() {{").map_err(format_error)?;
             writeln!(code, "    this.#updateAbortController.abort();").map_err(format_error)?;
@@ -1369,30 +1388,40 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #flush() {{").map_err(format_error)?;
         writeln!(code, "    if (!this.#mounted) return;").map_err(format_error)?;
+        writeln!(code, "    let flushError;").map_err(format_error)?;
+        writeln!(code, "    let didFail = false;").map_err(format_error)?;
         if self.module.uses_host_helpers {
             writeln!(code, "    this.#beginHostUpdateScope();").map_err(format_error)?;
         }
+        writeln!(code, "    try {{").map_err(format_error)?;
         writeln!(
             code,
-            "    const dirtySources = this.#consumeDirtySources();"
+            "      const dirtySources = this.#consumeDirtySources();"
         )
         .map_err(format_error)?;
         if !self.module.computed.is_empty() {
-            writeln!(code, "    this.#computedCache.clear();").map_err(format_error)?;
+            writeln!(code, "      this.#computedCache.clear();").map_err(format_error)?;
         }
-        writeln!(code, "    this.#update(dirtySources);").map_err(format_error)?;
+        writeln!(code, "      this.#update(dirtySources);").map_err(format_error)?;
         if self.uses_keyed_selectors() {
-            writeln!(code, "    this.#runKeyedBindings(dirtySources);").map_err(format_error)?;
+            writeln!(code, "      this.#runKeyedBindings(dirtySources);").map_err(format_error)?;
         }
         if !self.module.form_controls.is_empty() {
-            writeln!(code, "    this.#syncFormValue(dirtySources);").map_err(format_error)?;
+            writeln!(code, "      this.#syncFormValue(dirtySources);").map_err(format_error)?;
         }
         if !self.module.effects.is_empty() {
-            writeln!(code, "    this.#runEffects(dirtySources);").map_err(format_error)?;
+            writeln!(code, "      this.#runEffects(dirtySources);").map_err(format_error)?;
         }
+        writeln!(code, "    }} catch (error) {{").map_err(format_error)?;
+        writeln!(code, "      flushError = error;").map_err(format_error)?;
+        writeln!(code, "      didFail = true;").map_err(format_error)?;
+        writeln!(code, "      this.#markAllDirty();").map_err(format_error)?;
         if self.module.uses_host_helpers {
-            writeln!(code, "    this.#finishHostUpdateScope();").map_err(format_error)?;
+            writeln!(code, "    }} finally {{").map_err(format_error)?;
+            writeln!(code, "      this.#finishHostUpdateScope();").map_err(format_error)?;
         }
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    if (didFail) this.#reportError(flushError);").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #consumeDirtySources() {{").map_err(format_error)?;
         writeln!(code, "    if (this.#needsFullUpdate) {{").map_err(format_error)?;

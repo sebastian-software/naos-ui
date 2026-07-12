@@ -3,11 +3,18 @@ import { effect, host, on, state } from "@naos-ui/core"
 export function ReactivityProbe() {
   const primary = state(0)
   const secondary = state(0)
+  const shouldThrow = state(false)
 
   effect(() => {
     const runs = Number(document.body.dataset.probeEffectRuns ?? "0") + 1
     document.body.dataset.probeEffectRuns = String(runs)
     document.body.dataset.probeEffectValue = String(primary())
+  })
+
+  effect(() => {
+    if (shouldThrow()) {
+      throw new Error("intentional lifecycle probe failure")
+    }
   })
 
   return (
@@ -60,6 +67,28 @@ export function ReactivityProbe() {
         }}
       >
         Flush
+      </button>
+      <button
+        data-probe-error-button
+        onClick={async () => {
+          shouldThrow.set(true)
+          host().queueTask(() => {
+            document.body.dataset.probeErrorQueuedTask = "true"
+          })
+          await host().update()
+          document.body.dataset.probeErrorUpdateSettled = "true"
+        }}
+      >
+        Trigger error
+      </button>
+      <button
+        data-probe-recover-button
+        onClick={() => {
+          shouldThrow.set(false)
+          primary.set(primary() + 1)
+        }}
+      >
+        Recover
       </button>
       <button
         data-probe-event-signal-button
