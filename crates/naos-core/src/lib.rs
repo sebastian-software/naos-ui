@@ -1000,6 +1000,7 @@ mod tests {
         };
 
         assert!(result.code.contains("#effectCleanups = [];"));
+        assert!(result.code.contains("#effectsConnected = false;"));
         assert!(result.code.contains("#computedCache = new Map();"));
         assert!(result.code.contains("const doubled = () => {"));
         assert!(
@@ -1008,6 +1009,14 @@ mod tests {
                 .contains("this.#computedCache.set(\"doubled\", (count() * 2));")
         );
         assert!(result.code.contains("#runEffects(dirtySources)"));
+        assert!(result.code.contains("if (!this.#effectsConnected) return;"));
+        assert!(result.code.contains("this.#effectsConnected = true;"));
+        assert!(result.code.contains("this.#effectsConnected = false;"));
+        assert!(
+            result
+                .code
+                .contains("} else {\n      this.#markAllDirty();")
+        );
         assert!(
             result.code.contains(
                 "count.set = (value) => { if (Object.is(this.#state.count, value)) return;"

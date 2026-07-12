@@ -238,6 +238,83 @@ test("compiled reactive output batches and gates DOM updates", async ({
   await expect(body).toHaveAttribute("data-probe-effect-runs", "4")
 })
 
+test("compiled effects restart after re-append and keyed-list moves", async ({
+  page,
+}) => {
+  await page.goto("/")
+
+  const host = page.locator(
+    "#effect-lifecycle-case demo-effect-lifecycle-list"
+  )
+  const items = host.locator("demo-effect-lifecycle-item")
+  const body = page.locator("body")
+
+  await expect(items).toHaveCount(2)
+  await expect(body).toHaveAttribute("data-lifecycle-runs-a", "1")
+  await expect(body).toHaveAttribute("data-lifecycle-runs-b", "1")
+  const firstA = await items.filter({ hasText: "a" }).elementHandle()
+  const firstB = await items.filter({ hasText: "b" }).elementHandle()
+  if (!firstA || !firstB) throw new Error("Missing lifecycle fixture items.")
+
+  await host.evaluate((element) => {
+    const parent = element.parentNode
+    if (!parent) throw new Error("Missing lifecycle fixture parent.")
+    element.remove()
+    parent.appendChild(element)
+  })
+
+  await expect(body).toHaveAttribute("data-lifecycle-cleanups-a", "1")
+  await expect(body).toHaveAttribute("data-lifecycle-cleanups-b", "1")
+  await expect(body).toHaveAttribute("data-lifecycle-runs-a", "2")
+  await expect(body).toHaveAttribute("data-lifecycle-runs-b", "2")
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent("naos-lifecycle-probe", { detail: "a" }))
+    window.dispatchEvent(new CustomEvent("naos-lifecycle-probe", { detail: "b" }))
+  })
+  await expect(body).toHaveAttribute("data-lifecycle-hits-a", "1")
+  await expect(body).toHaveAttribute("data-lifecycle-hits-b", "1")
+
+  const runsBeforeReorder = await page.evaluate(() => ({
+    a: Number(document.body.getAttribute("data-lifecycle-runs-a")),
+    b: Number(document.body.getAttribute("data-lifecycle-runs-b")),
+  }))
+  await host.locator("[data-lifecycle-reorder]").click()
+  await expect(items).toHaveText(["b", "a"])
+  expect(
+    await items.nth(1).evaluate((element, previous) => element === previous, firstA)
+  ).toBe(true)
+  expect(
+    await items.nth(0).evaluate((element, previous) => element === previous, firstB)
+  ).toBe(true)
+  await expect
+    .poll(() =>
+      page.evaluate(
+        (previous) => {
+          const a = Number(
+            document.body.getAttribute("data-lifecycle-runs-a")
+          )
+          const b = Number(
+            document.body.getAttribute("data-lifecycle-runs-b")
+          )
+          return a > previous.a || b > previous.b
+        },
+        runsBeforeReorder
+      )
+    )
+    .toBe(true)
+
+  await page.evaluate(() => {
+    window.dispatchEvent(new CustomEvent("naos-lifecycle-probe", { detail: "a" }))
+    window.dispatchEvent(new CustomEvent("naos-lifecycle-probe", { detail: "b" }))
+  })
+  await expect(body).toHaveAttribute("data-lifecycle-hits-a", "2")
+  await expect(body).toHaveAttribute("data-lifecycle-hits-b", "2")
+
+  await firstA.dispose()
+  await firstB.dispose()
+})
+
 test("compiled async lifecycle signals abort stale work", async ({ page }) => {
   await page.goto("/")
 

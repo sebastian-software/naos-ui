@@ -415,6 +415,7 @@ impl<'a> CodeGenerator<'a> {
             writeln!(code, "  #eventAbortControllers = new Set();").map_err(format_error)?;
         }
         if !self.module.effects.is_empty() {
+            writeln!(code, "  #effectsConnected = false;").map_err(format_error)?;
             writeln!(code, "  #effectCleanups = [];").map_err(format_error)?;
         }
         if !self.module.computed.is_empty() {
@@ -499,7 +500,12 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "        this.#mount();").map_err(format_error)?;
         writeln!(code, "      }}").map_err(format_error)?;
         writeln!(code, "      this.#mounted = true;").map_err(format_error)?;
+        writeln!(code, "    }} else {{").map_err(format_error)?;
+        writeln!(code, "      this.#markAllDirty();").map_err(format_error)?;
         writeln!(code, "    }}").map_err(format_error)?;
+        if !self.module.effects.is_empty() {
+            writeln!(code, "    this.#effectsConnected = true;").map_err(format_error)?;
+        }
         self.emit_lifecycle_callback_lines(code, &self.module.connected_callbacks)?;
         writeln!(code, "    this.#flushSync();").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
@@ -508,6 +514,9 @@ impl<'a> CodeGenerator<'a> {
             || !self.module.disconnected_callbacks.is_empty()
         {
             writeln!(code, "  disconnectedCallback() {{").map_err(format_error)?;
+            if !self.module.effects.is_empty() {
+                writeln!(code, "    this.#effectsConnected = false;").map_err(format_error)?;
+            }
             self.emit_lifecycle_callback_lines(code, &self.module.disconnected_callbacks)?;
             if self.uses_event_abort_signals() {
                 writeln!(code, "    this.#abortEventHandlers();").map_err(format_error)?;
@@ -1056,6 +1065,7 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "    this.#effectCleanups[index] = undefined;").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #runEffects(dirtySources) {{").map_err(format_error)?;
+        writeln!(code, "    if (!this.#effectsConnected) return;").map_err(format_error)?;
         let names = self.binding_names().join(", ");
         if !names.is_empty() {
             writeln!(code, "    const {{ {names} }} = this.#createBindings();")

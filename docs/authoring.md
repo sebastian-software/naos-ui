@@ -337,10 +337,16 @@ expressions, events, and effects.
 
 ## Effects And Host Lifecycle
 
-Effects run after the element mounts. After that, generated code reruns an
-effect only when its detected state, prop, or computed dependencies change.
-Unknown helper reads conservatively fall back to the previous broad rerun
-behavior. Cleanup functions run before the next effect pass and on disconnect.
+Effects are scoped to a host connection. They run after the element first
+mounts, clean up when it disconnects, and run again after every reconnect. A
+reconnect performs a full generated update so event bindings and every effect
+are re-established, but it does not mount again or reset component state.
+Between connections, generated state writes do not restart effects.
+
+After setup, generated code reruns an effect only when its detected state,
+prop, or computed dependencies change. Unknown helper reads conservatively
+fall back to the previous broad rerun behavior. Cleanup functions run before
+the next effect pass and on disconnect.
 
 ```ts
 effect(() => {
@@ -371,6 +377,13 @@ effect(() => {
 * `queueTask()`: schedules a task to run after the next generated update pass.
 * `flushSync()`: an explicit request to run pending generated updates
   immediately.
+
+Moving a live host with DOM APIs or a keyed-list reconciliation may produce a
+disconnect/reconnect pair. The same connection-scoped rules apply: cleanup
+runs before the move completes and setup runs after reconnection. Moving a host
+between documents also preserves its state; Naos does not currently expose an
+authoring-level `adoptedCallback`, and connection setup resumes when the host is
+inserted into its destination document.
 
 ## Events
 
