@@ -4537,7 +4537,7 @@ fn format_error(error: std::fmt::Error) -> CompilerError {
 fn source_map_for_transform(source: &str, filename: &str, code: &str) -> SourceMap {
     SourceMap {
         file: filename.to_owned(),
-        mappings: source_map_line_mappings(code),
+        mappings: source_map_line_mappings(source, code),
         names: Vec::new(),
         sources: vec![filename.to_owned()],
         sources_content: vec![source.to_owned()],
@@ -4545,16 +4545,134 @@ fn source_map_for_transform(source: &str, filename: &str, code: &str) -> SourceM
     }
 }
 
-fn source_map_line_mappings(code: &str) -> String {
-    let line_count = code.lines().count().max(1);
-    std::iter::repeat_n("AAAA", line_count)
+#[derive(Debug)]
+struct SourceMapAnchor<'a> {
+    column: usize,
+    line: usize,
+    text: &'a str,
+}
+
+fn source_map_line_mappings(source: &str, code: &str) -> String {
+    let anchors = source
+        .lines()
+        .enumerate()
+        .filter_map(|(line, source_line)| {
+            let text = source_line.trim();
+            if text.len() < 4 || matches!(text, "return (" | "})" | "};") {
+                return None;
+            }
+            let byte_column = source_line.find(text)?;
+            Some(SourceMapAnchor {
+                column: utf16_column(source_line, byte_column),
+                line,
+                text,
+            })
+        })
+        .collect::<Vec<_>>();
+    let fallback = anchors
+        .iter()
+        .find(|anchor| {
+            anchor.text.contains("export function ") || anchor.text.starts_with("function ")
+        })
+        .or_else(|| anchors.first());
+    let Some(fallback) = fallback else {
+        return std::iter::repeat_n("", code.lines().count().max(1))
+            .collect::<Vec<_>>()
+            .join(";");
+    };
+
+    let mut previous_source = 0_i64;
+    let mut previous_line = 0_i64;
+    let mut previous_column = 0_i64;
+    code.lines()
+        .map(|generated_line| {
+            let matched = anchors
+                .iter()
+                .filter_map(|anchor| {
+                    generated_line
+                        .find(anchor.text)
+                        .map(|generated_byte_column| (anchor, generated_byte_column))
+                })
+                .max_by_key(|(anchor, _)| anchor.text.len());
+            let (anchor, generated_byte_column) = matched.unwrap_or((fallback, 0));
+            let generated_column = utf16_column(generated_line, generated_byte_column) as i64;
+            let source_index = 0_i64;
+            let original_line = anchor.line as i64;
+            let original_column = anchor.column as i64;
+            let segment = [
+                generated_column,
+                source_index - previous_source,
+                original_line - previous_line,
+                original_column - previous_column,
+            ]
+            .into_iter()
+            .map(encode_vlq)
+            .collect::<String>();
+            previous_source = source_index;
+            previous_line = original_line;
+            previous_column = original_column;
+            segment
+        })
         .collect::<Vec<_>>()
         .join(";")
 }
 
+fn utf16_column(line: &str, byte_column: usize) -> usize {
+    line[..byte_column].encode_utf16().count()
+}
+
+fn encode_vlq(value: i64) -> String {
+    const BASE64: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut encoded = String::new();
+    let mut remaining = if value < 0 {
+        ((-value) as u64) << 1 | 1
+    } else {
+        (value as u64) << 1
+    };
+    loop {
+        let mut digit = (remaining & 31) as usize;
+        remaining >>= 5;
+        if remaining > 0 {
+            digit |= 32;
+        }
+        encoded.push(BASE64[digit] as char);
+        if remaining == 0 {
+            break;
+        }
+    }
+    encoded
+}
+
 #[cfg(test)]
 mod dependency_tests {
-    use super::identifier_uses;
+    use std::collections::BTreeSet;
+
+    use super::{encode_vlq, identifier_uses, source_map_line_mappings};
+
+    #[test]
+    fn source_map_mappings_should_track_authored_lines() {
+        let source =
+            "export function Probe() {\n  effect(() => {\n    throw new Error(\"boom\");\n  });\n}";
+        let code = "class ProbeElement {\n  run() {\n    throw new Error(\"boom\");\n  }\n}";
+        let mappings = source_map_line_mappings(source, code);
+
+        assert_eq!(mappings.split(';').count(), code.lines().count());
+        assert_ne!(
+            mappings,
+            std::iter::repeat_n("AAAA", code.lines().count())
+                .collect::<Vec<_>>()
+                .join(";")
+        );
+        assert!(mappings.split(';').collect::<BTreeSet<_>>().len() > 1);
+    }
+
+    #[test]
+    fn source_map_vlq_should_encode_signed_deltas() {
+        assert_eq!(encode_vlq(0), "A");
+        assert_eq!(encode_vlq(1), "C");
+        assert_eq!(encode_vlq(-1), "D");
+        assert_eq!(encode_vlq(16), "gB");
+    }
 
     #[test]
     fn ast_dependency_visitor_parses_effect_block_bodies() {

@@ -853,6 +853,22 @@ mod tests {
         assert_eq!(source_map.sources, vec!["counter.wc.tsx"]);
         assert_eq!(source_map.sources_content, vec![source.to_owned()]);
         assert!(
+            source_map
+                .mappings
+                .split(';')
+                .any(|segment| segment != "AAAA"),
+            "source maps should contain authored-line mappings"
+        );
+        assert!(
+            source_map
+                .mappings
+                .split(';')
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                > 1,
+            "source maps should not point every generated line at one source location"
+        );
+        assert!(
             result
                 .code
                 .contains("class CounterElement extends HTMLElement")
