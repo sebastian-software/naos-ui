@@ -1,4 +1,4 @@
-export type NaosContext<Value> = {
+export type NaosContext<_Value> = {
   readonly description: string
   readonly key: symbol
 }

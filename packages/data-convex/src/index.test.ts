@@ -14,9 +14,6 @@ import {
 } from "./index.js"
 
 type MessagesQuery = FunctionReference<"query", "public", { channel: string }, string[]>
-type CreateMessageMutation = FunctionReference<"mutation", "public", { body: string }, { id: string }>
-type SummarizeAction = FunctionReference<"action", "public", { body: string }, string>
-
 const messagesQuery = makeFunctionReference<"query", { channel: string }, string[]>("messages:list")
 const createMessageMutation = makeFunctionReference<
   "mutation",

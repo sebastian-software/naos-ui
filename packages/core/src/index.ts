@@ -81,35 +81,35 @@ export type FormControlHandle = {
   readonly formAssociated: true
 }
 
-export function state<T>(initialValue: T): StateAccessor<T> {
+export function state<T>(_initialValue: T): StateAccessor<T> {
   return authoringRuntimeError("state")
 }
 
-export function computed<T>(derive: () => T): ComputedAccessor<T> {
+export function computed<T>(_derive: () => T): ComputedAccessor<T> {
   return authoringRuntimeError("computed")
 }
 
-export function effect(callback: EffectCallback): void {
+export function effect(_callback: EffectCallback): void {
   authoringRuntimeError("effect")
 }
 
-export function Show(props: ShowProps): JSX.Element {
+export function Show(_props: ShowProps): JSX.Element {
   return authoringRuntimeError("Show")
 }
 
-export function Switch(props: SwitchProps): JSX.Element {
+export function Switch(_props: SwitchProps): JSX.Element {
   return authoringRuntimeError("Switch")
 }
 
-export function Match(props: MatchProps): JSX.Element {
+export function Match(_props: MatchProps): JSX.Element {
   return authoringRuntimeError("Match")
 }
 
-export function For<T>(props: ForProps<T>): JSX.Element {
+export function For<T>(_props: ForProps<T>): JSX.Element {
   return authoringRuntimeError("For")
 }
 
-export function Index<T>(props: IndexProps<T>): JSX.Element {
+export function Index<T>(_props: IndexProps<T>): JSX.Element {
   return authoringRuntimeError("Index")
 }
 
@@ -126,21 +126,21 @@ export function host<Props extends object = Record<string, unknown>>(): HostHand
 }
 
 export function event<Detail = void>(
-  name: string,
-  options?: EventOptions
+  _name: string,
+  _options?: EventOptions
 ): EventEmitter<Detail> {
   return authoringRuntimeError("event")
 }
 
-export function formControl(options: FormControlOptions): FormControlHandle {
+export function formControl(_options: FormControlOptions): FormControlHandle {
   return authoringRuntimeError("formControl")
 }
 
-export function onConnected(callback: () => void): void {
+export function onConnected(_callback: () => void): void {
   authoringRuntimeError("onConnected")
 }
 
-export function onDisconnected(callback: () => void): void {
+export function onDisconnected(_callback: () => void): void {
   authoringRuntimeError("onDisconnected")
 }
 

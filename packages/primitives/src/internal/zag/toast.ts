@@ -9,7 +9,6 @@ import {
   type Options as ZagToastOptions,
   type Placement,
   type Props as ZagToastProps,
-  type Service as ZagToastService,
   type Status,
   type StatusChangeDetails,
   type Type as ZagToastType,
