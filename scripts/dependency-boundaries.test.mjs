@@ -80,9 +80,12 @@ test("the manifest check exits non-zero and reports every violation", () => {
 
 test("Oxlint rejects an outward import from a foundation fixture", () => {
   const command = process.platform === "win32" ? "pnpm.cmd" : "pnpm"
+  const environment = { ...process.env }
+  delete environment.GITHUB_ACTIONS
   const result = spawnSync(command, ["exec", "oxlint", "--no-ignore", fixturePath], {
     cwd: rootDir,
     encoding: "utf8",
+    env: environment,
   })
   const output = `${result.stdout}\n${result.stderr}`
 
