@@ -14,7 +14,9 @@ export function EffectLifecycleList() {
       <div data-lifecycle-list>
         <For each={rows()}>
           {(row) => (
-            <EffectLifecycleItem key={row.id} lifecycleId={row.id} />
+            <div key={row.id} data-lifecycle-row={row.id}>
+              <EffectLifecycleItem lifecycleId={row.id} />
+            </div>
           )}
         </For>
       </div>
