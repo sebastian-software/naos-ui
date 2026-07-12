@@ -36,6 +36,7 @@ than chronological trivia.
 * [ADR 0019: Canonical Public Release Inventory](0019-canonical-public-release-inventory.md)
 * [ADR 0020: Owned Compiler IR Lowered From OXC AST](0020-owned-compiler-ir-lowered-from-oxc-ast.md)
 * [ADR 0021: JSX Event Attributes Own Listener Names](0021-jsx-event-attribute-owns-listener-name.md)
+* [ADR 0022: Package-Stable Tag Names And Registration](0022-package-stable-tag-names-and-registration.md)
 
 ### P2: Conventions And Implementation Guidance
 
