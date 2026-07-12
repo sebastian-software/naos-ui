@@ -40,6 +40,11 @@ Rust owns transform source-map generation. The native transform workflow returns
 final code and the optional source map together. JavaScript wrappers and Vite
 must not replay Rust transform edits to recreate a source map.
 
+Generated maps use authored statements and expressions preserved in the output
+as precise line/column anchors. Lines that are entirely compiler-owned fall back
+to the component declaration. This avoids a misleading all-lines-to-1:1 map;
+future IR span plumbing can replace individual fallback segments incrementally.
+
 Vite renders diagnostics with filename, span, code, severity, message, and
 hint. The CLI uses the same diagnostic structure and exits nonzero when
 diagnostics represent failed compilation.

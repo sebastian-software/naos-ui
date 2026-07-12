@@ -18,6 +18,7 @@ declare global {
     __naosProbeSecondaryMutationCount?: () => number
     __naosProbeSecondaryMutationObserver?: MutationObserver
     __naosReportedErrors?: string[]
+    __naosReportedStacks?: string[]
     __naosSelectorMutationCounts?: Record<string, number>
     __naosSelectorMutationObserver?: MutationObserver
   }
@@ -349,11 +350,15 @@ test("compiled async lifecycle signals abort stale work", async ({ page }) => {
 test("compiled update errors settle awaiters and recover", async ({ page }) => {
   await page.addInitScript(() => {
     window.__naosReportedErrors = []
+    window.__naosReportedStacks = []
     Object.defineProperty(globalThis, "reportError", {
       configurable: true,
       value: (error: unknown) => {
         window.__naosReportedErrors?.push(
           error instanceof Error ? error.message : String(error)
+        )
+        window.__naosReportedStacks?.push(
+          error instanceof Error ? (error.stack ?? "") : ""
         )
       },
     })
@@ -381,6 +386,67 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
   await expect
     .poll(() => page.evaluate(() => window.__naosReportedErrors ?? []))
     .toContain("intentional lifecycle probe failure")
+  const mappedErrorLine = await page.evaluate(async () => {
+    const stack = window.__naosReportedStacks?.[0] ?? ""
+    const frame = /reactivity-probe\.wc\.tsx:(\d+):(\d+)/.exec(stack)
+    if (!frame) throw new Error(`Missing generated probe frame: ${stack}`)
+    const generatedLine = Number(frame[1]) - 1
+    const generatedColumn = Number(frame[2]) - 1
+    const transformed = await fetch("/src/reactivity-probe.wc.tsx").then(
+      (response) => response.text()
+    )
+    const inlineMap =
+      /sourceMappingURL=data:application\/json;base64,([^\s]+)/.exec(
+        transformed
+      )
+    if (!inlineMap) throw new Error("Missing inline source map from Vite.")
+    const map = JSON.parse(atob(inlineMap[1])) as { mappings: string }
+    let originalLine = 0
+    let originalColumn = 0
+    let originalSource = 0
+    let mappedLine = -1
+    const decode = (segment: string) => {
+      const values: number[] = []
+      let value = 0
+      let shift = 0
+      for (const character of segment) {
+        const digit =
+          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".indexOf(
+            character
+          )
+        value |= (digit & 31) << shift
+        if ((digit & 32) !== 0) {
+          shift += 5
+          continue
+        }
+        const negative = (value & 1) === 1
+        values.push(negative ? -(value >> 1) : value >> 1)
+        value = 0
+        shift = 0
+      }
+      return values
+    }
+    for (const [line, encodedLine] of map.mappings.split(";").entries()) {
+      let mappedGeneratedColumn = 0
+      for (const segment of encodedLine.split(",").filter(Boolean)) {
+        const values = decode(segment)
+        mappedGeneratedColumn += values[0] ?? 0
+        if (values.length < 4) continue
+        originalSource += values[1] ?? 0
+        originalLine += values[2] ?? 0
+        originalColumn += values[3] ?? 0
+        if (
+          line === generatedLine &&
+          mappedGeneratedColumn <= generatedColumn
+        ) {
+          mappedLine = originalLine + 1
+        }
+      }
+      if (line >= generatedLine) break
+    }
+    return { mappedLine, originalColumn, originalSource }
+  })
+  expect(mappedErrorLine.mappedLine).toBe(16)
 
   await probe.locator("[data-probe-recover-button]").click()
   await expect(primary).toHaveText("1")

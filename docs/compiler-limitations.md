@@ -252,14 +252,16 @@ as removed API calls and invalid `computed()` or `effect()` callbacks. Some
 string-parsed and generated-template failures still report module-level
 diagnostics until those paths move onto span-aware analysis.
 
-Transforms return a native source-map object from Rust as `map?`. The current
-map is emitted by the native transform workflow and includes the original source
-content. Its mappings are intentionally coarse line mappings today; node-level
-source-map segments remain future hardening work.
+Transforms return a native source-map object from Rust as `map?`. The native
+transform includes the original source content and maps generated lines that
+contain preserved authoring statements or expressions back to their actual
+source line and column. Compiler-owned scaffolding maps to the component
+declaration as a stable fallback instead of claiming that every line originated
+at source 1:1.
 
 Future work should add span-rich diagnostics and fixture coverage for every
-supported rejection path, then replace coarse generated-line mappings with
-node-level source-map segments.
+supported rejection path, then extend expression-level mappings to every piece
+of compiler-owned scaffolding where a more specific authored node exists.
 
 ## Conformance Fixtures
 

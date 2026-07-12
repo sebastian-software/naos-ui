@@ -217,6 +217,24 @@ fn accepted_fixtures_should_transform_through_public_compiler_boundary() {
             .unwrap_or_else(|| panic!("{} should emit a source map", fixture.filename));
         assert_eq!(source_map.sources, vec![fixture.filename]);
         assert_eq!(source_map.sources_content, vec![fixture.source.to_owned()]);
+        assert!(
+            source_map
+                .mappings
+                .split(';')
+                .any(|segment| segment != "AAAA"),
+            "{} should emit non-trivial source mappings",
+            fixture.filename
+        );
+        assert!(
+            source_map
+                .mappings
+                .split(';')
+                .collect::<std::collections::BTreeSet<_>>()
+                .len()
+                > 1,
+            "{} should map generated lines to multiple source locations",
+            fixture.filename
+        );
 
         for snippet in fixture.snippets {
             assert!(
