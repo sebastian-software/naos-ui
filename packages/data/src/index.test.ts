@@ -152,6 +152,137 @@ describe("fetchResource", () => {
   })
 })
 
+describe("cache eviction", () => {
+  it("evicts an idle entry immediately with keepAlive 0", async () => {
+    const cache = new NaosResourceCache({ keepAlive: 0 })
+    const fetcher = vi.fn(async () => "value")
+
+    const resource = fetchResource("evict-now", fetcher, { cache })
+    await waitForSnapshot(resource, { data: "value", status: "success" })
+    resource.dispose()
+
+    expect(cache.snapshot("evict-now")).toEqual({ status: "pending" })
+  })
+
+  it("does not grow unboundedly across many disposed keys", async () => {
+    const cache = new NaosResourceCache({ keepAlive: 0 })
+
+    for (let index = 0; index < 25; index += 1) {
+      const resource = fetchResource(["item", index], async () => index, { cache })
+      await waitForSnapshot(resource, { data: index, status: "success" })
+      resource.dispose()
+    }
+
+    for (let index = 0; index < 25; index += 1) {
+      expect(cache.snapshot(normalizeResourceKey(["item", index]).key)).toEqual({ status: "pending" })
+    }
+  })
+
+  it("keeps an idle entry cached for the keepAlive window", async () => {
+    vi.useFakeTimers()
+    try {
+      const cache = new NaosResourceCache({ keepAlive: 50 })
+      const resource = fetchResource("keep-alive", async () => "kept", { cache })
+      await waitForSnapshot(resource, { data: "kept", status: "success" })
+      resource.dispose()
+
+      expect(cache.snapshot("keep-alive")).toEqual({ data: "kept", status: "success" })
+
+      vi.advanceTimersByTime(49)
+      expect(cache.snapshot("keep-alive")).toEqual({ data: "kept", status: "success" })
+
+      vi.advanceTimersByTime(1)
+      expect(cache.snapshot("keep-alive")).toEqual({ status: "pending" })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("cancels a pending eviction when the key is used again", async () => {
+    vi.useFakeTimers()
+    try {
+      const cache = new NaosResourceCache({ keepAlive: 50 })
+      const first = fetchResource("revisited", async () => "kept", { cache })
+      await waitForSnapshot(first, { data: "kept", status: "success" })
+      first.dispose()
+
+      vi.advanceTimersByTime(30)
+      const unsubscribe = cache.subscribe("revisited", () => {})
+      vi.advanceTimersByTime(100)
+
+      expect(cache.snapshot("revisited")).toEqual({ data: "kept", status: "success" })
+      unsubscribe()
+      vi.advanceTimersByTime(50)
+      expect(cache.snapshot("revisited")).toEqual({ status: "pending" })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("does not evict while listeners remain subscribed", async () => {
+    const cache = new NaosResourceCache({ keepAlive: 0 })
+    const resource = fetchResource("watched", async () => "kept", { cache })
+    const unsubscribe = resource.subscribe(() => {})
+    await waitForSnapshot(resource, { data: "kept", status: "success" })
+
+    resource.dispose()
+    expect(cache.snapshot("watched")).toEqual({ data: "kept", status: "success" })
+
+    unsubscribe()
+    expect(cache.snapshot("watched")).toEqual({ status: "pending" })
+  })
+
+  it("deletes a key and aborts its in-flight fetch", async () => {
+    const cache = new NaosResourceCache()
+    let signal: AbortSignal | undefined
+    fetchResource(
+      "doomed",
+      (_key, context) =>
+        new Promise<string>(() => {
+          signal = context.signal
+        }),
+      { cache }
+    )
+    await Promise.resolve()
+
+    cache.delete("doomed")
+
+    expect(signal?.aborted).toBe(true)
+    expect(cache.snapshot("doomed")).toEqual({ status: "pending" })
+  })
+
+  it("resets a deleted key to pending and notifies remaining listeners", async () => {
+    const cache = new NaosResourceCache()
+    const listener = vi.fn()
+    const resource = fetchResource("reset", async () => "cached", { cache })
+    resource.subscribe(listener)
+    await waitForSnapshot(resource, { data: "cached", status: "success" })
+    listener.mockClear()
+
+    cache.delete("reset")
+
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(resource.snapshot()).toEqual({ status: "pending" })
+  })
+
+  it("clears all entries and disposes active subscriptions", async () => {
+    const cache = new NaosResourceCache()
+    const dispose = vi.fn()
+    const fetched = fetchResource("clear-fetch", async () => "cached", { cache })
+    subscriptionResource("clear-feed", (_key, { next }) => {
+      next(null, "live")
+      return dispose
+    }, { cache })
+    await waitForSnapshot(fetched, { data: "cached", status: "success" })
+
+    cache.clear()
+
+    expect(dispose).toHaveBeenCalledTimes(1)
+    expect(cache.snapshot("clear-fetch")).toEqual({ status: "pending" })
+    expect(cache.snapshot("clear-feed")).toEqual({ status: "pending" })
+  })
+})
+
 describe("subscriptionResource", () => {
   it("shares one subscription for equivalent keys", () => {
     const cache = new NaosResourceCache()
