@@ -105,6 +105,12 @@ jobs:
       - name: Build local native binding
         run: pnpm build:native
 
+      - name: Build packages
+        run: pnpm build
+
+      - name: Test packages
+        run: pnpm test:packages
+
   browser:
     name: Browser Gate (${{ matrix.browser }})
     runs-on: ubuntu-latest

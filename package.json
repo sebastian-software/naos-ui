@@ -24,10 +24,11 @@
     "lint": "pnpm lint:js && pnpm lint:rust",
     "lint:js": "oxlint --deny-warnings .",
     "lint:rust": "cargo clippy --all-targets --all-features -- -D warnings",
-    "test": "pnpm test:repo && pnpm -r --filter './packages/**' --if-present test && pnpm test:rust",
+    "test": "pnpm test:repo && pnpm test:packages && pnpm test:rust",
     "test:api-conventions": "node --test scripts/api-conventions.test.mjs",
     "test:dependency-boundaries": "node --test scripts/dependency-boundaries.test.mjs",
     "test:examples": "pnpm -r --filter './examples/**' --if-present test",
+    "test:packages": "pnpm -r --filter './packages/**' --if-present test",
     "test:repo": "node --test scripts/release-set.test.mjs scripts/dependency-boundaries.test.mjs scripts/api-conventions.test.mjs",
     "test:rust": "cargo test --workspace",
     "verify:fresh-project": "node scripts/verify-fresh-project.mjs"
