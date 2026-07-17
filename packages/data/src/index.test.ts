@@ -232,6 +232,51 @@ describe("cache eviction", () => {
     expect(cache.snapshot("watched")).toEqual({ status: "pending" })
   })
 
+  it("keeps a shared key alive until every resource is disposed", async () => {
+    const cache = new NaosResourceCache({ keepAlive: 0 })
+    const fetcher = vi.fn(async () => "shared")
+
+    const left = fetchResource("shared-key", fetcher, { cache })
+    const right = fetchResource("shared-key", fetcher, { cache })
+    await waitForSnapshot(left, { data: "shared", status: "success" })
+    await Promise.resolve()
+
+    left.dispose()
+    expect(right.snapshot()).toEqual({ data: "shared", status: "success" })
+
+    right.dispose()
+    expect(cache.snapshot("shared-key")).toEqual({ status: "pending" })
+  })
+
+  it("keeps cached data across refetch with keepAlive 0", async () => {
+    const cache = new NaosResourceCache({ keepAlive: 0 })
+    const fetcher = vi.fn(async () => (fetcher.mock.calls.length === 1 ? "first" : "second"))
+
+    const resource = fetchResource("refetched", fetcher, { cache })
+    await waitForSnapshot(resource, { data: "first", status: "success" })
+    await Promise.resolve()
+
+    await resource.refetch?.()
+
+    expect(resource.snapshot()).toEqual({ data: "second", status: "success" })
+  })
+
+  it("treats a NaN keepAlive as the default window", async () => {
+    vi.useFakeTimers()
+    try {
+      const cache = new NaosResourceCache({ keepAlive: Number.NaN })
+      const resource = fetchResource("nan-window", async () => "kept", { cache })
+      await waitForSnapshot(resource, { data: "kept", status: "success" })
+      resource.dispose()
+
+      expect(cache.snapshot("nan-window")).toEqual({ data: "kept", status: "success" })
+      vi.advanceTimersByTime(300_000)
+      expect(cache.snapshot("nan-window")).toEqual({ status: "pending" })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("deletes a key and aborts its in-flight fetch", async () => {
     const cache = new NaosResourceCache()
     let signal: AbortSignal | undefined

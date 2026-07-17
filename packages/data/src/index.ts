@@ -102,6 +102,7 @@ const defaultKeepAlive = 300_000
 type CacheEntry<Data, Error> = {
   state: NaosResourceState<Data, Error>
   listeners: Set<() => void>
+  retains: number
   evictionTimer?: ReturnType<typeof setTimeout>
 }
 
@@ -124,7 +125,8 @@ export class NaosResourceCache {
   readonly #keepAlive: number
 
   constructor(options: NaosResourceCacheOptions = {}) {
-    this.#keepAlive = Math.max(0, options.keepAlive ?? defaultKeepAlive)
+    const keepAlive = options.keepAlive ?? defaultKeepAlive
+    this.#keepAlive = Number.isNaN(keepAlive) ? defaultKeepAlive : Math.max(0, keepAlive)
   }
 
   snapshot<Data, Error = unknown>(key: string | undefined): NaosResourceState<Data, Error> {
@@ -158,6 +160,24 @@ export class NaosResourceCache {
     }
   }
 
+  retain(key: string | undefined): () => void {
+    if (key === undefined) {
+      return () => {}
+    }
+
+    const entry = this.#entry(key)
+    entry.retains += 1
+    let released = false
+    return () => {
+      if (released) {
+        return
+      }
+      released = true
+      entry.retains -= 1
+      this.#scheduleEviction(key)
+    }
+  }
+
   delete(key: string): void {
     this.#abortFetch(key)
     this.#abortSubscription(key)
@@ -168,7 +188,7 @@ export class NaosResourceCache {
     }
 
     this.#cancelEviction(entry)
-    if (entry.listeners.size === 0) {
+    if (entry.listeners.size === 0 && entry.retains === 0) {
       this.#entries.delete(key)
       return
     }
@@ -335,7 +355,7 @@ export class NaosResourceCache {
   #entry<Data, Error = unknown>(key: string): CacheEntry<Data, Error> {
     let entry = this.#entries.get(key)
     if (!entry) {
-      entry = { listeners: new Set(), state: { status: "pending" } }
+      entry = { listeners: new Set(), retains: 0, state: { status: "pending" } }
       this.#entries.set(key, entry)
     }
     this.#cancelEviction(entry)
@@ -390,6 +410,7 @@ export class NaosResourceCache {
     if (
       !entry ||
       entry.listeners.size > 0 ||
+      entry.retains > 0 ||
       this.#fetches.has(key) ||
       this.#subscriptions.has(key)
     ) {
@@ -409,6 +430,7 @@ export class NaosResourceCache {
       entry.evictionTimer = undefined
       if (
         entry.listeners.size === 0 &&
+        entry.retains === 0 &&
         !this.#fetches.has(key) &&
         !this.#subscriptions.has(key) &&
         this.#entries.get(key) === entry
@@ -459,6 +481,7 @@ export function fetchResource<Data, Key extends NaosResourceKey>(
 
   const resourceKey = normalized.key
   const resourceArgument = normalized.argument as Exclude<Key, NaosDisabledResourceKey> & NaosEnabledResourceKey
+  const releaseEntry = cache.retain(resourceKey)
   let releaseFetch = startFetch(false).release
   let disposed = false
 
@@ -486,6 +509,7 @@ export function fetchResource<Data, Key extends NaosResourceKey>(
       }
       disposed = true
       releaseFetch()
+      releaseEntry()
     },
     mutate(next, mutateOptions) {
       return cache.mutate(resourceKey, next, mutateOptions).then(async (result) => {
@@ -520,6 +544,7 @@ export function subscriptionResource<Data, Key extends NaosResourceKey, Error = 
     cache.set<Data, Error>(normalized.key, { data: options.initialData, status: "success" })
   }
 
+  const releaseEntry = cache.retain(normalized.key)
   const releaseSubscription = cache.attachSubscription(
     normalized.key,
     normalized.argument as Exclude<Key, NaosDisabledResourceKey> & NaosEnabledResourceKey,
@@ -535,6 +560,7 @@ export function subscriptionResource<Data, Key extends NaosResourceKey, Error = 
       }
       disposed = true
       releaseSubscription()
+      releaseEntry()
     },
     mutate(next, mutateOptions) {
       return cache.mutate(normalized.key, next, mutateOptions)

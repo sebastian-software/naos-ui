@@ -126,6 +126,11 @@ const cache = new NaosResourceCache({ keepAlive: 60_000 })
   window.
 * Using a key again within the window — subscribing, fetching, or writing —
   cancels the pending eviction.
+* Every resource handle retains its entry for the handle's lifetime:
+  `fetchResource()` and `subscriptionResource()` call `cache.retain(key)` on
+  creation and release it in `dispose()`, so sharing a key across resources
+  never evicts data while another handle is still alive. Direct cache users can
+  call `retain()` themselves; it returns an idempotent release function.
 * `cache.delete(key)` drops the cached state for one normalized key and aborts
   its in-flight fetch and upstream subscription. If listeners are still
   subscribed, the key resets to `pending` and they are notified; the entry is
