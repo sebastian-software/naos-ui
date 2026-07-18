@@ -1,0 +1,33 @@
+{
+  "name": "@naos-ui/example-tasks",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "naos": {
+    "tagPrefix": "tasks"
+  },
+  "scripts": {
+    "build": "pnpm build:deps && vite build",
+    "build:deps": "pnpm -w build:native && pnpm --filter @naos-ui/core build && pnpm --filter @naos-ui/runtime build && pnpm --filter @naos-ui/data build && pnpm --filter @naos-ui/motion build && pnpm --filter @naos-ui/compiler build && pnpm --filter @naos-ui/router build && pnpm --filter @naos-ui/testing build && pnpm --filter @naos-ui/vite build",
+    "test": "pnpm build:deps && playwright test",
+    "test:unit": "pnpm build:deps && vitest run --globals src/*.test.ts",
+    "type-check": "pnpm build:deps && tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@naos-ui/core": "workspace:^",
+    "@naos-ui/data": "workspace:^",
+    "@naos-ui/motion": "workspace:^",
+    "@naos-ui/router": "workspace:^",
+    "@naos-ui/runtime": "workspace:^",
+    "@naos-ui/vite": "workspace:^"
+  },
+  "devDependencies": {
+    "@naos-ui/compiler": "workspace:^",
+    "@naos-ui/testing": "workspace:^",
+    "@playwright/test": "^1.60.0",
+    "happy-dom": "^20.0.11",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^4.1.6"
+  }
+}
