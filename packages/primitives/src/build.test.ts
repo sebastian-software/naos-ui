@@ -594,8 +594,11 @@ describe("@naos-ui/primitives build output", () => {
       }
     `
 
+    // index.d.mts only re-exports "./*.mjs" specifiers, which do not resolve
+    // in this bare compiler-API program; the element declarations are the
+    // files under test.
     const declarationFiles = readdirSync(distRoot)
-      .filter((file) => file.endsWith(".d.mts"))
+      .filter((file) => file.endsWith(".d.mts") && file !== "index.d.mts")
       .map((file) => join(distRoot, file))
     const options: ts.CompilerOptions = {
       lib: ["lib.dom.d.ts", "lib.es2023.d.ts"],

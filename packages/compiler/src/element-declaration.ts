@@ -3,6 +3,13 @@ import type {
   NativePropDefinition,
 } from "./generated/naos-node-types.js"
 
+/**
+ * Canonical prop conversion kinds emitted by the compiler. The generated
+ * NAPI surface types `NativePropDefinition.kind` as plain `string`; this
+ * union is the authoritative value set.
+ */
+export type NaosPropKind = "boolean" | "number" | "rich" | "string"
+
 export type NaosElementDeclarationInput = {
   className: string
   exportName?: string | null
@@ -11,7 +18,7 @@ export type NaosElementDeclarationInput = {
   events?: readonly NativeEventDefinition[]
 }
 
-const PROP_TYPE_BY_KIND: Record<string, string> = {
+const PROP_TYPE_BY_KIND: Partial<Record<NaosPropKind, string>> = {
   boolean: "boolean",
   number: "number",
   string: "string",
@@ -21,7 +28,7 @@ function propType(prop: NativePropDefinition): string {
   // Rich props keep their authored TypeScript type only in the source module;
   // the standalone declaration cannot reference module-local names, so they
   // surface as `unknown` and consumers narrow at the call site.
-  return PROP_TYPE_BY_KIND[prop.kind] ?? "unknown"
+  return PROP_TYPE_BY_KIND[prop.kind as NaosPropKind] ?? "unknown"
 }
 
 function eventDetailType(event: NativeEventDefinition): string {
