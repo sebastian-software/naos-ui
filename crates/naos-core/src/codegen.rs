@@ -179,6 +179,7 @@ impl<'a> CodeGenerator<'a> {
         self.emit_runtime_imports(&mut code)?;
         self.emit_style_imports(&mut code)?;
         self.emit_component_imports(&mut code)?;
+        self.emit_component_style_sheet(&mut code)?;
         writeln!(
             code,
             "class {} extends HTMLElement {{",
@@ -225,6 +226,28 @@ impl<'a> CodeGenerator<'a> {
         if !sources.is_empty() {
             writeln!(code).map_err(format_error)?;
         }
+        Ok(())
+    }
+
+    fn emit_component_style_sheet(&self, code: &mut String) -> CompilerResult<()> {
+        if self.module.options.styles.is_empty() {
+            return Ok(());
+        }
+        writeln!(code, "let __naosComponentStyleSheet;").map_err(format_error)?;
+        writeln!(code, "function __naosComponentStyles() {{").map_err(format_error)?;
+        writeln!(code, "  if (!__naosComponentStyleSheet) {{").map_err(format_error)?;
+        writeln!(code, "    __naosComponentStyleSheet = new CSSStyleSheet();")
+            .map_err(format_error)?;
+        writeln!(
+            code,
+            "    __naosComponentStyleSheet.replaceSync([{}].join(\"\\n\"));",
+            self.module.options.styles.join(", ")
+        )
+        .map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  return __naosComponentStyleSheet;").map_err(format_error)?;
+        writeln!(code, "}}").map_err(format_error)?;
+        writeln!(code).map_err(format_error)?;
         Ok(())
     }
 
@@ -498,6 +521,11 @@ impl<'a> CodeGenerator<'a> {
 
     fn emit_lifecycle(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  connectedCallback() {{").map_err(format_error)?;
+        if !self.module.options.shadow && !self.module.options.styles.is_empty() {
+            // Light-DOM styles adopt into the current root node on every
+            // connect so re-parenting into another shadow root stays styled.
+            writeln!(code, "    this.#adoptStyles();").map_err(format_error)?;
+        }
         writeln!(code, "    if (!this.#mounted) {{").map_err(format_error)?;
         if self.module.uses_host_helpers {
             writeln!(code, "      this.#ensureHostId();").map_err(format_error)?;
@@ -767,17 +795,32 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_mount(&self, code: &mut String) -> CompilerResult<()> {
+        if !self.module.options.styles.is_empty() {
+            writeln!(code, "  #adoptStyles() {{").map_err(format_error)?;
+            if self.module.options.shadow {
+                writeln!(
+                    code,
+                    "    this.#root.adoptedStyleSheets = [__naosComponentStyles()];"
+                )
+                .map_err(format_error)?;
+            } else {
+                writeln!(code, "    const root = this.getRootNode();").map_err(format_error)?;
+                writeln!(code, "    const sheet = __naosComponentStyles();")
+                    .map_err(format_error)?;
+                writeln!(code, "    if (!root.adoptedStyleSheets.includes(sheet)) {{")
+                    .map_err(format_error)?;
+                writeln!(
+                    code,
+                    "      root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];"
+                )
+                .map_err(format_error)?;
+                writeln!(code, "    }}").map_err(format_error)?;
+            }
+            writeln!(code, "  }}").map_err(format_error)?;
+        }
         writeln!(code, "  #mount() {{").map_err(format_error)?;
         if self.module.options.shadow && !self.module.options.styles.is_empty() {
-            writeln!(code, "    const style = document.createElement(\"style\");")
-                .map_err(format_error)?;
-            writeln!(
-                code,
-                "    style.textContent = [{}].join(\"\\n\");",
-                self.module.options.styles.join(", ")
-            )
-            .map_err(format_error)?;
-            writeln!(code, "    this.#root.append(style);").map_err(format_error)?;
+            writeln!(code, "    this.#adoptStyles();").map_err(format_error)?;
         }
         for line in &self.mount_lines {
             writeln!(code, "    {line}").map_err(format_error)?;
@@ -4735,7 +4778,33 @@ fn encode_vlq(value: i64) -> String {
 mod dependency_tests {
     use std::collections::BTreeSet;
 
-    use super::{encode_vlq, identifier_uses, source_map_line_mappings};
+    use super::{CodeGenerator, encode_vlq, identifier_uses, source_map_line_mappings};
+    use crate::model::PackageContext;
+    use crate::parse::analyze_component_module;
+
+    #[test]
+    fn light_dom_styles_should_adopt_into_the_root_node() {
+        let source = "export const options = { styles: [\":x-light-probe { display: block; }\"] }\n\nexport function LightProbe() {\n  return <span>Light</span>\n}\n";
+        let package = PackageContext {
+            name: "@naos-ui/test".to_owned(),
+            version: Some("1.0.0".to_owned()),
+            tag_prefix: "x".to_owned(),
+        };
+        let mut module = analyze_component_module(source, "light-probe.wc.tsx", &package)
+            .expect("light probe should analyze");
+        // The public v0.1 API rejects `shadow: false`; this exercises the
+        // internal light-DOM branch so styles are never dropped silently.
+        module.options.shadow = false;
+        let code = CodeGenerator::new(&module)
+            .generate(&module.template)
+            .expect("light probe should generate");
+
+        assert!(code.contains("function __naosComponentStyles()"));
+        assert!(code.contains("const root = this.getRootNode();"));
+        assert!(code.contains("root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];"));
+        assert!(code.contains("this.#adoptStyles();"));
+        assert!(!code.contains("document.createElement(\"style\")"));
+    }
 
     #[test]
     fn source_map_mappings_should_track_authored_lines() {
