@@ -413,6 +413,14 @@ export class NaosResourceCache {
     }
     this.#fetches.delete(key)
     fetch.controller.abort()
+
+    // The aborted fetch will never write a settled state, so drop the
+    // in-flight marker for listeners that outlive the fetch handle.
+    const entry = this.#entries.get(key)
+    if (entry?.state.fetching) {
+      const { fetching: _fetching, ...rest } = entry.state
+      this.set(key, rest as NaosResourceState<unknown, unknown>)
+    }
   }
 
   #abortSubscription(key: string): void {
@@ -524,6 +532,9 @@ export function fetchResource<Data, Key extends NaosResourceKey>(
   }
 
   function refetch(): Promise<Data> {
+    if (disposed) {
+      return Promise.reject(new Error("Cannot refetch a disposed resource."))
+    }
     releaseFetch()
     started = true
     const fetch = startFetch(true)
@@ -670,7 +681,7 @@ async function runFetchWithRetry<Data, Key extends NaosEnabledResourceKey>(
       attempt += 1
       await retryDelay(retryDelayMs(retry?.delay, attempt), signal)
       if (signal.aborted) {
-        throw error
+        throw new DOMException("The fetch was aborted during a retry delay.", "AbortError")
       }
     }
   }

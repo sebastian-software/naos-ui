@@ -191,6 +191,18 @@ describe("lazy start", () => {
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
 
+  it("rejects refetch on a disposed resource without restarting work", async () => {
+    const cache = new NaosResourceCache()
+    const fetcher = vi.fn(async () => "value")
+
+    const resource = fetchResource("refetch-disposed", fetcher, { cache })
+    resource.dispose()
+
+    await expect(resource.refetch?.()).rejects.toThrow("disposed resource")
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(cache.snapshot("refetch-disposed")).toEqual({ status: "pending" })
+  })
+
   it("does not fetch when a lazy resource is disposed before use", async () => {
     const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => "value")
@@ -223,6 +235,22 @@ describe("fetching flag and retry", () => {
     resolveFetch("done")
     await waitForSnapshot(resource, { data: "done", status: "success" })
     expect(resource.snapshot().fetching).toBeUndefined()
+  })
+
+  it("clears the fetching flag when an in-flight fetch is aborted", async () => {
+    const cache = new NaosResourceCache()
+    const resource = fetchResource(
+      "aborted-flag",
+      () => new Promise<string>(() => {}),
+      { cache, lazy: false }
+    )
+    resource.subscribe(() => {})
+    await Promise.resolve()
+    expect(resource.snapshot()).toEqual({ fetching: true, status: "pending" })
+
+    resource.dispose()
+
+    expect(resource.snapshot()).toEqual({ status: "pending" })
   })
 
   it("retries failed fetches up to the configured attempts", async () => {
