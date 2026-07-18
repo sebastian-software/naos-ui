@@ -13,14 +13,14 @@ export type NaosRouteMatch<Route extends NaosRoute = NaosRoute> = {
   readonly data?: unknown
   readonly route: Route
   readonly url: URL
-  readonly params: Readonly<Record<string, string>>
+  readonly params: NaosRouteParams<Route["path"]>
   readonly search: URLSearchParams
   readonly navigation: NaosNavigation
 }
 
 export type NaosLoaderArgs<Route extends NaosRoute = NaosRoute> = {
   readonly navigation: NaosNavigation
-  readonly params: Readonly<Record<string, string>>
+  readonly params: NaosRouteParams<Route["path"]>
   readonly request: Request
   readonly route: Route
   readonly search: URLSearchParams
@@ -65,31 +65,34 @@ export type NaosScrollRestorationOptions = {
   readonly getKey?: (args: NaosScrollKeyArgs) => string
 }
 
-export type NaosRouteBase = {
-  readonly path: string
-  readonly action?: (args: NaosActionArgs) => Promise<unknown> | unknown
-  readonly loader?: (args: NaosLoaderArgs) => Promise<unknown> | unknown
-  readonly load?: (navigation: NaosNavigation) => Promise<unknown> | unknown
+export type NaosRouteBase<Path extends string = string> = {
+  readonly path: Path
+  // Callbacks receiving typed params use method syntax on purpose: methods are
+  // compared bivariantly, so a route with a literal path (and therefore
+  // narrower params) stays assignable to the base NaosRoute type.
+  action?(args: NaosActionArgs<NaosRoute<Path>>): Promise<unknown> | unknown
+  loader?(args: NaosLoaderArgs<NaosRoute<Path>>): Promise<unknown> | unknown
+  load?(navigation: NaosNavigation): Promise<unknown> | unknown
   readonly focusTarget?: NaosFocusTarget
-  readonly props?: (match: NaosRouteMatch) => Record<string, unknown>
-  readonly attrs?: (match: NaosRouteMatch) => Record<string, string | null>
-  readonly canEnter?: (
-    match: NaosRouteMatch
-  ) => boolean | string | URL | Promise<boolean | string | URL>
+  props?(match: NaosRouteMatch<NaosRoute<Path>>): Record<string, unknown>
+  attrs?(match: NaosRouteMatch<NaosRoute<Path>>): Record<string, string | null>
+  canEnter?(
+    match: NaosRouteMatch<NaosRoute<Path>>
+  ): boolean | string | URL | Promise<boolean | string | URL>
   readonly title?: string | ((match: NaosRouteMatch) => string)
 }
 
-export type NaosTagRoute = NaosRouteBase & {
+export type NaosTagRoute<Path extends string = string> = NaosRouteBase<Path> & {
   readonly tag: string
   readonly createElement?: never
 }
 
-export type NaosCreateElementRoute = NaosRouteBase & {
+export type NaosCreateElementRoute<Path extends string = string> = NaosRouteBase<Path> & {
   readonly tag?: never
-  readonly createElement: (match: NaosRouteMatch) => HTMLElement
+  createElement(match: NaosRouteMatch<NaosRoute<Path>>): HTMLElement
 }
 
-export type NaosRoute = NaosTagRoute | NaosCreateElementRoute
+export type NaosRoute<Path extends string = string> = NaosTagRoute<Path> | NaosCreateElementRoute<Path>
 
 export type NaosFallbackRoute =
   | Omit<NaosTagRoute, "path"> & { readonly path?: string }
@@ -191,6 +194,29 @@ export type NaosPathParams<Path extends string> = [PathParamNames<Path>] extends
   ? Record<string, never>
   : Record<PathParamNames<Path>, string | number | boolean>
 
+type PathParamSpec<Path extends string> = Path extends `${string}:${infer Param}/${infer Rest}`
+  ? Param | PathParamSpec<`/${Rest}`>
+  : Path extends `${string}:${infer Param}`
+    ? Param
+    : never
+
+type RequiredPathParamName<Spec extends string> = Spec extends `${string}?` | `${string}*`
+  ? never
+  : Spec
+
+type OptionalPathParamName<Spec extends string> = Spec extends `${infer Name}?`
+  ? Name
+  : Spec extends `${infer Name}*`
+    ? Name
+    : never
+
+export type NaosRouteParams<Path extends string> = string extends Path
+  ? Readonly<Record<string, string>>
+  : Readonly<
+      Record<RequiredPathParamName<PathParamSpec<Path>>, string> &
+        Partial<Record<OptionalPathParamName<PathParamSpec<Path>>, string>>
+    >
+
 type RouteMatcher = {
   readonly route: NaosRoute
   exec(pathname: string): Readonly<Record<string, string>> | null
@@ -228,9 +254,13 @@ const ROUTER_EVENT_NAMES = new Set<string>([
 const MAX_REDIRECTS = 10
 const SCROLL_STATE_KEY = "__naosScrollKey"
 
-export function defineRoutes<const Routes extends readonly NaosRoute[]>(
-  routes: Routes
-): Routes {
+// The mapped signature infers each route's path literal so loaders, actions,
+// and match callbacks get typed params contextually. Elements widen to
+// NaosRoute<Path> in the return type; code that needs the tag/createElement
+// subtype after defineRoutes narrows via "tag" in route.
+export function defineRoutes<const Paths extends readonly string[]>(
+  routes: { readonly [Index in keyof Paths]: NaosRoute<Paths[Index]> }
+): { readonly [Index in keyof Paths]: NaosRoute<Paths[Index]> } {
   return routes
 }
 
@@ -564,7 +594,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         const match = {
           route: errorRoute as Routes[number],
           url,
-          params: {},
+          params: {} as NaosRouteParams<Routes[number]["path"]>,
           search: url.searchParams,
           navigation,
         } satisfies NaosRouteMatch<Routes[number]>
@@ -703,7 +733,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         const match = {
           route: errorRoute as Routes[number],
           url,
-          params: {},
+          params: {} as NaosRouteParams<Routes[number]["path"]>,
           search: url.searchParams,
           navigation,
         } satisfies NaosRouteMatch<Routes[number]>
