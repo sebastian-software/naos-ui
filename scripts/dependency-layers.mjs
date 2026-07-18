@@ -12,6 +12,7 @@ export const foundationPackageNames = freeze([
 
 export const outwardPackageNames = freeze([
   "@naos-ui/primitives",
+  "@naos-ui/testing",
   "@naos-ui/router",
   "@naos-ui/vite",
   "@naos-ui/cli",

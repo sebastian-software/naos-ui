@@ -6,6 +6,7 @@
   "packages/runtime": "1.0.0",
   "packages/primitives": "1.0.0",
   "packages/router": "1.0.0",
+  "packages/testing": "1.0.0",
   "packages/compiler": "1.0.0",
   "packages/vite": "1.0.0",
   "packages/cli": "1.0.0",

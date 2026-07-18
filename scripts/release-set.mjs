@@ -11,6 +11,7 @@ export const javaScriptPackages = Object.freeze([
   freezeRecord({ name: "@naos-ui/runtime", path: "packages/runtime" }),
   freezeRecord({ name: "@naos-ui/primitives", path: "packages/primitives" }),
   freezeRecord({ name: "@naos-ui/router", path: "packages/router" }),
+  freezeRecord({ name: "@naos-ui/testing", path: "packages/testing" }),
   freezeRecord({ name: "@naos-ui/compiler", path: "packages/compiler" }),
   freezeRecord({ name: "@naos-ui/vite", path: "packages/vite" }),
   freezeRecord({ name: "@naos-ui/cli", path: "packages/cli" }),

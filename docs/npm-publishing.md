@@ -19,6 +19,7 @@ verified by `pnpm check-release-set`:
 | `@naos-ui/runtime` | `packages/runtime` |
 | `@naos-ui/primitives` | `packages/primitives` |
 | `@naos-ui/router` | `packages/router` |
+| `@naos-ui/testing` | `packages/testing` |
 | `@naos-ui/compiler` | `packages/compiler` |
 | `@naos-ui/vite` | `packages/vite` |
 | `@naos-ui/cli` | `packages/cli` |

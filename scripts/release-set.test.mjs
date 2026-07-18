@@ -13,9 +13,9 @@ import { validateReleaseSet } from "./check-release-set.mjs"
 const rootDir = fileURLToPath(new URL("..", import.meta.url))
 
 test("release inventory has unique packages and complete native matrix entries", () => {
-  assert.equal(javaScriptPackages.length, 10)
+  assert.equal(javaScriptPackages.length, 11)
   assert.equal(nativeTargets.length, 8)
-  assert.equal(publicPackages.length, 18)
+  assert.equal(publicPackages.length, 19)
   assert.equal(new Set(publicPackages.map(({ name }) => name)).size, publicPackages.length)
   assert.equal(new Set(publicPackages.map(({ path }) => path)).size, publicPackages.length)
   assert.deepEqual(
