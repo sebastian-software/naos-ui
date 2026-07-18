@@ -344,6 +344,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   #focusRestoration: NaosFocusRestorationOptions | false
   #linkRoot: (ParentNode & EventTarget) | null
   #loadPromises = new WeakMap<NaosRoute | NaosFallbackRoute, Promise<unknown>>()
+  #initialTitle: string | null = null
   #matchers: RouteMatcher[]
   #mountedLevels: MountedLevel[] = []
   #navigationId = 0
@@ -1009,6 +1010,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     chain?: readonly NaosRoute[]
   ): Promise<void> {
     const commit = () => {
+      this.#initialTitle ??= this.#platform.document.title
       this.#mount(match, route, chain)
       this.#currentMatch = match
       this.#updateTitle(match, route, chain)
@@ -1095,23 +1097,12 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
 
       if (!isLeaf) {
         container = this.#resolveChildOutlet(element, level, match)
-      } else if (reuse) {
-        // A reused leaf cannot happen today, but keep the container coherent.
-        container.replaceChildren(element)
       }
     }
 
-    // Navigating from a child back to its layout: clear the now-empty outlet.
-    const finalLevel = nextLevels.at(-1)
-    if (
-      finalLevel &&
-      this.#mountedLevels.length > nextLevels.length &&
-      this.#mountedLevels[nextLevels.length - 1]?.element === finalLevel.element
-    ) {
-      const staleOutlet = this.#tryResolveChildOutlet(finalLevel.element, finalLevel.route, match)
-      staleOutlet?.replaceChildren()
-    }
-
+    // Navigating from a child to a shorter chain always remounts the new
+    // leaf fresh (the leaf never reuses), so stale outlet content is
+    // replaced by that remount; no extra clearing pass is needed.
     this.#mountedLevels = nextLevels
   }
 
@@ -1194,9 +1185,15 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     const head = documentRef.head
     if (!head) return
     // The leaf route's `title` field stays authoritative when both are set.
+    // Routes without any title source restore the pre-router document title,
+    // keeping title handling symmetric with the other managed metadata.
     const leaf = chain.at(-1)
-    if (merged.title !== undefined && !leaf?.title) {
+    if (leaf?.title) {
+      // #updateTitle already applied it.
+    } else if (merged.title !== undefined) {
       documentRef.title = merged.title
+    } else if (this.#initialTitle !== null) {
+      documentRef.title = this.#initialTitle
     }
     if (merged.description !== undefined) {
       const description = documentRef.createElement("meta")
@@ -1750,7 +1747,9 @@ function compileRouteMatchers(routes: readonly NaosRoute[]): RouteMatcher[] {
 
 function joinRoutePaths(basePath: string, path: string): string {
   const normalizedBase = normalizeRoutePath(basePath)
-  if (path === "*") return path
+  // A wildcard child stays scoped to its parent prefix instead of becoming a
+  // global catch-all; a top-level "*" keeps its match-everything meaning.
+  if (path === "*") return normalizedBase === "/" ? path : `${normalizedBase}/*`
   const normalizedPath = normalizeRoutePath(path)
   if (normalizedPath === "/") return normalizedBase
   if (normalizedBase === "/") return normalizedPath

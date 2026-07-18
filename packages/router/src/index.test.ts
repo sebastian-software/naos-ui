@@ -1300,6 +1300,73 @@ describe("nested routes and metadata", () => {
     expect(document.head.querySelectorAll("[data-naos-router-meta]")).toHaveLength(0)
   })
 
+  it("scopes wildcard children to their parent prefix", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppFilesLayout extends HTMLElement {
+      connectedCallback() {
+        if (!this.querySelector("[data-naos-router-outlet]")) {
+          this.innerHTML = `<div data-naos-router-outlet></div>`
+        }
+      }
+    }
+    class AppFilesFallback extends HTMLElement {}
+    class AppOther extends HTMLElement {}
+    if (!customElements.get("app-files-layout")) customElements.define("app-files-layout", AppFilesLayout)
+    if (!customElements.get("app-files-fallback")) customElements.define("app-files-fallback", AppFilesFallback)
+    if (!customElements.get("app-other")) customElements.define("app-other", AppOther)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: [
+        {
+          path: "/files",
+          tag: "app-files-layout",
+          children: [{ path: "*", tag: "app-files-fallback" }],
+        },
+        { path: "/other", tag: "app-other" },
+      ],
+    })
+
+    expect(router.match("/other")?.route.tag).toBe("app-other")
+    expect(router.match("/files/deep/nested")?.route.tag).toBe("app-files-fallback")
+
+    await router.navigate("/files/deep/nested")
+    expect(
+      outlet
+        .querySelector("[data-naos-router-outlet]")
+        ?.firstElementChild?.tagName.toLowerCase()
+    ).toBe("app-files-fallback")
+  })
+
+  it("restores the pre-router title when a route has no title source", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppMetaTitled extends HTMLElement {}
+    class AppUntitled extends HTMLElement {}
+    if (!customElements.get("app-meta-titled")) customElements.define("app-meta-titled", AppMetaTitled)
+    if (!customElements.get("app-untitled")) customElements.define("app-untitled", AppUntitled)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    document.title = "Base title"
+    const router = createRouter({
+      outlet,
+      routes: [
+        { path: "/titled", tag: "app-meta-titled", meta: { title: "Meta title" } },
+        { path: "/plain", tag: "app-untitled" },
+      ],
+    })
+
+    await router.navigate("/titled")
+    expect(document.title).toBe("Meta title")
+
+    await router.navigate("/plain")
+    expect(document.title).toBe("Base title")
+  })
+
   it("keeps the leaf title field authoritative over meta titles", async () => {
     document.body.innerHTML = `<main data-outlet></main>`
     class AppTitled extends HTMLElement {}
