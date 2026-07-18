@@ -251,10 +251,10 @@ function isNaosDiagnostic(value: unknown): value is NaosDiagnostic {
 function isNaosDiagnosticLocation(value: unknown): value is NaosDiagnosticLocation {
   return (
     isRecord(value) &&
-    typeof value.startLine === "number" &&
-    typeof value.startColumn === "number" &&
-    typeof value.endLine === "number" &&
-    typeof value.endColumn === "number"
+    Number.isInteger(value.startLine) &&
+    Number.isInteger(value.startColumn) &&
+    Number.isInteger(value.endLine) &&
+    Number.isInteger(value.endColumn)
   )
 }
 
@@ -280,20 +280,27 @@ export function formatNaosCodeFrame(
 ): string {
   const lines = source.split("\n")
   const firstLine = Math.max(1, loc.startLine - CODE_FRAME_CONTEXT_LINES)
-  const lastLine = Math.min(lines.length, loc.startLine + CODE_FRAME_CONTEXT_LINES)
+  const lastMarkedLine = Math.min(
+    Math.max(loc.endLine, loc.startLine),
+    loc.startLine + CODE_FRAME_CONTEXT_LINES
+  )
+  const lastLine = Math.min(lines.length, lastMarkedLine + CODE_FRAME_CONTEXT_LINES)
   const gutterWidth = String(lastLine).length
   const frame: string[] = []
 
   for (let lineNumber = firstLine; lineNumber <= lastLine; lineNumber += 1) {
     const text = lines[lineNumber - 1] ?? ""
     const gutter = String(lineNumber).padStart(gutterWidth)
-    const marker = lineNumber === loc.startLine ? ">" : " "
-    frame.push(`${marker} ${gutter} | ${text}`)
+    const marked = lineNumber >= loc.startLine && lineNumber <= lastMarkedLine
+    frame.push(`${marked ? ">" : " "} ${gutter} | ${text}`)
     if (lineNumber === loc.startLine) {
+      // Columns count Unicode scalar values, so measure the line the same way
+      // instead of using UTF-16 string length.
+      const lineLength = [...text].length
       const caretCount =
         loc.endLine === loc.startLine
           ? Math.max(1, loc.endColumn - loc.startColumn)
-          : Math.max(1, text.length - (loc.startColumn - 1))
+          : Math.max(1, lineLength - (loc.startColumn - 1))
       const padding = " ".repeat(loc.startColumn - 1)
       frame.push(`  ${" ".repeat(gutterWidth)} | ${padding}${"^".repeat(caretCount)}`)
     }
