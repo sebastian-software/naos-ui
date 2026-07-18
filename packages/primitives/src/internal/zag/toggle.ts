@@ -1,8 +1,4 @@
-import {
-  connect,
-  machine as toggleMachine,
-  type Api as ZagToggleApi,
-} from "@zag-js/toggle"
+import { connect, machine as toggleMachine, type Api as ZagToggleApi } from "@zag-js/toggle"
 
 import { normalizeZagProps } from "./props.js"
 import { createZagScope } from "./scope.js"
@@ -43,23 +39,17 @@ export function createNaosZagToggleService({
   })
 }
 
-export function getNaosZagToggleApi(
-  service: NaosZagToggleService | null
-): ZagToggleApi | null {
+export function getNaosZagToggleApi(service: NaosZagToggleService | null): ZagToggleApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function withoutNaosZagToggleClick<T extends Record<string, unknown>>(
-  props: T
-): T {
+export function withoutNaosZagToggleClick<T extends Record<string, unknown>>(props: T): T {
   const nextProps = { ...props }
   delete nextProps.onClick
   return nextProps
 }
 
-export function stopNaosZagToggleService(
-  service: NaosZagToggleService | null
-) {
+export function stopNaosZagToggleService(service: NaosZagToggleService | null) {
   service?.stop()
 }

@@ -5,7 +5,7 @@ export type NaosActionContext = {
 export type NaosActionReducer<State, Payload> = (
   previousState: State,
   payload: Payload,
-  context: NaosActionContext
+  context: NaosActionContext,
 ) => State | Promise<State>
 
 export type NaosActionOptions<State> = {
@@ -71,7 +71,7 @@ class ActionRuntime<State, Payload> {
   constructor(
     reducer: NaosActionReducer<State, Payload>,
     initialState: State,
-    options: NaosActionOptions<State>
+    options: NaosActionOptions<State>,
   ) {
     this.#reducer = reducer
     this.#initialState = initialState
@@ -179,7 +179,7 @@ class ActionRuntime<State, Payload> {
 export function action<State, Payload = void>(
   reducer: NaosActionReducer<State, Payload>,
   initialState: State,
-  options: NaosActionOptions<State> = {}
+  options: NaosActionOptions<State> = {},
 ): NaosAction<State, Payload> {
   const runtime = new ActionRuntime(reducer, initialState, options)
   return {
@@ -197,7 +197,7 @@ export function action<State, Payload = void>(
 export function formAction<State>(
   reducer: NaosActionReducer<State, FormData>,
   initialState: State,
-  options: NaosActionOptions<State> = {}
+  options: NaosActionOptions<State> = {},
 ): NaosFormAction<State> {
   const base = action<State, FormData>(reducer, initialState, options)
   const cleanups = new Set<() => void>()
@@ -265,7 +265,7 @@ export type NaosActionBinding<State> = (snapshot: NaosActionSnapshot<State>) => 
  */
 export function bindAction<State, Payload>(
   actionObject: NaosAction<State, Payload>,
-  onChange: NaosActionBinding<State>
+  onChange: NaosActionBinding<State>,
 ): () => void {
   const notify = () =>
     onChange({

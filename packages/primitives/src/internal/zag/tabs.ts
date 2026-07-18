@@ -1,8 +1,4 @@
-import {
-  connect,
-  machine as tabsMachine,
-  type Api as ZagTabsApi,
-} from "@zag-js/tabs"
+import { connect, machine as tabsMachine, type Api as ZagTabsApi } from "@zag-js/tabs"
 
 import { createZagScope } from "./scope.js"
 import { createZagService } from "./service.js"
@@ -73,16 +69,12 @@ export function createNaosZagTabsService({
   })
 }
 
-export function getNaosZagTabsApi(
-  service: NaosZagTabsService | null
-): ZagTabsApi | null {
+export function getNaosZagTabsApi(service: NaosZagTabsService | null): ZagTabsApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagTabsService(
-  service: NaosZagTabsService | null
-) {
+export function stopNaosZagTabsService(service: NaosZagTabsService | null) {
   service?.stop()
 }
 
@@ -133,8 +125,7 @@ function syncTabItem({
   const { disabled, element, value } = item
   const isSelected = api.value === value
   const isTabStop =
-    !disabled &&
-    (isSelected || (!api.value && firstEnabledItem(items)?.element === element))
+    !disabled && (isSelected || (!api.value && firstEnabledItem(items)?.element === element))
 
   setStringAttribute(element, "slot", "tab")
   setStringAttribute(element, "role", "tab")
@@ -173,13 +164,7 @@ function syncTabItem({
   }
 }
 
-function syncTabPanel({
-  api,
-  panel,
-}: {
-  api: ZagTabsApi
-  panel: NaosTabPanelElement
-}) {
+function syncTabPanel({ api, panel }: { api: ZagTabsApi; panel: NaosTabPanelElement }) {
   const value = panel.value ?? panel.getAttribute("value") ?? ""
   if (!value) return
   const isSelected = api.value === value
@@ -247,11 +232,7 @@ function nextTabItemForKey({
   return null
 }
 
-function setStringAttribute(
-  element: HTMLElement,
-  name: string,
-  value: string | null
-) {
+function setStringAttribute(element: HTMLElement, name: string, value: string | null) {
   if (value == null) {
     if (!element.hasAttribute(name)) return
     element.removeAttribute(name)

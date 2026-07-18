@@ -42,9 +42,7 @@ export type NaosRedirect = {
   readonly to: string | URL
 }
 
-export type NaosFocusTarget =
-  | string
-  | ((match: NaosRouteMatch) => Element | null | undefined)
+export type NaosFocusTarget = string | ((match: NaosRouteMatch) => Element | null | undefined)
 
 export type NaosFocusRestorationOptions = {
   readonly target?: NaosFocusTarget
@@ -97,7 +95,7 @@ export type NaosRouteBase<Path extends string = string> = {
   props?(match: NaosRouteMatch<NaosRoute<Path>>): Record<string, unknown>
   attrs?(match: NaosRouteMatch<NaosRoute<Path>>): Record<string, string | null>
   canEnter?(
-    match: NaosRouteMatch<NaosRoute<Path>>
+    match: NaosRouteMatch<NaosRoute<Path>>,
   ): boolean | string | URL | Promise<boolean | string | URL>
   readonly meta?: NaosRouteMeta | ((match: NaosRouteMatch) => NaosRouteMeta)
   readonly title?: string | ((match: NaosRouteMatch) => string)
@@ -113,15 +111,20 @@ export type NaosCreateElementRoute<Path extends string = string> = NaosRouteBase
   createElement(match: NaosRouteMatch<NaosRoute<Path>>): HTMLElement
 }
 
-export type NaosRoute<Path extends string = string> = NaosTagRoute<Path> | NaosCreateElementRoute<Path>
+export type NaosRoute<Path extends string = string> =
+  | NaosTagRoute<Path>
+  | NaosCreateElementRoute<Path>
 
 export type NaosFallbackRoute =
-  | Omit<NaosTagRoute, "path"> & { readonly path?: string }
-  | Omit<NaosCreateElementRoute, "path"> & { readonly path?: string }
+  | (Omit<NaosTagRoute, "path"> & { readonly path?: string })
+  | (Omit<NaosCreateElementRoute, "path"> & { readonly path?: string })
 
 export type NaosHrefOptions = {
   readonly hash?: string
-  readonly search?: URLSearchParams | Record<string, string | number | boolean | null | undefined> | string
+  readonly search?:
+    | URLSearchParams
+    | Record<string, string | number | boolean | null | undefined>
+    | string
 }
 
 export type NaosNavigateOptions = {
@@ -134,7 +137,10 @@ export type NaosNavigateOptions = {
 export type NaosSubmitOptions = {
   readonly focus?: boolean
   readonly form?: HTMLFormElement | null
-  readonly formData?: FormData | URLSearchParams | Record<string, FormDataEntryValue | boolean | number | null | undefined>
+  readonly formData?:
+    | FormData
+    | URLSearchParams
+    | Record<string, FormDataEntryValue | boolean | number | null | undefined>
   readonly method?: string
   readonly replace?: boolean
   readonly scroll?: boolean
@@ -316,23 +322,28 @@ type PrefetchEntry = {
 // and match callbacks get typed params contextually. Elements widen to
 // NaosRoute<Path> in the return type; code that needs the tag/createElement
 // subtype after defineRoutes narrows via "tag" in route.
-export function defineRoutes<const Paths extends readonly string[]>(
-  routes: { readonly [Index in keyof Paths]: NaosRoute<Paths[Index]> }
-): { readonly [Index in keyof Paths]: NaosRoute<Paths[Index]> } {
+export function defineRoutes<const Paths extends readonly string[]>(routes: {
+  readonly [Index in keyof Paths]: NaosRoute<Paths[Index]>
+}): { readonly [Index in keyof Paths]: NaosRoute<Paths[Index]> } {
   return routes
 }
 
 export function createRouter<const Routes extends readonly NaosRoute[]>(
-  options: NaosRouterOptions<Routes>
+  options: NaosRouterOptions<Routes>,
 ): NaosRouter<Routes> {
   return new NaosRouter(options)
 }
 
-export function redirect(to: string | URL, options: { readonly replace?: boolean } = {}): NaosRedirect {
+export function redirect(
+  to: string | URL,
+  options: { readonly replace?: boolean } = {},
+): NaosRedirect {
   return { replace: options.replace, to }
 }
 
-export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute[]> extends EventTarget {
+export class NaosRouter<
+  Routes extends readonly NaosRoute[] = readonly NaosRoute[],
+> extends EventTarget {
   readonly basePath: string
   readonly outlet: Element
   readonly routes: Routes
@@ -424,7 +435,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   href<Path extends RoutePath<Routes>>(
     path: Path,
     params?: NaosPathParams<Path>,
-    options?: NaosHrefOptions
+    options?: NaosHrefOptions,
   ): string {
     const resolvedPath = interpolatePath(String(path), params ?? {})
     const pathname = joinBasePath(this.basePath, resolvedPath)
@@ -444,7 +455,10 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     }
   }
 
-  navigate(to: string | URL, options: NaosNavigateOptions = {}): Promise<NaosRouteMatch<Routes[number]> | null> {
+  navigate(
+    to: string | URL,
+    options: NaosNavigateOptions = {},
+  ): Promise<NaosRouteMatch<Routes[number]> | null> {
     return this.#navigateToUrl(this.#resolveUrl(to), {
       focus: options.focus ?? true,
       history: options.replace ? "replace" : "push",
@@ -454,7 +468,10 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     })
   }
 
-  replace(to: string | URL, options: Omit<NaosNavigateOptions, "replace"> = {}): Promise<NaosRouteMatch<Routes[number]> | null> {
+  replace(
+    to: string | URL,
+    options: Omit<NaosNavigateOptions, "replace"> = {},
+  ): Promise<NaosRouteMatch<Routes[number]> | null> {
     return this.navigate(to, { ...options, replace: true })
   }
 
@@ -466,7 +483,9 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     this.#platform.history.forward()
   }
 
-  reload(options: Omit<NaosNavigateOptions, "replace"> = {}): Promise<NaosRouteMatch<Routes[number]> | null> {
+  reload(
+    options: Omit<NaosNavigateOptions, "replace"> = {},
+  ): Promise<NaosRouteMatch<Routes[number]> | null> {
     return this.replace(this.#currentUrl(), options)
   }
 
@@ -508,7 +527,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         params: matched.params,
         search: url.searchParams,
         navigation,
-      })
+      }),
     )
     const entry: PrefetchEntry = {
       controller,
@@ -526,7 +545,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         if (this.#prefetchCache.get(url.href) === entry) {
           this.#prefetchCache.delete(url.href)
         }
-      }
+      },
     )
     await promise
   }
@@ -551,7 +570,10 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     }
   }
 
-  submit(to: string | URL, options: NaosSubmitOptions = {}): Promise<NaosRouteMatch<Routes[number]> | null> {
+  submit(
+    to: string | URL,
+    options: NaosSubmitOptions = {},
+  ): Promise<NaosRouteMatch<Routes[number]> | null> {
     const url = this.#resolveUrl(to)
     const submission = normalizeSubmission(options)
     if (submission.method === "GET") {
@@ -606,7 +628,9 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
 
     event.preventDefault()
     const submitter =
-      typeof SubmitEvent !== "undefined" && event instanceof SubmitEvent && event.submitter instanceof HTMLElement
+      typeof SubmitEvent !== "undefined" &&
+      event instanceof SubmitEvent &&
+      event.submitter instanceof HTMLElement
         ? event.submitter
         : null
     const formData = formDataFromForm(form, submitter)
@@ -717,7 +741,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
       readonly scroll: boolean
       readonly type: NaosNavigationType
       readonly viewTransition: boolean
-    }
+    },
   ): Promise<NaosRouteMatch<Routes[number]> | null> {
     this.#saveCurrentScrollPosition()
     if (this.#activeController && this.#activeNavigation) {
@@ -756,7 +780,8 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         navigation,
       } satisfies NaosRouteMatch<Routes[number]>
 
-      const guard = "canEnter" in route && route.canEnter ? await route.canEnter(matchWithoutData) : true
+      const guard =
+        "canEnter" in route && route.canEnter ? await route.canEnter(matchWithoutData) : true
       if (!this.#isCurrent(navigation)) return null
       if (guard === false) return null
       if (typeof guard === "string" || guard instanceof URL) {
@@ -795,7 +820,11 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
       if (options.history === "push") {
         this.#platform.history.pushState(this.#historyStateFor(url, navigation, "push"), "", url)
       } else if (options.history === "replace") {
-        this.#platform.history.replaceState(this.#historyStateFor(url, navigation, "replace"), "", url)
+        this.#platform.history.replaceState(
+          this.#historyStateFor(url, navigation, "replace"),
+          "",
+          url,
+        )
       }
 
       await this.#commit(
@@ -806,7 +835,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
           scroll: options.scroll,
           viewTransition: options.viewTransition,
         },
-        matched?.chain
+        matched?.chain,
       )
       return match
     } catch (error) {
@@ -829,7 +858,11 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         if (options.history === "push") {
           this.#platform.history.pushState(this.#historyStateFor(url, navigation, "push"), "", url)
         } else if (options.history === "replace") {
-          this.#platform.history.replaceState(this.#historyStateFor(url, navigation, "replace"), "", url)
+          this.#platform.history.replaceState(
+            this.#historyStateFor(url, navigation, "replace"),
+            "",
+            url,
+          )
         }
         await this.#commit(match, this.#error, {
           focus: options.focus,
@@ -855,7 +888,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
       readonly replace: boolean
       readonly scroll: boolean
       readonly viewTransition: boolean
-    }
+    },
   ): Promise<NaosRouteMatch<Routes[number]> | null> {
     this.#saveCurrentScrollPosition()
     if (this.#activeController && this.#activeNavigation) {
@@ -940,7 +973,11 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
 
       const currentUrl = this.#currentUrl()
       if (options.replace) {
-        this.#platform.history.replaceState(this.#historyStateFor(url, navigation, "replace"), "", url)
+        this.#platform.history.replaceState(
+          this.#historyStateFor(url, navigation, "replace"),
+          "",
+          url,
+        )
       } else if (currentUrl.href !== url.href) {
         this.#platform.history.pushState(this.#historyStateFor(url, navigation, "push"), "", url)
       }
@@ -953,7 +990,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
           scroll: options.scroll,
           viewTransition: options.viewTransition,
         },
-        matched.chain
+        matched.chain,
       )
       this.#dispatchRouterEvent("naos:actioncommit", {
         data: actionData,
@@ -982,7 +1019,11 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         // successful ones so the error view is reload- and deep-link-stable.
         const currentUrl = this.#currentUrl()
         if (options.replace) {
-          this.#platform.history.replaceState(this.#historyStateFor(url, navigation, "replace"), "", url)
+          this.#platform.history.replaceState(
+            this.#historyStateFor(url, navigation, "replace"),
+            "",
+            url,
+          )
         } else if (currentUrl.href !== url.href) {
           this.#platform.history.pushState(this.#historyStateFor(url, navigation, "push"), "", url)
         }
@@ -1007,7 +1048,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
       readonly scroll: boolean
       readonly viewTransition: boolean
     },
-    chain?: readonly NaosRoute[]
+    chain?: readonly NaosRoute[],
   ): Promise<void> {
     const commit = () => {
       this.#initialTitle ??= this.#platform.document.title
@@ -1059,7 +1100,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   #mount(
     match: NaosRouteMatch<Routes[number]>,
     route: NaosRoute | NaosFallbackRoute,
-    chain?: readonly NaosRoute[]
+    chain?: readonly NaosRoute[],
   ): void {
     const routes: ReadonlyArray<NaosRoute | NaosFallbackRoute> = chain ?? [route]
     const nextLevels: MountedLevel[] = []
@@ -1109,7 +1150,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   #applyRouteElement(
     element: RouteElement,
     route: NaosRoute | NaosFallbackRoute,
-    match: NaosRouteMatch<Routes[number]>
+    match: NaosRouteMatch<Routes[number]>,
   ): void {
     const props = route.props?.(match) ?? {}
     for (const [name, value] of Object.entries(props)) {
@@ -1131,13 +1172,13 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   #resolveChildOutlet(
     element: RouteElement,
     route: NaosRoute | NaosFallbackRoute,
-    match: NaosRouteMatch<Routes[number]>
+    match: NaosRouteMatch<Routes[number]>,
   ): Element {
     const outlet = this.#tryResolveChildOutlet(element, route, match)
     if (!outlet) {
       throw new Error(
         `Route "${route.path ?? "*"}" matched a child route but exposes no child outlet. ` +
-          `Add [data-naos-router-outlet] to its element or define outlet() on the route.`
+          `Add [data-naos-router-outlet] to its element or define outlet() on the route.`,
       )
     }
     return outlet
@@ -1146,7 +1187,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   #tryResolveChildOutlet(
     element: RouteElement,
     route: NaosRoute | NaosFallbackRoute,
-    match: NaosRouteMatch<Routes[number]>
+    match: NaosRouteMatch<Routes[number]>,
   ): Element | null {
     if (route.outlet) {
       return route.outlet(element, match) ?? null
@@ -1160,7 +1201,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
 
   #updateMetadata(
     match: NaosRouteMatch<Routes[number]>,
-    chain: ReadonlyArray<NaosRoute | NaosFallbackRoute>
+    chain: ReadonlyArray<NaosRoute | NaosFallbackRoute>,
   ): void {
     const documentRef = this.#platform.document
     const merged: {
@@ -1247,7 +1288,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
 
   async #runLoader<Route extends NaosRoute | NaosFallbackRoute>(
     route: Route,
-    match: NaosRouteMatch
+    match: NaosRouteMatch,
   ): Promise<unknown> {
     if (!route.loader) return undefined
     return route.loader(this.#loaderArgs(route, match))
@@ -1255,7 +1296,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
 
   #loaderArgs<Route extends NaosRoute | NaosFallbackRoute>(
     route: Route,
-    match: NaosRouteMatch
+    match: NaosRouteMatch,
   ): NaosLoaderArgs {
     return {
       navigation: match.navigation,
@@ -1269,7 +1310,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
 
   #dispatchRouterEvent<Name extends NaosRouterEventName>(
     name: Name,
-    detail: NaosRouterEventMap<Routes>[Name]
+    detail: NaosRouterEventMap<Routes>[Name],
   ): void {
     if (!ROUTER_EVENT_NAMES.has(name)) return
     const event = new CustomEvent(name, {
@@ -1302,7 +1343,8 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
       const linkPath = this.#toInternalPath(linkUrl)
       if (linkPath === null) continue
 
-      const matchMode = anchor.getAttribute("data-naos-active-match") === "prefix" ? "prefix" : "exact"
+      const matchMode =
+        anchor.getAttribute("data-naos-active-match") === "prefix" ? "prefix" : "exact"
       const active =
         matchMode === "prefix"
           ? currentPath === linkPath || currentPath.startsWith(`${removeTrailingSlash(linkPath)}/`)
@@ -1323,11 +1365,12 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   #updateTitle(
     match: NaosRouteMatch<Routes[number]>,
     route: NaosRoute | NaosFallbackRoute,
-    chain?: readonly NaosRoute[]
+    chain?: readonly NaosRoute[],
   ): void {
     const leaf = chain?.at(-1) ?? route
     if (!leaf.title) return
-    this.#platform.document.title = typeof leaf.title === "function" ? leaf.title(match) : leaf.title
+    this.#platform.document.title =
+      typeof leaf.title === "function" ? leaf.title(match) : leaf.title
   }
 
   #resolveUrl(to: string | URL): URL {
@@ -1374,24 +1417,18 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     }
   }
 
-  #historyStateFor(
-    url: URL,
-    navigation: NaosNavigation,
-    mode: "push" | "replace"
-  ): unknown {
+  #historyStateFor(url: URL, navigation: NaosNavigation, mode: "push" | "replace"): unknown {
     if (this.#scrollRestoration === false || this.#scrollRestoration.getKey) {
       return null
     }
 
-    const existing = mode === "replace" ? readScrollKeyFromState(this.#platform.history.state) : null
+    const existing =
+      mode === "replace" ? readScrollKeyFromState(this.#platform.history.state) : null
     const key = existing ?? this.#createScrollKey(url, navigation)
     return addScrollKeyToState(mode === "replace" ? this.#platform.history.state : null, key)
   }
 
-  #restoreFocus(
-    match: NaosRouteMatch<Routes[number]>,
-    route: NaosRoute | NaosFallbackRoute
-  ): void {
+  #restoreFocus(match: NaosRouteMatch<Routes[number]>, route: NaosRoute | NaosFallbackRoute): void {
     if (this.#focusRestoration === false) return
     const target = findFocusTarget(this.outlet, match, route, this.#focusRestoration)
     focusElement(target)
@@ -1451,14 +1488,19 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   }
 
   #startNativeScrollRestoration(): void {
-    if (this.#scrollRestoration === false || !("scrollRestoration" in this.#platform.history)) return
+    if (this.#scrollRestoration === false || !("scrollRestoration" in this.#platform.history))
+      return
     this.#previousNativeScrollRestoration = this.#platform.history.scrollRestoration
     this.#platform.history.scrollRestoration = "manual"
     this.#currentScrollKey = this.#ensureCurrentHistoryScrollKey()
   }
 
   #stopNativeScrollRestoration(): void {
-    if (this.#previousNativeScrollRestoration === null || !("scrollRestoration" in this.#platform.history)) return
+    if (
+      this.#previousNativeScrollRestoration === null ||
+      !("scrollRestoration" in this.#platform.history)
+    )
+      return
     this.#platform.history.scrollRestoration = this.#previousNativeScrollRestoration
     this.#previousNativeScrollRestoration = null
   }
@@ -1477,7 +1519,11 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     if (existing) return existing
 
     const key = this.#createScrollKey(url, null)
-    this.#platform.history.replaceState(addScrollKeyToState(this.#platform.history.state, key), "", url)
+    this.#platform.history.replaceState(
+      addScrollKeyToState(this.#platform.history.state, key),
+      "",
+      url,
+    )
     return key
   }
 }
@@ -1509,7 +1555,7 @@ function defaultLinkRoot(): (ParentNode & EventTarget) | null {
 }
 
 function normalizeFocusRestoration(
-  value: boolean | NaosFocusRestorationOptions | undefined
+  value: boolean | NaosFocusRestorationOptions | undefined,
 ): NaosFocusRestorationOptions | false {
   if (value === false) return false
   if (value === true || value === undefined) return {}
@@ -1517,7 +1563,7 @@ function normalizeFocusRestoration(
 }
 
 function normalizeScrollRestoration(
-  value: boolean | NaosScrollRestorationOptions | undefined
+  value: boolean | NaosScrollRestorationOptions | undefined,
 ): NaosScrollRestorationOptions | false {
   if (value === false) return false
   if (value === true || value === undefined) return {}
@@ -1553,7 +1599,7 @@ function findFocusTarget(
   outlet: Element,
   match: NaosRouteMatch,
   route: NaosRoute | NaosFallbackRoute,
-  options: NaosFocusRestorationOptions
+  options: NaosFocusRestorationOptions,
 ): Element | null {
   const routeElement = outlet.firstElementChild ?? outlet
   return (
@@ -1569,7 +1615,7 @@ function findFocusTarget(
 function resolveFocusTarget(
   target: NaosFocusTarget | undefined,
   match: NaosRouteMatch,
-  root: Element
+  root: Element,
 ): Element | null {
   if (!target) return null
   if (typeof target === "function") return target(match) ?? null
@@ -1609,7 +1655,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function createRouteElement(
   document: Document,
   route: NaosRoute | NaosFallbackRoute,
-  match: NaosRouteMatch
+  match: NaosRouteMatch,
 ): RouteElement {
   if ("createElement" in route && route.createElement) {
     return route.createElement(match) as RouteElement
@@ -1622,7 +1668,7 @@ function createRouteElement(
 
 function normalizeFallbackRoute(
   route: NaosRoute | NaosFallbackRoute,
-  matchedRoute?: NaosRoute
+  matchedRoute?: NaosRoute,
 ): NaosRoute {
   if (matchedRoute) return matchedRoute
   return { ...route, path: route.path ?? "*" } as NaosRoute
@@ -1643,11 +1689,19 @@ function findAnchor(target: EventTarget | null): HTMLAnchorElement | null {
 }
 
 function isRoutableAnchor(anchor: HTMLAnchorElement): boolean {
-  return !anchor.target && !anchor.hasAttribute("download") && !anchor.getAttribute("rel")?.split(/\s+/).includes("external")
+  return (
+    !anchor.target &&
+    !anchor.hasAttribute("download") &&
+    !anchor.getAttribute("rel")?.split(/\s+/).includes("external")
+  )
 }
 
 function isRoutableForm(form: HTMLFormElement): boolean {
-  return form.hasAttribute("data-naos-action") && !form.target && normalizeMethod(form.method || "get") !== "DIALOG"
+  return (
+    form.hasAttribute("data-naos-action") &&
+    !form.target &&
+    normalizeMethod(form.method || "get") !== "DIALOG"
+  )
 }
 
 function normalizeSubmission(options: NaosSubmitOptions): NaosActionSubmission {
@@ -1660,9 +1714,10 @@ function normalizeSubmission(options: NaosSubmitOptions): NaosActionSubmission {
 }
 
 function normalizeFormData(
-  value: NonNullable<NaosSubmitOptions["formData"]> | HTMLFormElement
+  value: NonNullable<NaosSubmitOptions["formData"]> | HTMLFormElement,
 ): FormData {
-  if (typeof HTMLFormElement !== "undefined" && value instanceof HTMLFormElement) return formDataFromForm(value, null)
+  if (typeof HTMLFormElement !== "undefined" && value instanceof HTMLFormElement)
+    return formDataFromForm(value, null)
   if (value instanceof FormData) return value
 
   const formData = new FormData()
@@ -1676,7 +1731,10 @@ function normalizeFormData(
   for (const [name, entryValue] of Object.entries(value)) {
     if (entryValue === null || entryValue === undefined) continue
     const isFile = typeof File !== "undefined" && entryValue instanceof File
-    formData.append(name, typeof entryValue === "string" || isFile ? entryValue : String(entryValue))
+    formData.append(
+      name,
+      typeof entryValue === "string" || isFile ? entryValue : String(entryValue),
+    )
   }
   return formData
 }
@@ -1711,9 +1769,14 @@ function createLoaderRequest(url: URL, navigation: NaosNavigation): Request {
   })
 }
 
-function createActionRequest(url: URL, navigation: NaosNavigation, submission: NaosActionSubmission): Request {
+function createActionRequest(
+  url: URL,
+  navigation: NaosNavigation,
+  submission: NaosActionSubmission,
+): Request {
   return new Request(url, {
-    body: submission.method === "GET" || submission.method === "HEAD" ? undefined : submission.formData,
+    body:
+      submission.method === "GET" || submission.method === "HEAD" ? undefined : submission.formData,
     method: submission.method,
     signal: navigation.signal,
   })
@@ -1758,7 +1821,7 @@ function joinRoutePaths(basePath: string, path: string): string {
 
 function routeParamsKey(
   route: NaosRoute | NaosFallbackRoute,
-  params: Readonly<Record<string, string>>
+  params: Readonly<Record<string, string>>,
 ): string {
   const names = [...(route.path ?? "").matchAll(/:([A-Za-z0-9_]+)/gu)]
     .map((match) => match[1])
@@ -1766,7 +1829,9 @@ function routeParamsKey(
   return JSON.stringify(names.map((name) => [name, params[name ?? ""] ?? null]))
 }
 
-function compileRoutePath(path: string): (pathname: string) => Readonly<Record<string, string>> | null {
+function compileRoutePath(
+  path: string,
+): (pathname: string) => Readonly<Record<string, string>> | null {
   const normalizedPath = normalizeRoutePath(path)
   if (typeof URLPattern === "function" && normalizedPath !== "*") {
     try {
@@ -1811,7 +1876,9 @@ function compileFallbackRoutePath(path: string): { readonly regex: RegExp } {
   return { regex: new RegExp(`^${pattern}$`, "u") }
 }
 
-function normalizeGroups(groups: Record<string, string | undefined>): Readonly<Record<string, string>> {
+function normalizeGroups(
+  groups: Record<string, string | undefined>,
+): Readonly<Record<string, string>> {
   const normalized: Record<string, string> = {}
   for (const [name, value] of Object.entries(groups)) {
     if (value !== undefined) normalized[name] = decodeURIComponent(value)
@@ -1841,7 +1908,11 @@ function joinBasePath(basePath: string, path: string): string {
 function appendUrlParts(pathname: string, options: NaosHrefOptions | undefined): string {
   if (!options) return pathname
   const search = formatSearch(options.search)
-  const hash = options.hash ? (options.hash.startsWith("#") ? options.hash : `#${options.hash}`) : ""
+  const hash = options.hash
+    ? options.hash.startsWith("#")
+      ? options.hash
+      : `#${options.hash}`
+    : ""
   return `${pathname}${search}${hash}`
 }
 
@@ -1853,7 +1924,9 @@ function formatSearch(search: NaosHrefOptions["search"]): string {
   return serialized ? `?${serialized}` : ""
 }
 
-function objectToSearchParams(record: Record<string, string | number | boolean | null | undefined>): URLSearchParams {
+function objectToSearchParams(
+  record: Record<string, string | number | boolean | null | undefined>,
+): URLSearchParams {
   const params = new URLSearchParams()
   for (const [name, value] of Object.entries(record)) {
     if (value !== null && value !== undefined) params.set(name, String(value))

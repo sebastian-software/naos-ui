@@ -20,7 +20,7 @@ test("release inventory has unique packages and complete native matrix entries",
   assert.equal(new Set(publicPackages.map(({ path }) => path)).size, publicPackages.length)
   assert.deepEqual(
     nativeReleaseMatrix.map(({ package: packageName }) => packageName),
-    nativeTargets.map(({ name }) => name)
+    nativeTargets.map(({ name }) => name),
   )
 })
 

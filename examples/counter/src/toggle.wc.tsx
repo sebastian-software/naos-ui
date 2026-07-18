@@ -1,12 +1,4 @@
-import {
-  Show,
-  computed,
-  effect,
-  event,
-  host,
-  state,
-  type ComponentOptions,
-} from "@naos-ui/core"
+import { Show, computed, effect, event, host, state, type ComponentOptions } from "@naos-ui/core"
 import css from "./toggle.wc.css?inline"
 
 export type ToggleProps = {
@@ -32,7 +24,7 @@ export function Toggle({ disabled = false, label = "Toggle" }: ToggleProps = {})
       () => {
         element.setAttribute("data-effect", "aborted")
       },
-      { once: true }
+      { once: true },
     )
 
     return () => {

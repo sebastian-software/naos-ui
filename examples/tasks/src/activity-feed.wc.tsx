@@ -14,7 +14,7 @@ export function ActivityFeed() {
   effect(() =>
     bindResource(activityResource, ({ data }) => {
       entries.set(data ?? EMPTY_ACTIVITY)
-    })
+    }),
   )
 
   return (

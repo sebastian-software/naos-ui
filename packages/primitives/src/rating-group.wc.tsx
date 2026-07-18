@@ -65,25 +65,27 @@ export function NaosRatingGroup({
   void name
 
   onConnected(() => {
-    ratingGroupService.set(createNaosZagRatingGroupService({
-      allowHalf,
-      count,
-      disabled,
-      host: host().element,
-      id: "naos-rating-group",
-      name,
-      onHoverChange(details) {
-        hoverChanged.emit({ hoveredValue: details.hoveredValue })
-      },
-      onValueChange(nextValue) {
-        current.set(normalizeRatingGroupValue(nextValue))
-        changed.emit({ value: nextValue })
-      },
-      readOnly,
-      required,
-      root: host().root,
-      value,
-    }))
+    ratingGroupService.set(
+      createNaosZagRatingGroupService({
+        allowHalf,
+        count,
+        disabled,
+        host: host().element,
+        id: "naos-rating-group",
+        name,
+        onHoverChange(details) {
+          hoverChanged.emit({ hoveredValue: details.hoveredValue })
+        },
+        onValueChange(nextValue) {
+          current.set(normalizeRatingGroupValue(nextValue))
+          changed.emit({ value: nextValue })
+        },
+        readOnly,
+        required,
+        root: host().root,
+        value,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagRatingGroupService(ratingGroupService())
@@ -127,7 +129,7 @@ export function NaosRatingGroup({
               api.setValue(nextValue)
               queueMicrotask(() => {
                 const nextItem = host().root.querySelector(
-                  `[aria-posinset="${Math.ceil(nextValue)}"]`
+                  `[aria-posinset="${Math.ceil(nextValue)}"]`,
                 )
                 if (nextItem instanceof HTMLElement) nextItem.focus()
               })

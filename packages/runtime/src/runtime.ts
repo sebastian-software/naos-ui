@@ -7,7 +7,7 @@ export type EventInitOptions = {
 export function createNaosEvent<Detail>(
   name: string,
   detail: Detail,
-  options: Readonly<EventInitOptions> = {}
+  options: Readonly<EventInitOptions> = {},
 ): CustomEvent<Detail> {
   return new CustomEvent(name, {
     bubbles: options.bubbles ?? true,

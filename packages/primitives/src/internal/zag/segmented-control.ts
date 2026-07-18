@@ -64,14 +64,12 @@ export function createNaosZagSegmentedControlService({
 }
 
 export function getNaosZagSegmentedControlApi(
-  service: NaosZagSegmentedControlService | null
+  service: NaosZagSegmentedControlService | null,
 ): ZagToggleGroupApi | null {
   return getNaosZagToggleGroupApi(service)
 }
 
-export function stopNaosZagSegmentedControlService(
-  service: NaosZagSegmentedControlService | null
-) {
+export function stopNaosZagSegmentedControlService(service: NaosZagSegmentedControlService | null) {
   stopNaosZagToggleGroupService(service)
 }
 
@@ -86,13 +84,15 @@ export function syncNaosSegmentedItems({
   const items = segmentedItemsFor(host, disabled)
 
   for (const item of items) {
-    cleanups.push(syncSegmentedItem({
-      api,
-      item,
-      items,
-      onRequestUpdate,
-      orientation,
-    }))
+    cleanups.push(
+      syncSegmentedItem({
+        api,
+        item,
+        items,
+        onRequestUpdate,
+        orientation,
+      }),
+    )
   }
 
   const observer = new MutationObserver(() => onRequestUpdate())
@@ -166,18 +166,12 @@ function syncSegmentedItem({
   }
 }
 
-function segmentedItemsFor(
-  host: HTMLElement,
-  groupDisabled: boolean
-): SegmentedItem[] {
+function segmentedItemsFor(host: HTMLElement, groupDisabled: boolean): SegmentedItem[] {
   return Array.from(host.querySelectorAll<NaosSegmentedItemElement>(segmentedSelector))
     .map((element) => {
       const value = element.value ?? element.getAttribute("value") ?? ""
       return {
-        disabled:
-          groupDisabled ||
-          Boolean(element.disabled) ||
-          element.hasAttribute("disabled"),
+        disabled: groupDisabled || Boolean(element.disabled) || element.hasAttribute("disabled"),
         element,
         value,
       }
@@ -224,11 +218,7 @@ function nextSegmentedItemForKey({
   return null
 }
 
-function setStringAttribute(
-  element: HTMLElement,
-  name: string,
-  value: string | null
-) {
+function setStringAttribute(element: HTMLElement, name: string, value: string | null) {
   if (value == null) {
     if (!element.hasAttribute(name)) return
     element.removeAttribute(name)

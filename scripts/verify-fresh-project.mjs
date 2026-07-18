@@ -31,13 +31,13 @@ try {
     const packed = new Map()
     for (const packagePath of publicPackagePaths) {
       const packageJson = JSON.parse(
-        await readFile(join(root, packagePath, "package.json"), "utf8")
+        await readFile(join(root, packagePath, "package.json"), "utf8"),
       )
       const before = new Set(await files(artifactsDir))
       await run(
         "pnpm",
         ["--dir", join(root, packagePath), "pack", "--pack-destination", artifactsDir],
-        { cwd: root }
+        { cwd: root },
       )
       const after = await files(artifactsDir)
       const created = after.find((file) => file.endsWith(".tgz") && !before.has(file))
@@ -113,7 +113,7 @@ async function writeProjectFiles(projectDir, tarballs) {
     type: "module",
     dependencies: {
       ...Object.fromEntries(
-        javaScriptPackages.map(({ name }) => [name, fileSpec(tarballs.get(name))])
+        javaScriptPackages.map(({ name }) => [name, fileSpec(tarballs.get(name))]),
       ),
       [currentNativePackageName()]: fileSpec(tarballs.get(currentNativePackageName())),
       typescript: thirdPartyVersions.typescript,
@@ -143,36 +143,45 @@ async function writeProjectFiles(projectDir, tarballs) {
         include: ["src", "vite.config.ts"],
       },
       null,
-      2
-    )}\n`
+      2,
+    )}\n`,
   )
   await writeFile(
     join(projectDir, "vite.config.ts"),
-    `import { defineConfig } from "vite"\nimport { naos } from "@naos-ui/vite"\n\nexport default defineConfig({\n  plugins: [naos()],\n})\n`
+    `import { defineConfig } from "vite"\nimport { naos } from "@naos-ui/vite"\n\nexport default defineConfig({\n  plugins: [naos()],\n})\n`,
   )
   await writeFile(
     join(projectDir, "index.html"),
-    `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>Naos fresh project smoke</title>\n  </head>\n  <body>\n    <${smokeTagName} label="Smoke"></${smokeTagName}>\n    <naos-button label="Primitive smoke" variant="primary"></naos-button>\n    <script type="module" src="/src/main.ts"></script>\n  </body>\n</html>\n`
+    `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>Naos fresh project smoke</title>\n  </head>\n  <body>\n    <${smokeTagName} label="Smoke"></${smokeTagName}>\n    <naos-button label="Primitive smoke" variant="primary"></naos-button>\n    <script type="module" src="/src/main.ts"></script>\n  </body>\n</html>\n`,
   )
   await writeFile(
     join(projectDir, "src", "main.ts"),
-    `import "@naos-ui/primitives/button"\nimport "./smoke-counter.wc.tsx"\n\ndocument.addEventListener("change", (event) => {\n  if (event instanceof CustomEvent) {\n    document.body.dataset.lastChange = String(event.detail)\n  }\n})\n`
+    `import "@naos-ui/primitives/button"\nimport "./smoke-counter.wc.tsx"\n\ndocument.addEventListener("change", (event) => {\n  if (event instanceof CustomEvent) {\n    document.body.dataset.lastChange = String(event.detail)\n  }\n})\n`,
   )
   await writeFile(
     join(projectDir, "src", "smoke-counter.wc.tsx"),
-    `import { event, state } from "@naos-ui/core"\n\nexport type SmokeCounterProps = {\n  label?: string\n}\n\nexport function SmokeCounter({ label = "Smoke" }: SmokeCounterProps = {}) {\n  const count = state(0)\n  const change = event<number>("change")\n\n  return (\n    <button\n      part="button"\n      data-count={count()}\n      aria-label={\`\${label}: \${count()}\`}\n      onClick={() => {\n        count.set(count() + 1)\n        change.emit(count())\n      }}\n    >\n      {\`\${label}: \${count()}\`}\n    </button>\n  )\n}\n`
+    `import { event, state } from "@naos-ui/core"\n\nexport type SmokeCounterProps = {\n  label?: string\n}\n\nexport function SmokeCounter({ label = "Smoke" }: SmokeCounterProps = {}) {\n  const count = state(0)\n  const change = event<number>("change")\n\n  return (\n    <button\n      part="button"\n      data-count={count()}\n      aria-label={\`\${label}: \${count()}\`}\n      onClick={() => {\n        count.set(count() + 1)\n        change.emit(count())\n      }}\n    >\n      {\`\${label}: \${count()}\`}\n    </button>\n  )\n}\n`,
   )
   await writeFile(
     join(projectDir, "verify-native.mjs"),
-    `import { getNativeInfo, transformComponent } from "@naos-ui/compiler"\n\nconst expectedTag = ${JSON.stringify(smokeTagName)}\nconst info = getNativeInfo()\nif (!info || typeof info.coreVersion !== "string") {\n  throw new Error("native compiler info did not expose a coreVersion")\n}\n\nconst source = await import("node:fs/promises").then((fs) => fs.readFile("src/smoke-counter.wc.tsx", "utf8"))\nconst result = transformComponent({ filename: "src/smoke-counter.wc.tsx", source })\nconst definition = "customElements.define(\\\"" + expectedTag + "\\\""\nif (result.tagName !== expectedTag || !result.code.includes(definition)) {\n  throw new Error(\`native compiler transform generated <\${result.tagName}> instead of <\${expectedTag}>\`)\n}\n`
+    `import { getNativeInfo, transformComponent } from "@naos-ui/compiler"\n\nconst expectedTag = ${JSON.stringify(smokeTagName)}\nconst info = getNativeInfo()\nif (!info || typeof info.coreVersion !== "string") {\n  throw new Error("native compiler info did not expose a coreVersion")\n}\n\nconst source = await import("node:fs/promises").then((fs) => fs.readFile("src/smoke-counter.wc.tsx", "utf8"))\nconst result = transformComponent({ filename: "src/smoke-counter.wc.tsx", source })\nconst definition = "customElements.define(\\\"" + expectedTag + "\\\""\nif (result.tagName !== expectedTag || !result.code.includes(definition)) {\n  throw new Error(\`native compiler transform generated <\${result.tagName}> instead of <\${expectedTag}>\`)\n}\n`,
   )
 }
 
 function pnpmWorkspaceYaml(tarballs) {
-  const overrideLines = publicPackages.map(({ name }) => [name, fileSpec(tarballs.get(name))])
+  const overrideLines = publicPackages
+    .map(({ name }) => [name, fileSpec(tarballs.get(name))])
     .map(([name, spec]) => `  ${JSON.stringify(name)}: ${JSON.stringify(spec)}`)
 
-  return ["packages:", "  - .", "allowBuilds:", "  esbuild: true", "overrides:", ...overrideLines, ""].join("\n")
+  return [
+    "packages:",
+    "  - .",
+    "allowBuilds:",
+    "  esbuild: true",
+    "overrides:",
+    ...overrideLines,
+    "",
+  ].join("\n")
 }
 
 async function readBuiltAssets(distDir) {

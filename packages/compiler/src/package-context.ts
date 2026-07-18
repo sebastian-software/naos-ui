@@ -12,7 +12,7 @@ export type NaosPackageContext = {
 
 export function resolveNaosPackageContext(
   filename: string,
-  packageJsonPath?: string
+  packageJsonPath?: string,
 ): NaosPackageContext {
   const resolvedPackagePath = packageJsonPath
     ? resolve(packageJsonPath)
@@ -22,7 +22,7 @@ export function resolveNaosPackageContext(
       "NAOS_PACKAGE_FILE_NOT_FOUND",
       filename,
       `No package.json could be found for ${filename}.`,
-      "Add a package.json to the owning package or pass packageJsonPath for virtual sources."
+      "Add a package.json to the owning package or pass packageJsonPath for virtual sources.",
     )
   }
 
@@ -34,7 +34,7 @@ export function resolveNaosPackageContext(
       "NAOS_PACKAGE_FILE_INVALID",
       resolvedPackagePath,
       `Naos could not read a valid package.json: ${error instanceof Error ? error.message : String(error)}.`,
-      "Fix the package JSON syntax and make sure the file is readable."
+      "Fix the package JSON syntax and make sure the file is readable.",
     )
   }
   if (!isRecord(value) || typeof value.name !== "string" || value.name.trim() === "") {
@@ -42,7 +42,7 @@ export function resolveNaosPackageContext(
       "NAOS_PACKAGE_NAME_INVALID",
       resolvedPackagePath,
       "package.json must contain a non-empty string name.",
-      "Set package.json name to the stable package identity that owns these components."
+      "Set package.json name to the stable package identity that owns these components.",
     )
   }
   if (value.version !== undefined && typeof value.version !== "string") {
@@ -50,7 +50,7 @@ export function resolveNaosPackageContext(
       "NAOS_PACKAGE_VERSION_INVALID",
       resolvedPackagePath,
       "package.json version must be a string when present.",
-      "Use a semantic version string or omit version for an unpublished private app."
+      "Use a semantic version string or omit version for an unpublished private app.",
     )
   }
   if (value.naos !== undefined && !isRecord(value.naos)) {
@@ -58,7 +58,7 @@ export function resolveNaosPackageContext(
       "NAOS_PACKAGE_CONFIG_INVALID",
       resolvedPackagePath,
       "package.json naos must be an object when present.",
-      "Use an object such as { \"naos\": { \"tagPrefix\": \"acme\" } }."
+      'Use an object such as { "naos": { "tagPrefix": "acme" } }.',
     )
   }
 
@@ -68,7 +68,7 @@ export function resolveNaosPackageContext(
       "NAOS_TAG_PREFIX_INVALID",
       resolvedPackagePath,
       "naos.tagPrefix must be a string.",
-      "Use lowercase words separated by single hyphens."
+      "Use lowercase words separated by single hyphens.",
     )
   }
   const tagPrefix = configuredPrefix ?? normalizePackageName(value.name)
@@ -77,7 +77,7 @@ export function resolveNaosPackageContext(
       "NAOS_TAG_PREFIX_INVALID",
       resolvedPackagePath,
       `The resolved tag prefix ${JSON.stringify(tagPrefix)} is invalid or reserved.`,
-      "Use lowercase words separated by single hyphens; prefixes starting with xml are reserved."
+      "Use lowercase words separated by single hyphens; prefixes starting with xml are reserved.",
     )
   }
 
@@ -118,7 +118,7 @@ function packageDiagnostic(
   code: string,
   filename: string,
   message: string,
-  hint: string
+  hint: string,
 ): NaosCompilerError {
   const diagnostic: NaosDiagnostic = {
     code,

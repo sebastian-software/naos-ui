@@ -99,7 +99,7 @@ export function createNaosZagToastGroupService({
 }
 
 export function getNaosZagToastGroupApi(
-  service: NaosZagToastGroupService | null
+  service: NaosZagToastGroupService | null,
 ): ZagToastGroupApi | null {
   if (service == null) return null
   return group.connect(service as never, normalizeZagProps as never)
@@ -132,9 +132,7 @@ export function createNaosZagToastService({
   })
 }
 
-export function getNaosZagToastApi(
-  service: NaosZagToastService | null
-): ZagToastApi | null {
+export function getNaosZagToastApi(service: NaosZagToastService | null): ZagToastApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
@@ -198,8 +196,6 @@ export function stopNaosToastServices(toasts: NaosToastView[]) {
   }
 }
 
-export function stopNaosZagToastGroupService(
-  service: NaosZagToastGroupService | null
-) {
+export function stopNaosZagToastGroupService(service: NaosZagToastGroupService | null) {
   service?.stop()
 }

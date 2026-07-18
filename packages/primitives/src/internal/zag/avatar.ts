@@ -42,15 +42,11 @@ export function createNaosZagAvatarService({
   })
 }
 
-export function getNaosZagAvatarApi(
-  service: NaosZagAvatarService | null
-): ZagAvatarApi | null {
+export function getNaosZagAvatarApi(service: NaosZagAvatarService | null): ZagAvatarApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagAvatarService(
-  service: NaosZagAvatarService | null
-) {
+export function stopNaosZagAvatarService(service: NaosZagAvatarService | null) {
   service?.stop()
 }

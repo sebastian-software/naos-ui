@@ -45,21 +45,23 @@ export function NaosProgress({
   const changed = event<{ value: number | null }>("naos-change")
 
   onConnected(() => {
-    progressService.set(createNaosZagProgressService({
-      host: host().element,
-      id: "naos-progress",
-      label,
-      locale,
-      max,
-      min,
-      onValueChange(details) {
-        current.set(details.value)
-        changed.emit(details)
-      },
-      orientation,
-      root: host().root,
-      value: current(),
-    }))
+    progressService.set(
+      createNaosZagProgressService({
+        host: host().element,
+        id: "naos-progress",
+        label,
+        locale,
+        max,
+        min,
+        onValueChange(details) {
+          current.set(details.value)
+          changed.emit(details)
+        },
+        orientation,
+        root: host().root,
+        value: current(),
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagProgressService(progressService())

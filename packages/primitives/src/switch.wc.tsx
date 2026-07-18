@@ -51,19 +51,21 @@ export function NaosSwitch({
   void name
 
   onConnected(() => {
-    switchService.set(createNaosZagSwitchService({
-      checked: active(),
-      disabled,
-      host: host().element,
-      id: "naos-switch",
-      label,
-      onCheckedChange(nextChecked) {
-        active.set(nextChecked)
-        changed.emit({ checked: nextChecked })
-      },
-      root: host().root,
-      value,
-    }))
+    switchService.set(
+      createNaosZagSwitchService({
+        checked: active(),
+        disabled,
+        host: host().element,
+        id: "naos-switch",
+        label,
+        onCheckedChange(nextChecked) {
+          active.set(nextChecked)
+          changed.emit({ checked: nextChecked })
+        },
+        root: host().root,
+        value,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagSwitchService(switchService())

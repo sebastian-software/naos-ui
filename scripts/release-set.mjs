@@ -93,8 +93,8 @@ export const javaScriptPackagePaths = Object.freeze(javaScriptPackages.map(({ pa
 export const nativePackageNames = Object.freeze(nativeTargets.map(({ name }) => name))
 export const nativeReleaseMatrix = Object.freeze(
   nativeTargets.map(({ name, path, runner, rustTarget }) =>
-    freezeRecord({ package: name, path, os: runner, rust_target: rustTarget })
-  )
+    freezeRecord({ package: name, path, os: runner, rust_target: rustTarget }),
+  ),
 )
 
 export function formatPackageTable() {

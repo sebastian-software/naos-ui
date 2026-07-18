@@ -60,15 +60,7 @@ const components = [
   "toggle-group",
   "toggle-item",
 ]
-const behaviorFiles = [
-  "checkbox",
-  "context",
-  "disclosure",
-  "overlay",
-  "presence",
-  "tabs",
-  "toggle",
-]
+const behaviorFiles = ["checkbox", "context", "disclosure", "overlay", "presence", "tabs", "toggle"]
 const zagFiles = [
   "accordion",
   "avatar",
@@ -125,7 +117,7 @@ for (const component of components) {
       tagName: transformed.tagName,
       props: transformed.props,
       events: transformed.events,
-    })
+    }),
   )
   manifestEntries.push({
     className: transformed.className,
@@ -141,23 +133,22 @@ for (const component of components) {
 
 await writeFile(
   join(distRoot, "index.mjs"),
-  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`
+  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`,
 )
 await writeFile(
   join(distRoot, "naos-manifest.json"),
-  serializeNaosManifest(createNaosManifest(manifestEntries))
+  serializeNaosManifest(createNaosManifest(manifestEntries)),
 )
 await writeFile(
   join(distRoot, "index.d.mts"),
-  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`
+  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`,
 )
 
 await buildBehaviorHelpers()
 await buildZagHelpers()
 
 async function inlineCssImports(code, filename, { motionCss = "" } = {}) {
-  const cssImport =
-    /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline)["'];?/g
+  const cssImport = /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline)["'];?/g
   const sideEffectCssImport = /import\s+["']([^"']+\.css\?inline)["'];?/g
   let output = code
   for (const match of code.matchAll(cssImport)) {
@@ -219,4 +210,3 @@ async function buildTypeScriptFile({ distRoot, filename, sourceRoot }) {
   })
   await writeFile(join(distRoot, filename.replace(/\.ts$/, ".js")), `${output.outputText}\n`)
 }
-

@@ -66,35 +66,37 @@ export function NaosEditable({
   void name
 
   onConnected(() => {
-    editableService.set(createNaosZagEditableService({
-      disabled,
-      host: host().element,
-      id: "naos-editable",
-      label,
-      maxLength,
-      name,
-      onEditChange(details) {
-        editing.set(details.edit)
-        editChanged.emit(details)
-      },
-      onValueChange(details) {
-        current.set(details.value)
-        changed.emit(details)
-      },
-      onValueCommit(details) {
-        submitted.emit(details)
-      },
-      onValueRevert(details) {
-        current.set(details.value)
-        canceled.emit(details)
-      },
-      placeholder,
-      readOnly,
-      required,
-      root: host().root,
-      submitMode,
-      value,
-    }))
+    editableService.set(
+      createNaosZagEditableService({
+        disabled,
+        host: host().element,
+        id: "naos-editable",
+        label,
+        maxLength,
+        name,
+        onEditChange(details) {
+          editing.set(details.edit)
+          editChanged.emit(details)
+        },
+        onValueChange(details) {
+          current.set(details.value)
+          changed.emit(details)
+        },
+        onValueCommit(details) {
+          submitted.emit(details)
+        },
+        onValueRevert(details) {
+          current.set(details.value)
+          canceled.emit(details)
+        },
+        placeholder,
+        readOnly,
+        required,
+        root: host().root,
+        submitMode,
+        value,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagEditableService(editableService())

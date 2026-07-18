@@ -38,12 +38,7 @@ describe("action", () => {
     await expect(first).resolves.toEqual(["first"])
     await expect(second).resolves.toEqual(["first", "second"])
 
-    expect(order).toEqual([
-      "start:first:none",
-      "end:first",
-      "start:second:first",
-      "end:second",
-    ])
+    expect(order).toEqual(["start:first:none", "end:first", "start:second:first", "end:second"])
     expect(sequential.pending()).toBe(false)
   })
 
@@ -169,7 +164,7 @@ describe("action", () => {
         return previous + step
       },
       0,
-      { onSettled: (result) => settlements.push(result) }
+      { onSettled: (result) => settlements.push(result) },
     )
 
     await observed.submit(2)
@@ -229,9 +224,9 @@ describe("formAction", () => {
     expect(isNaosFormAction(save)).toBe(true)
     expect(isNaosFormAction(action((previous: number) => previous, 0))).toBe(false)
     expect(isNaosFormAction("/api/save")).toBe(false)
-    expect(
-      (save as unknown as Record<PropertyKey, unknown>)[Symbol.for("naos.form.action")]
-    ).toBe(true)
+    expect((save as unknown as Record<PropertyKey, unknown>)[Symbol.for("naos.form.action")]).toBe(
+      true,
+    )
   })
 
   it("removes form listeners on dispose", () => {

@@ -4,7 +4,7 @@ export function tabsValueForKey(
   current: string,
   key: string,
   values: readonly string[],
-  orientation: TabsOrientation = "horizontal"
+  orientation: TabsOrientation = "horizontal",
 ): string | null {
   if (values.length === 0) return null
 

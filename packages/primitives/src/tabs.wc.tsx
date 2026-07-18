@@ -54,18 +54,20 @@ export function NaosTabs({
     const observer = new MutationObserver(updateHasCustomTabs)
     observer.observe(hostElement, { childList: true, subtree: true })
     childObserver.set(observer)
-    tabsService.set(createNaosZagTabsService({
-      host: hostElement,
-      id: "naos-tabs",
-      onValueChange(value) {
-        if (value == null) return
-        selected.set(value)
-        changed.emit({ value })
-      },
-      orientation,
-      root: host().root,
-      value: initialValue,
-    }))
+    tabsService.set(
+      createNaosZagTabsService({
+        host: hostElement,
+        id: "naos-tabs",
+        onValueChange(value) {
+          if (value == null) return
+          selected.set(value)
+          changed.emit({ value })
+        },
+        orientation,
+        root: host().root,
+        value: initialValue,
+      }),
+    )
   })
   onDisconnected(() => {
     childObserver()?.disconnect()

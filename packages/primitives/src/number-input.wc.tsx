@@ -61,22 +61,24 @@ export function NaosNumberInput({
   void name
 
   onConnected(() => {
-    numberInputService.set(createNaosZagNumberInputService({
-      disabled,
-      host: host().element,
-      id: "naos-number-input",
-      label,
-      max,
-      min,
-      onValueChange(details) {
-        current.set(details.value)
-        numeric.set(details.valueAsNumber)
-        changed.emit(details)
-      },
-      root: host().root,
-      step,
-      value,
-    }))
+    numberInputService.set(
+      createNaosZagNumberInputService({
+        disabled,
+        host: host().element,
+        id: "naos-number-input",
+        label,
+        max,
+        min,
+        onValueChange(details) {
+          current.set(details.value)
+          numeric.set(details.valueAsNumber)
+          changed.emit(details)
+        },
+        root: host().root,
+        step,
+        value,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagNumberInputService(numberInputService())
@@ -95,10 +97,7 @@ export function NaosNumberInput({
         {label}
       </label>
       <div {...(numberInputApi()?.getControlProps() ?? {})} part="control">
-        <button
-          {...(numberInputApi()?.getDecrementTriggerProps() ?? {})}
-          part="decrement"
-        >
+        <button {...(numberInputApi()?.getDecrementTriggerProps() ?? {})} part="decrement">
           -
         </button>
         <input
@@ -108,10 +107,7 @@ export function NaosNumberInput({
           value={current()}
           disabled={disabled}
         />
-        <button
-          {...(numberInputApi()?.getIncrementTriggerProps() ?? {})}
-          part="increment"
-        >
+        <button {...(numberInputApi()?.getIncrementTriggerProps() ?? {})} part="increment">
           +
         </button>
       </div>

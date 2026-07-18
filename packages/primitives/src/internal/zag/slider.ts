@@ -1,8 +1,4 @@
-import {
-  connect,
-  machine as sliderMachine,
-  type Api as ZagSliderApi,
-} from "@zag-js/slider"
+import { connect, machine as sliderMachine, type Api as ZagSliderApi } from "@zag-js/slider"
 
 import { normalizeZagProps } from "./props.js"
 import { createZagScope } from "./scope.js"
@@ -62,15 +58,11 @@ export function createNaosZagSliderService({
   })
 }
 
-export function getNaosZagSliderApi(
-  service: NaosZagSliderService | null
-): ZagSliderApi | null {
+export function getNaosZagSliderApi(service: NaosZagSliderService | null): ZagSliderApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagSliderService(
-  service: NaosZagSliderService | null
-) {
+export function stopNaosZagSliderService(service: NaosZagSliderService | null) {
   service?.stop()
 }

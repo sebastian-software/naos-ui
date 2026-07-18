@@ -121,7 +121,7 @@ export function resolveNativeTarget(options: {
       (target) =>
         target.nodePlatform === options.platform &&
         target.nodeArch === options.arch &&
-        target.libc === libc
+        target.libc === libc,
     ) ?? null
   )
 }
@@ -147,15 +147,12 @@ export function loadNativeBindings(): NativeBindings {
   return loadedBindings
 }
 
-export function loadNativeBindingsWithContext(
-  context: NativeLoaderContext = {}
-): NativeBindings {
+export function loadNativeBindingsWithContext(context: NativeLoaderContext = {}): NativeBindings {
   const env = context.env ?? process.env
   const platform = context.platform ?? process.platform
   const arch = context.arch ?? process.arch
   const report =
-    context.report ??
-    (process.report?.getReport?.() as NativeProcessReport | undefined)
+    context.report ?? (process.report?.getReport?.() as NativeProcessReport | undefined)
   const requireBinding =
     context.requireBinding ?? createRequire(context.importMetaUrl ?? import.meta.url)
   const bindingExists = context.bindingExists ?? existsSync
@@ -178,7 +175,7 @@ export function loadNativeBindingsWithContext(
         })}.`,
         `Supported native packages: ${supportedPackageList()}.`,
         sourceBuildGuidance(),
-      ].join(" ")
+      ].join(" "),
     )
   }
 
@@ -202,7 +199,7 @@ export function loadNativeBindingsWithContext(
       `Supported native packages: ${supportedPackageList()}.`,
       `Original package load error: ${formatUnknownError(packageError)}.`,
       sourceBuildGuidance(),
-    ].join(" ")
+    ].join(" "),
   )
 }
 

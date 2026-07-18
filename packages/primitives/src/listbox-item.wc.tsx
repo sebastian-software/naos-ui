@@ -24,7 +24,9 @@ export function NaosListboxItem({
       <span part="label">
         <slot>{label || value}</slot>
       </span>
-      <span part="indicator" aria-hidden="true">*</span>
+      <span part="indicator" aria-hidden="true">
+        *
+      </span>
     </span>
   )
 }

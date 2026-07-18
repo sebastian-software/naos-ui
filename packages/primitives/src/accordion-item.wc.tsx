@@ -22,7 +22,9 @@ export function NaosAccordionItem({
   return (
     <div part="root">
       <button part="trigger" type="button">
-        <span part="indicator" aria-hidden="true">+</span>
+        <span part="indicator" aria-hidden="true">
+          +
+        </span>
         <span part="label">
           <slot name="trigger">{label || value}</slot>
         </span>

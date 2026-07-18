@@ -81,7 +81,10 @@ function createBindable<Value>({
     get: () => current,
     set(next: Value | ((previous: Value | undefined) => Value)) {
       const previous = current
-      current = typeof next === "function" ? (next as (previous: Value | undefined) => Value)(current) : next
+      current =
+        typeof next === "function"
+          ? (next as (previous: Value | undefined) => Value)(current)
+          : next
       const equal = isEqual?.(current, previous) ?? Object.is(current, previous)
       if (!equal) {
         onChange?.(current as Value, previous)
@@ -139,19 +142,20 @@ export function createZagService({
           },
         }
       },
-    }
+    },
   )
 
-  const contextEntries = machine.context?.({
-    bindable,
-    flush: (callback: VoidFunction) => callback(),
-    getComputed: () => computed,
-    getContext: () => context,
-    getEvent: () => currentEvent,
-    getRefs: () => refs,
-    prop,
-    scope: inputScope,
-  }) ?? {}
+  const contextEntries =
+    machine.context?.({
+      bindable,
+      flush: (callback: VoidFunction) => callback(),
+      getComputed: () => computed,
+      getContext: () => context,
+      getEvent: () => currentEvent,
+      getRefs: () => refs,
+      prop,
+      scope: inputScope,
+    }) ?? {}
   const context = {
     get: (key: string) => contextEntries[key]?.get(),
     hash: (key: string) => contextEntries[key]?.hash(contextEntries[key]?.get()),
@@ -268,7 +272,7 @@ export function createZagService({
   }
 
   function chooseTransition(
-    transitions: ZagMachineTransition | ZagMachineTransition[] | null | undefined
+    transitions: ZagMachineTransition | ZagMachineTransition[] | null | undefined,
   ) {
     return toArray(transitions).find((transition) => {
       if (transition == null) return false

@@ -56,7 +56,7 @@ jobs:
       - name: Check Rust formatting
         run: cargo fmt --check
 
-      - name: Lint Rust
+      - name: Lint and format (JS/TS + Rust)
         run: pnpm lint
 
       - name: Test packages and Rust

@@ -1,7 +1,4 @@
-import type {
-  NativeEventDefinition,
-  NativePropDefinition,
-} from "./generated/naos-node-types.js"
+import type { NativeEventDefinition, NativePropDefinition } from "./generated/naos-node-types.js"
 
 /**
  * Canonical prop conversion kinds emitted by the compiler. The generated
@@ -42,9 +39,7 @@ function eventDetailType(event: NativeEventDefinition): string {
  * `event()` declarations, the module exports matching the generated
  * JavaScript, and the global `HTMLElementTagNameMap` augmentation.
  */
-export function renderNaosElementDeclaration(
-  input: NaosElementDeclarationInput
-): string {
+export function renderNaosElementDeclaration(input: NaosElementDeclarationInput): string {
   const { className, tagName } = input
   const props = input.props ?? []
   const events = input.events ?? []
@@ -60,7 +55,7 @@ export function renderNaosElementDeclaration(
       `  addEventListener<Type extends keyof ${eventMapName}>(type: Type, listener: (this: ${className}, event: ${eventMapName}[Type]) => void, options?: boolean | AddEventListenerOptions): void;`,
       `  addEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | AddEventListenerOptions): void;`,
       `  removeEventListener<Type extends keyof ${eventMapName}>(type: Type, listener: (this: ${className}, event: ${eventMapName}[Type]) => void, options?: boolean | EventListenerOptions): void;`,
-      `  removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;`
+      `  removeEventListener(type: string, listener: EventListenerOrEventListenerObject, options?: boolean | EventListenerOptions): void;`,
     )
   }
   lines.push(`}`)
@@ -68,9 +63,7 @@ export function renderNaosElementDeclaration(
   if (events.length > 0) {
     lines.push(``, `export interface ${eventMapName} extends HTMLElementEventMap {`)
     for (const event of events) {
-      lines.push(
-        `  ${JSON.stringify(event.eventName)}: CustomEvent<${eventDetailType(event)}>;`
-      )
+      lines.push(`  ${JSON.stringify(event.eventName)}: CustomEvent<${eventDetailType(event)}>;`)
     }
     lines.push(`}`)
   }
@@ -87,7 +80,7 @@ export function renderNaosElementDeclaration(
     `    ${JSON.stringify(tagName)}: ${className};`,
     `  }`,
     `}`,
-    ``
+    ``,
   )
 
   return lines.join("\n")

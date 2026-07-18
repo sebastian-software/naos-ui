@@ -21,7 +21,7 @@
     "check": "pnpm check-api-conventions && pnpm check-dependency-boundaries && pnpm check-release-set && pnpm check-types && pnpm check:docs && pnpm check:rust",
     "check-types": "pnpm build && pnpm -r --filter './packages/**' --if-present check-types",
     "check:rust": "cargo check --workspace",
-    "lint": "pnpm lint:js && pnpm lint:rust",
+    "lint": "pnpm lint:js && pnpm format:check && pnpm lint:rust",
     "lint:js": "oxlint --deny-warnings .",
     "lint:rust": "cargo clippy --all-targets --all-features -- -D warnings",
     "test": "pnpm test:repo && pnpm test:packages && pnpm test:rust",
@@ -31,11 +31,14 @@
     "test:packages": "pnpm -r --filter './packages/**' --if-present test",
     "test:repo": "node --test scripts/release-set.test.mjs scripts/dependency-boundaries.test.mjs scripts/api-conventions.test.mjs",
     "test:rust": "cargo test --workspace",
-    "verify:fresh-project": "node scripts/verify-fresh-project.mjs"
+    "verify:fresh-project": "node scripts/verify-fresh-project.mjs",
+    "format": "prettier --write \"**/*.{ts,tsx,mts,js,mjs,cjs}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,mts,js,mjs,cjs}\""
   },
   "devDependencies": {
     "@types/node": "^25.0.0",
     "oxlint": "1.73.0",
+    "prettier": "3.8.0",
     "tsdown": "0.22.3",
     "typescript": "^6.0.3",
     "vitest": "^4.1.6"

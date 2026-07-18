@@ -52,10 +52,7 @@ export function collectNaosComboboxItems(host: HTMLElement): NaosComboboxItem[] 
     .map((element) => {
       const value = element.value ?? element.getAttribute("value") ?? ""
       const label =
-        element.label ??
-        element.getAttribute("label") ??
-        element.textContent?.trim() ??
-        value
+        element.label ?? element.getAttribute("label") ?? element.textContent?.trim() ?? value
       return {
         disabled: Boolean(element.disabled) || element.hasAttribute("disabled"),
         label,
@@ -117,15 +114,13 @@ export function createNaosZagComboboxService({
 }
 
 export function getNaosZagComboboxApi(
-  service: NaosZagComboboxService | null
+  service: NaosZagComboboxService | null,
 ): ZagComboboxApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagComboboxService(
-  service: NaosZagComboboxService | null
-) {
+export function stopNaosZagComboboxService(service: NaosZagComboboxService | null) {
   service?.stop()
 }
 
@@ -140,7 +135,7 @@ export function syncNaosComboboxItems({
 
   for (const item of items) {
     const element = host.querySelector<NaosComboboxItemElement>(
-      `${comboboxItemSelector}[value="${cssEscape(item.value)}"]`
+      `${comboboxItemSelector}[value="${cssEscape(item.value)}"]`,
     )
     if (element == null) continue
     cleanups.push(syncComboboxItem({ api, disabled, element, item, onRequestUpdate }))
@@ -219,14 +214,10 @@ function syncComboboxItem({
 function cssEscape(value: string) {
   return typeof CSS !== "undefined" && typeof CSS.escape === "function"
     ? CSS.escape(value)
-    : value.replaceAll("\"", "\\\"")
+    : value.replaceAll('"', '\\"')
 }
 
-function setStringAttribute(
-  element: HTMLElement,
-  name: string,
-  value: string | null
-) {
+function setStringAttribute(element: HTMLElement, name: string, value: string | null) {
   if (value == null) {
     if (!element.hasAttribute(name)) return
     element.removeAttribute(name)

@@ -1,8 +1,4 @@
-import {
-  connect,
-  machine as dialogMachine,
-  type Api as ZagDialogApi,
-} from "@zag-js/dialog"
+import { connect, machine as dialogMachine, type Api as ZagDialogApi } from "@zag-js/dialog"
 
 import { normalizeZagProps } from "./props.js"
 import { createZagScope } from "./scope.js"
@@ -36,8 +32,7 @@ export function createNaosZagDialogService({
       closeOnEscape: true,
       closeOnInteractOutside: true,
       defaultOpen: open,
-      finalFocusEl: () =>
-        host.shadowRoot?.querySelector<HTMLElement>("[part~='trigger']") ?? host,
+      finalFocusEl: () => host.shadowRoot?.querySelector<HTMLElement>("[part~='trigger']") ?? host,
       id,
       modal,
       onOpenChange(details: { open: boolean }) {
@@ -56,15 +51,11 @@ export function createNaosZagDialogService({
   })
 }
 
-export function getNaosZagDialogApi(
-  service: NaosZagDialogService | null
-): ZagDialogApi | null {
+export function getNaosZagDialogApi(service: NaosZagDialogService | null): ZagDialogApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagDialogService(
-  service: NaosZagDialogService | null
-) {
+export function stopNaosZagDialogService(service: NaosZagDialogService | null) {
   service?.stop()
 }

@@ -83,7 +83,7 @@ export function prefersReducedMotion(query = REDUCED_MOTION_QUERY) {
 
 export function waitForAnimations(
   element: Element | null | undefined,
-  options: NaosAnimationWaitOptions = {}
+  options: NaosAnimationWaitOptions = {},
 ) {
   if (
     element == null ||
@@ -120,19 +120,16 @@ export function waitForAnimations(
       timeout = globalThis.setTimeout(finish, Math.max(0, timeoutMs))
     }
 
-    void Promise.allSettled(animations.map((animation) => animation.finished))
-      .then(finish)
+    void Promise.allSettled(animations.map((animation) => animation.finished)).then(finish)
   })
 }
 
-export function spring(
-  options: NaosSpringOptions | NaosSpringPreset = "smooth"
-): NaosSpringTiming {
+export function spring(options: NaosSpringOptions | NaosSpringPreset = "smooth"): NaosSpringTiming {
   const resolved = resolveSpringOptions(options)
   const duration = springDuration(resolved)
   const sampleCount = Math.max(
     2,
-    Math.min(80, Math.round(resolved.sampleCount ?? DEFAULT_SPRING_SAMPLE_COUNT))
+    Math.min(80, Math.round(resolved.sampleCount ?? DEFAULT_SPRING_SAMPLE_COUNT)),
   )
   const values = Array.from({ length: sampleCount }, (_, index) => {
     const progress = index / (sampleCount - 1)
@@ -148,14 +145,12 @@ export function spring(
   }
 }
 
-export function springEasing(
-  options: NaosSpringOptions | NaosSpringPreset = "smooth"
-) {
+export function springEasing(options: NaosSpringOptions | NaosSpringPreset = "smooth") {
   return spring(options).easing
 }
 
 export function springMotionToken(
-  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth"
+  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth",
 ): NaosSpringMotionToken {
   const token = resolveSpringMotionTokenOptions(options)
   const timing = spring(token.preset ?? token.options ?? "smooth")
@@ -174,7 +169,7 @@ export function springMotionToken(
 }
 
 export function springMotionTokenClassName(
-  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth"
+  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth",
 ) {
   const token = resolveSpringMotionTokenOptions(options)
   if (token.preset != null) {
@@ -182,13 +177,11 @@ export function springMotionTokenClassName(
   }
 
   const normalized = normalizeSpringOptions(token.options)
-  return `naos-motion-${token.kind}-spring-${hashMotionTokenSignature(
-    JSON.stringify(normalized)
-  )}`
+  return `naos-motion-${token.kind}-spring-${hashMotionTokenSignature(JSON.stringify(normalized))}`
 }
 
 export function springMotionTokenCss(
-  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth"
+  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth",
 ) {
   const token = springMotionToken(options)
   return token.css
@@ -196,7 +189,7 @@ export function springMotionTokenCss(
 
 export function flipMovedElements(
   firstRects: ReadonlyMap<Element, DOMRectReadOnly>,
-  options: NaosFlipOptions = {}
+  options: NaosFlipOptions = {},
 ): Animation[] {
   if (shouldSkipMotion(options.reducedMotion)) return []
 
@@ -220,17 +213,13 @@ export function flipMovedElements(
 
     const baseTransform = transformForElement(element)
     const fromTransform = transformWithOffset(baseTransform, deltaX, deltaY)
-    const toTransform =
-      baseTransform === "none" ? "translate(0px, 0px)" : baseTransform
+    const toTransform = baseTransform === "none" ? "translate(0px, 0px)" : baseTransform
 
     animations.push(
-      element.animate(
-        [{ transform: fromTransform }, { transform: toTransform }],
-        {
-          duration,
-          easing,
-        }
-      )
+      element.animate([{ transform: fromTransform }, { transform: toTransform }], {
+        duration,
+        easing,
+      }),
     )
   }
 
@@ -241,9 +230,7 @@ function getPendingAnimations(element: Element, subtree: boolean) {
   try {
     return element
       .getAnimations({ subtree })
-      .filter((animation) =>
-        animation.playState !== "finished" && animation.playState !== "idle"
-      )
+      .filter((animation) => animation.playState !== "finished" && animation.playState !== "idle")
   } catch {
     return []
   }
@@ -271,7 +258,7 @@ function resolveSpringOptions(options: NaosSpringOptions | NaosSpringPreset) {
 }
 
 function resolveSpringMotionTokenOptions(
-  options: NaosSpringMotionTokenOptions | NaosSpringPreset
+  options: NaosSpringMotionTokenOptions | NaosSpringPreset,
 ): Required<Pick<NaosSpringMotionTokenOptions, "kind">> &
   (
     | { options: NaosSpringOptions; preset?: undefined }
@@ -305,7 +292,7 @@ function normalizeSpringOptions(options: NaosSpringOptions) {
     restSpeed: resolved.restSpeed,
     sampleCount: Math.max(
       2,
-      Math.min(80, Math.round(resolved.sampleCount ?? DEFAULT_SPRING_SAMPLE_COUNT))
+      Math.min(80, Math.round(resolved.sampleCount ?? DEFAULT_SPRING_SAMPLE_COUNT)),
     ),
     stiffness: resolved.stiffness,
   }
@@ -339,21 +326,13 @@ function springDuration(options: RequiredSpringOptions) {
   let velocity = options.initialVelocity
   const maxDurationSeconds = options.maxDuration / 1000
 
-  for (
-    let elapsed = 0;
-    elapsed <= maxDurationSeconds;
-    elapsed += SPRING_STEP_SECONDS
-  ) {
-    if (
-      Math.abs(1 - value) <= options.restDelta &&
-      Math.abs(velocity) <= options.restSpeed
-    ) {
+  for (let elapsed = 0; elapsed <= maxDurationSeconds; elapsed += SPRING_STEP_SECONDS) {
+    if (Math.abs(1 - value) <= options.restDelta && Math.abs(velocity) <= options.restSpeed) {
       return elapsed
     }
 
     const acceleration =
-      (-options.stiffness * (value - 1) - options.damping * velocity) /
-      options.mass
+      (-options.stiffness * (value - 1) - options.damping * velocity) / options.mass
     velocity += acceleration * SPRING_STEP_SECONDS
     value += velocity * SPRING_STEP_SECONDS
   }
@@ -368,8 +347,7 @@ function springValueAt(options: RequiredSpringOptions, seconds: number) {
   for (let elapsed = 0; elapsed < seconds; elapsed += SPRING_STEP_SECONDS) {
     const step = Math.min(SPRING_STEP_SECONDS, seconds - elapsed)
     const acceleration =
-      (-options.stiffness * (value - 1) - options.damping * velocity) /
-      options.mass
+      (-options.stiffness * (value - 1) - options.damping * velocity) / options.mass
     velocity += acceleration * step
     value += velocity * step
   }
@@ -394,15 +372,10 @@ function transformForElement(element: Element) {
   }
 }
 
-function transformWithOffset(
-  baseTransform: string,
-  deltaX: number,
-  deltaY: number
-) {
+function transformWithOffset(baseTransform: string, deltaX: number, deltaY: number) {
   const offset = `translate(${formatPx(deltaX)}, ${formatPx(deltaY)})`
   return baseTransform === "none" ? offset : `${offset} ${baseTransform}`
 }
 
-type RequiredSpringOptions = Required<
-  Omit<NaosSpringOptions, "sampleCount">
-> & Pick<NaosSpringOptions, "sampleCount">
+type RequiredSpringOptions = Required<Omit<NaosSpringOptions, "sampleCount">> &
+  Pick<NaosSpringOptions, "sampleCount">

@@ -88,14 +88,12 @@ export function createNaosZagTagsInputService({
 }
 
 export function getNaosZagTagsInputApi(
-  service: NaosZagTagsInputService | null
+  service: NaosZagTagsInputService | null,
 ): ZagTagsInputApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagTagsInputService(
-  service: NaosZagTagsInputService | null
-) {
+export function stopNaosZagTagsInputService(service: NaosZagTagsInputService | null) {
   service?.stop()
 }

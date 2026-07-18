@@ -39,9 +39,7 @@ export function NaosSegmentedControl({
 }: NaosSegmentedControlProps = {}) {
   const selected = state(value)
   const segmentedService = state<NaosZagSegmentedControlService | null>(null)
-  const segmentedApi = computed(() =>
-    getNaosZagSegmentedControlApi(segmentedService())
-  )
+  const segmentedApi = computed(() => getNaosZagSegmentedControlApi(segmentedService()))
   const changed = event<{ value: string }>("naos-change")
   const form = formControl({
     value: () => selected() || null,
@@ -55,18 +53,20 @@ export function NaosSegmentedControl({
   void name
 
   onConnected(() => {
-    segmentedService.set(createNaosZagSegmentedControlService({
-      disabled,
-      host: host().element,
-      id: "naos-segmented-control",
-      onValueChange(nextValue) {
-        selected.set(nextValue)
-        changed.emit({ value: nextValue })
-      },
-      orientation,
-      root: host().root,
-      value: selected(),
-    }))
+    segmentedService.set(
+      createNaosZagSegmentedControlService({
+        disabled,
+        host: host().element,
+        id: "naos-segmented-control",
+        onValueChange(nextValue) {
+          selected.set(nextValue)
+          changed.emit({ value: nextValue })
+        },
+        orientation,
+        root: host().root,
+        value: selected(),
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagSegmentedControlService(segmentedService())

@@ -24,7 +24,7 @@ export function TaskList() {
     bindResource(tasksResource, ({ status, data }) => {
       loadState.set(status)
       tasks.set(data ?? EMPTY_TASKS)
-    })
+    }),
   )
 
   return (

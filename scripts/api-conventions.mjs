@@ -32,10 +32,10 @@ export function validatePublicApiSource(path, source) {
 }
 
 export function validateFrameworkPublicApis(
-  readSource = (path) => readFileSync(resolve(rootDir, path), "utf8")
+  readSource = (path) => readFileSync(resolve(rootDir, path), "utf8"),
 ) {
   return frameworkPublicEntryPoints.flatMap((path) =>
-    validatePublicApiSource(path, readSource(path))
+    validatePublicApiSource(path, readSource(path)),
   )
 }
 

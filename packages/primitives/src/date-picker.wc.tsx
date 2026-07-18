@@ -66,33 +66,35 @@ export function NaosDatePicker({
   void name
 
   onConnected(() => {
-    datePickerService.set(createNaosZagDatePickerService({
-      disabled,
-      host: host().element,
-      id: "naos-date-picker",
-      label,
-      locale,
-      name,
-      onFocusChange(details) {
-        const nextFocusedValue = details.focusedValue.toString()
-        focused.set(nextFocusedValue)
-        focusChanged.emit({ focusedValue: nextFocusedValue })
-      },
-      onOpenChange(details) {
-        opened.set(details.open)
-        openChanged.emit({ open: details.open })
-      },
-      onValueChange(details) {
-        const nextValue = datePickerValueString(details.value)
-        current.set(nextValue)
-        changed.emit({ value: nextValue })
-      },
-      placeholder,
-      readOnly,
-      required,
-      root: host().root,
-      value: current(),
-    }))
+    datePickerService.set(
+      createNaosZagDatePickerService({
+        disabled,
+        host: host().element,
+        id: "naos-date-picker",
+        label,
+        locale,
+        name,
+        onFocusChange(details) {
+          const nextFocusedValue = details.focusedValue.toString()
+          focused.set(nextFocusedValue)
+          focusChanged.emit({ focusedValue: nextFocusedValue })
+        },
+        onOpenChange(details) {
+          opened.set(details.open)
+          openChanged.emit({ open: details.open })
+        },
+        onValueChange(details) {
+          const nextValue = datePickerValueString(details.value)
+          current.set(nextValue)
+          changed.emit({ value: nextValue })
+        },
+        placeholder,
+        readOnly,
+        required,
+        root: host().root,
+        value: current(),
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagDatePickerService(datePickerService())

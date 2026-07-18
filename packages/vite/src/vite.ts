@@ -41,7 +41,7 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
   const prerenderFilter = prerenderOptions
     ? createFilter(
         prerenderOptions.include ?? options.include ?? /\.wc\.tsx$/,
-        prerenderOptions.exclude ?? options.exclude ?? /node_modules/
+        prerenderOptions.exclude ?? options.exclude ?? /node_modules/,
       )
     : null
   const manifest = new Map<string, NaosManifestComponentInput>()
@@ -76,10 +76,8 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
         })
 
         if (prerenderFilter?.(filename)) {
-          const inlineStyles = await resolveInlineStyles(
-            result.styleImports,
-            filename,
-            (cssPath) => this.addWatchFile(cssPath)
+          const inlineStyles = await resolveInlineStyles(result.styleImports, filename, (cssPath) =>
+            this.addWatchFile(cssPath),
           )
           const prerendered = renderNaosDeclarativeShadowDom({
             filename,
@@ -151,7 +149,7 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
 
 export function formatNaosDiagnostics(
   diagnostics: readonly NaosDiagnostic[],
-  fallbackFilename: string
+  fallbackFilename: string,
 ): string {
   return diagnostics
     .map((diagnostic) => {
@@ -168,7 +166,7 @@ export function formatNaosDiagnostics(
 }
 
 export function renderNaosDeclarativeShadowDom(
-  request: RenderDeclarativeShadowDomRequest
+  request: RenderDeclarativeShadowDomRequest,
 ): RenderDeclarativeShadowDomResult {
   return renderDeclarativeShadowDom(request)
 }
@@ -176,7 +174,7 @@ export function renderNaosDeclarativeShadowDom(
 async function resolveInlineStyles(
   styleImports: readonly NativeStyleImport[],
   filename: string,
-  addWatchFile: (cssPath: string) => void
+  addWatchFile: (cssPath: string) => void,
 ): Promise<Record<string, string> | undefined> {
   if (styleImports.length === 0) {
     return undefined
@@ -196,7 +194,7 @@ function stripQuery(id: string): string {
 }
 
 function normalizePrerenderOptions(
-  options: NaosVitePluginOptions["prerender"]
+  options: NaosVitePluginOptions["prerender"],
 ): NaosDeclarativeShadowDomPrerenderOptions | null {
   if (options === false) {
     return null

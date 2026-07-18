@@ -24,7 +24,7 @@ export function discoverPublicPackages({
     })
     .filter(
       ({ manifest }) =>
-        manifest.name?.startsWith("@naos-ui/") && manifest.publishConfig?.access === "public"
+        manifest.name?.startsWith("@naos-ui/") && manifest.publishConfig?.access === "public",
     )
 }
 
@@ -100,8 +100,15 @@ export function runDependencyBoundaryCheck({
 }
 
 function compareViolations(left, right) {
-  const leftKey = [left.packageName, left.field ?? "", left.target ?? "", left.path ?? ""].join("\0")
-  const rightKey = [right.packageName, right.field ?? "", right.target ?? "", right.path ?? ""].join("\0")
+  const leftKey = [left.packageName, left.field ?? "", left.target ?? "", left.path ?? ""].join(
+    "\0",
+  )
+  const rightKey = [
+    right.packageName,
+    right.field ?? "",
+    right.target ?? "",
+    right.path ?? "",
+  ].join("\0")
   return leftKey.localeCompare(rightKey)
 }
 

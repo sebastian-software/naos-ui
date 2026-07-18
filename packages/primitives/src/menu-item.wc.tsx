@@ -11,11 +11,7 @@ export const options = {
   styles: [css],
 } satisfies ComponentOptions
 
-export function NaosMenuItem({
-  disabled = false,
-  label = "",
-  value = "",
-}: NaosMenuItemProps = {}) {
+export function NaosMenuItem({ disabled = false, label = "", value = "" }: NaosMenuItemProps = {}) {
   void disabled
   void value
 

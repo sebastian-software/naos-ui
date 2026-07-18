@@ -11,13 +11,17 @@ import {
 describe("resource keys", () => {
   it("treats nullish and false keys as disabled", () => {
     expect(normalizeResourceKey(null)).toEqual({ argument: null, disabled: true, key: undefined })
-    expect(normalizeResourceKey(undefined)).toEqual({ argument: undefined, disabled: true, key: undefined })
+    expect(normalizeResourceKey(undefined)).toEqual({
+      argument: undefined,
+      disabled: true,
+      key: undefined,
+    })
     expect(normalizeResourceKey(false)).toEqual({ argument: false, disabled: true, key: undefined })
   })
 
   it("normalizes object keys with stable property order", () => {
     expect(normalizeResourceKey({ b: 1, a: ["x", { c: true }] }).key).toBe(
-      normalizeResourceKey({ a: ["x", { c: true }], b: 1 }).key
+      normalizeResourceKey({ a: ["x", { c: true }], b: 1 }).key,
     )
   })
 })
@@ -68,7 +72,7 @@ describe("fetchResource", () => {
         new Promise<string>(() => {
           signal = context.signal
         }),
-      { cache, lazy: false }
+      { cache, lazy: false },
     )
 
     await Promise.resolve()
@@ -87,7 +91,12 @@ describe("fetchResource", () => {
     expect(first.snapshot()).toEqual({ data: "first", status: "success" })
 
     const second = fetchResource("cache-key", fetcher, { cache, lazy: false })
-    expect(second.snapshot()).toEqual({ data: "first", fetching: true, stale: true, status: "success" })
+    expect(second.snapshot()).toEqual({
+      data: "first",
+      fetching: true,
+      stale: true,
+      status: "success",
+    })
 
     await waitForSnapshot(second, { data: "second", status: "success" })
     expect(second.snapshot()).toEqual({ data: "second", status: "success" })
@@ -137,7 +146,7 @@ describe("fetchResource", () => {
       resource.mutate?.(Promise.reject(new Error("nope")), {
         optimisticData: 2,
         rollbackOnError: true,
-      })
+      }),
     ).rejects.toThrow("nope")
 
     expect(resource.snapshot()).toEqual({ data: 1, status: "success" })
@@ -226,7 +235,7 @@ describe("fetching flag and retry", () => {
         new Promise<string>((resolve) => {
           resolveFetch = resolve
         }),
-      { cache, lazy: false }
+      { cache, lazy: false },
     )
 
     await Promise.resolve()
@@ -239,11 +248,10 @@ describe("fetching flag and retry", () => {
 
   it("clears the fetching flag when an in-flight fetch is aborted", async () => {
     const cache = new NaosResourceCache()
-    const resource = fetchResource(
-      "aborted-flag",
-      () => new Promise<string>(() => {}),
-      { cache, lazy: false }
-    )
+    const resource = fetchResource("aborted-flag", () => new Promise<string>(() => {}), {
+      cache,
+      lazy: false,
+    })
     resource.subscribe(() => {})
     await Promise.resolve()
     expect(resource.snapshot()).toEqual({ fetching: true, status: "pending" })
@@ -381,7 +389,9 @@ describe("cache eviction", () => {
     }
 
     for (let index = 0; index < 25; index += 1) {
-      expect(cache.snapshot(normalizeResourceKey(["item", index]).key)).toEqual({ status: "pending" })
+      expect(cache.snapshot(normalizeResourceKey(["item", index]).key)).toEqual({
+        status: "pending",
+      })
     }
   })
 
@@ -493,7 +503,7 @@ describe("cache eviction", () => {
         new Promise<string>(() => {
           signal = context.signal
         }),
-      { cache, lazy: false }
+      { cache, lazy: false },
     )
     await Promise.resolve()
 
@@ -521,10 +531,14 @@ describe("cache eviction", () => {
     const cache = new NaosResourceCache()
     const dispose = vi.fn()
     const fetched = fetchResource("clear-fetch", async () => "cached", { cache, lazy: false })
-    subscriptionResource("clear-feed", (_key, { next }) => {
-      next(null, "live")
-      return dispose
-    }, { cache })
+    subscriptionResource(
+      "clear-feed",
+      (_key, { next }) => {
+        next(null, "live")
+        return dispose
+      },
+      { cache },
+    )
     await waitForSnapshot(fetched, { data: "cached", status: "success" })
 
     cache.clear()
@@ -562,7 +576,7 @@ describe("subscriptionResource", () => {
         next(null, (current) => `${current}:again`)
         return () => {}
       },
-      { cache }
+      { cache },
     )
 
     expect(resource.snapshot()).toEqual({ data: "ready:again", status: "success" })
@@ -578,14 +592,17 @@ describe("subscriptionResource", () => {
         next(error)
         return () => {}
       },
-      { cache }
+      { cache },
     )
 
     expect(resource.snapshot()).toEqual({ data: "ready", error, status: "error" })
   })
 })
 
-async function waitForSnapshot(resource: { snapshot(): unknown }, expected: unknown): Promise<void> {
+async function waitForSnapshot(
+  resource: { snapshot(): unknown },
+  expected: unknown,
+): Promise<void> {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     if (JSON.stringify(resource.snapshot()) === JSON.stringify(expected)) {
       return

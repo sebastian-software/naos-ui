@@ -61,19 +61,21 @@ export function NaosHoverCard({
   const changed = event<{ open: boolean }>("naos-open-change")
 
   onConnected(() => {
-    hoverCardService.set(createNaosZagHoverCardService({
-      closeDelay,
-      disabled,
-      host: host().element,
-      id: "naos-hover-card",
-      onOpenChange(nextOpen) {
-        expanded.set(nextOpen)
-        changed.emit({ open: nextOpen })
-      },
-      open: expanded(),
-      openDelay,
-      root: host().root,
-    }))
+    hoverCardService.set(
+      createNaosZagHoverCardService({
+        closeDelay,
+        disabled,
+        host: host().element,
+        id: "naos-hover-card",
+        onOpenChange(nextOpen) {
+          expanded.set(nextOpen)
+          changed.emit({ open: nextOpen })
+        },
+        open: expanded(),
+        openDelay,
+        root: host().root,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagHoverCardService(hoverCardService())
@@ -94,14 +96,11 @@ export function NaosHoverCard({
     }
     if (snapshot.phase !== "closing") return
     const content = host().root.querySelector("[part~='content']")
-    return waitForNaosPresenceExit(
-      content instanceof Element ? content : null,
-      () => {
-        if (!expanded()) {
-          presence.set(settleNaosPresenceSnapshot(presence(), false))
-        }
+    return waitForNaosPresenceExit(content instanceof Element ? content : null, () => {
+      if (!expanded()) {
+        presence.set(settleNaosPresenceSnapshot(presence(), false))
       }
-    )
+    })
   })
   effect(() => {
     const api = hoverCardApi()
@@ -123,21 +122,33 @@ export function NaosHoverCard({
       if (!disabled) api.setOpen(true)
     }
     const closeCard = () => api.setOpen(false)
-    trigger.addEventListener("pointerenter", (event) => {
-      if (disabled || event.pointerType === "touch") return
-      api.setOpen(true)
-    }, { signal: abort.signal })
-    trigger.addEventListener("pointermove", (event) => {
-      if (disabled || event.pointerType === "touch") return
-      api.setOpen(true)
-    }, { signal: abort.signal })
+    trigger.addEventListener(
+      "pointerenter",
+      (event) => {
+        if (disabled || event.pointerType === "touch") return
+        api.setOpen(true)
+      },
+      { signal: abort.signal },
+    )
+    trigger.addEventListener(
+      "pointermove",
+      (event) => {
+        if (disabled || event.pointerType === "touch") return
+        api.setOpen(true)
+      },
+      { signal: abort.signal },
+    )
     trigger.addEventListener("pointerleave", closeCard, { signal: abort.signal })
     trigger.addEventListener("focus", openCard, { signal: abort.signal })
     trigger.addEventListener("blur", closeCard, { signal: abort.signal })
-    content.addEventListener("pointerenter", (event) => {
-      if (disabled || event.pointerType === "touch") return
-      api.setOpen(true)
-    }, { signal: abort.signal })
+    content.addEventListener(
+      "pointerenter",
+      (event) => {
+        if (disabled || event.pointerType === "touch") return
+        api.setOpen(true)
+      },
+      { signal: abort.signal },
+    )
     content.addEventListener("pointerleave", closeCard, { signal: abort.signal })
     return () => abort.abort()
   })

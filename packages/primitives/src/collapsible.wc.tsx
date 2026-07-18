@@ -32,23 +32,23 @@ export function NaosCollapsible({
 }: NaosCollapsibleProps = {}) {
   const expanded = state(open)
   const collapsibleService = state<NaosZagCollapsibleService | null>(null)
-  const collapsibleApi = computed(() =>
-    getNaosZagCollapsibleApi(collapsibleService())
-  )
+  const collapsibleApi = computed(() => getNaosZagCollapsibleApi(collapsibleService()))
   const changed = event<{ open: boolean }>("naos-open-change")
 
   onConnected(() => {
-    collapsibleService.set(createNaosZagCollapsibleService({
-      disabled,
-      host: host().element,
-      id: "naos-collapsible",
-      onOpenChange(nextOpen) {
-        expanded.set(nextOpen)
-        changed.emit({ open: nextOpen })
-      },
-      open: expanded(),
-      root: host().root,
-    }))
+    collapsibleService.set(
+      createNaosZagCollapsibleService({
+        disabled,
+        host: host().element,
+        id: "naos-collapsible",
+        onOpenChange(nextOpen) {
+          expanded.set(nextOpen)
+          changed.emit({ open: nextOpen })
+        },
+        open: expanded(),
+        root: host().root,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagCollapsibleService(collapsibleService())
