@@ -39,7 +39,7 @@ describe("naos", () => {
       mockHotContext(`${fixtureFilename}?raw`, send)
     )
 
-    expect(send).toHaveBeenCalledWith({ path: "*", type: "full-reload" })
+    expect(send).toHaveBeenCalledWith({ type: "full-reload" })
     expect(result).toEqual([])
   })
 
@@ -364,6 +364,6 @@ function mockHotContext(file: string, send: (payload: unknown) => void) {
   return {
     file,
     modules: [],
-    server: { ws: { send } },
+    server: { hot: { send } },
   } as never
 }

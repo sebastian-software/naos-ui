@@ -110,7 +110,7 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
 
       // Custom element tags cannot be re-registered, so an edited component
       // module can only take effect through a full page reload.
-      context.server.ws.send({ path: "*", type: "full-reload" })
+      context.server.hot.send({ type: "full-reload" })
       return []
     },
     generateBundle() {
