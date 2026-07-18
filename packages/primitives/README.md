@@ -4,6 +4,9 @@
 The components are written as `.wc.tsx` modules and compiled to native Custom
 Elements for distribution.
 
+**Stability: experimental.** Pre-1.0 and under active design; component APIs
+may change in any release.
+
 ```ts
 import "@naos-ui/primitives"
 ```

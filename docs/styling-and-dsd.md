@@ -45,6 +45,26 @@ The output contains host HTML with `<template shadowrootmode="open">`. The
 generated client module reuses that declarative shadow root during custom
 element upgrade before falling back to imperative Shadow DOM creation.
 
+### The Prerender Boundary
+
+Prerendering is static evaluation, not dynamic server rendering. The
+prerenderer evaluates the component's initial markup from statically
+analyzable expressions plus the JSON props passed on the command line or
+plugin options. That draws a hard boundary:
+
+* Prerenderable: the initial template, static text and attributes, default
+  state values, and JSON-serializable props.
+* Not prerenderable: anything that needs a browser or a request context —
+  effects, event handlers, fetched data, subscriptions, and non-JSON prop
+  values. These run on the client after the element upgrades and hydrates
+  the declarative shadow root.
+
+If a component's initial output cannot be computed statically, prerender it
+with props that produce a meaningful fallback state, or skip prerendering for
+that component and let it render client-side. "SSR support" in Naos always
+means this static DSD path; there is no server runtime executing components
+per request.
+
 ## Vite Manifest
 
 The Vite plugin emits `naos-manifest.json` for normal builds, independently of
