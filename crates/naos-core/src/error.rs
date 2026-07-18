@@ -23,6 +23,7 @@ pub(crate) const DIAGNOSTIC_HINT_REMOVED_API: &str =
 pub(crate) const DIAGNOSTIC_HINT_SHOW: &str =
     "Use explicit <Show when={...} fallback={...}> or <Switch>/<Match> control flow.";
 pub(crate) const DIAGNOSTIC_HINT_SWITCH: &str = "Use static <Switch> children with <Match when={...}> arms and one optional trailing <Match> default.";
+pub(crate) const DIAGNOSTIC_HINT_PROP_TYPES: &str = "Align the prop's TypeScript annotation and its default literal; string, boolean, and number reflect to attributes while other types stay property-only.";
 
 pub(crate) const DIAGNOSTIC_CODE_DSD_INPUT: &str = "NAOS_DSD_INPUT";
 pub(crate) const DIAGNOSTIC_CODE_INVALID_PACKAGE_CONTEXT: &str = "NAOS_INVALID_PACKAGE_CONTEXT";
@@ -48,6 +49,7 @@ pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER: &str = "NAOS_UNSUPPO
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK: &str = "NAOS_UNSUPPORTED_SHOW_FALLBACK";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH: &str = "NAOS_UNSUPPORTED_SWITCH_MATCH";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX: &str = "NAOS_UNSUPPORTED_SYNTAX";
+pub(crate) const DIAGNOSTIC_CODE_PROP_TYPE_MISMATCH: &str = "NAOS_PROP_TYPE_MISMATCH";
 
 /// Shared result type for compiler operations.
 pub type CompilerResult<T> = Result<T, CompilerError>;

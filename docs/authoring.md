@@ -257,16 +257,31 @@ export function Counter({
 }
 ```
 
-The compiler infers the MVP conversion kind from the default value:
+The compiler derives the conversion kind from the TypeScript annotation
+first — the inline type literal, or a `type`/`interface` declared in the same
+module:
 
-* string literal defaults become string props.
-* `true` or `false` defaults become boolean props.
-* numeric defaults become number props.
-* props without defaults currently fall back to string conversion.
+* `boolean` (and literal unions of booleans) become boolean props, including
+  props without a default literal.
+* `number` (and numeric literal unions) become number props.
+* `string` (and string literal unions such as `"info" | "warn"`) become
+  string props.
+* every other type — arrays, objects, mixed unions, and references the
+  compiler cannot resolve — becomes a rich prop: property-only, never
+  observed or reflected as an attribute, and set uncoerced so complex data
+  round-trips through the property.
 
-The compiler generates property getters/setters and observed attribute handling.
-String and number props synchronize as string attributes. Boolean props
-synchronize through attribute presence.
+When no annotation resolves, the default literal decides: string literals
+become string props, `true`/`false` become boolean props, numeric defaults
+become number props, and props without defaults fall back to string
+conversion. A default literal that contradicts the annotation (for example
+`count: number` defaulted to `"many"`) fails compilation with
+`NAOS_PROP_TYPE_MISMATCH`.
+
+The compiler generates property getters/setters and observed attribute
+handling for the primitive kinds. String and number props synchronize as
+string attributes. Boolean props synchronize through attribute presence.
+Rich props stay off `observedAttributes` entirely.
 
 ## State
 

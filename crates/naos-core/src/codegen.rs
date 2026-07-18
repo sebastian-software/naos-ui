@@ -407,6 +407,7 @@ impl<'a> CodeGenerator<'a> {
             .module
             .props
             .iter()
+            .filter(|prop| prop.kind != PropKind::Rich)
             .map(|prop| format!("\"{}\"", prop.attribute_name))
             .collect::<Vec<_>>()
             .join(", ");
@@ -579,6 +580,9 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "    if (oldValue === newValue) return;").map_err(format_error)?;
         writeln!(code, "    switch (name) {{").map_err(format_error)?;
         for prop in &self.module.props {
+            if prop.kind == PropKind::Rich {
+                continue;
+            }
             writeln!(code, "      case \"{}\":", prop.attribute_name).map_err(format_error)?;
             writeln!(
                 code,
@@ -758,6 +762,8 @@ impl<'a> CodeGenerator<'a> {
 
     fn emit_attribute_sync(&self, code: &mut String, prop: &PropDefinition) -> CompilerResult<()> {
         match prop.kind {
+            // Rich props never reflect to attributes.
+            PropKind::Rich => {}
             PropKind::Boolean => {
                 writeln!(code, "    if (nextValue) {{").map_err(format_error)?;
                 writeln!(
@@ -3314,6 +3320,9 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
     fn host_attributes(&self) -> String {
         let mut attributes = String::new();
         for prop in &self.module.props {
+            if prop.kind == PropKind::Rich {
+                continue;
+            }
             let Some(value) = self.context.values.get(&prop.local_name) else {
                 continue;
             };
@@ -3941,6 +3950,7 @@ fn fallback_static_value_for_prop(prop: &PropDefinition) -> StaticValue {
         PropKind::String => StaticValue::String(String::new()),
         PropKind::Boolean => StaticValue::Bool(false),
         PropKind::Number => StaticValue::Number("0".to_owned()),
+        PropKind::Rich => StaticValue::Null,
     }
 }
 
@@ -4093,6 +4103,8 @@ fn attr_parse_expression(prop: &PropDefinition) -> String {
             let default_value = default_value_for_prop(prop);
             format!("Number.isFinite(Number(newValue)) ? Number(newValue) : {default_value}")
         }
+        // Rich props are property-only and never observe attributes.
+        PropKind::Rich => "newValue".to_owned(),
     }
 }
 
@@ -4332,6 +4344,8 @@ fn setter_parse_expression(prop: &PropDefinition) -> String {
             let default_value = default_value_for_prop(prop);
             format!("Number.isFinite(Number(value)) ? Number(value) : {default_value}")
         }
+        // Rich props accept any value uncoerced.
+        PropKind::Rich => "value".to_owned(),
     }
 }
 
@@ -4341,6 +4355,7 @@ fn default_value_for_prop(prop: &PropDefinition) -> String {
             PropKind::String => "\"\"".to_owned(),
             PropKind::Boolean => "false".to_owned(),
             PropKind::Number => "0".to_owned(),
+            PropKind::Rich => "undefined".to_owned(),
         }
     } else {
         prop.default_value.clone()

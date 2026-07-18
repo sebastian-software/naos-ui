@@ -87,6 +87,21 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         expected_dependency_guards: "",
     },
     AcceptedFixture {
+        filename: "typed-props.wc.tsx",
+        source: include_str!("fixtures/conformance/accepted/typed-props.wc.tsx"),
+        snippets: &[
+            "class TypedPropsElement extends HTMLElement",
+            "customElements.define(\"x-typed-props\", TypedPropsElement)",
+            // Annotation-derived kinds: boolean without a default is
+            // presence-based; rich props never observe or reflect attributes.
+            "return [\"disabled\", \"count\", \"label\"];",
+            "case \"disabled\":",
+            "newValue !== null",
+            "set items(value) {",
+        ],
+        expected_dependency_guards: "",
+    },
+    AcceptedFixture {
         filename: "dependency-ast-edge-cases.wc.tsx",
         source: include_str!("fixtures/conformance/accepted/dependency-ast-edge-cases.wc.tsx"),
         snippets: &[
@@ -204,6 +219,14 @@ const REJECTED_FIXTURES: &[RejectedFixture] = &[
         code: "NAOS_UNSUPPORTED_COMPONENT_OPTIONS",
         message: "only support `styles`",
         hint: "ComponentOptions",
+        span_starts_with: None,
+    },
+    RejectedFixture {
+        filename: "prop-type-mismatch.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/prop-type-mismatch.wc.tsx"),
+        code: "NAOS_PROP_TYPE_MISMATCH",
+        message: "declares a number type but its default literal",
+        hint: "TypeScript annotation",
         span_starts_with: None,
     },
     RejectedFixture {

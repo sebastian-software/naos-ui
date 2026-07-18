@@ -225,6 +225,8 @@ pub enum PropKind {
     Boolean,
     /// Number-valued prop.
     Number,
+    /// Rich property-only prop without attribute reflection.
+    Rich,
 }
 
 /// How a prop is exposed inside the authored template.
