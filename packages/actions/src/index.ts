@@ -126,8 +126,12 @@ class ActionRuntime<State, Payload> {
         if (this.#abortController === controller) {
           this.#abortController = null
         }
-        this.#pendingCount -= 1
-        this.#notify()
+        // reset() already zeroed the pending count for stale generations;
+        // decrementing again would underflow and re-notify spuriously.
+        if (generation === this.#resetGeneration && !this.#disposed) {
+          this.#pendingCount -= 1
+          this.#notify()
+        }
       }
     })
     // Sequential execution: the queue advances regardless of the outcome.
@@ -142,6 +146,10 @@ class ActionRuntime<State, Payload> {
     this.#queue = Promise.resolve()
     this.#data = this.#initialState
     this.#error = undefined
+    // Aborted submissions belong to a stale generation and no longer report
+    // through their finally blocks, so the single reset notification already
+    // carries the consistent { pending: false, state: initialState } snapshot.
+    this.#pendingCount = 0
     this.#notify()
   }
 

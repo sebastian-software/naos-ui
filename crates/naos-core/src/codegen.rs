@@ -2638,7 +2638,6 @@ impl<'a> CodeGenerator<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
-    #[allow(clippy::too_many_arguments)]
     fn emit_attribute(
         &mut self,
         variable: &str,

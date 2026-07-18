@@ -111,6 +111,37 @@ describe("action", () => {
     await expect(disposable.submit()).rejects.toThrow("disposed action")
   })
 
+  it("delivers one consistent snapshot when reset cancels a pending submission", async () => {
+    const snapshots: Array<{ pending: boolean; state: string }> = []
+    const slow = action(async (_previous: string, _payload: void, { signal }) => {
+      await new Promise<void>((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")), {
+          once: true,
+        })
+      })
+      return "done"
+    }, "initial")
+
+    bindAction(slow, ({ pending, state }) => {
+      snapshots.push({ pending, state })
+    })
+
+    const pending = slow.submit().catch(() => {})
+    await Promise.resolve()
+    expect(slow.pending()).toBe(true)
+
+    slow.reset()
+    // The reset notification itself must already be consistent.
+    expect(snapshots.at(-1)).toEqual({ pending: false, state: "initial" })
+    const countAfterReset = snapshots.length
+
+    await pending
+    await Promise.resolve()
+    // The aborted submission's cleanup must not re-notify or underflow.
+    expect(snapshots.length).toBe(countAfterReset)
+    expect(slow.pending()).toBe(false)
+  })
+
   it("notifies subscribers on pending transitions and settlements", async () => {
     const events: Array<{ pending: boolean; state: number }> = []
     const counted = action((previous: number) => previous + 1, 0)
