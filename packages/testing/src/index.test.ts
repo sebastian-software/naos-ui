@@ -154,6 +154,14 @@ describe("mount", () => {
     container.remove()
   })
 
+  it("returns null for part names that need selector escaping", async () => {
+    const component = await mount("probe-counter")
+
+    expect(component.queryPart('value"')).toBeNull()
+    expect(component.queryPart("value\\")).toBeNull()
+    component.unmount()
+  })
+
   it("throws a clear error for light-DOM elements without a shadow root", async () => {
     const component = await mount(document.createElement("div"))
     expect(() => component.shadow()).toThrow("has no shadow root")

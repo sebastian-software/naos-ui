@@ -62,6 +62,9 @@ const DEFAULT_FLUSH_TURNS = 10
 /**
  * Drains pending Naos updates by awaiting several scheduler turns, so
  * cascaded updates (state writes scheduled from effects) settle too.
+ *
+ * The scheduler queue is not introspectable, so draining is bounded: pass a
+ * larger `turns` value for update cascades deeper than the default.
  */
 export async function flush(turns = DEFAULT_FLUSH_TURNS): Promise<void> {
   for (let turn = 0; turn < turns; turn += 1) {
@@ -208,7 +211,8 @@ function queryPart<Result extends Element = Element>(
   name: string
 ): Result | null {
   const root = element.shadowRoot ?? element
-  const direct = root.querySelector(`[part~="${name}"]`)
+  const escapedName = name.replace(/["\\]/g, "\\$&")
+  const direct = root.querySelector(`[part~="${escapedName}"]`)
   if (direct) {
     return direct as Result
   }
