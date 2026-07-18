@@ -210,9 +210,15 @@ function queryPart<Result extends Element = Element>(
   element: Element,
   name: string
 ): Result | null {
+  // Part attributes are space-separated token lists, so names containing
+  // whitespace, quotes, or backslashes can never match a token — and they
+  // would break the selector below.
+  if (/[\s"'\\]/.test(name)) {
+    return null
+  }
+
   const root = element.shadowRoot ?? element
-  const escapedName = name.replace(/["\\]/g, "\\$&")
-  const direct = root.querySelector(`[part~="${escapedName}"]`)
+  const direct = root.querySelector(`[part~="${name}"]`)
   if (direct) {
     return direct as Result
   }
