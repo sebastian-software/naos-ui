@@ -16,7 +16,7 @@ test("board lists loader-backed tasks with filters and live activity", async ({ 
 
   await expect
     .poll(async () =>
-      Number(await page.locator("tasks-activity-feed aside").getAttribute("data-entry-count"))
+      Number(await page.locator("tasks-activity-feed aside").getAttribute("data-entry-count")),
     )
     .toBeGreaterThan(0)
 })
@@ -31,9 +31,7 @@ test("task navigation resolves the route loader into detail props", async ({ pag
   await expect(page).toHaveURL(/\/tasks\/testing-harness$/)
   const detail = page.locator("tasks-task-detail")
   await expect(detail).toBeVisible()
-  await expect(detail.locator('h2[part~="title"]')).toHaveText(
-    "Adopt the component test harness"
-  )
+  await expect(detail.locator('h2[part~="title"]')).toHaveText("Adopt the component test harness")
   await expect(detail.locator('p[part~="owner"]')).toHaveText("Owner: Aylin")
   await expect(detail.locator('tasks-status-badge span[part~="badge"]')).toHaveText("Open")
 

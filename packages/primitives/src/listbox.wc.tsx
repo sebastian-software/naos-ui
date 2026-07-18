@@ -67,23 +67,25 @@ export function NaosListbox({
 
   onConnected(() => {
     const hostElement = host().element
-    listboxService.set(createNaosZagListboxService({
-      disabled,
-      host: hostElement,
-      id: "naos-listbox",
-      items: collectNaosListboxItems(hostElement),
-      multiple,
-      onHighlightChange(nextValue) {
-        highlighted.set(nextValue)
-      },
-      onValueChange(nextValue) {
-        selected.set(nextValue)
-        changed.emit({ value: nextValue })
-      },
-      orientation,
-      root: host().root,
-      value: selected(),
-    }))
+    listboxService.set(
+      createNaosZagListboxService({
+        disabled,
+        host: hostElement,
+        id: "naos-listbox",
+        items: collectNaosListboxItems(hostElement),
+        multiple,
+        onHighlightChange(nextValue) {
+          highlighted.set(nextValue)
+        },
+        onValueChange(nextValue) {
+          selected.set(nextValue)
+          changed.emit({ value: nextValue })
+        },
+        orientation,
+        root: host().root,
+        value: selected(),
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagListboxService(listboxService())

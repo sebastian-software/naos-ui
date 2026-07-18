@@ -99,15 +99,13 @@ export function createNaosZagToggleGroupService({
 }
 
 export function getNaosZagToggleGroupApi(
-  service: NaosZagToggleGroupService | null
+  service: NaosZagToggleGroupService | null,
 ): ZagToggleGroupApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagToggleGroupService(
-  service: NaosZagToggleGroupService | null
-) {
+export function stopNaosZagToggleGroupService(service: NaosZagToggleGroupService | null) {
   service?.stop()
 }
 
@@ -123,14 +121,16 @@ export function syncNaosToggleGroupItems({
   const items = toggleItemsFor(host, disabled)
 
   for (const item of items) {
-    cleanups.push(syncToggleItem({
-      api,
-      item,
-      items,
-      multiple,
-      onRequestUpdate,
-      orientation,
-    }))
+    cleanups.push(
+      syncToggleItem({
+        api,
+        item,
+        items,
+        multiple,
+        onRequestUpdate,
+        orientation,
+      }),
+    )
   }
 
   const observer = new MutationObserver(() => onRequestUpdate())
@@ -206,15 +206,9 @@ function syncToggleItem({
   }
 }
 
-function nextToggleGroupValue(
-  current: string[],
-  value: string,
-  multiple: boolean
-) {
+function nextToggleGroupValue(current: string[], value: string, multiple: boolean) {
   if (!multiple) return current.includes(value) ? [] : [value]
-  return current.includes(value)
-    ? current.filter((item) => item !== value)
-    : [...current, value]
+  return current.includes(value) ? current.filter((item) => item !== value) : [...current, value]
 }
 
 function toggleItemsFor(host: HTMLElement, groupDisabled: boolean): ToggleItem[] {
@@ -222,10 +216,7 @@ function toggleItemsFor(host: HTMLElement, groupDisabled: boolean): ToggleItem[]
     .map((element) => {
       const value = element.value ?? element.getAttribute("value") ?? ""
       return {
-        disabled:
-          groupDisabled ||
-          Boolean(element.disabled) ||
-          element.hasAttribute("disabled"),
+        disabled: groupDisabled || Boolean(element.disabled) || element.hasAttribute("disabled"),
         element,
         value,
       }
@@ -272,11 +263,7 @@ function nextToggleItemForKey({
   return null
 }
 
-function setStringAttribute(
-  element: HTMLElement,
-  name: string,
-  value: string | null
-) {
+function setStringAttribute(element: HTMLElement, name: string, value: string | null) {
   if (value == null) {
     if (!element.hasAttribute(name)) return
     element.removeAttribute(name)

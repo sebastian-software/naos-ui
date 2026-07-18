@@ -4,7 +4,7 @@ export function nextTogglePressed(pressed: boolean): boolean {
 
 export function toggleFormValue(
   pressed: boolean,
-  value: FormDataEntryValue
+  value: FormDataEntryValue,
 ): FormDataEntryValue | null {
   return pressed ? value : null
 }

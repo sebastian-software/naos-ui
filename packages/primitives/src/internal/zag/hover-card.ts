@@ -53,14 +53,12 @@ export function createNaosZagHoverCardService({
 }
 
 export function getNaosZagHoverCardApi(
-  service: NaosZagHoverCardService | null
+  service: NaosZagHoverCardService | null,
 ): ZagHoverCardApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagHoverCardService(
-  service: NaosZagHoverCardService | null
-) {
+export function stopNaosZagHoverCardService(service: NaosZagHoverCardService | null) {
   service?.stop()
 }

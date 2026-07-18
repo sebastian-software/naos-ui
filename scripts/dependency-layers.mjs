@@ -30,8 +30,7 @@ export const dependencyFields = freeze([
 const foundationPackageNameSet = new Set(foundationPackageNames)
 const outwardPackageNameSet = new Set(outwardPackageNames)
 
-export const dependencyBoundaryMessage =
-  "Foundation packages cannot import outward Naos layers."
+export const dependencyBoundaryMessage = "Foundation packages cannot import outward Naos layers."
 
 export const foundationSourceGlobs = freeze([
   ...javaScriptPackages
@@ -47,10 +46,7 @@ export function classifyPackageName(packageName) {
 
 export function packageLayers(packageName) {
   const layers = []
-  if (
-    foundationPackageNameSet.has(packageName) ||
-    packageName.startsWith("@naos-ui/compiler-")
-  ) {
+  if (foundationPackageNameSet.has(packageName) || packageName.startsWith("@naos-ui/compiler-")) {
     layers.push("foundation")
   }
   if (outwardPackageNameSet.has(packageName)) {

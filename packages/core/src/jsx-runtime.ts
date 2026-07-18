@@ -127,7 +127,5 @@ export function Fragment(): never {
 }
 
 function jsxRuntimeError(): never {
-  throw new Error(
-    "Naos JSX can only be used in source files transformed by the Naos compiler."
-  )
+  throw new Error("Naos JSX can only be used in source files transformed by the Naos compiler.")
 }

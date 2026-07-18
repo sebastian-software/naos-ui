@@ -15,10 +15,7 @@ export const options = {
   styles: [css],
 } satisfies ComponentOptions
 
-export function NaosDropdown({
-  label = "Options",
-  open = false,
-}: NaosDropdownProps = {}) {
+export function NaosDropdown({ label = "Options", open = false }: NaosDropdownProps = {}) {
   const expanded = state(open)
   const changed = event<{ open: boolean }>("naos-open-change")
 
@@ -38,7 +35,7 @@ export function NaosDropdown({
         focusTrigger()
         setTimeout(focusTrigger, 0)
       },
-      { signal }
+      { signal },
     )
   })
 

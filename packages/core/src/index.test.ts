@@ -1,15 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import {
-  Show,
-  computed,
-  effect,
-  event,
-  formControl,
-  host,
-  on,
-  state,
-} from "./index.js"
+import { Show, computed, effect, event, formControl, host, on, state } from "./index.js"
 
 describe("authoring runtime stubs", () => {
   it("keeps authoring stubs compiler-only", () => {

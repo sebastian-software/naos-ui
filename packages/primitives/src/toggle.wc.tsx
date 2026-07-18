@@ -39,9 +39,7 @@ export function NaosToggle({
   const active = state(pressed)
   const toggleService = state<NaosZagToggleService | null>(null)
   const toggleApi = computed(() => getNaosZagToggleApi(toggleService()))
-  const rootProps = computed(() =>
-    withoutNaosZagToggleClick(toggleApi()?.getRootProps() ?? {})
-  )
+  const rootProps = computed(() => withoutNaosZagToggleClick(toggleApi()?.getRootProps() ?? {}))
   const changed = event<{ pressed: boolean }>("naos-change")
   const form = formControl({
     value: () => (active() ? value : null),
@@ -55,17 +53,19 @@ export function NaosToggle({
   void name
 
   onConnected(() => {
-    toggleService.set(createNaosZagToggleService({
-      disabled,
-      host: host().element,
-      id: "naos-toggle",
-      onPressedChange(nextPressed) {
-        active.set(nextPressed)
-        changed.emit({ pressed: nextPressed })
-      },
-      pressed: active(),
-      root: host().root,
-    }))
+    toggleService.set(
+      createNaosZagToggleService({
+        disabled,
+        host: host().element,
+        id: "naos-toggle",
+        onPressedChange(nextPressed) {
+          active.set(nextPressed)
+          changed.emit({ pressed: nextPressed })
+        },
+        pressed: active(),
+        root: host().root,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagToggleService(toggleService())

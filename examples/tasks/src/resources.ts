@@ -12,5 +12,5 @@ export const activityResource = subscriptionResource<string[], string>(
     const stop = subscribeToActivity((latest) => next(null, latest))
     signal.addEventListener("abort", () => stop(), { once: true })
     return () => stop()
-  }
+  },
 )

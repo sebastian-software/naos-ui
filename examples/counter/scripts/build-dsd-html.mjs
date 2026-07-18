@@ -32,10 +32,7 @@ function renderComponent(component) {
     source,
   })
   const html = component.children
-    ? rendered.html.replace(
-        `</${rendered.tagName}>`,
-        `${component.children}</${rendered.tagName}>`
-      )
+    ? rendered.html.replace(`</${rendered.tagName}>`, `${component.children}</${rendered.tagName}>`)
     : rendered.html
 
   return {

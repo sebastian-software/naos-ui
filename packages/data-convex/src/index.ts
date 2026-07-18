@@ -26,7 +26,7 @@ export type NaosConvexQueryClient = {
     query: Query,
     args: FunctionArgs<Query>,
     callback: (result: FunctionReturnType<Query>) => unknown,
-    onError?: (error: Error) => unknown
+    onError?: (error: Error) => unknown,
   ): NaosConvexUnsubscribe<FunctionReturnType<Query>>
 }
 
@@ -34,14 +34,14 @@ export type NaosConvexMutationClient = {
   mutation<Mutation extends FunctionReference<"mutation">>(
     mutation: Mutation,
     args: FunctionArgs<Mutation>,
-    options?: MutationOptions
+    options?: MutationOptions,
   ): Promise<Awaited<FunctionReturnType<Mutation>>>
 }
 
 export type NaosConvexActionClient = {
   action<Action extends FunctionReference<"action">>(
     action: Action,
-    args: FunctionArgs<Action>
+    args: FunctionArgs<Action>,
   ): Promise<Awaited<FunctionReturnType<Action>>>
 }
 
@@ -88,7 +88,7 @@ export function convexResource<Query extends FunctionReference<"query">>(
   client: NaosConvexQueryClient,
   query: Query,
   args: FunctionArgs<Query> | "skip",
-  options: NaosConvexResourceOptions<FunctionReturnType<Query>> = {}
+  options: NaosConvexResourceOptions<FunctionReturnType<Query>> = {},
 ): NaosResource<FunctionReturnType<Query>, Error> {
   if (args === "skip") {
     return subscriptionResource(null, () => () => {}, { cache: options.cache })
@@ -102,7 +102,7 @@ export function convexResource<Query extends FunctionReference<"query">>(
         query,
         args,
         (result) => next(null, result),
-        (error) => next(error)
+        (error) => next(error),
       )
 
       const current = unsubscribe.getCurrentValue()
@@ -115,13 +115,13 @@ export function convexResource<Query extends FunctionReference<"query">>(
     {
       cache: options.cache,
       initialData: options.initialData,
-    }
+    },
   )
 }
 
 export function convexQueryKey<Query extends FunctionReference<"query">>(
   query: Query,
-  args: FunctionArgs<Query>
+  args: FunctionArgs<Query>,
 ): string {
   const normalized = normalizeResourceKey(["convex", getFunctionName(query), args])
   if (normalized.disabled) {
@@ -130,13 +130,10 @@ export function convexQueryKey<Query extends FunctionReference<"query">>(
   return normalized.key
 }
 
-export function convexMutation<
-  Mutation extends FunctionReference<"mutation">,
-  Data = unknown,
->(
+export function convexMutation<Mutation extends FunctionReference<"mutation">, Data = unknown>(
   client: NaosConvexMutationClient,
   mutation: Mutation,
-  options: NaosConvexMutationOptions<Data, FunctionArgs<Mutation>> = {}
+  options: NaosConvexMutationOptions<Data, FunctionArgs<Mutation>> = {},
 ): (...args: OptionalRestArgs<Mutation>) => Promise<Awaited<FunctionReturnType<Mutation>>> {
   return (...args) => {
     const mutationArgs = (args[0] ?? {}) as FunctionArgs<Mutation>
@@ -167,14 +164,14 @@ export function convexMutation<
 
 export function convexAction<Action extends FunctionReference<"action">>(
   client: NaosConvexActionClient,
-  action: Action
+  action: Action,
 ): (...args: OptionalRestArgs<Action>) => Promise<Awaited<FunctionReturnType<Action>>> {
   return (...args) => client.action(action, (args[0] ?? {}) as FunctionArgs<Action>)
 }
 
 export function convexConnectionResource(
   client: NaosConvexConnectionClient,
-  options: NaosConvexConnectionResourceOptions = {}
+  options: NaosConvexConnectionResourceOptions = {},
 ): NaosResource<ConnectionState, Error> {
   const cache = options.cache ?? defaultNaosResourceCache
   return subscriptionResource<ConnectionState, NaosResourceKey, Error>(
@@ -191,7 +188,7 @@ export function convexConnectionResource(
     {
       cache,
       initialData: options.initialData,
-    }
+    },
   )
 }
 

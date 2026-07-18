@@ -45,20 +45,22 @@ export function NaosMenu({
 
   onConnected(() => {
     const hostElement = host().element
-    menuService.set(createNaosZagMenuService({
-      disabled,
-      host: hostElement,
-      id: "naos-menu",
-      label,
-      onHighlightChange(nextValue) {
-        highlighted.set(nextValue)
-      },
-      onOpenChange(nextOpen) {
-        expanded.set(nextOpen)
-        opened.emit({ open: nextOpen })
-      },
-      root: host().root,
-    }))
+    menuService.set(
+      createNaosZagMenuService({
+        disabled,
+        host: hostElement,
+        id: "naos-menu",
+        label,
+        onHighlightChange(nextValue) {
+          highlighted.set(nextValue)
+        },
+        onOpenChange(nextOpen) {
+          expanded.set(nextOpen)
+          opened.emit({ open: nextOpen })
+        },
+        root: host().root,
+      }),
+    )
     if (open) menuApi()?.setOpen(true)
   })
   onDisconnected(() => {

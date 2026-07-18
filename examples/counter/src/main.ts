@@ -216,14 +216,20 @@ if (routerOutlet && routerSection) {
     const routePath = anchor.dataset.routerTo
     if (!routePath) continue
     if (routePath === "/products/:id") {
-      anchor.href = router.href(routePath, { id: "42" }, {
-        search: { tab: "details" },
-      })
+      anchor.href = router.href(
+        routePath,
+        { id: "42" },
+        {
+          search: { tab: "details" },
+        },
+      )
     } else {
       anchor.href = router.href(routePath as "/" | "/settings")
     }
   }
-  for (const anchor of routerSection.querySelectorAll<HTMLAnchorElement>("[data-router-child-to]")) {
+  for (const anchor of routerSection.querySelectorAll<HTMLAnchorElement>(
+    "[data-router-child-to]",
+  )) {
     if (anchor.dataset.routerChildTo === "/settings/appearance") {
       anchor.href = `${router.href("/settings")}/appearance`
     }
@@ -264,7 +270,7 @@ function escapeHtml(value: string): string {
         return "&lt;"
       case ">":
         return "&gt;"
-      case "\"":
+      case '"':
         return "&quot;"
       case "'":
         return "&#39;"
@@ -411,10 +417,7 @@ if (primitiveForm instanceof HTMLFormElement) {
   primitiveForm.addEventListener("submit", (event) => {
     event.preventDefault()
     const entries = [...new FormData(primitiveForm).entries()]
-    const value =
-      entries.length > 0
-        ? entries.map(formatEntry).join(", ")
-        : "none"
+    const value = entries.length > 0 ? entries.map(formatEntry).join(", ") : "none"
     document.body.dataset.lastPrimitiveForm = value
     if (primitiveFormEvent) {
       primitiveFormEvent.textContent = `Last primitive form data: ${value}`
@@ -424,10 +427,7 @@ if (primitiveForm instanceof HTMLFormElement) {
   primitiveForm.addEventListener("reset", () => {
     setTimeout(() => {
       const entries = [...new FormData(primitiveForm).entries()]
-      const value =
-        entries.length > 0
-          ? entries.map(formatEntry).join(", ")
-          : "none"
+      const value = entries.length > 0 ? entries.map(formatEntry).join(", ") : "none"
       document.body.dataset.lastPrimitiveForm = value
       if (primitiveFormEvent) {
         primitiveFormEvent.textContent = `Last primitive form data: ${value}`

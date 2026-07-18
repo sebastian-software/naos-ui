@@ -64,14 +64,12 @@ export function createNaosZagNumberInputService({
 }
 
 export function getNaosZagNumberInputApi(
-  service: NaosZagNumberInputService | null
+  service: NaosZagNumberInputService | null,
 ): ZagNumberInputApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagNumberInputService(
-  service: NaosZagNumberInputService | null
-) {
+export function stopNaosZagNumberInputService(service: NaosZagNumberInputService | null) {
   service?.stop()
 }

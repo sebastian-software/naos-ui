@@ -8,14 +8,8 @@ import type {
   NativeTransformRequest,
   NativeTransformResult,
 } from "./generated/naos-node-types.js"
-import {
-  loadNativeBindings,
-  setNativeBindingsForTesting,
-} from "./native-loader.js"
-import {
-  resolveNaosPackageContext,
-  type NaosPackageContext,
-} from "./package-context.js"
+import { loadNativeBindings, setNativeBindingsForTesting } from "./native-loader.js"
+import { resolveNaosPackageContext, type NaosPackageContext } from "./package-context.js"
 
 export {
   createNaosManifest,
@@ -29,10 +23,7 @@ export {
   renderNaosElementDeclaration,
   type NaosElementDeclarationInput,
 } from "./element-declaration.js"
-export {
-  normalizePackageName,
-  resolveNaosPackageContext,
-} from "./package-context.js"
+export { normalizePackageName, resolveNaosPackageContext } from "./package-context.js"
 export type { NaosPackageContext }
 
 export type NativeInfo = GeneratedNativeInfo
@@ -65,11 +56,7 @@ export type NaosDiagnostic = {
 export class NaosCompilerError extends Error {
   readonly diagnostics: NaosDiagnostic[]
 
-  constructor(
-    message: string,
-    diagnostics: NaosDiagnostic[],
-    options?: ErrorOptions
-  ) {
+  constructor(message: string, diagnostics: NaosDiagnostic[], options?: ErrorOptions) {
     super(message, options)
     this.name = "NaosCompilerError"
     this.diagnostics = diagnostics
@@ -93,7 +80,8 @@ export type ComponentMetadata = {
 export type TransformComponentResult = Omit<
   NativeTransformResult,
   "packageName" | "packageVersion" | "tagPrefix"
-> & ComponentMetadata
+> &
+  ComponentMetadata
 
 export type DeclarativeShadowDomProps = Record<string, unknown>
 
@@ -108,29 +96,22 @@ export type RenderDeclarativeShadowDomRequest = {
 export type RenderDeclarativeShadowDomResult = Omit<
   NativeDeclarativeShadowDomResult,
   "packageName" | "packageVersion" | "tagPrefix"
-> & ComponentMetadata
+> &
+  ComponentMetadata
 export type {
   NativeBindings,
   NativeDeclarativeShadowDomRequest,
   NativeStyleImport,
   NativeTransformRequest,
 }
-export type {
-  NativeEventDefinition,
-  NativePropDefinition,
-} from "./generated/naos-node-types.js"
+export type { NativeEventDefinition, NativePropDefinition } from "./generated/naos-node-types.js"
 
 export function getNativeInfo(): NativeInfo {
   return loadNativeBindings().getNativeInfo()
 }
 
-export function transformComponent(
-  request: TransformComponentRequest
-): TransformComponentResult {
-  const packageContext = resolveNaosPackageContext(
-    request.filename,
-    request.packageJsonPath
-  )
+export function transformComponent(request: TransformComponentRequest): TransformComponentResult {
+  const packageContext = resolveNaosPackageContext(request.filename, request.packageJsonPath)
   const result = withNativeDiagnostics(() =>
     loadNativeBindings().transformComponent({
       filename: request.filename,
@@ -138,7 +119,7 @@ export function transformComponent(
       packageVersion: packageContext.version ?? undefined,
       source: request.source,
       tagPrefix: packageContext.tagPrefix,
-    })
+    }),
   )
   const {
     packageName: _packageName,
@@ -150,24 +131,19 @@ export function transformComponent(
 }
 
 export function renderDeclarativeShadowDom(
-  request: RenderDeclarativeShadowDomRequest
+  request: RenderDeclarativeShadowDomRequest,
 ): RenderDeclarativeShadowDomResult {
-  const packageContext = resolveNaosPackageContext(
-    request.filename,
-    request.packageJsonPath
-  )
+  const packageContext = resolveNaosPackageContext(request.filename, request.packageJsonPath)
   const result = withNativeDiagnostics(() =>
     loadNativeBindings().renderDeclarativeShadowDom({
       filename: request.filename,
-      inlineStylesJson: request.inlineStyles
-        ? JSON.stringify(request.inlineStyles)
-        : undefined,
+      inlineStylesJson: request.inlineStyles ? JSON.stringify(request.inlineStyles) : undefined,
       propsJson: request.props ? JSON.stringify(request.props) : undefined,
       packageName: packageContext.name,
       packageVersion: packageContext.version ?? undefined,
       source: request.source,
       tagPrefix: packageContext.tagPrefix,
-    })
+    }),
   )
   const {
     packageName: _packageName,
@@ -212,7 +188,7 @@ function normalizeNativeError(error: unknown): Error {
 }
 
 function parseDiagnosticPayload(
-  source: string
+  source: string,
 ): { message: string; diagnostics: NaosDiagnostic[] } | null {
   let payload: unknown
   try {
@@ -235,7 +211,7 @@ function parseDiagnosticPayload(
     message:
       typeof payload.message === "string"
         ? payload.message
-        : diagnostics[0]?.message ?? "Naos compiler failed",
+        : (diagnostics[0]?.message ?? "Naos compiler failed"),
   }
 }
 
@@ -282,15 +258,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 const CODE_FRAME_CONTEXT_LINES = 2
 
-export function formatNaosCodeFrame(
-  source: string,
-  loc: NaosDiagnosticLocation
-): string {
+export function formatNaosCodeFrame(source: string, loc: NaosDiagnosticLocation): string {
   const lines = source.split("\n")
   const firstLine = Math.max(1, loc.startLine - CODE_FRAME_CONTEXT_LINES)
   const lastMarkedLine = Math.min(
     Math.max(loc.endLine, loc.startLine),
-    loc.startLine + CODE_FRAME_CONTEXT_LINES
+    loc.startLine + CODE_FRAME_CONTEXT_LINES,
   )
   const lastLine = Math.min(lines.length, lastMarkedLine + CODE_FRAME_CONTEXT_LINES)
   const gutterWidth = String(lastLine).length

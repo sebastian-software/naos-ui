@@ -1,8 +1,4 @@
-import {
-  connect,
-  machine as tabsMachine,
-  type Api as ZagTabsApi,
-} from "@zag-js/tabs"
+import { connect, machine as tabsMachine, type Api as ZagTabsApi } from "@zag-js/tabs"
 
 import { type TabsOrientation } from "../behavior/tabs.js"
 import { normalizeZagProps } from "./props.js"
@@ -46,15 +42,17 @@ export function createZagTabsProbe({
   let focusedElement: string | null = null
   const triggerId = (item: string) => `tabs:${id}:trigger-${item}`
   const listId = `tabs:${id}:list`
-  const triggers = values.map((item): FakeTabElement => ({
-    dataset: { value: item },
-    focus: () => {
-      focusedElement = item
-      service.send({ type: "TAB_FOCUS", value: item })
-    },
-    id: triggerId(item),
-    matches: () => false,
-  }))
+  const triggers = values.map(
+    (item): FakeTabElement => ({
+      dataset: { value: item },
+      focus: () => {
+        focusedElement = item
+        service.send({ type: "TAB_FOCUS", value: item })
+      },
+      id: triggerId(item),
+      matches: () => false,
+    }),
+  )
   const list: FakeListElement = {
     querySelectorAll: () => triggers,
   }

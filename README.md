@@ -386,6 +386,12 @@ pnpm --filter @naos-ui/example-counter build
 pnpm --filter @naos-ui/example-counter test
 ```
 
+Linting and formatting cover both languages, and CI enforces all of it via
+`pnpm lint`: `oxlint` (JS/TS lint, `--deny-warnings`), Prettier
+(`pnpm format:check`; run `pnpm format` to write), and `cargo clippy` plus
+`cargo fmt --check` on the Rust side. Editor defaults live in
+`.editorconfig`.
+
 Workspace layout:
 
 * `crates/naos-core`: Rust compiler analysis and code generation

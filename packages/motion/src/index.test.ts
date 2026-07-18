@@ -49,9 +49,7 @@ describe("@naos-ui/motion", () => {
   it("resolves pending animation waits when aborted", async () => {
     const controller = new AbortController()
     const element = {
-      getAnimations: () => [
-        { finished: new Promise(() => undefined), playState: "running" },
-      ],
+      getAnimations: () => [{ finished: new Promise(() => undefined), playState: "running" }],
     } as unknown as Element
 
     const wait = waitForAnimations(element, {
@@ -78,8 +76,7 @@ describe("@naos-ui/motion", () => {
       },
     } as unknown as Element
 
-    await expect(waitForAnimations(element, { reducedMotion: true }))
-      .resolves.toBeUndefined()
+    await expect(waitForAnimations(element, { reducedMotion: true })).resolves.toBeUndefined()
   })
 
   it("reports reduced-motion media preference defensively", () => {
@@ -154,9 +151,9 @@ describe("@naos-ui/motion", () => {
     } as unknown as Element
 
     try {
-      globalThis.getComputedStyle = ((() => ({
+      globalThis.getComputedStyle = (() => ({
         transform: "scale(1)",
-      })) as unknown) as typeof getComputedStyle
+      })) as unknown as typeof getComputedStyle
 
       const animations = flipMovedElements(
         new Map([
@@ -175,16 +172,13 @@ describe("@naos-ui/motion", () => {
             },
           ],
         ]),
-        { duration: 180, easing: "linear" }
+        { duration: 180, easing: "linear" },
       )
 
       expect(animations).toHaveLength(1)
       expect(animateCalls).toHaveLength(1)
       expect(animateCalls[0]).toEqual([
-        [
-          { transform: "translate(20px, 36px) scale(1)" },
-          { transform: "scale(1)" },
-        ],
+        [{ transform: "translate(20px, 36px) scale(1)" }, { transform: "scale(1)" }],
         { duration: 180, easing: "linear" },
       ])
     } finally {
@@ -205,7 +199,7 @@ describe("@naos-ui/motion", () => {
     expect(
       flipMovedElements(new Map([[element, {} as DOMRectReadOnly]]), {
         reducedMotion: true,
-      })
+      }),
     ).toEqual([])
   })
 })

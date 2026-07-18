@@ -75,10 +75,7 @@ export function collectNaosListboxItems(host: HTMLElement): NaosListboxItem[] {
     .map((element) => {
       const value = element.value ?? element.getAttribute("value") ?? ""
       const label =
-        element.label ??
-        element.getAttribute("label") ??
-        element.textContent?.trim() ??
-        value
+        element.label ?? element.getAttribute("label") ?? element.textContent?.trim() ?? value
       return {
         disabled: Boolean(element.disabled) || element.hasAttribute("disabled"),
         label,
@@ -126,16 +123,12 @@ export function createNaosZagListboxService({
   })
 }
 
-export function getNaosZagListboxApi(
-  service: NaosZagListboxService | null
-): ZagListboxApi | null {
+export function getNaosZagListboxApi(service: NaosZagListboxService | null): ZagListboxApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagListboxService(
-  service: NaosZagListboxService | null
-) {
+export function stopNaosZagListboxService(service: NaosZagListboxService | null) {
   service?.stop()
 }
 
@@ -150,7 +143,7 @@ export function syncNaosListboxItems({
 
   for (const item of items) {
     const element = host.querySelector<NaosListboxItemElement>(
-      `${listboxItemSelector}[value="${cssEscape(item.value)}"]`
+      `${listboxItemSelector}[value="${cssEscape(item.value)}"]`,
     )
     if (element == null) continue
     cleanups.push(syncListboxItem({ api, disabled, element, item, onRequestUpdate }))
@@ -228,14 +221,10 @@ function syncListboxItem({
 function cssEscape(value: string) {
   return typeof CSS !== "undefined" && typeof CSS.escape === "function"
     ? CSS.escape(value)
-    : value.replaceAll("\"", "\\\"")
+    : value.replaceAll('"', '\\"')
 }
 
-function setStringAttribute(
-  element: HTMLElement,
-  name: string,
-  value: string | null
-) {
+function setStringAttribute(element: HTMLElement, name: string, value: string | null) {
   if (value == null) {
     if (!element.hasAttribute(name)) return
     element.removeAttribute(name)

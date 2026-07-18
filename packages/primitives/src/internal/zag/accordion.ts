@@ -90,15 +90,13 @@ export function createNaosZagAccordionService({
 }
 
 export function getNaosZagAccordionApi(
-  service: NaosZagAccordionService | null
+  service: NaosZagAccordionService | null,
 ): ZagAccordionApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagAccordionService(
-  service: NaosZagAccordionService | null
-) {
+export function stopNaosZagAccordionService(service: NaosZagAccordionService | null) {
   service?.stop()
 }
 
@@ -142,35 +140,37 @@ function syncAccordionItem({
 }) {
   const cleanups: VoidFunction[] = []
   const state = api.getItemState({ disabled: item.disabled, value: item.value })
-  const trigger = item.element.shadowRoot?.querySelector<HTMLElement>(
-    "[part~='trigger']"
-  )
-  const content = item.element.shadowRoot?.querySelector<HTMLElement>(
-    "[part~='content']"
-  )
-  const indicator = item.element.shadowRoot?.querySelector<HTMLElement>(
-    "[part~='indicator']"
-  )
+  const trigger = item.element.shadowRoot?.querySelector<HTMLElement>("[part~='trigger']")
+  const content = item.element.shadowRoot?.querySelector<HTMLElement>("[part~='content']")
+  const indicator = item.element.shadowRoot?.querySelector<HTMLElement>("[part~='indicator']")
 
   if (trigger == null || content == null || indicator == null) {
     const timeout = setTimeout(onRequestUpdate, 0)
     cleanups.push(() => clearTimeout(timeout))
   }
 
-  applyElementProps(item.element, api.getItemProps({
-    disabled: item.disabled,
-    value: item.value,
-  }), cleanups)
+  applyElementProps(
+    item.element,
+    api.getItemProps({
+      disabled: item.disabled,
+      value: item.value,
+    }),
+    cleanups,
+  )
   setStringAttribute(item.element, "aria-disabled", state.disabled ? "true" : null)
   setStringAttribute(item.element, "data-disabled", state.disabled ? "" : null)
   setStringAttribute(item.element, "data-focus", state.focused ? "" : null)
   setStringAttribute(item.element, "data-state", state.expanded ? "open" : "closed")
 
   if (trigger != null) {
-    applyElementProps(trigger, api.getItemTriggerProps({
-      disabled: item.disabled,
-      value: item.value,
-    }), cleanups)
+    applyElementProps(
+      trigger,
+      api.getItemTriggerProps({
+        disabled: item.disabled,
+        value: item.value,
+      }),
+      cleanups,
+    )
     setStringAttribute(trigger, "aria-expanded", String(state.expanded))
     trigger.textContent = ""
     const indicatorElement = item.element.shadowRoot?.querySelector("[part~='indicator']")
@@ -181,26 +181,32 @@ function syncAccordionItem({
       const next = nextAccordionItemForKey({ current: item, event, items })
       if (next == null || next === item) return
       event.preventDefault()
-      next.element.shadowRoot
-        ?.querySelector<HTMLElement>("[part~='trigger']")
-        ?.focus()
+      next.element.shadowRoot?.querySelector<HTMLElement>("[part~='trigger']")?.focus()
     }
     trigger.addEventListener("keydown", keyListener)
     cleanups.push(() => trigger.removeEventListener("keydown", keyListener))
   }
 
   if (content != null) {
-    applyElementProps(content, api.getItemContentProps({
-      disabled: item.disabled,
-      value: item.value,
-    }), cleanups)
+    applyElementProps(
+      content,
+      api.getItemContentProps({
+        disabled: item.disabled,
+        value: item.value,
+      }),
+      cleanups,
+    )
   }
 
   if (indicator != null) {
-    applyElementProps(indicator, api.getItemIndicatorProps({
-      disabled: item.disabled,
-      value: item.value,
-    }), cleanups)
+    applyElementProps(
+      indicator,
+      api.getItemIndicatorProps({
+        disabled: item.disabled,
+        value: item.value,
+      }),
+      cleanups,
+    )
     indicator.textContent = state.expanded ? "-" : "+"
   }
 
@@ -209,25 +215,14 @@ function syncAccordionItem({
   }
 }
 
-function accordionItemsFor(
-  host: HTMLElement,
-  groupDisabled: boolean
-): AccordionItem[] {
-  return Array.from(
-    host.querySelectorAll<NaosAccordionItemElement>(accordionItemSelector)
-  )
+function accordionItemsFor(host: HTMLElement, groupDisabled: boolean): AccordionItem[] {
+  return Array.from(host.querySelectorAll<NaosAccordionItemElement>(accordionItemSelector))
     .map((element) => {
       const value = element.value ?? element.getAttribute("value") ?? ""
       const label =
-        element.label ??
-        element.getAttribute("label") ??
-        element.textContent?.trim() ??
-        value
+        element.label ?? element.getAttribute("label") ?? element.textContent?.trim() ?? value
       return {
-        disabled:
-          groupDisabled ||
-          Boolean(element.disabled) ||
-          element.hasAttribute("disabled"),
+        disabled: groupDisabled || Boolean(element.disabled) || element.hasAttribute("disabled"),
         element,
         label,
         value,
@@ -239,7 +234,7 @@ function accordionItemsFor(
 function applyElementProps(
   element: HTMLElement,
   props: Record<string, unknown>,
-  cleanups: VoidFunction[]
+  cleanups: VoidFunction[],
 ) {
   for (const [name, value] of Object.entries(props)) {
     if (name === "style") continue
@@ -302,11 +297,7 @@ function nextAccordionItemForKey({
   return null
 }
 
-function setStringAttribute(
-  element: HTMLElement,
-  name: string,
-  value: string | null
-) {
+function setStringAttribute(element: HTMLElement, name: string, value: string | null) {
   if (value == null) {
     if (!element.hasAttribute(name)) return
     element.removeAttribute(name)

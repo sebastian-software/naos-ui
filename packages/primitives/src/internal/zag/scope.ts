@@ -26,9 +26,7 @@ export function createZagScope({ host, id = host.id, root }: ZagScopeOptions) {
       const currentRoot = getRootNode()
       const isDocument = typeof Document !== "undefined" && currentRoot instanceof Document
       const isShadowRoot = typeof ShadowRoot !== "undefined" && currentRoot instanceof ShadowRoot
-      return isDocument || isShadowRoot
-        ? currentRoot.getElementById(elementId)
-        : null
+      return isDocument || isShadowRoot ? currentRoot.getElementById(elementId) : null
     },
     getDoc,
     getRootNode,

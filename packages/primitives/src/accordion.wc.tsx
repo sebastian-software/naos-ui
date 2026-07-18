@@ -47,23 +47,25 @@ export function NaosAccordion({
   const changed = event<{ value: string[] }>("naos-change")
 
   onConnected(() => {
-    accordionService.set(createNaosZagAccordionService({
-      collapsible,
-      disabled,
-      host: host().element,
-      id: "naos-accordion",
-      multiple,
-      onFocusChange(nextValue) {
-        focused.set(nextValue)
-      },
-      onValueChange(nextValue) {
-        selected.set(nextValue)
-        changed.emit({ value: nextValue })
-      },
-      orientation,
-      root: host().root,
-      value: selected(),
-    }))
+    accordionService.set(
+      createNaosZagAccordionService({
+        collapsible,
+        disabled,
+        host: host().element,
+        id: "naos-accordion",
+        multiple,
+        onFocusChange(nextValue) {
+          focused.set(nextValue)
+        },
+        onValueChange(nextValue) {
+          selected.set(nextValue)
+          changed.emit({ value: nextValue })
+        },
+        orientation,
+        root: host().root,
+        value: selected(),
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagAccordionService(accordionService())

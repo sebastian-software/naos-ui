@@ -14,10 +14,7 @@ import {
   pinInputValueArray,
   stopNaosZagPinInputService,
 } from "./internal/zag/pin-input.js"
-import type {
-  NaosZagPinInputService,
-  NaosZagPinInputType,
-} from "./internal/zag/pin-input.js"
+import type { NaosZagPinInputService, NaosZagPinInputType } from "./internal/zag/pin-input.js"
 import css from "./pin-input.wc.css?inline"
 
 export type NaosPinInputProps = {
@@ -67,37 +64,39 @@ export function NaosPinInput({
   void name
 
   onConnected(() => {
-    pinInputService.set(createNaosZagPinInputService({
-      count,
-      disabled,
-      host: host().element,
-      id: "naos-pin-input",
-      label,
-      mask,
-      onValueChange(details) {
-        const nextComplete = details.valueAsString.length >= count
+    pinInputService.set(
+      createNaosZagPinInputService({
+        count,
+        disabled,
+        host: host().element,
+        id: "naos-pin-input",
+        label,
+        mask,
+        onValueChange(details) {
+          const nextComplete = details.valueAsString.length >= count
 
-        changed.emit({ complete: nextComplete, value: details.valueAsString })
-        queueMicrotask(() => {
-          current.set(details.valueAsString)
-          complete.set(nextComplete)
-        })
-      },
-      onValueComplete(details) {
-        completed.emit({ value: details.valueAsString })
-        queueMicrotask(() => {
-          complete.set(true)
-        })
-      },
-      onValueInvalid(details) {
-        invalid.emit(details)
-      },
-      otp,
-      placeholder,
-      root: host().root,
-      type,
-      value,
-    }))
+          changed.emit({ complete: nextComplete, value: details.valueAsString })
+          queueMicrotask(() => {
+            current.set(details.valueAsString)
+            complete.set(nextComplete)
+          })
+        },
+        onValueComplete(details) {
+          completed.emit({ value: details.valueAsString })
+          queueMicrotask(() => {
+            complete.set(true)
+          })
+        },
+        onValueInvalid(details) {
+          invalid.emit(details)
+        },
+        otp,
+        placeholder,
+        root: host().root,
+        type,
+        value,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagPinInputService(pinInputService())
@@ -115,11 +114,7 @@ export function NaosPinInput({
       <label {...(pinInputApi()?.getLabelProps() ?? {})} part="label">
         {label}
       </label>
-      <input
-        {...(pinInputApi()?.getHiddenInputProps() ?? {})}
-        name={undefined}
-        value={current()}
-      />
+      <input {...(pinInputApi()?.getHiddenInputProps() ?? {})} name={undefined} value={current()} />
       <div {...(pinInputApi()?.getControlProps() ?? {})} part="control">
         {(pinInputApi()?.items ?? []).map((itemIndex) => (
           <input

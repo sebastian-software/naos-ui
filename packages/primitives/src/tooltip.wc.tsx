@@ -59,19 +59,21 @@ export function NaosTooltip({
   const changed = event<{ open: boolean }>("naos-open-change")
 
   onConnected(() => {
-    tooltipService.set(createNaosZagTooltipService({
-      closeDelay,
-      disabled,
-      host: host().element,
-      id: "naos-tooltip",
-      onOpenChange(nextOpen) {
-        expanded.set(nextOpen)
-        changed.emit({ open: nextOpen })
-      },
-      open: expanded(),
-      openDelay,
-      root: host().root,
-    }))
+    tooltipService.set(
+      createNaosZagTooltipService({
+        closeDelay,
+        disabled,
+        host: host().element,
+        id: "naos-tooltip",
+        onOpenChange(nextOpen) {
+          expanded.set(nextOpen)
+          changed.emit({ open: nextOpen })
+        },
+        open: expanded(),
+        openDelay,
+        root: host().root,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagTooltipService(tooltipService())
@@ -92,14 +94,11 @@ export function NaosTooltip({
     }
     if (snapshot.phase !== "closing") return
     const content = host().root.querySelector("[part~='content']")
-    return waitForNaosPresenceExit(
-      content instanceof Element ? content : null,
-      () => {
-        if (!expanded()) {
-          presence.set(settleNaosPresenceSnapshot(presence(), false))
-        }
+    return waitForNaosPresenceExit(content instanceof Element ? content : null, () => {
+      if (!expanded()) {
+        presence.set(settleNaosPresenceSnapshot(presence(), false))
       }
-    )
+    })
   })
   effect(() => {
     const api = tooltipApi()
@@ -120,14 +119,22 @@ export function NaosTooltip({
       if (!disabled) api.setOpen(true)
     }
     const close = () => api.setOpen(false)
-    trigger.addEventListener("pointerenter", (event) => {
-      if (disabled || event.pointerType === "touch") return
-      api.setOpen(true)
-    }, { signal: abort.signal })
-    trigger.addEventListener("pointermove", (event) => {
-      if (disabled || event.pointerType === "touch") return
-      api.setOpen(true)
-    }, { signal: abort.signal })
+    trigger.addEventListener(
+      "pointerenter",
+      (event) => {
+        if (disabled || event.pointerType === "touch") return
+        api.setOpen(true)
+      },
+      { signal: abort.signal },
+    )
+    trigger.addEventListener(
+      "pointermove",
+      (event) => {
+        if (disabled || event.pointerType === "touch") return
+        api.setOpen(true)
+      },
+      { signal: abort.signal },
+    )
     trigger.addEventListener("pointerleave", close, { signal: abort.signal })
     trigger.addEventListener("focus", open, { signal: abort.signal })
     trigger.addEventListener("blur", close, { signal: abort.signal })

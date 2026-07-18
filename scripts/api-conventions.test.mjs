@@ -27,11 +27,11 @@ test("public type declarations require the Naos prefix", () => {
 test("the legacy generic default cache name cannot be reintroduced", () => {
   const [violation] = validatePublicApiSource(
     "fixture.ts",
-    "export const defaultResourceCache = {}"
+    "export const defaultResourceCache = {}",
   )
 
   assert.equal(
     formatPublicApiConventionViolation(violation),
-    "Public API naming violation:\n  file: fixture.ts\n  value: defaultResourceCache\n  rule: public framework types and generic singleton values use the Naos prefix"
+    "Public API naming violation:\n  file: fixture.ts\n  value: defaultResourceCache\n  rule: public framework types and generic singleton values use the Naos prefix",
   )
 })

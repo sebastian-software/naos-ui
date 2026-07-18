@@ -109,14 +109,12 @@ export function createNaosZagRatingGroupService({
 }
 
 export function getNaosZagRatingGroupApi(
-  service: NaosZagRatingGroupService | null
+  service: NaosZagRatingGroupService | null,
 ): ZagRatingGroupApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagRatingGroupService(
-  service: NaosZagRatingGroupService | null
-) {
+export function stopNaosZagRatingGroupService(service: NaosZagRatingGroupService | null) {
   service?.stop()
 }

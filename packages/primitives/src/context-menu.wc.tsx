@@ -45,21 +45,23 @@ export function NaosContextMenu({
 
   onConnected(() => {
     const hostElement = host().element
-    menuService.set(createNaosZagMenuService({
-      disabled,
-      host: hostElement,
-      id: "naos-context-menu",
-      label,
-      onHighlightChange(nextValue) {
-        highlighted.set(nextValue)
-      },
-      onOpenChange(nextOpen) {
-        expanded.set(nextOpen)
-        opened.emit({ open: nextOpen })
-      },
-      positioning: { placement: "bottom-start" },
-      root: host().root,
-    }))
+    menuService.set(
+      createNaosZagMenuService({
+        disabled,
+        host: hostElement,
+        id: "naos-context-menu",
+        label,
+        onHighlightChange(nextValue) {
+          highlighted.set(nextValue)
+        },
+        onOpenChange(nextOpen) {
+          expanded.set(nextOpen)
+          opened.emit({ open: nextOpen })
+        },
+        positioning: { placement: "bottom-start" },
+        root: host().root,
+      }),
+    )
     if (open) contextMenuApi()?.setOpen(true)
   })
   onDisconnected(() => {
@@ -101,7 +103,7 @@ export function NaosContextMenu({
       })}
     >
       <div
-        {...(disabled ? {} : contextMenuApi()?.getContextTriggerProps() ?? {})}
+        {...(disabled ? {} : (contextMenuApi()?.getContextTriggerProps() ?? {}))}
         part="trigger"
         tabindex={disabled ? undefined : 0}
         data-state={expanded() ? "open" : "closed"}

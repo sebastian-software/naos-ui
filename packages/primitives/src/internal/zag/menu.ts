@@ -49,10 +49,7 @@ export function collectNaosMenuItems(host: HTMLElement): NaosMenuItem[] {
     .map((element) => {
       const value = element.value ?? element.getAttribute("value") ?? ""
       const label =
-        element.label ??
-        element.getAttribute("label") ??
-        element.textContent?.trim() ??
-        value
+        element.label ?? element.getAttribute("label") ?? element.textContent?.trim() ?? value
       return {
         disabled: Boolean(element.disabled) || element.hasAttribute("disabled"),
         label,
@@ -97,9 +94,7 @@ export function createNaosZagMenuService({
   })
 }
 
-export function getNaosZagMenuApi(
-  service: NaosZagMenuService | null
-): ZagMenuApi | null {
+export function getNaosZagMenuApi(service: NaosZagMenuService | null): ZagMenuApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
@@ -120,17 +115,19 @@ export function syncNaosMenuItems({
 
   for (const item of items) {
     const element = host.querySelector<NaosMenuItemElement>(
-      `${menuItemSelector}[value="${cssEscape(item.value)}"]`
+      `${menuItemSelector}[value="${cssEscape(item.value)}"]`,
     )
     if (element == null) continue
-    cleanups.push(syncMenuItem({
-      api,
-      disabled,
-      element,
-      item,
-      onRequestUpdate,
-      onSelect,
-    }))
+    cleanups.push(
+      syncMenuItem({
+        api,
+        disabled,
+        element,
+        item,
+        onRequestUpdate,
+        onSelect,
+      }),
+    )
   }
 
   const observer = new MutationObserver(() => onRequestUpdate())
@@ -166,11 +163,14 @@ function syncMenuItem({
   const itemDisabled = disabled || itemState.disabled
 
   setStringAttribute(element, "slot", "item")
-  applyElementProps(element, api.getItemProps({
-    disabled: itemDisabled,
-    value: item.value,
-    valueText: item.label,
-  }))
+  applyElementProps(
+    element,
+    api.getItemProps({
+      disabled: itemDisabled,
+      value: item.value,
+      valueText: item.label,
+    }),
+  )
   setStringAttribute(element, "aria-disabled", itemDisabled ? "true" : null)
   setStringAttribute(element, "data-disabled", itemDisabled ? "" : null)
   setStringAttribute(element, "data-highlighted", itemState.highlighted ? "" : null)
@@ -218,14 +218,10 @@ function attributeValue(value: unknown) {
 function cssEscape(value: string) {
   return typeof CSS !== "undefined" && typeof CSS.escape === "function"
     ? CSS.escape(value)
-    : value.replaceAll("\"", "\\\"")
+    : value.replaceAll('"', '\\"')
 }
 
-function setStringAttribute(
-  element: HTMLElement,
-  name: string,
-  value: string | null
-) {
+function setStringAttribute(element: HTMLElement, name: string, value: string | null) {
   if (value == null) {
     if (!element.hasAttribute(name)) return
     element.removeAttribute(name)

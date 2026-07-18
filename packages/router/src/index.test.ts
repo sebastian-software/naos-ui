@@ -150,9 +150,15 @@ describe("NaosRouter", () => {
   it("matches route params and builds typed hrefs", () => {
     const { router } = setupRouter()
 
-    expect(router.href("/products/:id", { id: "abc 123" }, {
-      search: { tab: "details" },
-    })).toBe("/products/abc%20123?tab=details")
+    expect(
+      router.href(
+        "/products/:id",
+        { id: "abc 123" },
+        {
+          search: { tab: "details" },
+        },
+      ),
+    ).toBe("/products/abc%20123?tab=details")
 
     const match = router.match("/products/42?tab=details")
     expect(match?.params).toEqual({ id: "42" })
@@ -300,7 +306,8 @@ describe("NaosRouter", () => {
 
     class AppHome extends HTMLElement {}
     class AppSave extends HTMLElement {}
-    if (!customElements.get("app-redirect-home")) customElements.define("app-redirect-home", AppHome)
+    if (!customElements.get("app-redirect-home"))
+      customElements.define("app-redirect-home", AppHome)
     if (!customElements.get("app-save")) customElements.define("app-save", AppSave)
 
     const outlet = document.querySelector("[data-outlet]")
@@ -363,9 +370,13 @@ describe("NaosRouter", () => {
     })
 
     const actionCommit = new Promise<NaosRouteMatch>((resolve) => {
-      router.addEventListener("naos:actioncommit", (event) => {
-        resolve((event as CustomEvent<{ match: NaosRouteMatch }>).detail.match)
-      }, { once: true })
+      router.addEventListener(
+        "naos:actioncommit",
+        (event) => {
+          resolve((event as CustomEvent<{ match: NaosRouteMatch }>).detail.match)
+        },
+        { once: true },
+      )
     })
     router.start()
     form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }))
@@ -494,8 +505,10 @@ describe("NaosRouter", () => {
       }
     }
     class AppManualScroll extends HTMLElement {}
-    if (!customElements.get("app-hash-target")) customElements.define("app-hash-target", AppHashTarget)
-    if (!customElements.get("app-manual-scroll")) customElements.define("app-manual-scroll", AppManualScroll)
+    if (!customElements.get("app-hash-target"))
+      customElements.define("app-hash-target", AppHashTarget)
+    if (!customElements.get("app-manual-scroll"))
+      customElements.define("app-manual-scroll", AppManualScroll)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -532,7 +545,8 @@ describe("NaosRouter", () => {
       }
     }
     if (!customElements.get("app-focused")) customElements.define("app-focused", AppFocused)
-    if (!customElements.get("app-fallback-focus")) customElements.define("app-fallback-focus", AppFallbackFocus)
+    if (!customElements.get("app-fallback-focus"))
+      customElements.define("app-fallback-focus", AppFallbackFocus)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -640,7 +654,8 @@ describe("NaosRouter", () => {
     const { router } = setupRouter()
     const aborts: number[] = []
     router.addEventListener("naos:navigationabort", (event) => {
-      const navigation = (event as CustomEvent<{ navigation: NaosRouteMatch["navigation"] }>).detail.navigation
+      const navigation = (event as CustomEvent<{ navigation: NaosRouteMatch["navigation"] }>).detail
+        .navigation
       aborts.push(navigation.id)
     })
 
@@ -703,7 +718,8 @@ describe("prefetch", () => {
   function setupLoaderRoute(prefetchTtl?: number) {
     document.body.innerHTML = `<main data-outlet></main>`
     class AppPrefetched extends HTMLElement {}
-    if (!customElements.get("app-prefetched")) customElements.define("app-prefetched", AppPrefetched)
+    if (!customElements.get("app-prefetched"))
+      customElements.define("app-prefetched", AppPrefetched)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -764,7 +780,8 @@ describe("prefetch", () => {
   it("aborts an in-flight prefetch when a navigation supersedes it", async () => {
     document.body.innerHTML = `<main data-outlet></main>`
     class AppSuperseded extends HTMLElement {}
-    if (!customElements.get("app-superseded")) customElements.define("app-superseded", AppSuperseded)
+    if (!customElements.get("app-superseded"))
+      customElements.define("app-superseded", AppSuperseded)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -782,7 +799,7 @@ describe("prefetch", () => {
               navigation.signal.addEventListener(
                 "abort",
                 () => reject(new Error("Prefetch aborted.")),
-                { once: true }
+                { once: true },
               )
             })
           },
@@ -834,7 +851,7 @@ describe("prefetch", () => {
               navigation.signal.addEventListener(
                 "abort",
                 () => reject(new Error("Prefetch aborted.")),
-                { once: true }
+                { once: true },
               )
             })
           },
@@ -873,7 +890,8 @@ describe("prefetch", () => {
     const linkRoot = document.querySelector("[data-root]")
     const hoverAnchor = document.querySelector("[data-hover]")
     const focusAnchor = document.querySelector("[data-focus]")
-    if (!outlet || !linkRoot || !hoverAnchor || !focusAnchor) throw new Error("Missing prefetch setup.")
+    if (!outlet || !linkRoot || !hoverAnchor || !focusAnchor)
+      throw new Error("Missing prefetch setup.")
 
     const loader = vi.fn(({ params }: { params: { id?: string } }) => ({ id: params.id }))
     const router = createRouter({
@@ -891,7 +909,9 @@ describe("prefetch", () => {
     await waitForRouterWork()
 
     expect(loader).toHaveBeenCalledTimes(2)
-    expect(loader.mock.calls.map(([args]) => (args as { params: { id?: string } }).params.id)).toEqual(["1", "2"])
+    expect(
+      loader.mock.calls.map(([args]) => (args as { params: { id?: string } }).params.id),
+    ).toEqual(["1", "2"])
     expect(outlet.firstElementChild).toBe(mountedBefore)
 
     router.stop()
@@ -906,8 +926,10 @@ describe("prefetch", () => {
         this.#callback = callback
         intersect = (targets) => {
           this.#callback(
-            targets.map((target) => ({ isIntersecting: true, target }) as IntersectionObserverEntry),
-            this as unknown as IntersectionObserver
+            targets.map(
+              (target) => ({ isIntersecting: true, target }) as IntersectionObserverEntry,
+            ),
+            this as unknown as IntersectionObserver,
           )
         }
       }
@@ -1019,7 +1041,7 @@ describe("error-view URL semantics", () => {
       () => {
         recovery = router.navigate("/")
       },
-      { once: true }
+      { once: true },
     )
 
     const errored = await router.navigate("/broken")
@@ -1039,7 +1061,8 @@ describe("view transitions", () => {
   function setupTransitionRouter() {
     document.body.innerHTML = `<main data-outlet></main>`
     class AppTransition extends HTMLElement {}
-    if (!customElements.get("app-transition")) customElements.define("app-transition", AppTransition)
+    if (!customElements.get("app-transition"))
+      customElements.define("app-transition", AppTransition)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -1136,10 +1159,12 @@ describe("nested routes and metadata", () => {
     class AppOverview extends HTMLElement {}
     class AppProfile extends HTMLElement {}
     class AppNestedError extends HTMLElement {}
-    if (!customElements.get("app-shell-layout")) customElements.define("app-shell-layout", AppShellLayout)
+    if (!customElements.get("app-shell-layout"))
+      customElements.define("app-shell-layout", AppShellLayout)
     if (!customElements.get("app-overview")) customElements.define("app-overview", AppOverview)
     if (!customElements.get("app-profile")) customElements.define("app-profile", AppProfile)
-    if (!customElements.get("app-nested-error")) customElements.define("app-nested-error", AppNestedError)
+    if (!customElements.get("app-nested-error"))
+      customElements.define("app-nested-error", AppNestedError)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -1196,7 +1221,7 @@ describe("nested routes and metadata", () => {
     expect(outlet.firstElementChild).toBe(layout)
     expect(
       (nestedOutlet?.firstElementChild as HTMLElement & { naosRoute?: { params: unknown } })
-        ?.naosRoute?.params
+        ?.naosRoute?.params,
     ).toEqual({ user: "grace" })
 
     await router.navigate("/settings")
@@ -1214,8 +1239,10 @@ describe("nested routes and metadata", () => {
       }
     }
     class AppExplicitChild extends HTMLElement {}
-    if (!customElements.get("app-explicit-layout")) customElements.define("app-explicit-layout", AppExplicitLayout)
-    if (!customElements.get("app-explicit-child")) customElements.define("app-explicit-child", AppExplicitChild)
+    if (!customElements.get("app-explicit-layout"))
+      customElements.define("app-explicit-layout", AppExplicitLayout)
+    if (!customElements.get("app-explicit-child"))
+      customElements.define("app-explicit-child", AppExplicitChild)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -1233,9 +1260,9 @@ describe("nested routes and metadata", () => {
     })
 
     await router.navigate("/area/child")
-    expect(
-      outlet.querySelector("[data-slot]")?.firstElementChild?.tagName.toLowerCase()
-    ).toBe("app-explicit-child")
+    expect(outlet.querySelector("[data-slot]")?.firstElementChild?.tagName.toLowerCase()).toBe(
+      "app-explicit-child",
+    )
   })
 
   it("commits the error route when a parent exposes no child outlet", async () => {
@@ -1243,9 +1270,12 @@ describe("nested routes and metadata", () => {
     class AppNoOutletLayout extends HTMLElement {}
     class AppMissingChild extends HTMLElement {}
     class AppOutletError extends HTMLElement {}
-    if (!customElements.get("app-no-outlet-layout")) customElements.define("app-no-outlet-layout", AppNoOutletLayout)
-    if (!customElements.get("app-missing-child")) customElements.define("app-missing-child", AppMissingChild)
-    if (!customElements.get("app-outlet-error")) customElements.define("app-outlet-error", AppOutletError)
+    if (!customElements.get("app-no-outlet-layout"))
+      customElements.define("app-no-outlet-layout", AppNoOutletLayout)
+    if (!customElements.get("app-missing-child"))
+      customElements.define("app-missing-child", AppMissingChild)
+    if (!customElements.get("app-outlet-error"))
+      customElements.define("app-outlet-error", AppOutletError)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -1278,23 +1308,23 @@ describe("nested routes and metadata", () => {
     await router.navigate("/settings/profile/ada")
 
     expect(document.title).toBe("Profile ada")
-    expect(
-      document.head.querySelector("meta[name='description']")?.getAttribute("content")
-    ).toBe("Settings area")
-    expect(
-      document.head.querySelector("link[rel='canonical']")?.getAttribute("href")
-    ).toBe("https://naos.test/settings/profile/ada")
-    expect(
-      document.head.querySelector("meta[name='section']")?.getAttribute("content")
-    ).toBe("profile")
+    expect(document.head.querySelector("meta[name='description']")?.getAttribute("content")).toBe(
+      "Settings area",
+    )
+    expect(document.head.querySelector("link[rel='canonical']")?.getAttribute("href")).toBe(
+      "https://naos.test/settings/profile/ada",
+    )
+    expect(document.head.querySelector("meta[name='section']")?.getAttribute("content")).toBe(
+      "profile",
+    )
 
     await router.navigate("/settings")
     expect(document.title).toBe("Settings")
     expect(document.head.querySelector("link[rel='canonical']")).toBeNull()
     expect(document.head.querySelector("meta[name='section']")).toBeNull()
-    expect(
-      document.head.querySelector("meta[name='description']")?.getAttribute("content")
-    ).toBe("Settings area")
+    expect(document.head.querySelector("meta[name='description']")?.getAttribute("content")).toBe(
+      "Settings area",
+    )
 
     await router.navigate("/")
     expect(document.head.querySelectorAll("[data-naos-router-meta]")).toHaveLength(0)
@@ -1311,8 +1341,10 @@ describe("nested routes and metadata", () => {
     }
     class AppFilesFallback extends HTMLElement {}
     class AppOther extends HTMLElement {}
-    if (!customElements.get("app-files-layout")) customElements.define("app-files-layout", AppFilesLayout)
-    if (!customElements.get("app-files-fallback")) customElements.define("app-files-fallback", AppFilesFallback)
+    if (!customElements.get("app-files-layout"))
+      customElements.define("app-files-layout", AppFilesLayout)
+    if (!customElements.get("app-files-fallback"))
+      customElements.define("app-files-fallback", AppFilesFallback)
     if (!customElements.get("app-other")) customElements.define("app-other", AppOther)
 
     const outlet = document.querySelector("[data-outlet]")
@@ -1335,9 +1367,7 @@ describe("nested routes and metadata", () => {
 
     await router.navigate("/files/deep/nested")
     expect(
-      outlet
-        .querySelector("[data-naos-router-outlet]")
-        ?.firstElementChild?.tagName.toLowerCase()
+      outlet.querySelector("[data-naos-router-outlet]")?.firstElementChild?.tagName.toLowerCase(),
     ).toBe("app-files-fallback")
   })
 
@@ -1345,7 +1375,8 @@ describe("nested routes and metadata", () => {
     document.body.innerHTML = `<main data-outlet></main>`
     class AppMetaTitled extends HTMLElement {}
     class AppUntitled extends HTMLElement {}
-    if (!customElements.get("app-meta-titled")) customElements.define("app-meta-titled", AppMetaTitled)
+    if (!customElements.get("app-meta-titled"))
+      customElements.define("app-meta-titled", AppMetaTitled)
     if (!customElements.get("app-untitled")) customElements.define("app-untitled", AppUntitled)
 
     const outlet = document.querySelector("[data-outlet]")

@@ -29,7 +29,7 @@ describe("Naos package context", () => {
         name: "@acme/design-system",
         naos: { tagPrefix: "acme" },
         version: "2.3.0",
-      })
+      }),
     )
 
     expect(resolveNaosPackageContext(join(sourceDirectory, "button.wc.tsx"))).toEqual({
@@ -45,18 +45,16 @@ describe("Naos package context", () => {
     const packageJsonPath = join(root, "package.json")
     writeFileSync(
       packageJsonPath,
-      JSON.stringify({ name: "widgets", naos: { tagPrefix: "xml-widgets" } })
+      JSON.stringify({ name: "widgets", naos: { tagPrefix: "xml-widgets" } }),
     )
 
-    expect(() =>
-      resolveNaosPackageContext("virtual.wc.tsx", packageJsonPath)
-    ).toThrow(NaosCompilerError)
+    expect(() => resolveNaosPackageContext("virtual.wc.tsx", packageJsonPath)).toThrow(
+      NaosCompilerError,
+    )
     try {
       resolveNaosPackageContext("virtual.wc.tsx", packageJsonPath)
     } catch (error) {
-      expect((error as NaosCompilerError).diagnostics[0]?.code).toBe(
-        "NAOS_TAG_PREFIX_INVALID"
-      )
+      expect((error as NaosCompilerError).diagnostics[0]?.code).toBe("NAOS_TAG_PREFIX_INVALID")
     }
   })
 })

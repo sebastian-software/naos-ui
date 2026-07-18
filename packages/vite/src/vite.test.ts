@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import { naos } from "./vite.js"
 
 const { version: packageVersion } = JSON.parse(
-  readFileSync(new URL("../package.json", import.meta.url), "utf8")
+  readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 ) as { version: string }
 const nativeMetadata = {
   className: "CounterElement",
@@ -36,7 +36,7 @@ describe("naos", () => {
     const send = vi.fn()
     const result = handleHotUpdate.call(
       mockPluginContext(),
-      mockHotContext(`${fixtureFilename}?raw`, send)
+      mockHotContext(`${fixtureFilename}?raw`, send),
     )
 
     expect(send).toHaveBeenCalledWith({ type: "full-reload" })
@@ -51,10 +51,7 @@ describe("naos", () => {
     }
 
     const send = vi.fn()
-    const result = handleHotUpdate.call(
-      mockPluginContext(),
-      mockHotContext("/src/plain.ts", send)
-    )
+    const result = handleHotUpdate.call(mockPluginContext(), mockHotContext("/src/plain.ts", send))
 
     expect(send).not.toHaveBeenCalled()
     expect(result).toBeUndefined()
@@ -101,11 +98,7 @@ describe("naos", () => {
       throw new Error("Expected transform hook")
     }
 
-    const result = await transform.call(
-      mockPluginContext(),
-      "source",
-      `${fixtureFilename}?raw`
-    )
+    const result = await transform.call(mockPluginContext(), "source", `${fixtureFilename}?raw`)
 
     expect(result).toEqual({
       code: `compiled:${fixtureFilename}:source`,
@@ -196,10 +189,8 @@ describe("naos", () => {
       throw new Error("Expected transform hook")
     }
 
-    await expect(
-      transform.call(mockPluginContext(), "source", fixtureFilename)
-    ).rejects.toThrow(
-      `${fixtureFilename}:4-12 error NAOS_UNSUPPORTED_SYNTAX: Unsupported JSX\nhint: Use supported syntax.`
+    await expect(transform.call(mockPluginContext(), "source", fixtureFilename)).rejects.toThrow(
+      `${fixtureFilename}:4-12 error NAOS_UNSUPPORTED_SYNTAX: Unsupported JSX\nhint: Use supported syntax.`,
     )
   })
 
@@ -295,14 +286,13 @@ describe("naos", () => {
       } as never,
       {} as never,
       {} as never,
-      false
+      false,
     )
 
     expect(emitted).toEqual([
       {
         fileName: "naos-manifest.json",
-        source:
-          `{\n  "schemaVersion": 1,\n  "package": {\n    "name": "@naos-ui/vite",\n    "version": "${packageVersion}",\n    "tagPrefix": "naos-ui-vite"\n  },\n  "components": [\n    {\n      "className": "CounterElement",\n      "exportName": "Counter",\n      "importPath": "src/counter.wc.tsx",\n      "shadow": true,\n      "tagName": "naos-ui-vite-counter",\n      "usesDeclarativeShadowDom": true\n    }\n  ]\n}\n`,
+        source: `{\n  "schemaVersion": 1,\n  "package": {\n    "name": "@naos-ui/vite",\n    "version": "${packageVersion}",\n    "tagPrefix": "naos-ui-vite"\n  },\n  "components": [\n    {\n      "className": "CounterElement",\n      "exportName": "Counter",\n      "importPath": "src/counter.wc.tsx",\n      "shadow": true,\n      "tagName": "naos-ui-vite-counter",\n      "usesDeclarativeShadowDom": true\n    }\n  ]\n}\n`,
         type: "asset",
       },
     ])
@@ -352,14 +342,14 @@ describe("naos", () => {
       } as never,
       {} as never,
       {} as never,
-      false
+      false,
     )
 
     expect(prerenderCalls).toBe(0)
     expect(emitted).toHaveLength(1)
     expect(emitted[0]).toMatchObject({ fileName: "naos-manifest.json", type: "asset" })
     expect(String((emitted[0] as { source: string }).source)).toContain(
-      '"usesDeclarativeShadowDom": false'
+      '"usesDeclarativeShadowDom": false',
     )
   })
 
@@ -367,10 +357,7 @@ describe("naos", () => {
     const root = await mkdtemp(join(tmpdir(), "naos-vite-"))
     try {
       const filename = join(root, "counter.wc.tsx")
-      await writeFile(
-        join(root, "package.json"),
-        '{"name":"@example/counter","version":"1.0.0"}\n'
-      )
+      await writeFile(join(root, "package.json"), '{"name":"@example/counter","version":"1.0.0"}\n')
       await writeFile(join(root, "counter.css"), ":host { display: block; }\n")
       let inlineStylesJson: string | undefined
 
@@ -408,7 +395,7 @@ describe("naos", () => {
       await transform.call(
         mockPluginContext(),
         'import css from "./counter.css?inline";\nexport const options = { styles: [css] }',
-        filename
+        filename,
       )
 
       expect(inlineStylesJson).toBe('{"css":":host { display: block; }\\n"}')
@@ -421,10 +408,7 @@ describe("naos", () => {
     const root = await mkdtemp(join(tmpdir(), "naos-vite-"))
     try {
       const filename = join(root, "counter.wc.tsx")
-      await writeFile(
-        join(root, "package.json"),
-        '{"name":"@example/counter","version":"1.0.0"}\n'
-      )
+      await writeFile(join(root, "package.json"), '{"name":"@example/counter","version":"1.0.0"}\n')
       await writeFile(join(root, "counter.css"), ":host { display: block; }\n")
 
       setNativeBindingsForTesting({
@@ -460,7 +444,7 @@ describe("naos", () => {
           },
         } as never,
         'import css from "./counter.css?inline";\nexport const options = { styles: [css] }',
-        filename
+        filename,
       )
 
       expect(addWatchFile).toHaveBeenCalledWith(join(root, "counter.css"))

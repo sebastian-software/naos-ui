@@ -74,24 +74,22 @@ export async function flush(turns = DEFAULT_FLUSH_TURNS): Promise<void> {
 
 export async function mount<TagName extends keyof HTMLElementTagNameMap>(
   tag: TagName,
-  options?: NaosMountOptions
+  options?: NaosMountOptions,
 ): Promise<NaosMountedComponent<HTMLElementTagNameMap[TagName]>>
 export async function mount<Host extends HTMLElement>(
   element: Host,
-  options?: NaosMountOptions
+  options?: NaosMountOptions,
 ): Promise<NaosMountedComponent<Host>>
 export async function mount(
   tagOrElement: string | HTMLElement,
-  options?: NaosMountOptions
+  options?: NaosMountOptions,
 ): Promise<NaosMountedComponent>
 export async function mount(
   tagOrElement: string | HTMLElement,
-  options: NaosMountOptions = {}
+  options: NaosMountOptions = {},
 ): Promise<NaosMountedComponent> {
   const element =
-    typeof tagOrElement === "string"
-      ? document.createElement(tagOrElement)
-      : tagOrElement
+    typeof tagOrElement === "string" ? document.createElement(tagOrElement) : tagOrElement
   const ownsContainer = options.container === undefined
   const container = options.container ?? document.createElement("div")
   if (ownsContainer) {
@@ -141,9 +139,7 @@ export async function mount(
     },
     shadow() {
       if (!element.shadowRoot) {
-        throw new Error(
-          `Element <${element.tagName.toLowerCase()}> has no shadow root.`
-        )
+        throw new Error(`Element <${element.tagName.toLowerCase()}> has no shadow root.`)
       }
       return element.shadowRoot
     },
@@ -166,7 +162,7 @@ export async function mount(
  */
 export function captureEvents<Detail = unknown>(
   target: EventTarget,
-  name: string
+  name: string,
 ): NaosEventCapture<Detail> {
   const events: CustomEvent<Detail>[] = []
   const listener = (event: Event) => {
@@ -208,7 +204,7 @@ function queryRoot(element: HTMLElement): ShadowRoot | HTMLElement {
 
 function queryPart<Result extends Element = Element>(
   element: Element,
-  name: string
+  name: string,
 ): Result | null {
   // Part attributes are space-separated token lists, so names containing
   // whitespace, quotes, or backslashes can never match a token — and they

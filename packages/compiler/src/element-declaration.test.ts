@@ -9,7 +9,7 @@ describe("renderNaosElementDeclaration", () => {
       exportName: "AcmeCard",
       tagName: "acme-card",
       props: [
-        { propName: "title", attributeName: "title", kind: "string", defaultValue: "\"\"" },
+        { propName: "title", attributeName: "title", kind: "string", defaultValue: '""' },
         { propName: "count", attributeName: "count", kind: "number", defaultValue: "0" },
         { propName: "open", attributeName: "open", kind: "boolean", defaultValue: "false" },
         { propName: "items", attributeName: "items", kind: "rich", defaultValue: "undefined" },
@@ -22,19 +22,15 @@ describe("renderNaosElementDeclaration", () => {
     expect(declaration).toContain("  count: number;")
     expect(declaration).toContain("  open: boolean;")
     expect(declaration).toContain("  items: unknown;")
+    expect(declaration).toContain("addEventListener<Type extends keyof AcmeCardElementEventMap>")
+    expect(declaration).toContain("removeEventListener<Type extends keyof AcmeCardElementEventMap>")
     expect(declaration).toContain(
-      "addEventListener<Type extends keyof AcmeCardElementEventMap>"
+      "export interface AcmeCardElementEventMap extends HTMLElementEventMap {",
     )
-    expect(declaration).toContain(
-      "removeEventListener<Type extends keyof AcmeCardElementEventMap>"
-    )
-    expect(declaration).toContain(
-      "export interface AcmeCardElementEventMap extends HTMLElementEventMap {"
-    )
-    expect(declaration).toContain("\"card-change\": CustomEvent<{ open: boolean }>;")
+    expect(declaration).toContain('"card-change": CustomEvent<{ open: boolean }>;')
     expect(declaration).toContain("export { AcmeCardElement as AcmeCard };")
     expect(declaration).toContain("export default AcmeCardElement;")
-    expect(declaration).toContain("\"acme-card\": AcmeCardElement;")
+    expect(declaration).toContain('"acme-card": AcmeCardElement;')
   })
 
   it("omits event plumbing for components without typed events", () => {
@@ -46,9 +42,7 @@ describe("renderNaosElementDeclaration", () => {
       events: [],
     })
 
-    expect(declaration).toContain(
-      "export declare class AcmePlainElement extends HTMLElement {\n}"
-    )
+    expect(declaration).toContain("export declare class AcmePlainElement extends HTMLElement {\n}")
     expect(declaration).not.toContain("addEventListener")
     expect(declaration).not.toContain("EventMap")
   })
@@ -60,7 +54,7 @@ describe("renderNaosElementDeclaration", () => {
       events: [{ eventName: "ping" }],
     })
 
-    expect(declaration).toContain("\"ping\": CustomEvent<unknown>;")
+    expect(declaration).toContain('"ping": CustomEvent<unknown>;')
     expect(declaration).not.toContain("export {  as")
   })
 })

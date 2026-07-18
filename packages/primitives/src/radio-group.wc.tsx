@@ -58,23 +58,27 @@ export function NaosRadioGroup({
   void name
 
   onConnected(() => {
-    radioService.set(createNaosZagRadioGroupService({
-      disabled,
-      host: host().element,
-      id: "naos-radio-group",
-      name,
-      onValueChange(nextValue) {
-        selected.set(nextValue)
-        changed.emit({ value: nextValue })
-      },
-      orientation,
-      root: host().root,
-      value: selected(),
-    }))
-    radioContext.set(createNaosRadioGroupContextController({
-      host: host().element,
-      onRequestUpdate: () => host().update(),
-    }))
+    radioService.set(
+      createNaosZagRadioGroupService({
+        disabled,
+        host: host().element,
+        id: "naos-radio-group",
+        name,
+        onValueChange(nextValue) {
+          selected.set(nextValue)
+          changed.emit({ value: nextValue })
+        },
+        orientation,
+        root: host().root,
+        value: selected(),
+      }),
+    )
+    radioContext.set(
+      createNaosRadioGroupContextController({
+        host: host().element,
+        onRequestUpdate: () => host().update(),
+      }),
+    )
   })
   onDisconnected(() => {
     radioContext()?.destroy()

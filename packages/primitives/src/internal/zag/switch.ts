@@ -1,8 +1,4 @@
-import {
-  connect,
-  machine as switchMachine,
-  type Api as ZagSwitchApi,
-} from "@zag-js/switch"
+import { connect, machine as switchMachine, type Api as ZagSwitchApi } from "@zag-js/switch"
 
 import { normalizeZagProps } from "./props.js"
 import { createZagScope } from "./scope.js"
@@ -51,15 +47,11 @@ export function createNaosZagSwitchService({
   })
 }
 
-export function getNaosZagSwitchApi(
-  service: NaosZagSwitchService | null
-): ZagSwitchApi | null {
+export function getNaosZagSwitchApi(service: NaosZagSwitchService | null): ZagSwitchApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagSwitchService(
-  service: NaosZagSwitchService | null
-) {
+export function stopNaosZagSwitchService(service: NaosZagSwitchService | null) {
   service?.stop()
 }

@@ -56,20 +56,22 @@ export function NaosCheckbox({
   void name
 
   onConnected(() => {
-    checkboxService.set(createNaosZagCheckboxService({
-      checked: selected(),
-      disabled,
-      host: host().element,
-      id: "naos-checkbox",
-      indeterminate: mixed(),
-      onCheckedChange(details) {
-        selected.set(details.checked)
-        mixed.set(details.indeterminate)
-        changed.emit(details)
-      },
-      root: host().root,
-      value,
-    }))
+    checkboxService.set(
+      createNaosZagCheckboxService({
+        checked: selected(),
+        disabled,
+        host: host().element,
+        id: "naos-checkbox",
+        indeterminate: mixed(),
+        onCheckedChange(details) {
+          selected.set(details.checked)
+          mixed.set(details.indeterminate)
+          changed.emit(details)
+        },
+        root: host().root,
+        value,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagCheckboxService(checkboxService())

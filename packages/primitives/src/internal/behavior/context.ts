@@ -3,10 +3,7 @@ export type NaosContext<_Value> = {
   readonly key: symbol
 }
 
-type ContextCallback<Value> = (
-  value: Value,
-  unsubscribe?: VoidFunction
-) => void
+type ContextCallback<Value> = (value: Value, unsubscribe?: VoidFunction) => void
 
 type ContextRequestDetail<Value> = {
   callback: ContextCallback<Value>
@@ -21,9 +18,7 @@ export type NaosContextProvider<Value> = {
   setValue(value: Value): void
 }
 
-export function createNaosContext<Value>(
-  description: string
-): NaosContext<Value> {
+export function createNaosContext<Value>(description: string): NaosContext<Value> {
   return {
     description,
     key: Symbol(description),
@@ -56,7 +51,7 @@ export function provideNaosContext<Value>({
     }
     detail.callback(
       currentValue,
-      detail.subscribe === true ? () => unsubscribe(detail.callback) : undefined
+      detail.subscribe === true ? () => unsubscribe(detail.callback) : undefined,
     )
   }
 

@@ -1,8 +1,4 @@
-import {
-  connect,
-  machine as popoverMachine,
-  type Api as ZagPopoverApi,
-} from "@zag-js/popover"
+import { connect, machine as popoverMachine, type Api as ZagPopoverApi } from "@zag-js/popover"
 
 import { normalizeZagProps } from "./props.js"
 import { createZagScope } from "./scope.js"
@@ -34,8 +30,7 @@ export function createNaosZagPopoverService({
       closeOnEscape: true,
       closeOnInteractOutside: true,
       defaultOpen: open,
-      finalFocusEl: () =>
-        host.shadowRoot?.querySelector<HTMLElement>("[part~='trigger']") ?? host,
+      finalFocusEl: () => host.shadowRoot?.querySelector<HTMLElement>("[part~='trigger']") ?? host,
       id,
       modal,
       onOpenChange(details: { open: boolean }) {
@@ -56,15 +51,11 @@ export function createNaosZagPopoverService({
   })
 }
 
-export function getNaosZagPopoverApi(
-  service: NaosZagPopoverService | null
-): ZagPopoverApi | null {
+export function getNaosZagPopoverApi(service: NaosZagPopoverService | null): ZagPopoverApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagPopoverService(
-  service: NaosZagPopoverService | null
-) {
+export function stopNaosZagPopoverService(service: NaosZagPopoverService | null) {
   service?.stop()
 }

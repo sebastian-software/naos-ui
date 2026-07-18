@@ -12,7 +12,7 @@ export function NoteForm() {
       pending.set(isPending)
       count.set(notes.length)
       failed.set(error !== undefined)
-    })
+    }),
   )
 
   return (

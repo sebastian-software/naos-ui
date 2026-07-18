@@ -10,11 +10,7 @@ export type NaosOverlayKind =
 
 export type NaosOverlaySide = "bottom" | "left" | "none" | "right" | "top"
 export type NaosOverlayAlign = "center" | "end" | "start"
-export type NaosOverlayCloseReason =
-  | "disconnect"
-  | "escape"
-  | "interact-outside"
-  | "programmatic"
+export type NaosOverlayCloseReason = "disconnect" | "escape" | "interact-outside" | "programmatic"
 
 export type NaosOverlayState = {
   align?: NaosOverlayAlign | null
@@ -76,9 +72,7 @@ export function getNaosOverlayStateAttributes({
   }
 }
 
-export function getNaosOverlayGeometryStyle(
-  geometry: NaosOverlayGeometry
-): Record<string, string> {
+export function getNaosOverlayGeometryStyle(geometry: NaosOverlayGeometry): Record<string, string> {
   const style: Record<string, string> = {}
   setCssDimension(style, "--naos-anchor-width", geometry.anchorWidth)
   setCssDimension(style, "--naos-anchor-height", geometry.anchorHeight)
@@ -125,16 +119,13 @@ export function createNaosOverlayLayerStack() {
   }
 }
 
-export function shouldCloseNaosOverlayForKey(event: {
-  defaultPrevented?: boolean
-  key: string
-}) {
+export function shouldCloseNaosOverlayForKey(event: { defaultPrevented?: boolean; key: string }) {
   return event.key === "Escape" && event.defaultPrevented !== true
 }
 
 export function isNaosOverlayOutsideEventPath(
   path: readonly EventTarget[],
-  protectedTargets: readonly (EventTarget | null | undefined)[]
+  protectedTargets: readonly (EventTarget | null | undefined)[],
 ) {
   return protectedTargets.every((target) => target == null || !path.includes(target))
 }
@@ -147,19 +138,23 @@ export function listenForNaosOverlayEscape({
   target: EventTarget
 }) {
   const abort = new AbortController()
-  target.addEventListener("keydown", (event) => {
-    if (!(event instanceof KeyboardEvent)) return
-    if (!shouldCloseNaosOverlayForKey(event)) return
-    event.preventDefault()
-    onClose(event)
-  }, { signal: abort.signal })
+  target.addEventListener(
+    "keydown",
+    (event) => {
+      if (!(event instanceof KeyboardEvent)) return
+      if (!shouldCloseNaosOverlayForKey(event)) return
+      event.preventDefault()
+      onClose(event)
+    },
+    { signal: abort.signal },
+  )
   return () => abort.abort()
 }
 
 function setCssDimension(
   style: Record<string, string>,
   name: (typeof naosOverlayCssVariableNames)[number],
-  value: number | string | null | undefined
+  value: number | string | null | undefined,
 ) {
   if (value == null) return
   style[name] = typeof value === "number" ? `${value}px` : value

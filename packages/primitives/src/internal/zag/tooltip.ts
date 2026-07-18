@@ -1,8 +1,4 @@
-import {
-  connect,
-  machine as tooltipMachine,
-  type Api as ZagTooltipApi,
-} from "@zag-js/tooltip"
+import { connect, machine as tooltipMachine, type Api as ZagTooltipApi } from "@zag-js/tooltip"
 
 import { normalizeZagProps } from "./props.js"
 import { createZagScope } from "./scope.js"
@@ -56,15 +52,11 @@ export function createNaosZagTooltipService({
   })
 }
 
-export function getNaosZagTooltipApi(
-  service: NaosZagTooltipService | null
-): ZagTooltipApi | null {
+export function getNaosZagTooltipApi(service: NaosZagTooltipService | null): ZagTooltipApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagTooltipService(
-  service: NaosZagTooltipService | null
-) {
+export function stopNaosZagTooltipService(service: NaosZagTooltipService | null) {
   service?.stop()
 }

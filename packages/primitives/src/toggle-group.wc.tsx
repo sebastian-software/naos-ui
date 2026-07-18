@@ -64,19 +64,21 @@ export function NaosToggleGroup({
   void name
 
   onConnected(() => {
-    toggleGroupService.set(createNaosZagToggleGroupService({
-      disabled,
-      host: host().element,
-      id: "naos-toggle-group",
-      multiple,
-      onValueChange(nextValue) {
-        selected.set(nextValue)
-        changed.emit({ value: nextValue })
-      },
-      orientation,
-      root: host().root,
-      value: selected(),
-    }))
+    toggleGroupService.set(
+      createNaosZagToggleGroupService({
+        disabled,
+        host: host().element,
+        id: "naos-toggle-group",
+        multiple,
+        onValueChange(nextValue) {
+          selected.set(nextValue)
+          changed.emit({ value: nextValue })
+        },
+        orientation,
+        root: host().root,
+        value: selected(),
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagToggleGroupService(toggleGroupService())

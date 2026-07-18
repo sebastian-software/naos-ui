@@ -45,7 +45,7 @@ export function NaosSelect({
   const selectService = state<NaosZagSelectService | null>(null)
   const selectApi = computed(() => getNaosZagSelectApi(selectService()))
   const selectedLabel = computed(() =>
-    selected() ? labelForNaosSelectValue(host().element, selected()) : ""
+    selected() ? labelForNaosSelectValue(host().element, selected()) : "",
   )
   const changed = event<{ value: string }>("naos-change")
   const opened = event<{ open: boolean }>("naos-open-change")
@@ -62,23 +62,25 @@ export function NaosSelect({
 
   onConnected(() => {
     const hostElement = host().element
-    selectService.set(createNaosZagSelectService({
-      disabled,
-      host: hostElement,
-      id: "naos-select",
-      items: collectNaosSelectItems(hostElement),
-      name,
-      onOpenChange(nextOpen) {
-        open.set(nextOpen)
-        opened.emit({ open: nextOpen })
-      },
-      onValueChange(nextValue) {
-        selected.set(nextValue)
-        changed.emit({ value: nextValue })
-      },
-      root: host().root,
-      value: selected(),
-    }))
+    selectService.set(
+      createNaosZagSelectService({
+        disabled,
+        host: hostElement,
+        id: "naos-select",
+        items: collectNaosSelectItems(hostElement),
+        name,
+        onOpenChange(nextOpen) {
+          open.set(nextOpen)
+          opened.emit({ open: nextOpen })
+        },
+        onValueChange(nextValue) {
+          selected.set(nextValue)
+          changed.emit({ value: nextValue })
+        },
+        root: host().root,
+        value: selected(),
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagSelectService(selectService())
@@ -116,9 +118,7 @@ export function NaosSelect({
           part="trigger"
           data-state={open() ? "open" : "closed"}
         >
-          <span part="value">
-            {selectedLabel() || placeholder}
-          </span>
+          <span part="value">{selectedLabel() || placeholder}</span>
           <span {...(selectApi()?.getIndicatorProps() ?? {})} part="indicator">
             v
           </span>

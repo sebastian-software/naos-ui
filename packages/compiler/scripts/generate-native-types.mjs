@@ -112,7 +112,7 @@ if (mode === "check") {
   const existing = readFileSync(outputPath, "utf8")
   if (existing !== source) {
     console.error(
-      "Generated native type declarations are out of date. Run `pnpm --filter @naos-ui/compiler generate-native-types`."
+      "Generated native type declarations are out of date. Run `pnpm --filter @naos-ui/compiler generate-native-types`.",
     )
     process.exit(1)
   }

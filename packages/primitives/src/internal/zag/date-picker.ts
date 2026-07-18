@@ -138,14 +138,12 @@ export function createNaosZagDatePickerService({
 }
 
 export function getNaosZagDatePickerApi(
-  service: NaosZagDatePickerService | null
+  service: NaosZagDatePickerService | null,
 ): ZagDatePickerApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagDatePickerService(
-  service: NaosZagDatePickerService | null
-) {
+export function stopNaosZagDatePickerService(service: NaosZagDatePickerService | null) {
   service?.stop()
 }

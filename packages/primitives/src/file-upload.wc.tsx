@@ -59,36 +59,38 @@ export function NaosFileUpload({
   void name
 
   onConnected(() => {
-    fileUploadService.set(createNaosZagFileUploadService({
-      accept,
-      disabled,
-      host: host().element,
-      id: "naos-file-upload",
-      maxFiles,
-      multiple,
-      name,
-      onFileChange(details) {
-        const rejectedNames = details.rejectedFiles.map((item) => item.file.name)
+    fileUploadService.set(
+      createNaosZagFileUploadService({
+        accept,
+        disabled,
+        host: host().element,
+        id: "naos-file-upload",
+        maxFiles,
+        multiple,
+        name,
+        onFileChange(details) {
+          const rejectedNames = details.rejectedFiles.map((item) => item.file.name)
 
-        changed.emit({
-          files: fileUploadFileNames(details.acceptedFiles),
-          rejectedFiles: rejectedNames,
-        })
-        queueMicrotask(() => {
-          files.set(details.acceptedFiles)
-          rejected.set(rejectedNames)
-        })
-      },
-      onFileReject(details) {
-        const rejectedNames = details.files.map((item) => item.file.name)
+          changed.emit({
+            files: fileUploadFileNames(details.acceptedFiles),
+            rejectedFiles: rejectedNames,
+          })
+          queueMicrotask(() => {
+            files.set(details.acceptedFiles)
+            rejected.set(rejectedNames)
+          })
+        },
+        onFileReject(details) {
+          const rejectedNames = details.files.map((item) => item.file.name)
 
-        rejectedEvent.emit({ files: rejectedNames })
-        queueMicrotask(() => {
-          rejected.set(rejectedNames)
-        })
-      },
-      root: host().root,
-    }))
+          rejectedEvent.emit({ files: rejectedNames })
+          queueMicrotask(() => {
+            rejected.set(rejectedNames)
+          })
+        },
+        root: host().root,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagFileUploadService(fileUploadService())
@@ -130,10 +132,7 @@ export function NaosFileUpload({
             <span {...(fileUploadApi()?.getItemNameProps({ file }) ?? {})} part="item-name">
               {file.name}
             </span>
-            <span
-              {...(fileUploadApi()?.getItemSizeTextProps({ file }) ?? {})}
-              part="item-size"
-            >
+            <span {...(fileUploadApi()?.getItemSizeTextProps({ file }) ?? {})} part="item-size">
               {fileUploadApi()?.getFileSize(file) ?? `${file.size} B`}
             </span>
             <button

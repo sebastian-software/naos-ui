@@ -15,26 +15,31 @@ import {
 
 type MessagesQuery = FunctionReference<"query", "public", { channel: string }, string[]>
 const messagesQuery = makeFunctionReference<"query", { channel: string }, string[]>("messages:list")
-const createMessageMutation = makeFunctionReference<
-  "mutation",
-  { body: string },
-  { id: string }
->("messages:create")
-const summarizeAction = makeFunctionReference<"action", { body: string }, string>("messages:summarize")
+const createMessageMutation = makeFunctionReference<"mutation", { body: string }, { id: string }>(
+  "messages:create",
+)
+const summarizeAction = makeFunctionReference<"action", { body: string }, string>(
+  "messages:summarize",
+)
 
 describe("convexResource", () => {
   it("uses stable Convex query keys", () => {
     expect(convexQueryKey(messagesQuery, { channel: "general" })).toBe(
-      convexQueryKey(messagesQuery, { channel: "general" })
+      convexQueryKey(messagesQuery, { channel: "general" }),
     )
     expect(convexQueryKey(messagesQuery, { channel: "general" })).not.toBe(
-      convexQueryKey(messagesQuery, { channel: "random" })
+      convexQueryKey(messagesQuery, { channel: "random" }),
     )
   })
 
   it("subscribes to Convex query updates", () => {
     const client = new FakeConvexClient()
-    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new NaosResourceCache() })
+    const resource = convexResource(
+      client,
+      messagesQuery,
+      { channel: "general" },
+      { cache: new NaosResourceCache() },
+    )
 
     expect(resource.snapshot()).toEqual({ status: "pending" })
 
@@ -45,14 +50,24 @@ describe("convexResource", () => {
 
   it("uses the current Convex value immediately when available", () => {
     const client = new FakeConvexClient(["cached"])
-    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new NaosResourceCache() })
+    const resource = convexResource(
+      client,
+      messagesQuery,
+      { channel: "general" },
+      { cache: new NaosResourceCache() },
+    )
 
     expect(resource.snapshot()).toEqual({ data: ["cached"], status: "success" })
   })
 
   it("stores Convex query errors in resource state", () => {
     const client = new FakeConvexClient(["cached"])
-    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new NaosResourceCache() })
+    const resource = convexResource(
+      client,
+      messagesQuery,
+      { channel: "general" },
+      { cache: new NaosResourceCache() },
+    )
     const error = new Error("query failed")
 
     client.emitError(error)
@@ -62,7 +77,12 @@ describe("convexResource", () => {
 
   it("unsubscribes when disposed", () => {
     const client = new FakeConvexClient()
-    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache: new NaosResourceCache() })
+    const resource = convexResource(
+      client,
+      messagesQuery,
+      { channel: "general" },
+      { cache: new NaosResourceCache() },
+    )
 
     expect(client.listenerCount()).toBe(1)
 
@@ -73,7 +93,9 @@ describe("convexResource", () => {
 
   it("does not subscribe when args are skipped", () => {
     const client = new FakeConvexClient()
-    const resource = convexResource(client, messagesQuery, "skip", { cache: new NaosResourceCache() })
+    const resource = convexResource(client, messagesQuery, "skip", {
+      cache: new NaosResourceCache(),
+    })
 
     expect(client.listenerCount()).toBe(0)
     expect(resource.snapshot()).toEqual({ status: "pending" })
@@ -86,7 +108,11 @@ describe("convexMutation and convexAction", () => {
     const createMessage = convexMutation(client, createMessageMutation)
 
     await expect(createMessage({ body: "hello" })).resolves.toEqual({ id: "m1" })
-    expect(client.mutation).toHaveBeenCalledWith(createMessageMutation, { body: "hello" }, undefined)
+    expect(client.mutation).toHaveBeenCalledWith(
+      createMessageMutation,
+      { body: "hello" },
+      undefined,
+    )
   })
 
   it("wraps Convex actions", async () => {
@@ -107,7 +133,7 @@ describe("convexMutation and convexAction", () => {
     client.mutation.mockReturnValueOnce(
       new Promise((resolve) => {
         resolveMutation = resolve
-      })
+      }),
     )
 
     const createMessage = convexMutation<typeof createMessageMutation, string[]>(
@@ -119,7 +145,7 @@ describe("convexMutation and convexAction", () => {
           key: ["convex", "messages:list", { channel: "general" }],
           optimisticData: (current, args) => [...(current ?? []), args.body],
         },
-      }
+      },
     )
 
     const pendingMutation = createMessage({ body: "hello" })
@@ -152,7 +178,7 @@ describe("convexMutation and convexAction", () => {
           key: ["convex", "messages:list", { channel: "general" }],
           optimisticData: (current, args) => [...(current ?? []), args.body],
         },
-      }
+      },
     )
 
     await expect(createMessage({ body: "hello" })).rejects.toThrow("rejected")
@@ -182,14 +208,14 @@ class FakeConvexClient {
   readonly mutation = vi.fn(
     async <Mutation extends FunctionReference<"mutation">>(
       _mutation: Mutation,
-      _args: FunctionArgs<Mutation>
-    ) => ({ id: "m1" }) as Awaited<FunctionReturnType<Mutation>>
+      _args: FunctionArgs<Mutation>,
+    ) => ({ id: "m1" }) as Awaited<FunctionReturnType<Mutation>>,
   )
   readonly action = vi.fn(
     async <Action extends FunctionReference<"action">>(
       _action: Action,
-      _args: FunctionArgs<Action>
-    ) => "summary" as Awaited<FunctionReturnType<Action>>
+      _args: FunctionArgs<Action>,
+    ) => "summary" as Awaited<FunctionReturnType<Action>>,
   )
 
   #connectionState = disconnectedState
@@ -205,7 +231,7 @@ class FakeConvexClient {
     _query: MessagesQuery,
     _args: { channel: string },
     callback: (result: string[]) => unknown,
-    onError?: (error: Error) => unknown
+    onError?: (error: Error) => unknown,
   ): NaosConvexUnsubscribe<string[]> {
     const listener: Listener = { callback, onError }
     this.#listeners.add(listener)

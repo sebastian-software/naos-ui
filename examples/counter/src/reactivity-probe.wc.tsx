@@ -59,11 +59,9 @@ export function ReactivityProbe() {
         onClick={() => {
           primary.set(primary() + 1)
           const primaryNode = host().root.querySelector("[data-probe-primary]")
-          document.body.dataset.probeBeforeFlush =
-            primaryNode?.textContent ?? ""
+          document.body.dataset.probeBeforeFlush = primaryNode?.textContent ?? ""
           host().flushSync()
-          document.body.dataset.probeAfterFlush =
-            primaryNode?.textContent ?? ""
+          document.body.dataset.probeAfterFlush = primaryNode?.textContent ?? ""
         }}
       >
         Flush
@@ -99,11 +97,10 @@ export function ReactivityProbe() {
           signal.addEventListener(
             "abort",
             () => {
-              const aborts =
-                Number(document.body.dataset.probeEventAbortCount ?? "0") + 1
+              const aborts = Number(document.body.dataset.probeEventAbortCount ?? "0") + 1
               document.body.dataset.probeEventAbortCount = String(aborts)
             },
-            { once: true }
+            { once: true },
           )
           await new Promise((resolve) => setTimeout(resolve, 50))
           document.body.dataset.probeEventSignalAborted = String(signal.aborted)
@@ -119,22 +116,18 @@ export function ReactivityProbe() {
         onClick={async () => {
           primary.set(primary() + 1)
           const updateSignal = await host().update()
-          document.body.dataset.probeUpdateSignalAborted = String(
-            updateSignal.aborted
-          )
+          document.body.dataset.probeUpdateSignalAborted = String(updateSignal.aborted)
           updateSignal.addEventListener(
             "abort",
             () => {
-              const aborts =
-                Number(document.body.dataset.probeUpdateAbortCount ?? "0") + 1
+              const aborts = Number(document.body.dataset.probeUpdateAbortCount ?? "0") + 1
               document.body.dataset.probeUpdateAbortCount = String(aborts)
             },
-            { once: true }
+            { once: true },
           )
           host().queueTask(() => {
             const primaryNode = host().root.querySelector("[data-probe-primary]")
-            document.body.dataset.probeQueuedTaskPrimary =
-              primaryNode?.textContent ?? ""
+            document.body.dataset.probeQueuedTaskPrimary = primaryNode?.textContent ?? ""
           })
         }}
       >
@@ -143,23 +136,20 @@ export function ReactivityProbe() {
       <div
         onClick={() => {
           const order = document.body.dataset.probeEventOptionsOrder
-          document.body.dataset.probeEventOptionsOrder = order
-            ? `${order},bubble`
-            : "bubble"
+          document.body.dataset.probeEventOptionsOrder = order ? `${order},bubble` : "bubble"
         }}
       >
         <button
           data-probe-event-options-button
-          onClick={on((event) => {
-            event.preventDefault()
-            const order = document.body.dataset.probeEventOptionsOrder
-            document.body.dataset.probeEventOptionsOrder = order
-              ? `${order},capture`
-              : "capture"
-            document.body.dataset.probePassiveDefaultPrevented = String(
-              event.defaultPrevented
-            )
-          }, { capture: true, passive: true, once: true })}
+          onClick={on(
+            (event) => {
+              event.preventDefault()
+              const order = document.body.dataset.probeEventOptionsOrder
+              document.body.dataset.probeEventOptionsOrder = order ? `${order},capture` : "capture"
+              document.body.dataset.probePassiveDefaultPrevented = String(event.defaultPrevented)
+            },
+            { capture: true, passive: true, once: true },
+          )}
         >
           Event options
         </button>

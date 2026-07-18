@@ -11,7 +11,7 @@ export const saveNoteAction = formAction(
           clearTimeout(timer)
           reject(new DOMException("Save aborted.", "AbortError"))
         },
-        { once: true }
+        { once: true },
       )
     })
     if (note === "boom") {
@@ -19,5 +19,5 @@ export const saveNoteAction = formAction(
     }
     return [...notes, note]
   },
-  [] as readonly string[]
+  [] as readonly string[],
 )
