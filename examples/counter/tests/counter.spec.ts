@@ -652,6 +652,42 @@ test("compiled elements accept host-provided css custom properties", async ({
   await expect(toggle.locator("button")).toHaveCSS("background-color", "rgb(204, 251, 241)")
 })
 
+test("compiled instances share one constructable stylesheet without per-instance style nodes", async ({
+  page,
+}) => {
+  // The index page is client-side mounted. DSD-hydrated instances keep the
+  // template <style> fallback instead of adopting the shared sheet, so the
+  // existingSharesSheet assertion must not move to a prerendered page.
+  await page.goto("/")
+
+  const probe = await page.evaluate(() => {
+    const first = document.createElement("demo-counter")
+    const second = document.createElement("demo-counter")
+    document.body.append(first, second)
+    const firstSheets = first.shadowRoot?.adoptedStyleSheets ?? []
+    const secondSheets = second.shadowRoot?.adoptedStyleSheets ?? []
+    const existing = document.querySelector("#counter-case demo-counter")
+    const result = {
+      existingSharesSheet:
+        existing?.shadowRoot?.adoptedStyleSheets[0] === firstSheets[0],
+      sheetCounts: [firstSheets.length, secondSheets.length],
+      sheetsShared: firstSheets[0] !== undefined && firstSheets[0] === secondSheets[0],
+      styleNodeCounts: [
+        first.shadowRoot?.querySelectorAll("style").length,
+        second.shadowRoot?.querySelectorAll("style").length,
+      ],
+    }
+    first.remove()
+    second.remove()
+    return result
+  })
+
+  expect(probe.sheetsShared).toBe(true)
+  expect(probe.existingSharesSheet).toBe(true)
+  expect(probe.sheetCounts).toEqual([1, 1])
+  expect(probe.styleNodeCounts).toEqual([0, 0])
+})
+
 test("router package mounts Custom Element routes from normal anchors", async ({
   page,
 }) => {

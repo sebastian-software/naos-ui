@@ -2334,8 +2334,17 @@ mod tests {
                 .code
                 .contains("import css from \"./button.css?inline\";")
         );
-        assert!(result.code.contains("style.textContent"));
-        assert!(result.code.contains("[css].join(\"\\n\")"));
+        assert!(result.code.contains("new CSSStyleSheet()"));
+        assert!(
+            result
+                .code
+                .contains("__naosComponentStyleSheet.replaceSync([css].join(\"\\n\"))")
+        );
+        assert!(
+            result
+                .code
+                .contains("this.#root.adoptedStyleSheets = [__naosComponentStyles()]")
+        );
         assert!(result.code.contains("document.createElement(\"slot\")"));
         assert!(result.code.contains("setAttribute(\"name\", \"icon\")"));
         assert!(result.code.contains("setAttribute(\"part\", \"button\")"));
@@ -2614,7 +2623,14 @@ mod tests {
             &result.code,
             "bubbles: true, composed: true, cancelable: false",
         );
-        assert_contains(&result.code, "style.textContent = [css].join(\"\\n\");");
+        assert_contains(
+            &result.code,
+            "__naosComponentStyleSheet.replaceSync([css].join(\"\\n\"));",
+        );
+        assert_contains(
+            &result.code,
+            "this.#root.adoptedStyleSheets = [__naosComponentStyles()];",
+        );
     }
 
     #[test]

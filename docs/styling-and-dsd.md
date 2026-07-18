@@ -18,7 +18,36 @@ export const options = {
 ```
 
 Naos treats CSS as flat text. There is no Naos CSS graph, CSS Modules
-contract, Sass contract, or constructable stylesheet contract in v0.1.
+contract, or Sass contract in v0.1.
+
+## Style Injection
+
+Each compiled component module builds one shared `CSSStyleSheet` from its
+`styles` entries, lazily on first mount, and every client-mounted instance
+adopts that sheet via `shadowRoot.adoptedStyleSheets`. The browser parses the
+CSS once per component class instead of once per instance, so many-instance
+scenarios (lists, tables) do not multiply parsed-style memory or recalc cost,
+and no per-instance `<style>` elements are created.
+
+Prerendered Declarative Shadow DOM keeps serializing styles as an inline
+`<style>` element inside the `<template shadowrootmode="open">`, because
+constructable stylesheets cannot be expressed in static HTML. Hydrated
+instances keep that `<style>` fallback; if hydration fails and the component
+remounts imperatively, the remount adopts the shared sheet like any
+client-side mount.
+
+Constructable stylesheets do not process `@import` rules — `replaceSync()`
+treats them as parse errors and skips them. Vite's `?inline` pipeline resolves
+CSS imports at build time, so bundled component CSS is unaffected, but raw
+style strings must not rely on `@import url(...)`; inline the imported rules
+instead.
+
+`shadow: false` cannot be combined with `styles`: the public v0.1 API rejects
+any `shadow` option at compile time with `NAOS_UNSUPPORTED_COMPONENT_OPTIONS`,
+so component styles are never dropped silently. Internally the light-DOM
+code path adopts the shared sheet into the element's root node (document or
+enclosing shadow root, deduplicated by sheet identity) for the same
+never-drop guarantee.
 
 ## Theming Boundary
 
