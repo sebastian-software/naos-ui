@@ -103,6 +103,16 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
         this.error(`Naos transform failed in ${filename}: ${message}`)
       }
     },
+    handleHotUpdate(context) {
+      if (!filter(stripQuery(context.file))) {
+        return
+      }
+
+      // Custom element tags cannot be re-registered, so an edited component
+      // module can only take effect through a full page reload.
+      context.server.hot.send({ type: "full-reload" })
+      return []
+    },
     generateBundle() {
       if (!manifestFile || manifest.size === 0) {
         return

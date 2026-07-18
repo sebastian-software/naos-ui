@@ -107,6 +107,12 @@ naos({
 })
 ```
 
+In dev mode, saving a `.wc.tsx` file triggers a full page reload rather than
+hot module replacement. The browser's custom element registry does not allow
+re-registering a tag name, so existing instances cannot be upgraded in place;
+the plugin reloads the page so the edited definition takes effect
+predictably. Files outside the plugin filter keep Vite's normal HMR behavior.
+
 The Vite plugin emits `naos-manifest.json` for every normal build. The manifest
 records the package identity, stable tag names, source paths, and whether a
 component also received Declarative Shadow DOM output.

@@ -69,6 +69,11 @@ The default plugin filter transforms `.wc.tsx` files and excludes
 `node_modules`. Vite owns the module graph, chunks, assets, CSS imports, and
 cache invalidation.
 
+During `vite dev`, editing a `.wc.tsx` file triggers a full page reload
+instead of hot module replacement. Custom element tags cannot be
+re-registered under the same name, so a reload is the only way an edited
+component definition can take effect.
+
 ## Write A Component
 
 Create `src/counter.wc.tsx`:
