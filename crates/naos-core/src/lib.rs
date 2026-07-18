@@ -37,7 +37,7 @@ pub fn core_version() -> &'static str {
 mod tests {
     use super::{
         AttributeValue, CompilerResult, ComponentModule, DeclarativeShadowDomRenderResult,
-        DiagnosticSeverity, DiagnosticSpan, PackageContext, StateKind, TemplateAttribute,
+        DiagnosticSeverity, DiagnosticSpan, PackageContext, PropKind, StateKind, TemplateAttribute,
         TemplateChild, TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
         core_version, location_for_span,
     };
@@ -49,8 +49,8 @@ mod tests {
     };
     use crate::error::{
         DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED, DIAGNOSTIC_CODE_DSD_INPUT,
-        DIAGNOSTIC_CODE_REMOVED_AUTHORING_API, DIAGNOSTIC_CODE_TEMPLATE_PARSE,
-        DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
+        DIAGNOSTIC_CODE_PROP_TYPE_MISMATCH, DIAGNOSTIC_CODE_REMOVED_AUTHORING_API,
+        DIAGNOSTIC_CODE_TEMPLATE_PARSE, DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
         DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
         DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER,
         DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER, DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
@@ -673,6 +673,164 @@ mod tests {
         assert_eq!(module.computed[0].local_name, "doubled");
         assert_eq!(module.effects.len(), 1);
         assert_eq!(module.options.styles, vec!["\":host { display: block; }\""]);
+    }
+
+    #[test]
+    fn analyze_component_module_should_derive_prop_kinds_from_type_annotations() {
+        let source = r#"
+            type CardProps = {
+              readonly disabled?: boolean;
+              count?: number;
+              title?: string;
+              items?: string[];
+              config?: { deep: boolean };
+              tone?: "info" | "warn";
+            };
+
+            export function Card({ disabled, count, title = "Card", items = [], config, tone }: CardProps = {}) {
+              return <section>{title}</section>;
+            }
+        "#;
+
+        let module = match analyze_component_module(source, "card.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+
+        let kinds: Vec<(&str, PropKind)> = module
+            .props
+            .iter()
+            .map(|prop| (prop.prop_name.as_str(), prop.kind))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                ("disabled", PropKind::Boolean),
+                ("count", PropKind::Number),
+                ("title", PropKind::String),
+                ("items", PropKind::Rich),
+                ("config", PropKind::Rich),
+                ("tone", PropKind::String),
+            ]
+        );
+        assert_eq!(module.props[0].default_value, "false");
+        assert_eq!(module.props[1].default_value, "0");
+        assert_eq!(module.props[4].default_value, "undefined");
+    }
+
+    #[test]
+    fn analyze_component_module_should_derive_prop_kinds_from_inline_and_interface_types() {
+        let inline = r#"
+            export function Flag({ active }: { active?: boolean } = {}) {
+              return <span>{active}</span>;
+            }
+        "#;
+        let module = match analyze_component_module(inline, "flag.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+        assert_eq!(module.props[0].kind, PropKind::Boolean);
+
+        let interface = r#"
+            interface PanelProps {
+              rows?: number[];
+              open?: boolean;
+            }
+
+            export function Panel({ rows, open }: PanelProps = {}) {
+              return <span>{open}</span>;
+            }
+        "#;
+        let module = match analyze_component_module(interface, "panel.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+        assert_eq!(module.props[0].kind, PropKind::Rich);
+        assert_eq!(module.props[1].kind, PropKind::Boolean);
+    }
+
+    #[test]
+    fn analyze_component_module_should_resolve_annotations_at_word_boundaries() {
+        // `typeWidgetProps` and `WidgetPropsExtra` are identifier decoys; the
+        // real declaration follows both. `readonly_value` keeps its full name,
+        // and inline comments must not corrupt member types.
+        let source = r#"
+            const typeWidgetProps = { count: 5 };
+
+            type WidgetPropsExtra = {
+              other?: number;
+            };
+
+            type WidgetProps = {
+              readonly_value?: boolean;
+              readonly tone?: string; // trailing comment
+              /* block */ level?: number;
+            };
+
+            export function Widget({ readonly_value, tone, level }: WidgetProps = {}) {
+              return <span data-tone={tone}>{level}</span>;
+            }
+        "#;
+
+        let module = match analyze_component_module(source, "widget.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+
+        let kinds: Vec<(&str, PropKind)> = module
+            .props
+            .iter()
+            .map(|prop| (prop.prop_name.as_str(), prop.kind))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                ("readonly_value", PropKind::Boolean),
+                ("tone", PropKind::String),
+                ("level", PropKind::Number),
+            ]
+        );
+    }
+
+    #[test]
+    fn analyze_component_module_should_reject_prop_type_default_conflicts() {
+        let source = r#"
+            export function Broken({ count = "many" }: { count?: number } = {}) {
+              return <span>{count}</span>;
+            }
+        "#;
+
+        let error = analyze_component_module(source, "broken.wc.tsx")
+            .expect_err("conflicting prop type and default should not compile");
+        let diagnostics = error.diagnostics_with_source("broken.wc.tsx", Some(source));
+        assert_eq!(diagnostics[0].code, DIAGNOSTIC_CODE_PROP_TYPE_MISMATCH);
+        assert!(diagnostics[0].message.contains("count"));
+    }
+
+    #[test]
+    fn generated_rich_props_should_stay_property_only() {
+        let source = r#"
+            type ListProps = {
+              items?: string[];
+              dense?: boolean;
+            };
+
+            export function List({ items = [], dense }: ListProps = {}) {
+              return <ul data-dense={dense}>{items.length}</ul>;
+            }
+        "#;
+
+        let result = match transform_component_module(source, "list.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert_contains(&result.code, "return [\"dense\"];");
+        assert!(!result.code.contains("case \"items\":"));
+        assert_contains(&result.code, "set items(value) {");
+        assert!(!result.code.contains("setAttribute(\"items\""));
+        assert_contains(&result.code, "case \"dense\":");
+        assert_contains(&result.code, "newValue !== null");
     }
 
     #[test]

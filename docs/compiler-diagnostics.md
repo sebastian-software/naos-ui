@@ -39,6 +39,7 @@ overlay shows a clickable location with a code frame
 | `NAOS_REMOVED_AUTHORING_API` | Removed v0.1 APIs such as `component()`, `signal()`, `prop()`, or `useHost()` were used. | Use the v0.1 function component authoring API. |
 | `NAOS_UNSUPPORTED_COMPONENT_OPTIONS` | Component options used public fields outside `styles`. | Use `export const options = { styles: [...] } satisfies ComponentOptions`. |
 | `NAOS_UNSUPPORTED_FUNCTION_PROPS` | Function props used unsupported destructuring such as rest props. | Declare explicit destructured props with defaults. |
+| `NAOS_PROP_TYPE_MISMATCH` | A prop's TypeScript annotation and its default literal disagree (for example `count: number` defaulted to a string). | Align the annotation and the default literal; string, boolean, and number reflect to attributes while other types stay property-only. |
 | `NAOS_UNSUPPORTED_COMPUTED_CALLBACK` | `computed()` did not use the supported arrow-expression callback form. | Check the v0.1 authoring limitations. |
 | `NAOS_UNSUPPORTED_EFFECT_CALLBACK` | `effect()` did not use the supported arrow callback shape. | Check the v0.1 authoring limitations. |
 | `NAOS_UNSUPPORTED_FACTORY_RENDER` | A component returned a JSX-producing render callback such as `return () => <button />`. | Return a single JSX template from the component setup function. |
