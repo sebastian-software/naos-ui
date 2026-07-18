@@ -539,11 +539,17 @@ dispatch native CustomEvents.</code></pre>
             <a
               data-router-to="/products/:id"
               data-naos-active-match="prefix"
+              data-naos-prefetch="hover"
               href="./products/42?tab=details"
             >
               Product
             </a>
-            <a data-router-to="/settings" data-naos-active-match="exact" href="./settings">
+            <a
+              data-router-to="/settings"
+              data-naos-active-match="exact"
+              data-naos-view-transition
+              href="./settings"
+            >
               Settings
             </a>
             <a data-router-to="/missing" data-naos-active-match="exact" href="./missing">

@@ -128,8 +128,19 @@ export type NaosRouterOptions<Routes extends readonly NaosRoute[]> = {
   readonly notFound?: NaosFallbackRoute
   readonly error?: NaosFallbackRoute
   readonly outlet: Element
+  /**
+   * Milliseconds a prefetched loader result stays reusable by the next
+   * navigation to the same URL. `0` disables loader-data caching so
+   * `prefetch()` only warms route modules. Defaults to 30 seconds.
+   */
+  readonly prefetchTtl?: number
   readonly routes: Routes
   readonly scrollRestoration?: boolean | NaosScrollRestorationOptions
+}
+
+export type NaosViewTransitionState = {
+  readonly navigation: NaosNavigation
+  readonly url: URL
 }
 
 export type NaosRouterEventMap<Routes extends readonly NaosRoute[]> = {
@@ -165,6 +176,14 @@ export type NaosRouterEventMap<Routes extends readonly NaosRoute[]> = {
   "naos:routechange": {
     readonly match: NaosRouteMatch<Routes[number]>
     readonly navigation: NaosNavigation
+  }
+  "naos:viewtransitionstart": {
+    readonly navigation: NaosNavigation
+    readonly url: URL
+  }
+  "naos:viewtransitionend": {
+    readonly navigation: NaosNavigation
+    readonly url: URL
   }
 }
 
@@ -249,10 +268,20 @@ const ROUTER_EVENT_NAMES = new Set<string>([
   "naos:navigationerror",
   "naos:navigationstart",
   "naos:routechange",
+  "naos:viewtransitionstart",
+  "naos:viewtransitionend",
 ])
 
 const MAX_REDIRECTS = 10
 const SCROLL_STATE_KEY = "__naosScrollKey"
+const DEFAULT_PREFETCH_TTL = 30_000
+
+type PrefetchEntry = {
+  readonly controller: AbortController
+  readonly promise: Promise<unknown>
+  expiresAt: number
+  settled: boolean
+}
 
 // The mapped signature infers each route's path literal so loaders, actions,
 // and match callbacks get typed params contextually. Elements widen to
@@ -291,6 +320,11 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   #notFound: NaosFallbackRoute | null
   #error: NaosFallbackRoute | null
   #platform: RouterPlatform
+  #prefetchCache = new Map<string, PrefetchEntry>()
+  #prefetchObserver: IntersectionObserver | null = null
+  #prefetchMutationObserver: MutationObserver | null = null
+  #prefetchTtl: number
+  #activeViewTransition: NaosViewTransitionState | null = null
   #previousNativeScrollRestoration: History["scrollRestoration"] | null = null
   #scrollKeyId = 0
   #scrollPositions = new Map<string, NaosScrollPosition>()
@@ -306,6 +340,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     this.#notFound = options.notFound ?? null
     this.#error = options.error ?? null
     this.#platform = options.platform ?? defaultPlatform()
+    this.#prefetchTtl = options.prefetchTtl ?? DEFAULT_PREFETCH_TTL
     this.#focusRestoration = normalizeFocusRestoration(options.focusRestoration)
     this.#scrollRestoration = normalizeScrollRestoration(options.scrollRestoration)
     this.#matchers = options.routes.map((route) => ({
@@ -318,12 +353,19 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     return this.#currentMatch
   }
 
+  get activeViewTransition(): NaosViewTransitionState | null {
+    return this.#activeViewTransition
+  }
+
   start(): void {
     if (this.#started) return
     this.#started = true
     this.#linkRoot?.addEventListener("click", this.#onClick)
     this.#linkRoot?.addEventListener("submit", this.#onSubmit)
+    this.#linkRoot?.addEventListener("pointerover", this.#onPointerOver)
+    this.#linkRoot?.addEventListener("focusin", this.#onFocusIn)
     this.#platform.addEventListener("popstate", this.#onPopState)
+    this.#startViewportPrefetch()
     this.#startNativeScrollRestoration()
     void this.#navigateToUrl(this.#currentUrl(), {
       focus: false,
@@ -339,8 +381,13 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     this.#started = false
     this.#linkRoot?.removeEventListener("click", this.#onClick)
     this.#linkRoot?.removeEventListener("submit", this.#onSubmit)
+    this.#linkRoot?.removeEventListener("pointerover", this.#onPointerOver)
+    this.#linkRoot?.removeEventListener("focusin", this.#onFocusIn)
     this.#platform.removeEventListener("popstate", this.#onPopState)
+    this.#stopViewportPrefetch()
     this.#stopNativeScrollRestoration()
+    this.#abortPrefetches(null)
+    this.#prefetchCache.clear()
     this.#activeController?.abort()
     this.#activeController = null
     this.#activeNavigation = null
@@ -399,15 +446,72 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     const url = this.#resolveUrl(to)
     const matched = this.#findRoute(url)
     if (!matched) return
-    const navigation = this.#createNavigation(url, "load")
-    await this.#loadRoute(matched.route, navigation)
-    await this.#runLoader(matched.route, {
-      route: matched.route as Routes[number],
+
+    const controller = new AbortController()
+    const navigation: NaosNavigation = {
+      id: this.#navigationId,
       url,
-      params: matched.params,
-      search: url.searchParams,
-      navigation,
-    })
+      from: this.#currentMatch?.url ?? null,
+      type: "load",
+      signal: controller.signal,
+    }
+    await this.#loadRoute(matched.route, navigation)
+
+    if (!matched.route.loader || this.#prefetchTtl <= 0) return
+    const existing = this.#prefetchCache.get(url.href)
+    if (existing && Date.now() < existing.expiresAt) {
+      await existing.promise
+      return
+    }
+
+    const promise = Promise.resolve(
+      this.#runLoader(matched.route, {
+        route: matched.route as Routes[number],
+        url,
+        params: matched.params,
+        search: url.searchParams,
+        navigation,
+      })
+    )
+    const entry: PrefetchEntry = {
+      controller,
+      promise,
+      expiresAt: Date.now() + this.#prefetchTtl,
+      settled: false,
+    }
+    this.#prefetchCache.set(url.href, entry)
+    promise.then(
+      () => {
+        entry.settled = true
+      },
+      () => {
+        entry.settled = true
+        if (this.#prefetchCache.get(url.href) === entry) {
+          this.#prefetchCache.delete(url.href)
+        }
+      }
+    )
+    await promise
+  }
+
+  #consumePrefetchedData(url: URL): Promise<unknown> | null {
+    const entry = this.#prefetchCache.get(url.href)
+    if (!entry) return null
+    this.#prefetchCache.delete(url.href)
+    if (Date.now() >= entry.expiresAt || entry.controller.signal.aborted) {
+      return null
+    }
+    return entry.promise
+  }
+
+  #abortPrefetches(except: URL | null): void {
+    for (const [href, entry] of this.#prefetchCache) {
+      if (except && href === except.href) continue
+      if (!entry.settled) {
+        entry.controller.abort()
+        this.#prefetchCache.delete(href)
+      }
+    }
   }
 
   submit(to: string | URL, options: NaosSubmitOptions = {}): Promise<NaosRouteMatch<Routes[number]> | null> {
@@ -491,6 +595,72 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     })
   }
 
+  #onPointerOver = (event: Event): void => {
+    this.#prefetchFromTrigger(event.target, "hover")
+  }
+
+  #onFocusIn = (event: Event): void => {
+    this.#prefetchFromTrigger(event.target, "focus")
+  }
+
+  #prefetchFromTrigger(target: EventTarget | null, trigger: "focus" | "hover" | "viewport"): void {
+    const anchor = findAnchor(target)
+    if (!anchor || anchor.getAttribute("data-naos-prefetch") !== trigger) return
+    if (!isRoutableAnchor(anchor)) return
+    const url = new URL(anchor.href, this.#currentUrl())
+    if (url.origin !== this.#currentUrl().origin || this.#toInternalPath(url) === null) return
+    // Prefetch is a passive warm-up: failures surface on real navigation.
+    void this.prefetch(url).catch(() => {})
+  }
+
+  #startViewportPrefetch(): void {
+    const root = this.#linkRoot
+    if (
+      !root ||
+      typeof root.querySelectorAll !== "function" ||
+      typeof IntersectionObserver === "undefined"
+    ) {
+      return
+    }
+
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        observer.unobserve(entry.target)
+        this.#prefetchFromTrigger(entry.target, "viewport")
+      }
+    })
+    this.#prefetchObserver = observer
+
+    const observeWithin = (node: ParentNode) => {
+      for (const anchor of node.querySelectorAll('a[data-naos-prefetch="viewport"]')) {
+        observer.observe(anchor)
+      }
+    }
+    observeWithin(root)
+
+    if (typeof MutationObserver !== "undefined" && root instanceof Node) {
+      const mutationObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          for (const added of mutation.addedNodes) {
+            if (!(added instanceof Element)) continue
+            if (added.matches('a[data-naos-prefetch="viewport"]')) observer.observe(added)
+            observeWithin(added)
+          }
+        }
+      })
+      mutationObserver.observe(root, { childList: true, subtree: true })
+      this.#prefetchMutationObserver = mutationObserver
+    }
+  }
+
+  #stopViewportPrefetch(): void {
+    this.#prefetchObserver?.disconnect()
+    this.#prefetchObserver = null
+    this.#prefetchMutationObserver?.disconnect()
+    this.#prefetchMutationObserver = null
+  }
+
   #onPopState = (): void => {
     void this.#navigateToUrl(this.#currentUrl(), {
       focus: true,
@@ -533,6 +703,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     this.#activeController = controller
     this.#activeNavigation = navigation
     this.#dispatchRouterEvent("naos:navigationstart", { navigation })
+    this.#abortPrefetches(url)
 
     try {
       const matched = this.#findRoute(url)
@@ -569,7 +740,8 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
       await this.#loadRoute(route, navigation)
       if (!this.#isCurrent(navigation)) return null
 
-      const data = await this.#runLoader(route, matchWithoutData)
+      const prefetched = matched ? this.#consumePrefetchedData(url) : null
+      const data = prefetched ? await prefetched : await this.#runLoader(route, matchWithoutData)
       if (!this.#isCurrent(navigation)) return null
 
       const match = { ...matchWithoutData, data } satisfies NaosRouteMatch<Routes[number]>
@@ -598,6 +770,13 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
           search: url.searchParams,
           navigation,
         } satisfies NaosRouteMatch<Routes[number]>
+        // The URL advances exactly like a successful navigation so the address
+        // bar, reload, and back/forward reflect the URL whose load failed.
+        if (options.history === "push") {
+          this.#platform.history.pushState(this.#historyStateFor(url, navigation, "push"), "", url)
+        } else if (options.history === "replace") {
+          this.#platform.history.replaceState(this.#historyStateFor(url, navigation, "replace"), "", url)
+        }
         await this.#commit(match, this.#error, {
           focus: options.focus,
           scroll: options.scroll,
@@ -737,6 +916,14 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
           search: url.searchParams,
           navigation,
         } satisfies NaosRouteMatch<Routes[number]>
+        // Failed actions advance the URL with the same push/replace rules as
+        // successful ones so the error view is reload- and deep-link-stable.
+        const currentUrl = this.#currentUrl()
+        if (options.replace) {
+          this.#platform.history.replaceState(this.#historyStateFor(url, navigation, "replace"), "", url)
+        } else if (currentUrl.href !== url.href) {
+          this.#platform.history.pushState(this.#historyStateFor(url, navigation, "push"), "", url)
+        }
         await this.#commit(match, this.#error, {
           focus: options.focus,
           scroll: options.scroll,
@@ -775,9 +962,26 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     }
 
     const documentWithTransitions = this.#platform.document as ViewTransitionDocument
-    if (options.viewTransition && typeof documentWithTransitions.startViewTransition === "function") {
-      const transition = documentWithTransitions.startViewTransition(commit)
-      await transition.finished
+    if (
+      options.viewTransition &&
+      typeof documentWithTransitions.startViewTransition === "function" &&
+      !prefersReducedMotion(this.#platform.document)
+    ) {
+      this.#activeViewTransition = { navigation: match.navigation, url: match.url }
+      this.#dispatchRouterEvent("naos:viewtransitionstart", {
+        navigation: match.navigation,
+        url: match.url,
+      })
+      try {
+        const transition = documentWithTransitions.startViewTransition(commit)
+        await transition.finished?.catch(() => {})
+      } finally {
+        this.#activeViewTransition = null
+        this.#dispatchRouterEvent("naos:viewtransitionend", {
+          navigation: match.navigation,
+          url: match.url,
+        })
+      }
     } else {
       commit()
     }
@@ -1059,6 +1263,16 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     const key = this.#createScrollKey(url, null)
     this.#platform.history.replaceState(addScrollKeyToState(this.#platform.history.state, key), "", url)
     return key
+  }
+}
+
+function prefersReducedMotion(document: Document): boolean {
+  const matchMedia = document.defaultView?.matchMedia
+  if (typeof matchMedia !== "function") return false
+  try {
+    return matchMedia.call(document.defaultView, "(prefers-reduced-motion: reduce)").matches
+  } catch {
+    return false
   }
 }
 

@@ -72,7 +72,48 @@ native fragment navigation.
 Route events are dispatched from the router and the outlet:
 `naos:navigationstart`, `naos:navigationcommit`, `naos:navigationabort`,
 `naos:navigationerror`, `naos:routechange`, `naos:actionstart`,
-`naos:actioncommit`, and `naos:actionerror`.
+`naos:actioncommit`, `naos:actionerror`, `naos:viewtransitionstart`, and
+`naos:viewtransitionend`.
+
+## Prefetch
+
+`router.prefetch(to)` warms both the route module (`load`) and the loader
+data. Loader results are cached per URL for `prefetchTtl` milliseconds
+(default 30 seconds; `0` restricts prefetch to module warming) and the next
+navigation to that URL consumes the cached result instead of re-running the
+loader. Prefetching never commits UI, an in-flight prefetch is aborted through
+its loader `AbortSignal` when a navigation to a different URL supersedes it,
+and a failed prefetch is dropped so the real navigation retries cleanly.
+
+Anchors opt into declarative prefetch with `data-naos-prefetch`:
+
+```html
+<a href="/products/42" data-naos-prefetch="hover">Product</a>
+<a href="/settings" data-naos-prefetch="focus">Settings</a>
+<a href="/reports" data-naos-prefetch="viewport">Reports</a>
+```
+
+`hover` prefetches on pointer hover, `focus` on keyboard focus, and
+`viewport` when the link scrolls into view (via `IntersectionObserver`;
+environments without the API skip viewport prefetch).
+
+## View Transitions
+
+`router.navigate(to, { viewTransition: true })` — or an anchor with
+`data-naos-view-transition` — wraps the route commit in
+`document.startViewTransition()`. While a transition runs,
+`router.activeViewTransition` exposes `{ navigation, url }` and the router
+dispatches `naos:viewtransitionstart` / `naos:viewtransitionend`. Browsers
+without the View Transition API and users preferring reduced motion
+(`prefers-reduced-motion: reduce`) navigate normally without animation.
+
+## Error Views and URLs
+
+When a loader or action throws and an `error` fallback route is configured,
+the URL advances with the same push/replace rules as a successful navigation
+before the error view commits. The address bar always reflects the URL whose
+load failed, so reloading reproduces the error state and back/forward stays
+consistent with what is on screen.
 
 The package is optional. It is not a dependency of generated Naos components,
 `@naos-ui/runtime`, or `@naos-ui/primitives`, and it does not depend on React,
