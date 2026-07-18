@@ -56,6 +56,8 @@ pub fn transform_component_module(
         export_name: module.export_name.clone(),
         shadow: module.options.shadow,
         style_imports: module.style_imports.clone(),
+        props: module.props.clone(),
+        events: module.events.clone(),
         package: module.package.clone(),
     })
 }

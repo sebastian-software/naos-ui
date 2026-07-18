@@ -26,6 +26,10 @@ export {
   type NaosManifestPackage,
 } from "./manifest.js"
 export {
+  renderNaosElementDeclaration,
+  type NaosElementDeclarationInput,
+} from "./element-declaration.js"
+export {
   normalizePackageName,
   resolveNaosPackageContext,
 } from "./package-context.js"
@@ -111,6 +115,10 @@ export type {
   NativeStyleImport,
   NativeTransformRequest,
 }
+export type {
+  NativeEventDefinition,
+  NativePropDefinition,
+} from "./generated/naos-node-types.js"
 
 export function getNativeInfo(): NativeInfo {
   return loadNativeBindings().getNativeInfo()

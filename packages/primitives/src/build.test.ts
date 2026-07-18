@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
+import ts from "typescript"
 
 const distRoot = join(import.meta.dirname, "..", "dist")
 const { version: packageVersion } = JSON.parse(
@@ -559,5 +560,67 @@ describe("@naos-ui/primitives build output", () => {
     expect(tabs).toContain("\"key-down\": \"keydown\"")
     expect(dropdown).not.toContain("addEventListener(\"key-down\"")
     expect(tabs).not.toContain("addEventListener(\"key-down\"")
+  })
+
+  it("ships element declarations with typed props, events, and tag names", () => {
+    const toggle = readFileSync(join(distRoot, "toggle.d.mts"), "utf8")
+
+    expect(toggle).toContain("export declare class NaosToggleElement extends HTMLElement {")
+    expect(toggle).toContain("pressed: boolean;")
+    expect(toggle).toContain("label: string;")
+    expect(toggle).toContain("\"naos-change\": CustomEvent<{ pressed: boolean }>;")
+    expect(toggle).toContain("\"naos-toggle\": NaosToggleElement;")
+  })
+
+  it("type-checks a consumer against the generated element declarations", () => {
+    const consumerPath = join(distRoot, "__type-probe.ts")
+    const consumerSource = `
+      const created = document.createElement("naos-toggle")
+      created.pressed = true
+      created.label = "Power"
+      created.addEventListener("naos-change", (event) => {
+        const pressed: boolean = event.detail.pressed
+        void pressed
+      })
+      // @ts-expect-error - pressed is a boolean prop
+      created.pressed = "yes"
+      // @ts-expect-error - label is a string prop
+      created.label = 5
+
+      const queried = document.querySelector("naos-toggle")
+      if (queried) {
+        const label: string = queried.label
+        void label
+      }
+    `
+
+    // index.d.mts only re-exports "./*.mjs" specifiers, which do not resolve
+    // in this bare compiler-API program; the element declarations are the
+    // files under test.
+    const declarationFiles = readdirSync(distRoot)
+      .filter((file) => file.endsWith(".d.mts") && file !== "index.d.mts")
+      .map((file) => join(distRoot, file))
+    const options: ts.CompilerOptions = {
+      lib: ["lib.dom.d.ts", "lib.es2023.d.ts"],
+      noEmit: true,
+      skipLibCheck: true,
+      strict: true,
+      target: ts.ScriptTarget.ES2023,
+    }
+    const host = ts.createCompilerHost(options)
+    const defaultReadFile = host.readFile.bind(host)
+    const defaultFileExists = host.fileExists.bind(host)
+    host.readFile = (fileName) =>
+      fileName === consumerPath ? consumerSource : defaultReadFile(fileName)
+    host.fileExists = (fileName) =>
+      fileName === consumerPath ? true : defaultFileExists(fileName)
+
+    const program = ts.createProgram([...declarationFiles, consumerPath], options, host)
+    const diagnostics = ts.getPreEmitDiagnostics(program)
+    const messages = diagnostics.map((diagnostic) =>
+      ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")
+    )
+
+    expect(messages).toEqual([])
   })
 })

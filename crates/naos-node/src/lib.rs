@@ -70,6 +70,28 @@ pub struct NativeStyleImport {
     pub source: String,
 }
 
+/// Public prop declaration captured by the compiler.
+#[napi(object)]
+pub struct NativePropDefinition {
+    /// Public prop (property) name.
+    pub prop_name: String,
+    /// Observed HTML attribute name for reflected kinds.
+    pub attribute_name: String,
+    /// Prop conversion kind: `string`, `boolean`, `number`, or `rich`.
+    pub kind: String,
+    /// Source text of the default value expression.
+    pub default_value: String,
+}
+
+/// Typed event declaration captured by the compiler.
+#[napi(object)]
+pub struct NativeEventDefinition {
+    /// Custom event name dispatched by the component.
+    pub event_name: String,
+    /// TypeScript detail type source, when provided.
+    pub detail_type: Option<String>,
+}
+
 /// Result returned by the native component transform workflow.
 #[napi(object)]
 pub struct NativeTransformResult {
@@ -89,12 +111,25 @@ pub struct NativeTransformResult {
     pub export_name: Option<String>,
     /// Whether the component renders into a shadow root.
     pub shadow: bool,
+    /// Public prop declarations for typed-element emission.
+    pub props: Vec<NativePropDefinition>,
+    /// Typed event declarations for typed-element emission.
+    pub events: Vec<NativeEventDefinition>,
     /// Package name that owns this component.
     pub package_name: String,
     /// Optional version of the package that owns this component.
     pub package_version: Option<String>,
     /// Custom Element prefix resolved for the package.
     pub tag_prefix: String,
+}
+
+fn native_prop_kind(kind: naos_core::PropKind) -> String {
+    match kind {
+        naos_core::PropKind::String => "string".to_owned(),
+        naos_core::PropKind::Boolean => "boolean".to_owned(),
+        naos_core::PropKind::Number => "number".to_owned(),
+        naos_core::PropKind::Rich => "rich".to_owned(),
+    }
 }
 
 impl From<naos_core::SourceMap> for NativeSourceMap {
@@ -184,6 +219,24 @@ pub fn transform_component(request: NativeTransformRequest) -> napi::Result<Nati
             class_name: result.class_name,
             export_name: result.export_name,
             shadow: result.shadow,
+            props: result
+                .props
+                .into_iter()
+                .map(|prop| NativePropDefinition {
+                    prop_name: prop.prop_name,
+                    attribute_name: prop.attribute_name,
+                    kind: native_prop_kind(prop.kind),
+                    default_value: prop.default_value,
+                })
+                .collect(),
+            events: result
+                .events
+                .into_iter()
+                .map(|event| NativeEventDefinition {
+                    event_name: event.event_name,
+                    detail_type: event.detail_type,
+                })
+                .collect(),
             package_name: result.package.name,
             package_version: result.package.version,
             tag_prefix: result.package.tag_prefix,

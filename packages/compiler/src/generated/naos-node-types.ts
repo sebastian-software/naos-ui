@@ -37,6 +37,22 @@ export interface NativeStyleImport {
   /** Import source specifier, including the `?inline` query. */
   source: string;
 }
+export interface NativePropDefinition {
+  /** Public prop (property) name. */
+  propName: string;
+  /** Observed HTML attribute name for reflected kinds. */
+  attributeName: string;
+  /** Prop conversion kind: `string`, `boolean`, `number`, or `rich`. */
+  kind: string;
+  /** Source text of the default value expression. */
+  defaultValue: string;
+}
+export interface NativeEventDefinition {
+  /** Custom event name dispatched by the component. */
+  eventName: string;
+  /** TypeScript detail type source, when provided. */
+  detailType?: string;
+}
 export interface NativeTransformResult {
   /** Generated JavaScript module source. */
   code: string;
@@ -54,6 +70,10 @@ export interface NativeTransformResult {
   exportName?: string;
   /** Whether the component renders into a shadow root. */
   shadow: boolean;
+  /** Public prop declarations for typed-element emission. */
+  props: Array<NativePropDefinition>;
+  /** Typed event declarations for typed-element emission. */
+  events: Array<NativeEventDefinition>;
   /** Package name that owns this component. */
   packageName: string;
   /** Optional version of the package that owns this component. */

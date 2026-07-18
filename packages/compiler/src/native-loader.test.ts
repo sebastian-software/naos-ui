@@ -30,6 +30,8 @@ function createBindings(): NativeBindings {
       packageName: "@naos-ui/test",
       shadow: true,
       styleImports: [],
+      props: [],
+      events: [],
       tagName: "x-counter",
       tagPrefix: "x",
     }),
