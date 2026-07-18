@@ -15,14 +15,14 @@ use crate::error::{
     CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
     DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
     DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH, DIAGNOSTIC_HINT_LISTS, DIAGNOSTIC_HINT_SHOW,
-    DIAGNOSTIC_HINT_SWITCH, dsd_input, unsupported, unsupported_with_code,
+    DIAGNOSTIC_HINT_SWITCH, dsd_input, unsupported, unsupported_at, unsupported_with_code_at,
 };
 use crate::model::{
     AttributeValue, ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult,
-    EffectDefinition, EventDefinition, FormControlDefinition, KeyedSelectorDefinition,
-    PackageContext, PropDefinition, PropKind, SourceMap, StateDefinition, TemplateAttribute,
-    TemplateChild, TemplateElement, TemplateList, TemplateListKey, TemplateListKind,
-    TemplateListMotion, TransformResult,
+    DiagnosticSpan, EffectDefinition, EventDefinition, FormControlDefinition,
+    KeyedSelectorDefinition, PackageContext, PropDefinition, PropKind, SourceMap, StateDefinition,
+    TemplateAttribute, TemplateChild, TemplateElement, TemplateList, TemplateListKey,
+    TemplateListKind, TemplateListMotion, TransformResult,
 };
 use crate::naming::{
     custom_element_tag_for_component, event_name_from_attribute, is_pascal_case_identifier,
@@ -254,7 +254,10 @@ impl<'a> CodeGenerator<'a> {
                 continue;
             }
             let AttributeValue::Expression(expression) = value else {
-                return Err(unsupported("JSX `ref` must use a braced value."));
+                return Err(unsupported_at(
+                    "JSX `ref` must use a braced value.",
+                    element.span,
+                ));
             };
             let expression = expression.trim();
             if is_identifier(expression) {
@@ -262,16 +265,20 @@ impl<'a> CodeGenerator<'a> {
                     .iter()
                     .any(|name| name == expression)
                 {
-                    return Err(unsupported(format!(
-                        "JSX ref variable `{expression}` conflicts with an existing component binding."
-                    )));
+                    return Err(unsupported_at(
+                        format!(
+                            "JSX ref variable `{expression}` conflicts with an existing component binding."
+                        ),
+                        element.span,
+                    ));
                 }
                 if !self.element_ref_names.iter().any(|name| name == expression) {
                     self.element_ref_names.push(expression.to_owned());
                 }
             } else if !is_ref_callback_expression(expression) {
-                return Err(unsupported(
+                return Err(unsupported_at(
                     "JSX `ref` supports an identifier variable or arrow-function callback.",
+                    element.span,
                 ));
             }
         }
@@ -1758,10 +1765,11 @@ impl<'a> CodeGenerator<'a> {
             return self.emit_switch_control(element);
         }
         if element.tag_name == "Match" {
-            return Err(unsupported_with_code(
+            return Err(unsupported_with_code_at(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
                 "<Match> can only be used as a direct child of <Switch>.",
                 DIAGNOSTIC_HINT_SWITCH,
+                element.span,
             ));
         }
         if element.tag_name == "For" {
@@ -1795,6 +1803,7 @@ impl<'a> CodeGenerator<'a> {
                 attribute,
                 is_component_element,
                 follows_spread,
+                element.span,
             )?;
             if matches!(attribute, TemplateAttribute::Spread { .. }) {
                 follows_spread = true;
@@ -1802,13 +1811,18 @@ impl<'a> CodeGenerator<'a> {
         }
 
         for child in &element.children {
-            self.emit_child(&variable, child)?;
+            self.emit_child(&variable, child, element.span)?;
         }
 
         Ok(variable)
     }
 
-    fn emit_child(&mut self, parent_variable: &str, child: &TemplateChild) -> CompilerResult<()> {
+    fn emit_child(
+        &mut self,
+        parent_variable: &str,
+        child: &TemplateChild,
+        parent_span: Option<DiagnosticSpan>,
+    ) -> CompilerResult<()> {
         match child {
             TemplateChild::Element(child_element) => {
                 let child_variable = self.emit_element(child_element)?;
@@ -1821,7 +1835,7 @@ impl<'a> CodeGenerator<'a> {
                     .push(format!("{parent_variable}.append({child_variable});"));
             }
             TemplateChild::Expression(expression) => {
-                self.emit_expression(parent_variable, expression)?;
+                self.emit_expression(parent_variable, expression, parent_span)?;
             }
             TemplateChild::Text(text) => {
                 self.emit_text(parent_variable, text);
@@ -1873,10 +1887,10 @@ impl<'a> CodeGenerator<'a> {
         ));
 
         for child in &element.children {
-            self.emit_child(&content_variable, child)?;
+            self.emit_child(&content_variable, child, element.span)?;
         }
         if let Some(fallback) = optional_attribute(element, "fallback") {
-            self.emit_show_fallback(&fallback_variable, fallback)?;
+            self.emit_show_fallback(&fallback_variable, fallback, element.span)?;
         }
 
         let condition_variable = format!("{field}When");
@@ -1897,16 +1911,18 @@ impl<'a> CodeGenerator<'a> {
         &mut self,
         fallback_variable: &str,
         attribute: &TemplateAttribute,
+        span: Option<DiagnosticSpan>,
     ) -> CompilerResult<()> {
         let TemplateAttribute::Named { value, .. } = attribute else {
-            return Err(unsupported(
+            return Err(unsupported_at(
                 "Show fallback does not support JSX spread attributes.",
+                span,
             ));
         };
         match value {
             AttributeValue::Expression(expression) => {
                 let trimmed = expression.trim();
-                self.emit_expression(fallback_variable, trimmed)?;
+                self.emit_expression(fallback_variable, trimmed, span)?;
             }
             AttributeValue::Element(fallback) => {
                 let fallback_child = self.emit_element(fallback)?;
@@ -1917,14 +1933,18 @@ impl<'a> CodeGenerator<'a> {
                 self.emit_text(fallback_variable, value);
             }
             AttributeValue::Boolean => {
-                return Err(unsupported_with_code(
+                return Err(unsupported_with_code_at(
                     DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
                     "Show fallback must have a value.",
                     DIAGNOSTIC_HINT_SHOW,
+                    span,
                 ));
             }
             AttributeValue::EventHandler(_) => {
-                return Err(unsupported("Show fallback cannot be an event handler."));
+                return Err(unsupported_at(
+                    "Show fallback cannot be an event handler.",
+                    span,
+                ));
             }
         }
         Ok(())
@@ -1964,7 +1984,7 @@ impl<'a> CodeGenerator<'a> {
             self.mount_lines
                 .push(format!("{variable}.append({branch_variable});"));
             for child in &switch_match.children {
-                self.emit_child(&branch_variable, child)?;
+                self.emit_child(&branch_variable, child, element.span)?;
             }
             branch_fields.push(branch_field);
         }
@@ -2277,6 +2297,7 @@ impl<'a> CodeGenerator<'a> {
                 is_component_element,
                 follows_spread,
                 build,
+                element.span,
             )?;
             if matches!(attribute, TemplateAttribute::Spread { .. }) {
                 follows_spread = true;
@@ -2292,10 +2313,11 @@ impl<'a> CodeGenerator<'a> {
                         .push(format!("{variable}.append({child_variable});"));
                 }
                 TemplateChild::List(_) => {
-                    return Err(unsupported_with_code(
+                    return Err(unsupported_with_code_at(
                         DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
                         "Nested dynamic lists are not supported in list row templates.",
                         DIAGNOSTIC_HINT_LISTS,
+                        element.span,
                     ));
                 }
                 TemplateChild::Expression(expression) => {
@@ -2352,13 +2374,15 @@ impl<'a> CodeGenerator<'a> {
         is_component_element: bool,
         follows_spread: bool,
         build: &mut ListRowBuild,
+        span: Option<DiagnosticSpan>,
     ) -> CompilerResult<()> {
         let (name, value) = match attribute {
             TemplateAttribute::Named { name, value } => (name, value),
             TemplateAttribute::Spread { expression } => {
                 if is_component_element {
-                    return Err(unsupported(
+                    return Err(unsupported_at(
                         "JSX spread attributes are supported only on native elements.",
+                        span,
                     ));
                 }
                 self.uses_spread_attributes = true;
@@ -2378,16 +2402,20 @@ impl<'a> CodeGenerator<'a> {
             return Ok(());
         }
         if name == "ref" {
-            return Err(unsupported(
+            return Err(unsupported_at(
                 "JSX `ref` is not currently supported inside dynamic list row templates.",
+                span,
             ));
         }
         if let Some(event_name) = event_name_from_attribute(name) {
             let AttributeValue::EventHandler(event_handler) = value else {
-                return Err(unsupported(format!(
-                    "Event attribute `{}` must use a braced handler expression.",
-                    name
-                )));
+                return Err(unsupported_at(
+                    format!(
+                        "Event attribute `{}` must use a braced handler expression.",
+                        name
+                    ),
+                    span,
+                ));
             };
             let listener_property = format!("{variable}Listener{}", event_name.replace('-', "_"));
             let listener_abort_property = format!("{listener_property}Abort");
@@ -2495,13 +2523,15 @@ impl<'a> CodeGenerator<'a> {
                 );
             }
             AttributeValue::Element(_) => {
-                return Err(unsupported(
+                return Err(unsupported_at(
                     "JSX element attribute values are supported only for Show fallback.",
+                    span,
                 ));
             }
             AttributeValue::EventHandler(_) => {
-                return Err(unsupported(
+                return Err(unsupported_at(
                     "Event handlers must use an `on*` JSX attribute.",
+                    span,
                 ));
             }
         }
@@ -2512,9 +2542,10 @@ impl<'a> CodeGenerator<'a> {
         &mut self,
         field_reference: &str,
         value: &AttributeValue,
+        span: Option<DiagnosticSpan>,
     ) -> CompilerResult<()> {
         let AttributeValue::Expression(expression) = value else {
-            return Err(unsupported("JSX `ref` must use a braced value."));
+            return Err(unsupported_at("JSX `ref` must use a braced value.", span));
         };
         let expression = expression.trim();
         if is_identifier(expression) {
@@ -2523,8 +2554,9 @@ impl<'a> CodeGenerator<'a> {
             return Ok(());
         }
         if !is_ref_callback_expression(expression) {
-            return Err(unsupported(
+            return Err(unsupported_at(
                 "JSX `ref` supports an identifier variable or arrow-function callback.",
+                span,
             ));
         }
         self.ref_lines.push("{".to_owned());
@@ -2553,6 +2585,7 @@ impl<'a> CodeGenerator<'a> {
         custom_element_tag_for_component(component_name, &self.module.package)
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn emit_attribute(
         &mut self,
         variable: &str,
@@ -2561,13 +2594,15 @@ impl<'a> CodeGenerator<'a> {
         attribute: &TemplateAttribute,
         is_component_element: bool,
         follows_spread: bool,
+        span: Option<DiagnosticSpan>,
     ) -> CompilerResult<()> {
         let (name, value) = match attribute {
             TemplateAttribute::Named { name, value } => (name, value),
             TemplateAttribute::Spread { expression } => {
                 if is_component_element {
-                    return Err(unsupported(
+                    return Err(unsupported_at(
                         "JSX spread attributes are supported only on native elements.",
+                        span,
                     ));
                 }
                 self.uses_spread_attributes = true;
@@ -2586,15 +2621,18 @@ impl<'a> CodeGenerator<'a> {
             return Ok(());
         }
         if name == "ref" {
-            self.emit_ref_binding(field_reference, value)?;
+            self.emit_ref_binding(field_reference, value, span)?;
             return Ok(());
         }
         if let Some(event_name) = event_name_from_attribute(name) {
             let AttributeValue::EventHandler(event_handler) = value else {
-                return Err(unsupported(format!(
-                    "Event attribute `{}` must use a braced handler expression.",
-                    name
-                )));
+                return Err(unsupported_at(
+                    format!(
+                        "Event attribute `{}` must use a braced handler expression.",
+                        name
+                    ),
+                    span,
+                ));
             };
             let body = handler_body(&event_handler.handler_expression, "__naosEventSignal");
             let listener_abort_variable = format!(
@@ -2693,13 +2731,15 @@ impl<'a> CodeGenerator<'a> {
                 );
             }
             AttributeValue::Element(_) => {
-                return Err(unsupported(
+                return Err(unsupported_at(
                     "JSX element attribute values are supported only for Show fallback.",
+                    span,
                 ));
             }
             AttributeValue::EventHandler(_) => {
-                return Err(unsupported(
+                return Err(unsupported_at(
                     "Event handlers must use an `on*` JSX attribute.",
+                    span,
                 ));
             }
         }
@@ -2727,12 +2767,17 @@ impl<'a> CodeGenerator<'a> {
         );
     }
 
-    fn emit_expression(&mut self, parent_variable: &str, expression: &str) -> CompilerResult<()> {
+    fn emit_expression(
+        &mut self,
+        parent_variable: &str,
+        expression: &str,
+        span: Option<DiagnosticSpan>,
+    ) -> CompilerResult<()> {
         let trimmed = expression.trim();
         if trimmed.is_empty() {
             return Ok(());
         }
-        validate_child_expression(trimmed)?;
+        validate_child_expression(trimmed, span)?;
         let index = self.next_text_index;
         self.next_text_index += 1;
         let variable = format!("text{index}");
@@ -3246,10 +3291,11 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
             return self.render_switch_control(element);
         }
         if element.tag_name == "Match" {
-            return Err(unsupported_with_code(
+            return Err(unsupported_with_code_at(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
                 "<Match> can only be used as a direct child of <Switch>.",
                 DIAGNOSTIC_HINT_SWITCH,
+                element.span,
             ));
         }
         if element.tag_name == "For" {
@@ -3274,21 +3320,27 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
             output.push_str(" data-naos-root=\"\"");
         }
         for attribute in &element.attributes {
-            self.render_attribute(&mut output, attribute, is_component_element)?;
+            self.render_attribute(&mut output, attribute, is_component_element, element.span)?;
         }
         output.push('>');
         for child in &element.children {
-            output.push_str(&self.render_child(child)?);
+            output.push_str(&self.render_child(child, element.span)?);
         }
         write!(output, "</{tag_name}>").map_err(format_error)?;
         Ok(output)
     }
 
-    fn render_child(&mut self, child: &TemplateChild) -> CompilerResult<String> {
+    fn render_child(
+        &mut self,
+        child: &TemplateChild,
+        parent_span: Option<DiagnosticSpan>,
+    ) -> CompilerResult<String> {
         match child {
             TemplateChild::Element(element) => self.render_element(element, false),
             TemplateChild::List(_) => self.render_list_control(),
-            TemplateChild::Expression(expression) => self.render_expression_text(expression),
+            TemplateChild::Expression(expression) => {
+                self.render_expression_text(expression, parent_span)
+            }
             TemplateChild::Text(text) => self.render_text(text),
         }
     }
@@ -3298,11 +3350,13 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         output: &mut String,
         attribute: &TemplateAttribute,
         is_component_element: bool,
+        span: Option<DiagnosticSpan>,
     ) -> CompilerResult<()> {
         let TemplateAttribute::Named { name, value } = attribute else {
             if is_component_element {
-                return Err(unsupported(
+                return Err(unsupported_at(
                     "JSX spread attributes are supported only on native elements.",
+                    span,
                 ));
             }
             return Ok(());
@@ -3336,8 +3390,9 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
                 }
             }
             AttributeValue::Element(_) => {
-                return Err(unsupported(
+                return Err(unsupported_at(
                     "JSX element attribute values are supported only for Show fallback.",
+                    span,
                 ));
             }
             AttributeValue::EventHandler(_) => return Ok(()),
@@ -3362,12 +3417,16 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         Ok(self.text_marker(&value))
     }
 
-    fn render_expression_text(&mut self, expression: &str) -> CompilerResult<String> {
+    fn render_expression_text(
+        &mut self,
+        expression: &str,
+        span: Option<DiagnosticSpan>,
+    ) -> CompilerResult<String> {
         let trimmed = expression.trim();
         if trimmed.is_empty() {
             return Ok(String::new());
         }
-        validate_child_expression(trimmed)?;
+        validate_child_expression(trimmed, span)?;
         let value = evaluate_expression(trimmed, &self.context)
             .map(|value| value.to_text())
             .unwrap_or_default();
@@ -3395,7 +3454,7 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         )
         .map_err(format_error)?;
         for child in &element.children {
-            output.push_str(&self.render_child(child)?);
+            output.push_str(&self.render_child(child, element.span)?);
         }
         output.push_str("</span>");
         write!(
@@ -3406,33 +3465,40 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         )
         .map_err(format_error)?;
         if let Some(fallback) = optional_attribute(element, "fallback") {
-            output.push_str(&self.render_show_fallback(fallback)?);
+            output.push_str(&self.render_show_fallback(fallback, element.span)?);
         }
         output.push_str("</span></span>");
         Ok(output)
     }
 
-    fn render_show_fallback(&mut self, attribute: &TemplateAttribute) -> CompilerResult<String> {
+    fn render_show_fallback(
+        &mut self,
+        attribute: &TemplateAttribute,
+        span: Option<DiagnosticSpan>,
+    ) -> CompilerResult<String> {
         let TemplateAttribute::Named { value, .. } = attribute else {
-            return Err(unsupported(
+            return Err(unsupported_at(
                 "Show fallback does not support JSX spread attributes.",
+                span,
             ));
         };
         match value {
             AttributeValue::Expression(expression) => {
                 let trimmed = expression.trim();
-                self.render_expression_text(trimmed)
+                self.render_expression_text(trimmed, span)
             }
             AttributeValue::Element(fallback) => self.render_element(fallback, false),
             AttributeValue::Static(value) => Ok(self.text_marker(value)),
-            AttributeValue::Boolean => Err(unsupported_with_code(
+            AttributeValue::Boolean => Err(unsupported_with_code_at(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
                 "Show fallback must have a value.",
                 DIAGNOSTIC_HINT_SHOW,
+                span,
             )),
-            AttributeValue::EventHandler(_) => {
-                Err(unsupported("Show fallback cannot be an event handler."))
-            }
+            AttributeValue::EventHandler(_) => Err(unsupported_at(
+                "Show fallback cannot be an event handler.",
+                span,
+            )),
         }
     }
 
@@ -3473,7 +3539,7 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
             )
             .map_err(format_error)?;
             for child in &switch_match.children {
-                output.push_str(&self.render_child(child)?);
+                output.push_str(&self.render_child(child, element.span)?);
             }
             output.push_str("</span>");
         }
@@ -3992,22 +4058,28 @@ fn required_expression_attribute<'a>(
     name: &str,
 ) -> CompilerResult<&'a str> {
     let Some(attribute) = optional_attribute(element, name) else {
-        return Err(unsupported(format!(
-            "<{}> requires a `{name}` attribute.",
-            element.tag_name
-        )));
+        return Err(unsupported_at(
+            format!("<{}> requires a `{name}` attribute.", element.tag_name),
+            element.span,
+        ));
     };
     let TemplateAttribute::Named { value, .. } = attribute else {
-        return Err(unsupported(format!(
-            "<{}> attribute `{name}` must use a braced expression.",
-            element.tag_name
-        )));
+        return Err(unsupported_at(
+            format!(
+                "<{}> attribute `{name}` must use a braced expression.",
+                element.tag_name
+            ),
+            element.span,
+        ));
     };
     let AttributeValue::Expression(expression) = value else {
-        return Err(unsupported(format!(
-            "<{}> attribute `{name}` must use a braced expression.",
-            element.tag_name
-        )));
+        return Err(unsupported_at(
+            format!(
+                "<{}> attribute `{name}` must use a braced expression.",
+                element.tag_name
+            ),
+            element.span,
+        ));
     };
     Ok(expression)
 }
@@ -4071,10 +4143,11 @@ struct SwitchMatch {
 
 fn parse_switch_matches(element: &TemplateElement) -> CompilerResult<Vec<SwitchMatch>> {
     if !element.attributes.is_empty() {
-        return Err(unsupported_with_code(
+        return Err(unsupported_with_code_at(
             DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
             "<Switch> does not support attributes in this milestone.",
             DIAGNOSTIC_HINT_SWITCH,
+            element.span,
         ));
     }
 
@@ -4085,10 +4158,11 @@ fn parse_switch_matches(element: &TemplateElement) -> CompilerResult<Vec<SwitchM
             TemplateChild::Text(text) if text.trim().is_empty() => {}
             TemplateChild::Element(match_element) if match_element.tag_name == "Match" => {
                 if seen_default {
-                    return Err(unsupported_with_code(
+                    return Err(unsupported_with_code_at(
                         DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
                         "<Switch> default <Match> must be the last arm.",
                         DIAGNOSTIC_HINT_SWITCH,
+                        match_element.span,
                     ));
                 }
                 let when = parse_match_when(match_element)?;
@@ -4101,20 +4175,22 @@ fn parse_switch_matches(element: &TemplateElement) -> CompilerResult<Vec<SwitchM
                 });
             }
             _ => {
-                return Err(unsupported_with_code(
+                return Err(unsupported_with_code_at(
                     DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
                     "<Switch> children must be static <Match> elements.",
                     DIAGNOSTIC_HINT_SWITCH,
+                    element.span,
                 ));
             }
         }
     }
 
     if matches.is_empty() {
-        return Err(unsupported_with_code(
+        return Err(unsupported_with_code_at(
             DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
             "<Switch> requires at least one <Match> child.",
             DIAGNOSTIC_HINT_SWITCH,
+            element.span,
         ));
     }
 
@@ -4125,38 +4201,43 @@ fn parse_match_when(element: &TemplateElement) -> CompilerResult<Option<String>>
     let mut when = None;
     for attribute in &element.attributes {
         let TemplateAttribute::Named { name, value } = attribute else {
-            return Err(unsupported_with_code(
+            return Err(unsupported_with_code_at(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
                 "<Match> does not support JSX spread attributes.",
                 DIAGNOSTIC_HINT_SWITCH,
+                element.span,
             ));
         };
         if name != "when" {
-            return Err(unsupported_with_code(
+            return Err(unsupported_with_code_at(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
                 "<Match> supports only the optional `when` attribute.",
                 DIAGNOSTIC_HINT_SWITCH,
+                element.span,
             ));
         }
         if when.is_some() {
-            return Err(unsupported_with_code(
+            return Err(unsupported_with_code_at(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
                 "<Match> can declare `when` only once.",
                 DIAGNOSTIC_HINT_SWITCH,
+                element.span,
             ));
         }
         let AttributeValue::Expression(expression) = value else {
-            return Err(unsupported_with_code(
+            return Err(unsupported_with_code_at(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
                 "<Match> `when` must use a braced expression.",
                 DIAGNOSTIC_HINT_SWITCH,
+                element.span,
             ));
         };
         if expression.trim().is_empty() {
-            return Err(unsupported_with_code(
+            return Err(unsupported_with_code_at(
                 DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH,
                 "<Match> `when` must not be empty.",
                 DIAGNOSTIC_HINT_SWITCH,
+                element.span,
             ));
         }
         when = Some(expression.trim().to_owned());
@@ -4182,17 +4263,19 @@ fn list_renderer_child<'a>(
     expected_kind: impl FnOnce(&TemplateListKind) -> bool,
 ) -> CompilerResult<&'a ListRenderer> {
     let [TemplateChild::List(renderer)] = element.children.as_slice() else {
-        return Err(unsupported_with_code(
+        return Err(unsupported_with_code_at(
             DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             format!("{label} requires exactly one braced arrow-function child."),
             DIAGNOSTIC_HINT_LISTS,
+            element.span,
         ));
     };
     if !expected_kind(&renderer.kind) {
-        return Err(unsupported_with_code(
+        return Err(unsupported_with_code_at(
             DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             format!("{label} contains an invalid list reconciliation strategy."),
             DIAGNOSTIC_HINT_LISTS,
+            renderer.span,
         ));
     }
     Ok(renderer)
@@ -4264,26 +4347,29 @@ fn text_expression(text: &str) -> Option<String> {
     Some(expression)
 }
 
-fn validate_child_expression(expression: &str) -> CompilerResult<()> {
+fn validate_child_expression(expression: &str, span: Option<DiagnosticSpan>) -> CompilerResult<()> {
     if !contains_jsx_tag_start(expression) {
         return Ok(());
     }
     if expression.contains(".map(") {
-        return Err(unsupported_with_code(
+        return Err(unsupported_with_code_at(
             DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Unsupported JSX array mapping. Use items().map((item) => <Row key={item.id} />) with a JSX element expression body.",
             DIAGNOSTIC_HINT_LISTS,
+            span,
         ));
     }
     if expression.contains('?') || expression.contains("&&") || expression.contains("||") {
-        return Err(unsupported_with_code(
+        return Err(unsupported_with_code_at(
             DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
             "Conditional JSX expressions are not supported. Use explicit <Show> or <Switch>/<Match> control-flow primitives.",
             DIAGNOSTIC_HINT_SHOW,
+            span,
         ));
     }
-    Err(unsupported(
+    Err(unsupported_at(
         "JSX expression children are not supported outside explicit compiler primitives.",
+        span,
     ))
 }
 

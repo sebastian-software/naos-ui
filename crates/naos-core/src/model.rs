@@ -59,6 +59,8 @@ pub struct ComponentModule {
 pub struct TemplateElement {
     /// Element or component tag name.
     pub tag_name: String,
+    /// Source span of the authored JSX element, when known.
+    pub span: Option<DiagnosticSpan>,
     /// Authored attributes in source order.
     pub attributes: Vec<TemplateAttribute>,
     /// Authored child nodes in source order.
@@ -124,6 +126,8 @@ pub enum TemplateChild {
 pub struct TemplateList {
     /// Authored collection expression.
     pub each_expression: String,
+    /// Source span of the authored list expression, when known.
+    pub span: Option<DiagnosticSpan>,
     /// Callback item parameter name.
     pub item_name: String,
     /// Callback index parameter name.
@@ -344,6 +348,20 @@ pub struct DiagnosticSpan {
     pub end: usize,
 }
 
+/// One-based line/column source location resolved from a diagnostic span.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DiagnosticLocation {
+    /// One-based start line.
+    pub start_line: usize,
+    /// One-based start column, counted in Unicode scalar values.
+    pub start_column: usize,
+    /// One-based end line.
+    pub end_line: usize,
+    /// One-based end column, counted in Unicode scalar values.
+    pub end_column: usize,
+}
+
 /// Structured compiler diagnostic.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CompilerDiagnostic {
@@ -357,6 +375,8 @@ pub struct CompilerDiagnostic {
     pub filename: String,
     /// Optional UTF-8 source span.
     pub span: Option<DiagnosticSpan>,
+    /// Optional line/column location resolved from `span`.
+    pub loc: Option<DiagnosticLocation>,
     /// Optional remediation hint.
     pub hint: Option<String>,
 }

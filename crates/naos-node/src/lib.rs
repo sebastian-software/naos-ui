@@ -5,10 +5,10 @@ use napi_derive::napi;
 
 const DIAGNOSTIC_REASON_PREFIX: &str = "NAOS_COMPILER_DIAGNOSTICS:";
 
-fn to_napi_error(error: naos_core::CompilerError, filename: &str) -> napi::Error {
+fn to_napi_error(error: &naos_core::CompilerError, filename: &str, source: &str) -> napi::Error {
     let payload = serde_json::json!({
         "message": error.to_string(),
-        "diagnostics": error.diagnostics(filename),
+        "diagnostics": error.diagnostics_with_source(filename, Some(source)),
     });
     napi::Error::from_reason(format!("{DIAGNOSTIC_REASON_PREFIX}{payload}"))
 }
@@ -188,7 +188,7 @@ pub fn transform_component(request: NativeTransformRequest) -> napi::Result<Nati
             package_version: result.package.version,
             tag_prefix: result.package.tag_prefix,
         })
-        .map_err(|error| to_napi_error(error, &request.filename))
+        .map_err(|error| to_napi_error(&error, &request.filename, &request.source))
 }
 
 /// Prerenders an Naos component module as Declarative Shadow DOM host HTML.
@@ -225,5 +225,5 @@ pub fn render_declarative_shadow_dom(
         package_version: result.package.version,
         tag_prefix: result.package.tag_prefix,
     })
-    .map_err(|error| to_napi_error(error, &request.filename))
+    .map_err(|error| to_napi_error(&error, &request.filename, &request.source))
 }

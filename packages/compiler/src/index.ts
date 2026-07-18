@@ -41,12 +41,20 @@ export type NaosDiagnosticSpan = {
   end: number
 }
 
+export type NaosDiagnosticLocation = {
+  startLine: number
+  startColumn: number
+  endLine: number
+  endColumn: number
+}
+
 export type NaosDiagnostic = {
   code: string
   severity: NaosDiagnosticSeverity
   message: string
   filename: string
   span?: NaosDiagnosticSpan | null
+  loc?: NaosDiagnosticLocation | null
   hint?: string | null
 }
 
@@ -235,7 +243,18 @@ function isNaosDiagnostic(value: unknown): value is NaosDiagnostic {
     typeof value.message === "string" &&
     (severity === "error" || severity === "warning" || severity === "info") &&
     (value.hint === undefined || value.hint === null || typeof value.hint === "string") &&
-    (value.span === undefined || value.span === null || isNaosDiagnosticSpan(value.span))
+    (value.span === undefined || value.span === null || isNaosDiagnosticSpan(value.span)) &&
+    (value.loc === undefined || value.loc === null || isNaosDiagnosticLocation(value.loc))
+  )
+}
+
+function isNaosDiagnosticLocation(value: unknown): value is NaosDiagnosticLocation {
+  return (
+    isRecord(value) &&
+    typeof value.startLine === "number" &&
+    typeof value.startColumn === "number" &&
+    typeof value.endLine === "number" &&
+    typeof value.endColumn === "number"
   )
 }
 
@@ -251,4 +270,34 @@ function isNaosDiagnosticSpan(value: unknown): value is NaosDiagnosticSpan {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
+}
+
+const CODE_FRAME_CONTEXT_LINES = 2
+
+export function formatNaosCodeFrame(
+  source: string,
+  loc: NaosDiagnosticLocation
+): string {
+  const lines = source.split("\n")
+  const firstLine = Math.max(1, loc.startLine - CODE_FRAME_CONTEXT_LINES)
+  const lastLine = Math.min(lines.length, loc.startLine + CODE_FRAME_CONTEXT_LINES)
+  const gutterWidth = String(lastLine).length
+  const frame: string[] = []
+
+  for (let lineNumber = firstLine; lineNumber <= lastLine; lineNumber += 1) {
+    const text = lines[lineNumber - 1] ?? ""
+    const gutter = String(lineNumber).padStart(gutterWidth)
+    const marker = lineNumber === loc.startLine ? ">" : " "
+    frame.push(`${marker} ${gutter} | ${text}`)
+    if (lineNumber === loc.startLine) {
+      const caretCount =
+        loc.endLine === loc.startLine
+          ? Math.max(1, loc.endColumn - loc.startColumn)
+          : Math.max(1, text.length - (loc.startColumn - 1))
+      const padding = " ".repeat(loc.startColumn - 1)
+      frame.push(`  ${" ".repeat(gutterWidth)} | ${padding}${"^".repeat(caretCount)}`)
+    }
+  }
+
+  return frame.join("\n")
 }
