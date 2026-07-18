@@ -90,6 +90,8 @@ describe("naos", () => {
         code: `compiled:${request.filename}:${request.source}`,
         hasChanged: true,
         styleImports: [],
+        props: [],
+        events: [],
       }),
     })
 
@@ -136,6 +138,8 @@ describe("naos", () => {
           version: 3,
         },
         styleImports: [],
+        props: [],
+        events: [],
       }),
     })
 
@@ -269,6 +273,8 @@ describe("naos", () => {
         code: "compiled",
         hasChanged: true,
         styleImports: [],
+        props: [],
+        events: [],
       }),
     })
 
@@ -324,6 +330,8 @@ describe("naos", () => {
         code: "compiled",
         hasChanged: true,
         styleImports: [],
+        props: [],
+        events: [],
       }),
     })
 
@@ -386,6 +394,8 @@ describe("naos", () => {
           code: "compiled",
           hasChanged: true,
           styleImports: [{ localName: "css", source: "./counter.css?inline" }],
+          props: [],
+          events: [],
         }),
       })
 
@@ -430,6 +440,8 @@ describe("naos", () => {
           code: "compiled",
           hasChanged: true,
           styleImports: [{ localName: "css", source: "./counter.css?inline" }],
+          props: [],
+          events: [],
         }),
       })
 

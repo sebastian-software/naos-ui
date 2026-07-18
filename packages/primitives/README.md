@@ -88,3 +88,13 @@ outside-interaction classification, and layer stack ownership. Transient UI can
 use the package-private `presence` helper for entering/open/closing/closed
 phase attributes and animation-aware close teardown. They are intentionally not
 public exports.
+
+## Typed Elements
+
+Every primitive ships a generated declaration file next to its module: the
+element class with typed properties, typed `addEventListener` overloads for
+its `CustomEvent` payloads, and a global `HTMLElementTagNameMap` entry. In a
+TypeScript consumer, `document.createElement("naos-toggle")` and
+`querySelector("naos-toggle")` return `NaosToggleElement`, assigning a
+mistyped prop is a compile error, and `naos-change` listeners receive
+`CustomEvent<{ pressed: boolean }>`.

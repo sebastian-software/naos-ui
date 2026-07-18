@@ -419,6 +419,10 @@ pub struct TransformResult {
     pub export_name: Option<String>,
     /// Whether the component renders into a shadow root.
     pub shadow: bool,
+    /// Public prop declarations for typed-element emission.
+    pub props: Vec<PropDefinition>,
+    /// Typed event declarations for typed-element emission.
+    pub events: Vec<EventDefinition>,
     /// Package identity that owns this component.
     pub package: PackageContext,
 }

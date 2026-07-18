@@ -35,7 +35,14 @@ The following generated behavior is user-facing for v0.1:
 * explicit Declarative Shadow DOM prerendering emits host HTML with
   `<template shadowrootmode="open">`;
 * generated client classes reuse an existing declarative shadow root before
-  falling back to imperative `attachShadow()`.
+  falling back to imperative `attachShadow()`;
+* compiled components carry their prop and event metadata in the transform
+  result, and `renderNaosElementDeclaration()` turns it into a standalone
+  `.d.ts` module: the element class with typed properties (rich props surface
+  as `unknown`), typed `addEventListener`/`removeEventListener` overloads for
+  `event()` declarations, and a global `HTMLElementTagNameMap` entry so
+  `document.createElement`/`querySelector` return the typed element.
+  `@naos-ui/primitives` ships these generated typings for every primitive.
 
 ## Internal Details
 

@@ -831,6 +831,17 @@ mod tests {
         assert!(!result.code.contains("setAttribute(\"items\""));
         assert_contains(&result.code, "case \"dense\":");
         assert_contains(&result.code, "newValue !== null");
+
+        let props: Vec<(&str, PropKind)> = result
+            .props
+            .iter()
+            .map(|prop| (prop.prop_name.as_str(), prop.kind))
+            .collect();
+        assert_eq!(
+            props,
+            vec![("items", PropKind::Rich), ("dense", PropKind::Boolean)]
+        );
+        assert!(result.events.is_empty());
     }
 
     #[test]
