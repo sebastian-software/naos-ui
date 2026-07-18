@@ -8,6 +8,9 @@ ordinary same-origin anchors and explicit action forms, updates active link
 state, restores scroll and focus after route commits, emits route events, and
 cancels stale async navigations.
 
+**Stability: preview.** Pre-1.0; the route contract may change between minor
+versions.
+
 ```ts
 import { createRouter, defineRoutes, redirect } from "@naos-ui/router"
 

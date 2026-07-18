@@ -11,15 +11,32 @@ native packages are installed through `@naos-ui/compiler`.
 
 ## JavaScript Packages
 
-| Package | Purpose |
-| --- | --- |
-| `@naos-ui/core` | Public authoring types and primitives. |
-| `@naos-ui/runtime` | Tiny generated-code helper runtime. |
-| `@naos-ui/primitives` | Experimental Naos-authored primitive Web Components. |
-| `@naos-ui/router` | Optional platform router for Custom Element app shells. |
-| `@naos-ui/compiler` | Node boundary and native loader. |
-| `@naos-ui/vite` | Vite plugin. |
-| `@naos-ui/cli` | Minimal compile, prerender, and info binary. |
+| Package | Purpose | Stability |
+| --- | --- | --- |
+| `@naos-ui/core` | Public authoring types and primitives. | Preview |
+| `@naos-ui/runtime` | Tiny generated-code helper runtime. | Preview |
+| `@naos-ui/primitives` | Naos-authored primitive Web Components. | Experimental |
+| `@naos-ui/router` | Optional platform router for Custom Element app shells. | Preview |
+| `@naos-ui/data` | Platform-native data resources (fetch and subscriptions). | Experimental |
+| `@naos-ui/data-convex` | Optional Convex adapter for data resources. | Experimental |
+| `@naos-ui/motion` | Framework-free motion primitives and tokens. | Experimental |
+| `@naos-ui/compiler` | Node boundary and native loader. | Preview |
+| `@naos-ui/vite` | Vite plugin. | Preview |
+| `@naos-ui/cli` | Minimal compile, prerender, and info binary. | Preview |
+
+## Stability Tiers
+
+All packages are pre-1.0 and follow a shared expectation per tier:
+
+* **Preview** packages have a settled shape. Breaking changes are still
+  possible before 1.0, but they are deliberate, documented in release notes,
+  and avoided in patch releases.
+* **Experimental** packages are under active design. Their APIs may change in
+  any release while the underlying model is validated; pin exact versions if
+  you depend on them.
+
+No package is marked stable before 1.0. A tier applies to a package's
+documented public API; internal modules carry no compatibility expectation.
 
 ## Native Packages
 
