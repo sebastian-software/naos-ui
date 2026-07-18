@@ -801,6 +801,63 @@ describe("prefetch", () => {
     await prefetching
   })
 
+  it("runs the loader once for concurrent prefetches of the same URL", async () => {
+    const { loader, router } = setupLoaderRoute()
+
+    await Promise.all([
+      router.prefetch("/items/7"),
+      router.prefetch("/items/7"),
+      router.prefetch("/items/7"),
+    ])
+
+    expect(loader).toHaveBeenCalledTimes(1)
+  })
+
+  it("aborts a consumed in-flight prefetch when a later navigation supersedes it", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppConsumed extends HTMLElement {}
+    if (!customElements.get("app-consumed")) customElements.define("app-consumed", AppConsumed)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    let loaderSignal: AbortSignal | null = null
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        {
+          path: "/slow-data",
+          tag: "app-consumed",
+          loader({ navigation }) {
+            loaderSignal = navigation.signal
+            return new Promise((_resolve, reject) => {
+              navigation.signal.addEventListener(
+                "abort",
+                () => reject(new Error("Prefetch aborted.")),
+                { once: true }
+              )
+            })
+          },
+        },
+        { path: "/", tag: "app-consumed" },
+      ] as const),
+    })
+
+    const prefetching = router.prefetch("/slow-data").catch(() => {})
+    await waitForRouterWork()
+    expect(loaderSignal).not.toBeNull()
+
+    // Consume the in-flight prefetch, then navigate away before it settles.
+    const consuming = router.navigate("/slow-data")
+    await waitForRouterWork()
+    expect(loaderSignal!.aborted).toBe(false)
+
+    await router.navigate("/")
+    expect(loaderSignal!.aborted).toBe(true)
+    await expect(consuming).resolves.toBeNull()
+    await prefetching
+  })
+
   it("starts prefetch from hover and focus triggers without committing UI", async () => {
     document.body.innerHTML = `
       <section data-root>
@@ -952,6 +1009,25 @@ describe("error-view URL semantics", () => {
 
     expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-error-view")
     expect(new URL(platform.location.href).pathname).toBe("/broken")
+  })
+
+  it("yields to a navigation started by a navigationerror listener", async () => {
+    const { outlet, platform, router } = setupErrorRouter()
+    let recovery: Promise<unknown> = Promise.resolve()
+    router.addEventListener(
+      "naos:navigationerror",
+      () => {
+        recovery = router.navigate("/")
+      },
+      { once: true }
+    )
+
+    const errored = await router.navigate("/broken")
+    await recovery
+
+    expect(errored).toBeNull()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-error-page")
+    expect(new URL(platform.location.href).pathname).toBe("/")
   })
 })
 

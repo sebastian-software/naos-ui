@@ -447,6 +447,12 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     const matched = this.#findRoute(url)
     if (!matched) return
 
+    const fresh = this.#prefetchCache.get(url.href)
+    if (fresh && Date.now() < fresh.expiresAt) {
+      await fresh.promise
+      return
+    }
+
     const controller = new AbortController()
     const navigation: NaosNavigation = {
       id: this.#navigationId,
@@ -458,6 +464,9 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     await this.#loadRoute(matched.route, navigation)
 
     if (!matched.route.loader || this.#prefetchTtl <= 0) return
+    // Re-check after the module-load await. Rapid duplicate triggers that all
+    // suspended above resume one at a time; the first continuation runs the
+    // loader and writes the entry synchronously, so later ones dedup here.
     const existing = this.#prefetchCache.get(url.href)
     if (existing && Date.now() < existing.expiresAt) {
       await existing.promise
@@ -494,14 +503,14 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     await promise
   }
 
-  #consumePrefetchedData(url: URL): Promise<unknown> | null {
+  #consumePrefetchedData(url: URL): PrefetchEntry | null {
     const entry = this.#prefetchCache.get(url.href)
     if (!entry) return null
     this.#prefetchCache.delete(url.href)
     if (Date.now() >= entry.expiresAt || entry.controller.signal.aborted) {
       return null
     }
-    return entry.promise
+    return entry
   }
 
   #abortPrefetches(except: URL | null): void {
@@ -741,7 +750,16 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
       if (!this.#isCurrent(navigation)) return null
 
       const prefetched = matched ? this.#consumePrefetchedData(url) : null
-      const data = prefetched ? await prefetched : await this.#runLoader(route, matchWithoutData)
+      if (prefetched && !prefetched.settled) {
+        // A consumed prefetch keeps running on its own controller; forward the
+        // consuming navigation's abort so superseding navigations cancel it.
+        navigation.signal.addEventListener("abort", () => prefetched.controller.abort(), {
+          once: true,
+        })
+      }
+      const data = prefetched
+        ? await prefetched.promise
+        : await this.#runLoader(route, matchWithoutData)
       if (!this.#isCurrent(navigation)) return null
 
       const match = { ...matchWithoutData, data } satisfies NaosRouteMatch<Routes[number]>
@@ -761,6 +779,9 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     } catch (error) {
       if (!this.#isCurrent(navigation)) return null
       this.#dispatchRouterEvent("naos:navigationerror", { error, navigation })
+      // A navigationerror listener may start a new navigation synchronously;
+      // the errored one must not advance history or commit past it.
+      if (!this.#isCurrent(navigation)) return null
       if (this.#error) {
         const errorRoute = normalizeFallbackRoute(this.#error)
         const match = {
@@ -907,6 +928,9 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
       if (!this.#isCurrent(navigation)) return null
       this.#dispatchRouterEvent("naos:actionerror", { error, navigation, submission })
       this.#dispatchRouterEvent("naos:navigationerror", { error, navigation })
+      // Error listeners may start a new navigation synchronously; the errored
+      // action must not advance history or commit past it.
+      if (!this.#isCurrent(navigation)) return null
       if (this.#error) {
         const errorRoute = normalizeFallbackRoute(this.#error)
         const match = {
