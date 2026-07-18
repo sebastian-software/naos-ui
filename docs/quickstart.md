@@ -3,6 +3,23 @@
 This quickstart takes a new package consumer from install to a compiled Custom
 Element. Repository contributors should also run the local native build step.
 
+## Create a Project (fastest)
+
+The `create-naos` starter scaffolds a ready-to-run Vite project — tsconfig
+JSX settings, the Vite plugin, a sample component, and a primitives import
+are pre-wired:
+
+```sh
+npm create naos@latest my-app
+cd my-app
+pnpm install
+pnpm dev
+```
+
+The generated project builds with `pnpm build` and type-checks with
+`pnpm type-check`. The manual steps below show what the starter sets up, for
+adding Naos to an existing project.
+
 ## Install Packages
 
 ```sh

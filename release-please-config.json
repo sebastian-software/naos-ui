@@ -101,6 +101,11 @@
       "component": "actions",
       "package-name": "@naos-ui/actions",
       "release-type": "node"
+    },
+    "packages/create-naos": {
+      "component": "create-naos",
+      "package-name": "create-naos",
+      "release-type": "node"
     }
   }
 }

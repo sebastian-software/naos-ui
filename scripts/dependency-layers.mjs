@@ -18,6 +18,7 @@ export const outwardPackageNames = freeze([
   "@naos-ui/vite",
   "@naos-ui/cli",
   "@naos-ui/data-convex",
+  "create-naos",
 ])
 
 export const dependencyFields = freeze([

@@ -24,6 +24,7 @@ verified by `pnpm check-release-set`:
 | `@naos-ui/compiler` | `packages/compiler` |
 | `@naos-ui/vite` | `packages/vite` |
 | `@naos-ui/cli` | `packages/cli` |
+| `create-naos` | `packages/create-naos` |
 | `@naos-ui/compiler-linux-x64-gnu` | `packages/compiler-linux-x64-gnu` |
 | `@naos-ui/compiler-linux-arm64-gnu` | `packages/compiler-linux-arm64-gnu` |
 | `@naos-ui/compiler-linux-x64-musl` | `packages/compiler-linux-x64-musl` |

@@ -10,7 +10,9 @@ const root = resolve(__dirname, "..")
 const args = new Set(process.argv.slice(2))
 const keep = args.has("--keep")
 const smokePackageName = "naos-fresh-project-smoke"
-const smokeTagName = "naos-fresh-project-smoke-smoke-counter"
+// The project is scaffolded by create-naos, so the smoke component is the
+// starter template's counter.
+const smokeTagName = "app-counter"
 
 const thirdPartyVersions = {
   typescript: "^6.0.3",
@@ -49,9 +51,12 @@ try {
     return packed
   })
 
-  await phase("create temporary Vite project", async () => {
-    await mkdir(join(appDir, "src"), { recursive: true })
-    await writeProjectFiles(appDir, tarballs)
+  await phase("scaffold project with create-naos", async () => {
+    const { scaffoldNaosProject } = await import(
+      new URL(`file://${join(root, "packages", "create-naos", "dist", "index.mjs")}`).href
+    )
+    await scaffoldNaosProject(appDir)
+    await writeVerifierOverlay(appDir, tarballs)
   })
 
   await phase("install temporary project", async () => {
@@ -106,65 +111,34 @@ async function phase(name, action) {
   }
 }
 
-async function writeProjectFiles(projectDir, tarballs) {
-  const packageJson = {
-    name: smokePackageName,
-    private: true,
-    type: "module",
-    dependencies: {
-      ...Object.fromEntries(
-        javaScriptPackages.map(({ name }) => [name, fileSpec(tarballs.get(name))]),
-      ),
-      [currentNativePackageName()]: fileSpec(tarballs.get(currentNativePackageName())),
-      typescript: thirdPartyVersions.typescript,
-      vite: thirdPartyVersions.vite,
-    },
-    scripts: {
-      build: "vite build",
-      "check-native": "node verify-native.mjs",
-    },
+async function writeVerifierOverlay(projectDir, tarballs) {
+  // The scaffolded template declares registry versions; the verifier pins
+  // every public package to the freshly packed tarballs (also enforced via
+  // pnpm overrides) and adds the CLI plus the native binding for its extra
+  // checks.
+  const packageJsonPath = join(projectDir, "package.json")
+  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"))
+  packageJson.name = smokePackageName
+  packageJson.dependencies = {
+    ...packageJson.dependencies,
+    ...Object.fromEntries(
+      javaScriptPackages.map(({ name }) => [name, fileSpec(tarballs.get(name))]),
+    ),
+    [currentNativePackageName()]: fileSpec(tarballs.get(currentNativePackageName())),
+    typescript: thirdPartyVersions.typescript,
+    vite: thirdPartyVersions.vite,
   }
+  delete packageJson.devDependencies
+  packageJson.scripts = {
+    ...packageJson.scripts,
+    "check-native": "node verify-native.mjs",
+  }
+  await writeFile(packageJsonPath, `${JSON.stringify(packageJson, null, 2)}\n`)
 
-  await writeFile(join(projectDir, "package.json"), `${JSON.stringify(packageJson, null, 2)}\n`)
   await writeFile(join(projectDir, "pnpm-workspace.yaml"), pnpmWorkspaceYaml(tarballs))
   await writeFile(
-    join(projectDir, "tsconfig.json"),
-    `${JSON.stringify(
-      {
-        compilerOptions: {
-          jsx: "react-jsx",
-          jsxImportSource: "@naos-ui/core",
-          module: "ESNext",
-          moduleResolution: "Bundler",
-          strict: true,
-          target: "ES2022",
-          types: ["vite/client"],
-        },
-        include: ["src", "vite.config.ts"],
-      },
-      null,
-      2,
-    )}\n`,
-  )
-  await writeFile(
-    join(projectDir, "vite.config.ts"),
-    `import { defineConfig } from "vite"\nimport { naos } from "@naos-ui/vite"\n\nexport default defineConfig({\n  plugins: [naos()],\n})\n`,
-  )
-  await writeFile(
-    join(projectDir, "index.html"),
-    `<!doctype html>\n<html lang="en">\n  <head>\n    <meta charset="UTF-8" />\n    <meta name="viewport" content="width=device-width, initial-scale=1.0" />\n    <title>Naos fresh project smoke</title>\n  </head>\n  <body>\n    <${smokeTagName} label="Smoke"></${smokeTagName}>\n    <naos-button label="Primitive smoke" variant="primary"></naos-button>\n    <script type="module" src="/src/main.ts"></script>\n  </body>\n</html>\n`,
-  )
-  await writeFile(
-    join(projectDir, "src", "main.ts"),
-    `import "@naos-ui/primitives/button"\nimport "./smoke-counter.wc.tsx"\n\ndocument.addEventListener("change", (event) => {\n  if (event instanceof CustomEvent) {\n    document.body.dataset.lastChange = String(event.detail)\n  }\n})\n`,
-  )
-  await writeFile(
-    join(projectDir, "src", "smoke-counter.wc.tsx"),
-    `import { event, state } from "@naos-ui/core"\n\nexport type SmokeCounterProps = {\n  label?: string\n}\n\nexport function SmokeCounter({ label = "Smoke" }: SmokeCounterProps = {}) {\n  const count = state(0)\n  const change = event<number>("change")\n\n  return (\n    <button\n      part="button"\n      data-count={count()}\n      aria-label={\`\${label}: \${count()}\`}\n      onClick={() => {\n        count.set(count() + 1)\n        change.emit(count())\n      }}\n    >\n      {\`\${label}: \${count()}\`}\n    </button>\n  )\n}\n`,
-  )
-  await writeFile(
     join(projectDir, "verify-native.mjs"),
-    `import { getNativeInfo, transformComponent } from "@naos-ui/compiler"\n\nconst expectedTag = ${JSON.stringify(smokeTagName)}\nconst info = getNativeInfo()\nif (!info || typeof info.coreVersion !== "string") {\n  throw new Error("native compiler info did not expose a coreVersion")\n}\n\nconst source = await import("node:fs/promises").then((fs) => fs.readFile("src/smoke-counter.wc.tsx", "utf8"))\nconst result = transformComponent({ filename: "src/smoke-counter.wc.tsx", source })\nconst definition = "customElements.define(\\\"" + expectedTag + "\\\""\nif (result.tagName !== expectedTag || !result.code.includes(definition)) {\n  throw new Error(\`native compiler transform generated <\${result.tagName}> instead of <\${expectedTag}>\`)\n}\n`,
+    `import { getNativeInfo, transformComponent } from "@naos-ui/compiler"\n\nconst expectedTag = ${JSON.stringify(smokeTagName)}\nconst info = getNativeInfo()\nif (!info || typeof info.coreVersion !== "string") {\n  throw new Error("native compiler info did not expose a coreVersion")\n}\n\nconst source = await import("node:fs/promises").then((fs) => fs.readFile("src/app-counter.wc.tsx", "utf8"))\nconst result = transformComponent({ filename: "src/app-counter.wc.tsx", source })\nconst definition = "customElements.define(\\\"" + expectedTag + "\\\""\nif (result.tagName !== expectedTag || !result.code.includes(definition)) {\n  throw new Error(\`native compiler transform generated <\${result.tagName}> instead of <\${expectedTag}>\`)\n}\n`,
   )
 }
 

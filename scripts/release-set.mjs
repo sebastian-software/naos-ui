@@ -16,6 +16,7 @@ export const javaScriptPackages = Object.freeze([
   freezeRecord({ name: "@naos-ui/compiler", path: "packages/compiler" }),
   freezeRecord({ name: "@naos-ui/vite", path: "packages/vite" }),
   freezeRecord({ name: "@naos-ui/cli", path: "packages/cli" }),
+  freezeRecord({ name: "create-naos", path: "packages/create-naos" }),
 ])
 
 export const nativeTargets = Object.freeze([
