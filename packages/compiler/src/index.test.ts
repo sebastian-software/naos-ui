@@ -29,7 +29,7 @@ describe("@naos-ui/compiler wrapper", () => {
   it("forwards native info requests to the binding", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
-      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false, styleImports: [] }),
       renderDeclarativeShadowDom: () => ({
         ...nativeMetadata,
         html: "",
@@ -56,6 +56,7 @@ describe("@naos-ui/compiler wrapper", () => {
           sourcesContent: [request.source],
           version: 3,
         },
+        styleImports: [],
       }),
       renderDeclarativeShadowDom: () => ({
         ...nativeMetadata,
@@ -90,6 +91,7 @@ describe("@naos-ui/compiler wrapper", () => {
         version: packageVersion,
       },
       shadow: true,
+      styleImports: [],
       tagName: "naos-ui-compiler-counter",
     })
   })
@@ -140,7 +142,7 @@ describe("@naos-ui/compiler wrapper", () => {
   it("serializes prerender props and inline styles before forwarding DSD requests", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
-      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false, styleImports: [] }),
       renderDeclarativeShadowDom: (request) => ({
         ...nativeMetadata,
         html: `props:${request.propsJson};styles:${request.inlineStylesJson}`,

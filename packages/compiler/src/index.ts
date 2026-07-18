@@ -4,6 +4,7 @@ import type {
   NativeDeclarativeShadowDomResult,
   NativeInfo as GeneratedNativeInfo,
   NativeSourceMap,
+  NativeStyleImport,
   NativeTransformRequest,
   NativeTransformResult,
 } from "./generated/naos-node-types.js"
@@ -96,7 +97,12 @@ export type RenderDeclarativeShadowDomResult = Omit<
   NativeDeclarativeShadowDomResult,
   "packageName" | "packageVersion" | "tagPrefix"
 > & ComponentMetadata
-export type { NativeBindings, NativeDeclarativeShadowDomRequest, NativeTransformRequest }
+export type {
+  NativeBindings,
+  NativeDeclarativeShadowDomRequest,
+  NativeStyleImport,
+  NativeTransformRequest,
+}
 
 export function getNativeInfo(): NativeInfo {
   return loadNativeBindings().getNativeInfo()

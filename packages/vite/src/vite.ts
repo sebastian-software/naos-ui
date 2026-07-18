@@ -11,6 +11,7 @@ import {
   type NaosManifest,
   type NaosManifestComponent,
   type NaosManifestComponentInput,
+  type NativeStyleImport,
   type RenderDeclarativeShadowDomRequest,
   type RenderDeclarativeShadowDomResult,
 } from "@naos-ui/compiler"
@@ -74,7 +75,11 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
         })
 
         if (prerenderFilter?.(filename)) {
-          const inlineStyles = await resolveInlineStyles(code, filename)
+          const inlineStyles = await resolveInlineStyles(
+            result.styleImports,
+            filename,
+            (cssPath) => this.addWatchFile(cssPath)
+          )
           const prerendered = renderNaosDeclarativeShadowDom({
             filename,
             inlineStyles,
@@ -152,38 +157,21 @@ export function renderNaosDeclarativeShadowDom(
 }
 
 async function resolveInlineStyles(
-  source: string,
-  filename: string
+  styleImports: readonly NativeStyleImport[],
+  filename: string,
+  addWatchFile: (cssPath: string) => void
 ): Promise<Record<string, string> | undefined> {
-  const imports = inlineCssImports(source)
-  if (imports.length === 0) {
+  if (styleImports.length === 0) {
     return undefined
   }
 
   const inlineStyles: Record<string, string> = {}
-  for (const styleImport of imports) {
+  for (const styleImport of styleImports) {
     const cssPath = resolve(dirname(filename), stripQuery(styleImport.source))
+    addWatchFile(cssPath)
     inlineStyles[styleImport.localName] = await readFile(cssPath, "utf8")
   }
   return inlineStyles
-}
-
-type InlineCssImport = {
-  localName: string
-  source: string
-}
-
-function inlineCssImports(source: string): InlineCssImport[] {
-  const imports: InlineCssImport[] = []
-  const regex =
-    /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline(?:&[^"']*)?)["']/g
-  for (const match of source.matchAll(regex)) {
-    const [, localName, importSource] = match
-    if (localName && importSource) {
-      imports.push({ localName, source: importSource })
-    }
-  }
-  return imports
 }
 
 function stripQuery(id: string): string {

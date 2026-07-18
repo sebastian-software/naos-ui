@@ -67,7 +67,7 @@ describe("@naos-ui/cli", () => {
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
-      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false, styleImports: [] }),
     })
     const io = createIo()
 
@@ -89,7 +89,7 @@ describe("@naos-ui/cli", () => {
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
-      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false, styleImports: [] }),
     })
     const io = createIo()
 
@@ -132,6 +132,7 @@ describe("@naos-ui/cli", () => {
           ...nativeMetadata,
           code: `compiled:${request.filename}:${request.source}`,
           hasChanged: true,
+          styleImports: [],
         }),
       })
       const io = createIo(root)
@@ -170,6 +171,7 @@ describe("@naos-ui/cli", () => {
             sourcesContent: [request.source],
             version: 3,
           },
+          styleImports: [],
         }),
       })
       const io = createIo(root)
@@ -217,6 +219,7 @@ describe("@naos-ui/cli", () => {
             sourcesContent: [request.source],
             version: 3,
           },
+          styleImports: [],
         }),
       })
       const io = createIo(root)
@@ -271,7 +274,7 @@ describe("@naos-ui/cli", () => {
             usesDeclarativeShadowDom: true,
           }
         },
-        transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+        transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false, styleImports: [] }),
       })
       const io = createIo(root)
 
@@ -311,7 +314,7 @@ describe("@naos-ui/cli", () => {
           templateHtml: '<template shadowrootmode="open"></template>',
           usesDeclarativeShadowDom: true,
         }),
-        transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+        transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false, styleImports: [] }),
       })
       const io = createIo(root)
 
@@ -347,7 +350,7 @@ describe("@naos-ui/cli", () => {
           templateHtml: "",
           usesDeclarativeShadowDom: true,
         }),
-        transformComponent: () => ({ ...nativeMetadata, code: "compiled", hasChanged: true }),
+        transformComponent: () => ({ ...nativeMetadata, code: "compiled", hasChanged: true, styleImports: [] }),
       })
       const io = createIo(root)
 
