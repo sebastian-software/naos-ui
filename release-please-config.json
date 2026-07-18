@@ -37,6 +37,11 @@
       "package-name": "@naos-ui/router",
       "release-type": "node"
     },
+    "packages/testing": {
+      "component": "testing",
+      "package-name": "@naos-ui/testing",
+      "release-type": "node"
+    },
     "packages/compiler": {
       "component": "compiler",
       "package-name": "@naos-ui/compiler",

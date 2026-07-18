@@ -299,9 +299,15 @@ importers:
       '@naos-ui/compiler':
         specifier: workspace:^
         version: link:../compiler
+      '@naos-ui/testing':
+        specifier: workspace:^
+        version: link:../testing
       '@types/node':
         specifier: ^25.0.0
         version: 25.9.3
+      happy-dom:
+        specifier: ^20.0.11
+        version: 20.10.6
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -332,6 +338,28 @@ importers:
       '@types/node':
         specifier: ^25.0.0
         version: 25.9.3
+      tsdown:
+        specifier: 0.22.3
+        version: 0.22.3(typescript@6.0.3)
+      typescript:
+        specifier: ^6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: ^4.1.6
+        version: 4.1.8(@types/node@25.9.3)(happy-dom@20.10.6)(vite@8.0.16(@types/node@25.9.3)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))
+
+  packages/testing:
+    dependencies:
+      '@naos-ui/runtime':
+        specifier: workspace:^
+        version: link:../runtime
+    devDependencies:
+      '@types/node':
+        specifier: ^25.0.0
+        version: 25.9.3
+      happy-dom:
+        specifier: ^20.0.11
+        version: 20.10.6
       tsdown:
         specifier: 0.22.3
         version: 0.22.3(typescript@6.0.3)
