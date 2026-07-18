@@ -13,6 +13,7 @@ verified by `pnpm check-release-set`:
 | npm package | Workspace path |
 | --- | --- |
 | `@naos-ui/core` | `packages/core` |
+| `@naos-ui/actions` | `packages/actions` |
 | `@naos-ui/data` | `packages/data` |
 | `@naos-ui/data-convex` | `packages/data-convex` |
 | `@naos-ui/motion` | `packages/motion` |

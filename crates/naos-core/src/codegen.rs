@@ -1852,6 +1852,7 @@ impl<'a> CodeGenerator<'a> {
                 &field_reference,
                 &field,
                 attribute,
+                &element.tag_name,
                 is_component_element,
                 follows_spread,
                 element.span,
@@ -2637,12 +2638,14 @@ impl<'a> CodeGenerator<'a> {
     }
 
     #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn emit_attribute(
         &mut self,
         variable: &str,
         field_reference: &str,
         field_name: &str,
         attribute: &TemplateAttribute,
+        element_tag: &str,
         is_component_element: bool,
         follows_spread: bool,
         span: Option<DiagnosticSpan>,
@@ -2728,6 +2731,33 @@ impl<'a> CodeGenerator<'a> {
                 }
                 None => self.listener_lines.push("});".to_owned()),
             }
+            return Ok(());
+        }
+
+        if element_tag == "form"
+            && name == "action"
+            && !is_component_element
+            && matches!(value, AttributeValue::Expression(_))
+        {
+            let AttributeValue::Expression(expression) = value else {
+                return Err(unsupported_at("Unreachable form action shape.", span));
+            };
+            // A braced form action dispatches at runtime: string values keep
+            // native browser submission, Naos form actions (brand-checked via
+            // Symbol.for so generated code needs no package import) enhance
+            // the form, and anything else fails fast.
+            let action_variable = format!("{field_name}FormAction");
+            self.mount_lines
+                .push(format!("const {action_variable} = ({expression});"));
+            self.mount_lines.push(format!(
+                "if (typeof {action_variable} === \"string\") {{ {variable}.setAttribute(\"action\", {action_variable}); }}"
+            ));
+            self.mount_lines.push(format!(
+                "else if ({action_variable} != null && {action_variable}[Symbol.for(\"naos.form.action\")] === true) {{ {action_variable}.enhance({variable}); }}"
+            ));
+            self.mount_lines.push(
+                "else { throw new Error(\"<form action={...}> requires a string URL or a Naos form action object.\"); }".to_owned(),
+            );
             return Ok(());
         }
 

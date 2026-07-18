@@ -845,6 +845,56 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_lower_braced_form_actions() {
+        let source = r#"
+            import { saveNote } from "./note-actions.js";
+
+            export function NoteForm() {
+              return (
+                <form action={saveNote}>
+                  <input name="note" required />
+                  <button>Save</button>
+                </form>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "note-form.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert_contains(&result.code, "import { saveNote } from \"./note-actions.js\";");
+        assert_contains(&result.code, "FormAction = (saveNote);");
+        assert_contains(&result.code, "typeof node0FormAction === \"string\"");
+        assert_contains(
+            &result.code,
+            "node0FormAction[Symbol.for(\"naos.form.action\")] === true",
+        );
+        assert_contains(&result.code, "node0FormAction.enhance(node0);");
+        assert_contains(
+            &result.code,
+            "requires a string URL or a Naos form action object",
+        );
+
+        let static_source = r#"
+            export function PlainForm() {
+              return (
+                <form action="/api/save" method="post">
+                  <button>Save</button>
+                </form>
+              );
+            }
+        "#;
+        let static_result = match transform_component_module(static_source, "plain-form.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+        assert_contains(&static_result.code, "setAttribute(\"action\", \"/api/save\")");
+        assert!(!static_result.code.contains("naos.form.action"));
+    }
+
+    #[test]
     fn analyze_component_module_should_reject_removed_component_api() {
         let source = r#"
             import { component } from "@naos-ui/core";

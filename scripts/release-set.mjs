@@ -5,6 +5,7 @@ const freezeRecord = (record) => Object.freeze(record)
 
 export const javaScriptPackages = Object.freeze([
   freezeRecord({ name: "@naos-ui/core", path: "packages/core" }),
+  freezeRecord({ name: "@naos-ui/actions", path: "packages/actions" }),
   freezeRecord({ name: "@naos-ui/data", path: "packages/data" }),
   freezeRecord({ name: "@naos-ui/data-convex", path: "packages/data-convex" }),
   freezeRecord({ name: "@naos-ui/motion", path: "packages/motion" }),
