@@ -199,6 +199,57 @@ describe("naos", () => {
     )
   })
 
+  it("passes structured locations and a code frame to the Vite error channel", async () => {
+    setNativeBindingsForTesting({
+      getNativeInfo: () => ({ coreVersion: "test" }),
+      renderDeclarativeShadowDom: () => ({
+        ...nativeMetadata,
+        html: "",
+        templateHtml: "",
+        usesDeclarativeShadowDom: true,
+      }),
+      transformComponent: () => {
+        throw new NaosCompilerError("Unsupported JSX", [
+          {
+            code: "NAOS_UNSUPPORTED_CONDITIONAL_JSX",
+            filename: fixtureFilename,
+            hint: "Use <Show>.",
+            loc: { endColumn: 20, endLine: 2, startColumn: 10, startLine: 2 },
+            message: "Conditional JSX expressions are not supported.",
+            severity: "error",
+            span: { end: 30, start: 20 },
+          },
+        ])
+      },
+    })
+
+    const plugin = naos()
+    const transform = plugin.transform
+    if (typeof transform !== "function") {
+      throw new Error("Expected transform hook")
+    }
+
+    const errors: unknown[] = []
+    const context = {
+      addWatchFile() {},
+      error(error: unknown): never {
+        errors.push(error)
+        throw new Error("stop")
+      },
+    } as never
+
+    const source = "const first = 1\nconst second = {oops() ? 1 : 2}\nconst third = 3"
+    await expect(transform.call(context, source, fixtureFilename)).rejects.toThrow("stop")
+
+    expect(errors[0]).toMatchObject({
+      loc: { column: 9, file: fixtureFilename, line: 2 },
+      message: `${fixtureFilename}:2:10 error NAOS_UNSUPPORTED_CONDITIONAL_JSX: Conditional JSX expressions are not supported.\nhint: Use <Show>.`,
+    })
+    const frame = (errors[0] as { frame: string }).frame
+    expect(frame).toContain("> 2 | const second = {oops() ? 1 : 2}")
+    expect(frame).toContain("^^^^^^^^^^")
+  })
+
   it("emits a DSD manifest by default", async () => {
     const emitted: unknown[] = []
     setNativeBindingsForTesting({
@@ -410,8 +461,8 @@ describe("naos", () => {
 function mockPluginContext() {
   return {
     addWatchFile() {},
-    error(error: string): never {
-      throw new Error(error)
+    error(error: string | { message: string }): never {
+      throw new Error(typeof error === "string" ? error : error.message)
     },
   } as never
 }

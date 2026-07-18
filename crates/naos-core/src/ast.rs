@@ -482,10 +482,18 @@ fn lower_jsx_element(source: &str, element: &JSXElement<'_>) -> CompilerResult<T
         .iter()
         .map(|attribute| lower_jsx_attribute(source, attribute))
         .collect::<CompilerResult<Vec<_>>>()?;
-    let children = lower_jsx_children(source, &tag_name, &attributes, &element.children)?;
+    let element_span = SourceSpan::from_oxc(element.span).to_diagnostic();
+    let children = lower_jsx_children(
+        source,
+        &tag_name,
+        &attributes,
+        &element.children,
+        element_span,
+    )?;
 
     Ok(TemplateElement {
         tag_name,
+        span: Some(element_span),
         attributes,
         children,
     })
@@ -496,9 +504,10 @@ fn lower_jsx_children(
     tag_name: &str,
     attributes: &[TemplateAttribute],
     children: &[JSXChild<'_>],
+    element_span: DiagnosticSpan,
 ) -> CompilerResult<Vec<TemplateChild>> {
     if matches!(tag_name, "For" | "Index") {
-        return lower_list_control(source, tag_name, attributes, children)
+        return lower_list_control(source, tag_name, attributes, children, element_span)
             .map(|list| vec![TemplateChild::List(list)]);
     }
 
@@ -707,6 +716,7 @@ fn lower_map_list(source: &str, call: &CallExpression<'_>) -> CompilerResult<Opt
         ListControlKind::ItemKeyed,
         None,
         ".map() callback",
+        SourceSpan::from_oxc(call.span).to_diagnostic(),
     )
     .map(Some)
 }
@@ -722,6 +732,7 @@ fn lower_list_control(
     tag_name: &str,
     attributes: &[TemplateAttribute],
     children: &[JSXChild<'_>],
+    element_span: DiagnosticSpan,
 ) -> CompilerResult<TemplateList> {
     let label = if tag_name == "For" {
         "<For>"
@@ -750,16 +761,18 @@ fn lower_list_control(
                 callback_expression = Some(&container.expression);
             }
             _ => {
-                return Err(unsupported_list(format!(
-                    "{label} requires exactly one braced arrow-function child."
-                )));
+                return Err(unsupported_list_at(
+                    format!("{label} requires exactly one braced arrow-function child."),
+                    element_span,
+                ));
             }
         }
     }
     let Some(JSXExpression::ArrowFunctionExpression(callback)) = callback_expression else {
-        return Err(unsupported_list(format!(
-            "{label} requires exactly one braced arrow-function child."
-        )));
+        return Err(unsupported_list_at(
+            format!("{label} requires exactly one braced arrow-function child."),
+            element_span,
+        ));
     };
     let kind = if tag_name == "For" {
         ListControlKind::ItemKeyed
@@ -773,9 +786,11 @@ fn lower_list_control(
         kind,
         motion,
         &format!("{label} child"),
+        element_span,
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn lower_list_callback(
     source: &str,
     callback: &ArrowFunctionExpression<'_>,
@@ -783,40 +798,54 @@ fn lower_list_callback(
     kind: ListControlKind,
     motion: Option<TemplateListMotion>,
     label: &str,
+    list_span: DiagnosticSpan,
 ) -> CompilerResult<TemplateList> {
+    let callback_span = SourceSpan::from_oxc(callback.span).to_diagnostic();
     if !callback.expression {
-        return Err(unsupported_list(format!(
-            "{label} must use an expression body that returns JSX."
-        )));
+        return Err(unsupported_list_at(
+            format!("{label} must use an expression body that returns JSX."),
+            callback_span,
+        ));
     }
     if callback.params.rest.is_some() || !(1..=2).contains(&callback.params.items.len()) {
-        return Err(unsupported_list(format!(
-            "{label} currently supports item and index parameters only."
-        )));
+        return Err(unsupported_list_at(
+            format!("{label} currently supports item and index parameters only."),
+            callback_span,
+        ));
     }
     let Some(item_name) = binding_identifier_name(&callback.params.items[0].pattern) else {
-        return Err(unsupported_list(format!(
-            "{label} parameters must be simple identifiers."
-        )));
+        return Err(unsupported_list_at(
+            format!("{label} parameters must be simple identifiers."),
+            callback_span,
+        ));
     };
     let index_name = match callback.params.items.get(1) {
         Some(parameter) => binding_identifier_name(&parameter.pattern).ok_or_else(|| {
-            unsupported_list(format!("{label} parameters must be simple identifiers."))
+            unsupported_list_at(
+                format!("{label} parameters must be simple identifiers."),
+                callback_span,
+            )
         })?,
         None => "index",
     };
     let Some(Statement::ExpressionStatement(statement)) = callback.body.statements.first() else {
-        return Err(unsupported_list(format!(
-            "{label} must return a JSX element expression."
-        )));
+        return Err(unsupported_list_at(
+            format!("{label} must return a JSX element expression."),
+            callback_span,
+        ));
     };
     if callback.body.statements.len() != 1 {
-        return Err(unsupported_list(format!(
-            "{label} must return a JSX element expression."
-        )));
+        return Err(unsupported_list_at(
+            format!("{label} must return a JSX element expression."),
+            callback_span,
+        ));
     }
-    let template = lower_return_template(source, &statement.expression)
-        .map_err(|_| unsupported_list(format!("{label} must return a JSX element expression.")))?;
+    let template = lower_return_template(source, &statement.expression).map_err(|_| {
+        unsupported_list_at(
+            format!("{label} must return a JSX element expression."),
+            callback_span,
+        )
+    })?;
     let kind = match kind {
         ListControlKind::ItemKeyed => TemplateListKind::ItemKeyed {
             key: required_list_key(&template)?,
@@ -825,6 +854,7 @@ fn lower_list_callback(
     };
     Ok(TemplateList {
         each_expression,
+        span: Some(list_span),
         item_name: item_name.to_owned(),
         index_name: index_name.to_owned(),
         kind,
@@ -906,8 +936,11 @@ fn required_list_key(element: &TemplateElement) -> CompilerResult<TemplateListKe
             _ => None,
         })
     else {
-        return Err(unsupported_list(
+        return Err(unsupported_with_optional_span(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Dynamic .map() lists require a key attribute on the returned root JSX element.",
+            DIAGNOSTIC_HINT_LISTS,
+            element.span,
         ));
     };
     match value {
@@ -915,8 +948,11 @@ fn required_list_key(element: &TemplateElement) -> CompilerResult<TemplateListKe
             Ok(TemplateListKey::Expression(expression.trim().to_owned()))
         }
         AttributeValue::Static(value) => Ok(TemplateListKey::Static(value.clone())),
-        _ => Err(unsupported_list(
+        _ => Err(unsupported_with_optional_span(
+            DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
             "Dynamic .map() list keys must use a non-empty expression or static value.",
+            DIAGNOSTIC_HINT_LISTS,
+            element.span,
         )),
     }
 }
@@ -926,6 +962,15 @@ fn unsupported_list(message: impl Into<String>) -> CompilerError {
         DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
         message,
         DIAGNOSTIC_HINT_LISTS,
+    )
+}
+
+fn unsupported_list_at(message: impl Into<String>, span: DiagnosticSpan) -> CompilerError {
+    unsupported_with_code_and_span(
+        DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER,
+        message,
+        DIAGNOSTIC_HINT_LISTS,
+        span,
     )
 }
 

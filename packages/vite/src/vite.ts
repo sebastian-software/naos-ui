@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path"
 
 import {
   createNaosManifest,
+  formatNaosCodeFrame,
   isNaosCompilerError,
   renderDeclarativeShadowDom,
   serializeNaosManifest,
@@ -102,7 +103,21 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
         }
       } catch (error) {
         if (isNaosCompilerError(error)) {
-          this.error(formatNaosDiagnostics(error.diagnostics, filename))
+          const loc = error.diagnostics[0]?.loc
+          this.error({
+            id: filename,
+            message: formatNaosDiagnostics(error.diagnostics, filename),
+            ...(loc
+              ? {
+                  frame: formatNaosCodeFrame(code, loc),
+                  loc: {
+                    column: loc.startColumn - 1,
+                    file: filename,
+                    line: loc.startLine,
+                  },
+                }
+              : {}),
+          })
         }
         const message = error instanceof Error ? error.message : String(error)
         this.error(`Naos transform failed in ${filename}: ${message}`)
@@ -141,11 +156,13 @@ export function formatNaosDiagnostics(
   return diagnostics
     .map((diagnostic) => {
       const filename = diagnostic.filename || fallbackFilename
-      const span = diagnostic.span
-        ? `:${diagnostic.span.start}-${diagnostic.span.end}`
-        : ""
+      const location = diagnostic.loc
+        ? `:${diagnostic.loc.startLine}:${diagnostic.loc.startColumn}`
+        : diagnostic.span
+          ? `:${diagnostic.span.start}-${diagnostic.span.end}`
+          : ""
       const hint = diagnostic.hint ? `\nhint: ${diagnostic.hint}` : ""
-      return `${filename}${span} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${hint}`
+      return `${filename}${location} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${hint}`
     })
     .join("\n")
 }

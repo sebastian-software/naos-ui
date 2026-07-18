@@ -386,11 +386,13 @@ function stripQuery(id: string): string {
 function formatDiagnostics(diagnostics: readonly NaosDiagnostic[]): string {
   return diagnostics
     .map((diagnostic) => {
-      const span = diagnostic.span
-        ? `:${diagnostic.span.start}-${diagnostic.span.end}`
-        : ""
+      const location = diagnostic.loc
+        ? `:${diagnostic.loc.startLine}:${diagnostic.loc.startColumn}`
+        : diagnostic.span
+          ? `:${diagnostic.span.start}-${diagnostic.span.end}`
+          : ""
       const hint = diagnostic.hint ? `\nhint: ${diagnostic.hint}` : ""
-      return `${diagnostic.filename}${span} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${hint}`
+      return `${diagnostic.filename}${location} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${hint}`
     })
     .join("\n")
 }

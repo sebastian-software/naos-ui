@@ -2,14 +2,32 @@
 
 Naos compiler failures are exposed as structured `diagnostics[]` entries from
 the native compiler API and rendered by the CLI and Vite plugin. Each diagnostic
-has a stable `code`, `severity`, `message`, `filename`, optional `span`, and
-optional `hint`.
+has a stable `code`, `severity`, `message`, `filename`, optional `span`,
+optional `loc`, and optional `hint`.
 
 Source spans are part of the public diagnostic shape. AST-owned authoring
-failures report spans where the compiler has a precise offending node. Broader
-unsupported-shape diagnostics may still report `span: null`; the template is
-already AST-backed, so extending span coverage no longer requires another TSX
-parser.
+failures report spans for the precise offending node, and template/codegen
+failures report the span of the nearest enclosing JSX element or list
+expression. Module-level diagnostics (missing component, parse failures,
+non-source inputs) may still report `span: null`.
+
+## Line And Column
+
+When a diagnostic carries a `span`, the native boundary also resolves `loc`:
+
+```ts
+type NaosDiagnosticLocation = {
+  startLine: number   // one-based
+  startColumn: number // one-based, counted in Unicode scalar values
+  endLine: number
+  endColumn: number
+}
+```
+
+The CLI renders spanned diagnostics as `filename:line:column`, and the Vite
+plugin passes a structured `{ id, loc, frame }` error to Vite so the dev
+overlay shows a clickable location with a code frame
+(`formatNaosCodeFrame()` in `@naos-ui/compiler` renders the frame).
 
 ## Catalog
 
@@ -32,6 +50,14 @@ parser.
 | `NAOS_DSD_INPUT` | Declarative Shadow DOM props or inline styles were not valid JSON objects. | Pass JSON objects for DSD props and inline styles. |
 | `NAOS_UNSUPPORTED_SYNTAX` | A syntax boundary is unsupported but not yet assigned a narrower catalog code. | Check the v0.1 authoring limitations. |
 | `NAOS_INTERNAL_PATTERN` | A compiler-internal pattern failed. | Report this as an Naos compiler bug. |
+
+Every code that authored source can trigger is regression-guarded by a
+rejected conformance fixture; spanned fixtures also pin the offending source
+range and its resolved line/column. `NAOS_TEMPLATE_PARSE`,
+`NAOS_INTERNAL_PATTERN`, and `NAOS_UNSUPPORTED_EFFECT_CALLBACK` are not
+reachable from parseable source today; `NAOS_DSD_INPUT` and
+`NAOS_INVALID_PACKAGE_CONTEXT` are covered through API-input tests instead of
+source fixtures.
 
 ## Compatibility
 

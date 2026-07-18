@@ -41,12 +41,20 @@ export type NaosDiagnosticSpan = {
   end: number
 }
 
+export type NaosDiagnosticLocation = {
+  startLine: number
+  startColumn: number
+  endLine: number
+  endColumn: number
+}
+
 export type NaosDiagnostic = {
   code: string
   severity: NaosDiagnosticSeverity
   message: string
   filename: string
   span?: NaosDiagnosticSpan | null
+  loc?: NaosDiagnosticLocation | null
   hint?: string | null
 }
 
@@ -235,7 +243,18 @@ function isNaosDiagnostic(value: unknown): value is NaosDiagnostic {
     typeof value.message === "string" &&
     (severity === "error" || severity === "warning" || severity === "info") &&
     (value.hint === undefined || value.hint === null || typeof value.hint === "string") &&
-    (value.span === undefined || value.span === null || isNaosDiagnosticSpan(value.span))
+    (value.span === undefined || value.span === null || isNaosDiagnosticSpan(value.span)) &&
+    (value.loc === undefined || value.loc === null || isNaosDiagnosticLocation(value.loc))
+  )
+}
+
+function isNaosDiagnosticLocation(value: unknown): value is NaosDiagnosticLocation {
+  return (
+    isRecord(value) &&
+    Number.isInteger(value.startLine) &&
+    Number.isInteger(value.startColumn) &&
+    Number.isInteger(value.endLine) &&
+    Number.isInteger(value.endColumn)
   )
 }
 
@@ -251,4 +270,41 @@ function isNaosDiagnosticSpan(value: unknown): value is NaosDiagnosticSpan {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null
+}
+
+const CODE_FRAME_CONTEXT_LINES = 2
+
+export function formatNaosCodeFrame(
+  source: string,
+  loc: NaosDiagnosticLocation
+): string {
+  const lines = source.split("\n")
+  const firstLine = Math.max(1, loc.startLine - CODE_FRAME_CONTEXT_LINES)
+  const lastMarkedLine = Math.min(
+    Math.max(loc.endLine, loc.startLine),
+    loc.startLine + CODE_FRAME_CONTEXT_LINES
+  )
+  const lastLine = Math.min(lines.length, lastMarkedLine + CODE_FRAME_CONTEXT_LINES)
+  const gutterWidth = String(lastLine).length
+  const frame: string[] = []
+
+  for (let lineNumber = firstLine; lineNumber <= lastLine; lineNumber += 1) {
+    const text = lines[lineNumber - 1] ?? ""
+    const gutter = String(lineNumber).padStart(gutterWidth)
+    const marked = lineNumber >= loc.startLine && lineNumber <= lastMarkedLine
+    frame.push(`${marked ? ">" : " "} ${gutter} | ${text}`)
+    if (lineNumber === loc.startLine) {
+      // Columns count Unicode scalar values, so measure the line the same way
+      // instead of using UTF-16 string length.
+      const lineLength = [...text].length
+      const caretCount =
+        loc.endLine === loc.startLine
+          ? Math.max(1, loc.endColumn - loc.startColumn)
+          : Math.max(1, lineLength - (loc.startColumn - 1))
+      const padding = " ".repeat(loc.startColumn - 1)
+      frame.push(`  ${" ".repeat(gutterWidth)} | ${padding}${"^".repeat(caretCount)}`)
+    }
+  }
+
+  return frame.join("\n")
 }

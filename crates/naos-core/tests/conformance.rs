@@ -26,6 +26,7 @@ struct RejectedFixture {
     code: &'static str,
     message: &'static str,
     hint: &'static str,
+    span_starts_with: Option<&'static str>,
 }
 
 struct DsdFixture {
@@ -106,6 +107,7 @@ const REJECTED_FIXTURES: &[RejectedFixture] = &[
         code: "NAOS_REMOVED_AUTHORING_API",
         message: "signal() was removed",
         hint: "function component authoring API",
+        span_starts_with: Some("signal(0)"),
     },
     RejectedFixture {
         filename: "conditional-jsx.wc.tsx",
@@ -113,6 +115,7 @@ const REJECTED_FIXTURES: &[RejectedFixture] = &[
         code: "NAOS_UNSUPPORTED_CONDITIONAL_JSX",
         message: "Use explicit <Show> or <Switch>",
         hint: "<Show",
+        span_starts_with: Some("<section>"),
     },
     RejectedFixture {
         filename: "unkeyed-map.wc.tsx",
@@ -120,6 +123,7 @@ const REJECTED_FIXTURES: &[RejectedFixture] = &[
         code: "NAOS_UNSUPPORTED_LIST_RENDERER",
         message: "require a key attribute",
         hint: "keyed .map()",
+        span_starts_with: Some("<li>"),
     },
     RejectedFixture {
         filename: "map-block-body.wc.tsx",
@@ -127,6 +131,7 @@ const REJECTED_FIXTURES: &[RejectedFixture] = &[
         code: "NAOS_UNSUPPORTED_LIST_RENDERER",
         message: "expression body",
         hint: "keyed .map()",
+        span_starts_with: Some("(item) => {"),
     },
     RejectedFixture {
         filename: "computed-block-body.wc.tsx",
@@ -134,6 +139,95 @@ const REJECTED_FIXTURES: &[RejectedFixture] = &[
         code: "NAOS_UNSUPPORTED_COMPUTED_CALLBACK",
         message: "computed() must use an expression body",
         hint: "Check the v0.1 authoring limitations",
+        span_starts_with: Some("() => {"),
+    },
+    RejectedFixture {
+        filename: "rest-props.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/rest-props.wc.tsx"),
+        code: "NAOS_UNSUPPORTED_FUNCTION_PROPS",
+        message: "rest props are not supported",
+        hint: "explicit destructured props",
+        span_starts_with: None,
+    },
+    RejectedFixture {
+        filename: "factory-render.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/factory-render.wc.tsx"),
+        code: "NAOS_UNSUPPORTED_FACTORY_RENDER",
+        message: "factory render functions",
+        hint: "single JSX template",
+        span_starts_with: Some("() => <button>"),
+    },
+    RejectedFixture {
+        filename: "string-event-handler.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/string-event-handler.wc.tsx"),
+        code: "NAOS_UNSUPPORTED_EVENT_HANDLER",
+        message: "must use a braced handler expression",
+        hint: "bare handler",
+        span_starts_with: Some("onClick="),
+    },
+    RejectedFixture {
+        filename: "show-boolean-fallback.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/show-boolean-fallback.wc.tsx"),
+        code: "NAOS_UNSUPPORTED_SHOW_FALLBACK",
+        message: "Show fallback must have a value",
+        hint: "<Show",
+        span_starts_with: Some("<Show when={ready()} fallback>"),
+    },
+    RejectedFixture {
+        filename: "match-outside-switch.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/match-outside-switch.wc.tsx"),
+        code: "NAOS_UNSUPPORTED_SWITCH_MATCH",
+        message: "direct child of <Switch>",
+        hint: "<Match when={...}>",
+        span_starts_with: Some("<Match when={ready()}>"),
+    },
+    RejectedFixture {
+        filename: "fragment-child.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/fragment-child.wc.tsx"),
+        code: "NAOS_UNSUPPORTED_SYNTAX",
+        message: "JSX fragments and spread children are not supported",
+        hint: "authoring limitations",
+        span_starts_with: None,
+    },
+    RejectedFixture {
+        filename: "effect-block-callback.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/effect-block-callback.wc.tsx"),
+        code: "NAOS_UNSUPPORTED_SYNTAX",
+        message: "require an arrow function callback",
+        hint: "authoring limitations",
+        span_starts_with: None,
+    },
+    RejectedFixture {
+        filename: "unknown-component-options.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/unknown-component-options.wc.tsx"),
+        code: "NAOS_UNSUPPORTED_COMPONENT_OPTIONS",
+        message: "only support `styles`",
+        hint: "ComponentOptions",
+        span_starts_with: None,
+    },
+    RejectedFixture {
+        filename: "no-template.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/no-template.wc.tsx"),
+        code: "NAOS_COMPONENT_TEMPLATE_REQUIRED",
+        message: "must return a TSX template",
+        hint: "single JSX return value",
+        span_starts_with: None,
+    },
+    RejectedFixture {
+        filename: "no-component.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/no-component.wc.tsx"),
+        code: "NAOS_COMPONENT_NOT_FOUND",
+        message: "No Naos component declaration",
+        hint: "function component",
+        span_starts_with: None,
+    },
+    RejectedFixture {
+        filename: "broken-syntax.wc.tsx",
+        source: include_str!("fixtures/conformance/rejected/broken-syntax.wc.tsx"),
+        code: "NAOS_PARSE_MODULE_SOURCE",
+        message: "Expected",
+        hint: "Fix the TypeScript/TSX syntax",
+        span_starts_with: None,
     },
 ];
 
@@ -265,7 +359,7 @@ fn rejected_fixtures_should_emit_stable_diagnostics() {
     for fixture in REJECTED_FIXTURES {
         let error = transform_component_module(fixture.source, fixture.filename, &test_package())
             .expect_err("rejected fixture should not compile");
-        let diagnostics = error.diagnostics(fixture.filename);
+        let diagnostics = error.diagnostics_with_source(fixture.filename, Some(fixture.source));
         let diagnostic = diagnostics
             .first()
             .unwrap_or_else(|| panic!("{} should emit diagnostics", fixture.filename));
@@ -296,7 +390,70 @@ fn rejected_fixtures_should_emit_stable_diagnostics() {
             fixture.hint,
             hint
         );
+
+        if let Some(expected_start) = fixture.span_starts_with {
+            let span = diagnostic
+                .span
+                .unwrap_or_else(|| panic!("{} should emit a source span", fixture.filename));
+            let snippet = &fixture.source[span.start..span.end];
+            assert!(
+                snippet.starts_with(expected_start),
+                "{} span should start with {:?}, got {:?}",
+                fixture.filename,
+                expected_start,
+                snippet
+            );
+            let loc = diagnostic.loc.unwrap_or_else(|| {
+                panic!("{} should resolve a line/column location", fixture.filename)
+            });
+            assert!(
+                loc.start_line >= 1 && loc.start_column >= 1,
+                "{}",
+                fixture.filename
+            );
+            assert!(
+                (loc.end_line, loc.end_column) >= (loc.start_line, loc.start_column),
+                "{}",
+                fixture.filename
+            );
+        }
     }
+}
+
+#[test]
+fn dsd_input_diagnostics_should_use_the_cataloged_code() {
+    let source = "export function Probe() {\n  return <span>Probe</span>\n}\n";
+    let error = render_declarative_shadow_dom_module_with_inline_styles(
+        source,
+        "probe.wc.tsx",
+        &test_package(),
+        Some("not-json"),
+        None,
+    )
+    .expect_err("invalid DSD props should not prerender");
+    let diagnostics = error.diagnostics_with_source("probe.wc.tsx", Some(source));
+    assert_eq!(diagnostics[0].code, "NAOS_DSD_INPUT");
+    assert!(
+        diagnostics[0]
+            .hint
+            .as_deref()
+            .unwrap_or_default()
+            .contains("JSON")
+    );
+}
+
+#[test]
+fn invalid_package_context_should_use_the_cataloged_code() {
+    let source = "export function Probe() {\n  return <span>Probe</span>\n}\n";
+    let package = PackageContext {
+        name: "@naos-ui/test".to_owned(),
+        version: None,
+        tag_prefix: "Not A Prefix".to_owned(),
+    };
+    let error = transform_component_module(source, "probe.wc.tsx", &package)
+        .expect_err("invalid tag prefix should not compile");
+    let diagnostics = error.diagnostics_with_source("probe.wc.tsx", Some(source));
+    assert_eq!(diagnostics[0].code, "NAOS_INVALID_PACKAGE_CONTEXT");
 }
 
 #[test]

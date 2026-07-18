@@ -8,6 +8,7 @@ import {
 export default defineConfig({
   ignorePatterns: [
     "**/dist/**",
+    "crates/naos-core/tests/fixtures/**",
     "scripts/fixtures/dependency-boundaries/**",
   ],
   overrides: [

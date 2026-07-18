@@ -16,12 +16,12 @@ pub use codegen::{
     render_declarative_shadow_dom_module, render_declarative_shadow_dom_module_with_inline_styles,
     transform_component_module,
 };
-pub use error::{CompilerError, CompilerResult};
+pub use error::{CompilerError, CompilerResult, location_for_span};
 pub use model::{
     AttributeValue, CompilerDiagnostic, ComponentImport, ComponentModule, ComponentOptions,
-    ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan,
-    EffectDefinition, EventDefinition, KeyedSelectorDefinition, PackageContext, PropAccess,
-    PropDefinition, PropKind, SourceMap, StateDefinition, StateKind, StyleImport,
+    ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticLocation, DiagnosticSeverity,
+    DiagnosticSpan, EffectDefinition, EventDefinition, KeyedSelectorDefinition, PackageContext,
+    PropAccess, PropDefinition, PropKind, SourceMap, StateDefinition, StateKind, StyleImport,
     TemplateAttribute, TemplateChild, TemplateElement, TemplateEventHandler, TemplateList,
     TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
 };
@@ -37,8 +37,9 @@ pub fn core_version() -> &'static str {
 mod tests {
     use super::{
         AttributeValue, CompilerResult, ComponentModule, DeclarativeShadowDomRenderResult,
-        DiagnosticSeverity, PackageContext, StateKind, TemplateAttribute, TemplateChild,
-        TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult, core_version,
+        DiagnosticSeverity, DiagnosticSpan, PackageContext, StateKind, TemplateAttribute,
+        TemplateChild, TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
+        core_version, location_for_span,
     };
     use super::{
         analyze_component_module as analyze_component_module_with_package,
@@ -2695,5 +2696,47 @@ mod tests {
             .split_once(end)
             .unwrap_or_else(|| panic!("expected generated output to contain section end `{end}`"))
             .0
+    }
+
+    #[test]
+    fn location_for_span_should_resolve_one_based_lines_and_columns() {
+        let source = "const a = 1\nconst bug = 2\n";
+        let loc = location_for_span(source, DiagnosticSpan { start: 18, end: 21 })
+            .expect("span should resolve");
+        assert_eq!((loc.start_line, loc.start_column), (2, 7));
+        assert_eq!((loc.end_line, loc.end_column), (2, 10));
+    }
+
+    #[test]
+    fn location_for_span_should_count_columns_in_characters() {
+        let source = "const \u{fc} = 1\n";
+        let one_offset = source.find('1').expect("literal");
+        let loc = location_for_span(
+            source,
+            DiagnosticSpan {
+                start: one_offset,
+                end: one_offset + 1,
+            },
+        )
+        .expect("span should resolve");
+        assert_eq!((loc.start_line, loc.start_column), (1, 11));
+    }
+
+    #[test]
+    fn location_for_span_should_reject_out_of_bounds_spans() {
+        assert!(location_for_span("short", DiagnosticSpan { start: 3, end: 99 }).is_none());
+    }
+
+    #[test]
+    fn transform_diagnostics_should_resolve_line_and_column_from_source() {
+        let source = "import { state } from \"@naos-ui/core\"\n\nexport function Probe() {\n  const ready = state(false)\n  return (\n    <section>\n      {ready() ? <b>Y</b> : <b>N</b>}\n    </section>\n  )\n}\n";
+        let error =
+            transform_component_module_with_package(source, "probe.wc.tsx", &test_package())
+                .expect_err("conditional JSX should be rejected");
+        let diagnostic = &error.diagnostics_with_source("probe.wc.tsx", Some(source))[0];
+        let loc = diagnostic
+            .loc
+            .expect("diagnostic should resolve a location");
+        assert_eq!((loc.start_line, loc.start_column), (6, 5));
     }
 }
