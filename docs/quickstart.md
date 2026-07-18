@@ -12,8 +12,8 @@ are pre-wired:
 ```sh
 npm create naos@latest my-app
 cd my-app
-pnpm install
-pnpm dev
+npm install   # or: pnpm install
+npm run dev   # or: pnpm dev
 ```
 
 The generated project builds with `pnpm build` and type-checks with

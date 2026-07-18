@@ -54,6 +54,14 @@ describe("scaffoldNaosProject", () => {
     expect(component).toContain("export function AppCounter")
   })
 
+  it("sanitizes leading dots and underscores out of the project name", async () => {
+    workspace = await mkdtemp(join(tmpdir(), "create-naos-"))
+
+    const result = await scaffoldNaosProject(join(workspace, ".hidden_app"))
+
+    expect(result.projectName).toBe("hidden_app")
+  })
+
   it("refuses to scaffold into a non-empty directory", async () => {
     workspace = await mkdtemp(join(tmpdir(), "create-naos-"))
 

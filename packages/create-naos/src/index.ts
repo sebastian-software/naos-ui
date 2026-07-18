@@ -43,6 +43,7 @@ function toPackageName(directoryName: string): string {
   const name = directoryName
     .toLowerCase()
     .replaceAll(/[^a-z0-9-_.]+/gu, "-")
-    .replaceAll(/^-+|-+$/gu, "")
+    // npm rejects names starting with a dot or underscore.
+    .replaceAll(/^[-_.]+|[-_.]+$/gu, "")
   return name || "naos-app"
 }

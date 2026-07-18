@@ -2,7 +2,7 @@ import { spawn } from "node:child_process"
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join, resolve } from "node:path"
-import { fileURLToPath } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { publicPackagePaths, publicPackages, javaScriptPackages } from "./release-set.mjs"
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -53,7 +53,7 @@ try {
 
   await phase("scaffold project with create-naos", async () => {
     const { scaffoldNaosProject } = await import(
-      new URL(`file://${join(root, "packages", "create-naos", "dist", "index.mjs")}`).href
+      pathToFileURL(join(root, "packages", "create-naos", "dist", "index.mjs")).href
     )
     await scaffoldNaosProject(appDir)
     await writeVerifierOverlay(appDir, tarballs)
