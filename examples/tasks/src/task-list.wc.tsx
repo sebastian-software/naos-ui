@@ -1,5 +1,6 @@
 import { effect, event, host, state, type ComponentOptions } from "@naos-ui/core"
-import { filterTasks, type Task } from "./api.ts"
+import { bindResource } from "@naos-ui/data"
+import { EMPTY_TASKS, filterTasks, type Task } from "./api.ts"
 import { captureRects, flipAfterUpdate } from "./motion-helpers.ts"
 import { tasksResource } from "./resources.ts"
 import { StatusBadge } from "./status-badge.wc.tsx"
@@ -15,25 +16,16 @@ export function TaskList() {
   const filter = state("all")
   const openTask = event<{ id: string }>("naos-open-task")
 
-  effect(() => {
-    const sync = () => {
-      const snapshot = tasksResource.snapshot()
-      if (snapshot.status !== loadState()) {
-        loadState.set(snapshot.status)
-      }
-      // Guarded writes: an unconditional set of a fresh array from an effect
-      // re-triggers the flush and loops under the rerun-all-effects model.
-      const signature = (list: Task[]) =>
-        list.map((task) => `${task.id}:${task.status}`).join("|")
-      const nextTasks = snapshot.data ?? []
-      if (signature(nextTasks) !== signature(tasks())) {
-        tasks.set(nextTasks)
-      }
-    }
-    const unsubscribe = tasksResource.subscribe(sync)
-    sync()
-    return () => unsubscribe()
-  })
+  // bindResource subscribes for the connected lifetime (the effect cleanup
+  // unsubscribes on disconnect) and starts the lazy fetch on first bind.
+  // Snapshot fields keep stable identity, so the runtime's Object.is
+  // bail-out skips redundant flushes.
+  effect(() =>
+    bindResource(tasksResource, ({ status, data }) => {
+      loadState.set(status)
+      tasks.set(data ?? EMPTY_TASKS)
+    })
+  )
 
   return (
     <section part="root" data-load-state={loadState()}>

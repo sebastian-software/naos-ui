@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest"
 
 import {
   NaosResourceCache,
+  bindResource,
   fetchResource,
   normalizeResourceKey,
   subscriptionResource,
@@ -35,7 +36,7 @@ describe("fetchResource", () => {
   it("loads data and notifies subscribers", async () => {
     const cache = new NaosResourceCache()
     const listener = vi.fn()
-    const resource = fetchResource("task-list", async () => ["a", "b"], { cache })
+    const resource = fetchResource("task-list", async () => ["a", "b"], { cache, lazy: false })
     resource.subscribe(listener)
 
     await waitForSnapshot(resource, { data: ["a", "b"], status: "success" })
@@ -48,8 +49,8 @@ describe("fetchResource", () => {
     const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => ({ name: "Ada" }))
 
-    const left = fetchResource(["profile", 1], fetcher, { cache })
-    const right = fetchResource(["profile", 1], fetcher, { cache })
+    const left = fetchResource(["profile", 1], fetcher, { cache, lazy: false })
+    const right = fetchResource(["profile", 1], fetcher, { cache, lazy: false })
 
     await waitForSnapshot(left, { data: { name: "Ada" }, status: "success" })
 
@@ -67,7 +68,7 @@ describe("fetchResource", () => {
         new Promise<string>(() => {
           signal = context.signal
         }),
-      { cache }
+      { cache, lazy: false }
     )
 
     await Promise.resolve()
@@ -80,13 +81,13 @@ describe("fetchResource", () => {
     const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => (fetcher.mock.calls.length === 1 ? "first" : "second"))
 
-    const first = fetchResource("cache-key", fetcher, { cache })
+    const first = fetchResource("cache-key", fetcher, { cache, lazy: false })
     await waitForSnapshot(first, { data: "first", status: "success" })
     await Promise.resolve()
     expect(first.snapshot()).toEqual({ data: "first", status: "success" })
 
-    const second = fetchResource("cache-key", fetcher, { cache })
-    expect(second.snapshot()).toEqual({ data: "first", stale: true, status: "success" })
+    const second = fetchResource("cache-key", fetcher, { cache, lazy: false })
+    expect(second.snapshot()).toEqual({ data: "first", fetching: true, stale: true, status: "success" })
 
     await waitForSnapshot(second, { data: "second", status: "success" })
     expect(second.snapshot()).toEqual({ data: "second", status: "success" })
@@ -96,12 +97,13 @@ describe("fetchResource", () => {
     const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => "cached")
 
-    const first = fetchResource("cache-key", fetcher, { cache })
+    const first = fetchResource("cache-key", fetcher, { cache, lazy: false })
     await waitForSnapshot(first, { data: "cached", status: "success" })
     await Promise.resolve()
 
     const second = fetchResource("cache-key", fetcher, {
       cache,
+      lazy: false,
       revalidateIfStale: false,
     })
 
@@ -115,6 +117,7 @@ describe("fetchResource", () => {
 
     const resource = fetchResource("cache-key", fetcher, {
       cache,
+      lazy: false,
       revalidateIfStale: false,
     })
     await waitForSnapshot(resource, { data: "cached", status: "success" })
@@ -127,7 +130,7 @@ describe("fetchResource", () => {
 
   it("supports optimistic mutation rollback", async () => {
     const cache = new NaosResourceCache()
-    const resource = fetchResource("count", async () => 1, { cache })
+    const resource = fetchResource("count", async () => 1, { cache, lazy: false })
     await waitForSnapshot(resource, { data: 1, status: "success" })
 
     await expect(
@@ -143,7 +146,7 @@ describe("fetchResource", () => {
   it("can revalidate after a cache mutation", async () => {
     const cache = new NaosResourceCache()
     const fetcher = vi.fn(async () => (fetcher.mock.calls.length === 1 ? 1 : 3))
-    const resource = fetchResource("count", fetcher, { cache })
+    const resource = fetchResource("count", fetcher, { cache, lazy: false })
     await waitForSnapshot(resource, { data: 1, status: "success" })
 
     await resource.mutate?.(2, { revalidate: true })
@@ -152,12 +155,188 @@ describe("fetchResource", () => {
   })
 })
 
+describe("lazy start", () => {
+  it("does not fetch until the first subscribe", async () => {
+    const cache = new NaosResourceCache()
+    const fetcher = vi.fn(async () => "value")
+
+    const resource = fetchResource("lazy-key", fetcher, { cache })
+    await Promise.resolve()
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(resource.snapshot()).toEqual({ status: "pending" })
+
+    resource.subscribe(() => {})
+    await waitForSnapshot(resource, { data: "value", status: "success" })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it("starts only one fetch across multiple subscribers", async () => {
+    const cache = new NaosResourceCache()
+    const fetcher = vi.fn(async () => "value")
+
+    const resource = fetchResource("lazy-multi", fetcher, { cache })
+    resource.subscribe(() => {})
+    resource.subscribe(() => {})
+
+    await waitForSnapshot(resource, { data: "value", status: "success" })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it("refetch starts a lazy resource explicitly", async () => {
+    const cache = new NaosResourceCache()
+    const fetcher = vi.fn(async () => "forced")
+
+    const resource = fetchResource("lazy-refetch", fetcher, { cache })
+    await expect(resource.refetch?.()).resolves.toBe("forced")
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it("does not fetch when a lazy resource is disposed before use", async () => {
+    const cache = new NaosResourceCache()
+    const fetcher = vi.fn(async () => "value")
+
+    const resource = fetchResource("lazy-disposed", fetcher, { cache })
+    resource.dispose()
+    resource.subscribe(() => {})
+    await Promise.resolve()
+
+    expect(fetcher).not.toHaveBeenCalled()
+  })
+})
+
+describe("fetching flag and retry", () => {
+  it("marks the state as fetching while a request is in flight", async () => {
+    const cache = new NaosResourceCache()
+    let resolveFetch: (value: string) => void = () => {}
+    const resource = fetchResource(
+      "flagged",
+      () =>
+        new Promise<string>((resolve) => {
+          resolveFetch = resolve
+        }),
+      { cache, lazy: false }
+    )
+
+    await Promise.resolve()
+    expect(resource.snapshot()).toEqual({ fetching: true, status: "pending" })
+
+    resolveFetch("done")
+    await waitForSnapshot(resource, { data: "done", status: "success" })
+    expect(resource.snapshot().fetching).toBeUndefined()
+  })
+
+  it("retries failed fetches up to the configured attempts", async () => {
+    const cache = new NaosResourceCache()
+    const fetcher = vi.fn(async () => {
+      if (fetcher.mock.calls.length < 3) {
+        throw new Error("flaky")
+      }
+      return "recovered"
+    })
+
+    const resource = fetchResource("retried", fetcher, {
+      cache,
+      lazy: false,
+      retry: { attempts: 2 },
+    })
+
+    await waitForSnapshot(resource, { data: "recovered", status: "success" })
+    expect(fetcher).toHaveBeenCalledTimes(3)
+  })
+
+  it("reports the error after retries are exhausted", async () => {
+    const cache = new NaosResourceCache()
+    const error = new Error("still failing")
+    const fetcher = vi.fn(async () => {
+      throw error
+    })
+
+    const resource = fetchResource("exhausted", fetcher, {
+      cache,
+      lazy: false,
+      retry: { attempts: 1 },
+    })
+
+    await waitForSnapshot(resource, { error, status: "error" })
+    expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it("waits the configured delay between retries", async () => {
+    vi.useFakeTimers()
+    try {
+      const cache = new NaosResourceCache()
+      const fetcher = vi.fn(async () => {
+        if (fetcher.mock.calls.length === 1) {
+          throw new Error("flaky")
+        }
+        return "recovered"
+      })
+
+      const resource = fetchResource("delayed-retry", fetcher, {
+        cache,
+        lazy: false,
+        retry: { attempts: 1, delay: 40 },
+      })
+
+      await vi.advanceTimersByTimeAsync(39)
+      expect(fetcher).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(1)
+      await waitForSnapshot(resource, { data: "recovered", status: "success" })
+      expect(fetcher).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})
+
+describe("bindResource", () => {
+  it("delivers the current snapshot immediately and on every change", async () => {
+    const cache = new NaosResourceCache()
+    const resource = fetchResource("bound", async () => "loaded", { cache })
+    const states: string[] = []
+
+    bindResource(resource, (state) => {
+      states.push(state.status)
+    })
+
+    expect(states[0]).toBe("pending")
+    await waitForSnapshot(resource, { data: "loaded", status: "success" })
+    expect(states.at(-1)).toBe("success")
+  })
+
+  it("starts a lazy resource through its subscription", async () => {
+    const cache = new NaosResourceCache()
+    const fetcher = vi.fn(async () => "value")
+    const resource = fetchResource("bound-lazy", fetcher, { cache })
+
+    bindResource(resource, () => {})
+    await waitForSnapshot(resource, { data: "value", status: "success" })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+  })
+
+  it("stops delivering changes after the cleanup runs", async () => {
+    const cache = new NaosResourceCache()
+    const resource = fetchResource("bound-cleanup", async () => "loaded", { cache })
+    const onChange = vi.fn()
+
+    const cleanup = bindResource(resource, onChange)
+    await waitForSnapshot(resource, { data: "loaded", status: "success" })
+    const callsAfterLoad = onChange.mock.calls.length
+
+    cleanup()
+    cache.set("bound-cleanup", { data: "changed", status: "success" })
+
+    expect(onChange.mock.calls.length).toBe(callsAfterLoad)
+  })
+})
+
 describe("cache eviction", () => {
   it("evicts an idle entry immediately with keepAlive 0", async () => {
     const cache = new NaosResourceCache({ keepAlive: 0 })
     const fetcher = vi.fn(async () => "value")
 
-    const resource = fetchResource("evict-now", fetcher, { cache })
+    const resource = fetchResource("evict-now", fetcher, { cache, lazy: false })
     await waitForSnapshot(resource, { data: "value", status: "success" })
     resource.dispose()
 
@@ -168,7 +347,7 @@ describe("cache eviction", () => {
     const cache = new NaosResourceCache({ keepAlive: 0 })
 
     for (let index = 0; index < 25; index += 1) {
-      const resource = fetchResource(["item", index], async () => index, { cache })
+      const resource = fetchResource(["item", index], async () => index, { cache, lazy: false })
       await waitForSnapshot(resource, { data: index, status: "success" })
       resource.dispose()
     }
@@ -182,7 +361,7 @@ describe("cache eviction", () => {
     vi.useFakeTimers()
     try {
       const cache = new NaosResourceCache({ keepAlive: 50 })
-      const resource = fetchResource("keep-alive", async () => "kept", { cache })
+      const resource = fetchResource("keep-alive", async () => "kept", { cache, lazy: false })
       await waitForSnapshot(resource, { data: "kept", status: "success" })
       resource.dispose()
 
@@ -202,7 +381,7 @@ describe("cache eviction", () => {
     vi.useFakeTimers()
     try {
       const cache = new NaosResourceCache({ keepAlive: 50 })
-      const first = fetchResource("revisited", async () => "kept", { cache })
+      const first = fetchResource("revisited", async () => "kept", { cache, lazy: false })
       await waitForSnapshot(first, { data: "kept", status: "success" })
       first.dispose()
 
@@ -221,7 +400,7 @@ describe("cache eviction", () => {
 
   it("does not evict while listeners remain subscribed", async () => {
     const cache = new NaosResourceCache({ keepAlive: 0 })
-    const resource = fetchResource("watched", async () => "kept", { cache })
+    const resource = fetchResource("watched", async () => "kept", { cache, lazy: false })
     const unsubscribe = resource.subscribe(() => {})
     await waitForSnapshot(resource, { data: "kept", status: "success" })
 
@@ -236,8 +415,8 @@ describe("cache eviction", () => {
     const cache = new NaosResourceCache({ keepAlive: 0 })
     const fetcher = vi.fn(async () => "shared")
 
-    const left = fetchResource("shared-key", fetcher, { cache })
-    const right = fetchResource("shared-key", fetcher, { cache })
+    const left = fetchResource("shared-key", fetcher, { cache, lazy: false })
+    const right = fetchResource("shared-key", fetcher, { cache, lazy: false })
     await waitForSnapshot(left, { data: "shared", status: "success" })
     await Promise.resolve()
 
@@ -252,7 +431,7 @@ describe("cache eviction", () => {
     const cache = new NaosResourceCache({ keepAlive: 0 })
     const fetcher = vi.fn(async () => (fetcher.mock.calls.length === 1 ? "first" : "second"))
 
-    const resource = fetchResource("refetched", fetcher, { cache })
+    const resource = fetchResource("refetched", fetcher, { cache, lazy: false })
     await waitForSnapshot(resource, { data: "first", status: "success" })
     await Promise.resolve()
 
@@ -265,7 +444,7 @@ describe("cache eviction", () => {
     vi.useFakeTimers()
     try {
       const cache = new NaosResourceCache({ keepAlive: Number.NaN })
-      const resource = fetchResource("nan-window", async () => "kept", { cache })
+      const resource = fetchResource("nan-window", async () => "kept", { cache, lazy: false })
       await waitForSnapshot(resource, { data: "kept", status: "success" })
       resource.dispose()
 
@@ -286,7 +465,7 @@ describe("cache eviction", () => {
         new Promise<string>(() => {
           signal = context.signal
         }),
-      { cache }
+      { cache, lazy: false }
     )
     await Promise.resolve()
 
@@ -299,7 +478,7 @@ describe("cache eviction", () => {
   it("resets a deleted key to pending and notifies remaining listeners", async () => {
     const cache = new NaosResourceCache()
     const listener = vi.fn()
-    const resource = fetchResource("reset", async () => "cached", { cache })
+    const resource = fetchResource("reset", async () => "cached", { cache, lazy: false })
     resource.subscribe(listener)
     await waitForSnapshot(resource, { data: "cached", status: "success" })
     listener.mockClear()
@@ -313,7 +492,7 @@ describe("cache eviction", () => {
   it("clears all entries and disposes active subscriptions", async () => {
     const cache = new NaosResourceCache()
     const dispose = vi.fn()
-    const fetched = fetchResource("clear-fetch", async () => "cached", { cache })
+    const fetched = fetchResource("clear-fetch", async () => "cached", { cache, lazy: false })
     subscriptionResource("clear-feed", (_key, { next }) => {
       next(null, "live")
       return dispose

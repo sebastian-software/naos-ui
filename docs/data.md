@@ -40,10 +40,14 @@ Every resource exposes the same shape:
 
 ```ts
 type NaosResourceState<Data, Error = unknown> =
-  | { status: "pending"; data?: Data; stale?: boolean }
-  | { status: "success"; data: Data; stale?: boolean }
-  | { status: "error"; data?: Data; error: Error; stale?: boolean }
+  | { status: "pending"; data?: Data; stale?: boolean; fetching?: boolean }
+  | { status: "success"; data: Data; stale?: boolean; fetching?: boolean }
+  | { status: "error"; data?: Data; error: Error; stale?: boolean; fetching?: boolean }
 ```
+
+`fetching` is `true` while a request for the key is in flight — including
+background revalidation of stale data — so spinner-on-refetch UI does not have
+to infer it from `stale` alone.
 
 Use `snapshot()` to read the current state and `subscribe()` to receive change
 notifications. Naos component integration should subscribe for the element
@@ -75,12 +79,41 @@ Fetch resources:
 
 * accept string, tuple, or object keys;
 * treat `null`, `undefined`, and `false` keys as disabled;
+* are **lazy by default**: the first fetch starts on the first `subscribe()`
+  (or an explicit `refetch()`), so constructing a resource that is never used
+  issues no request — pass `lazy: false` to fetch eagerly at creation;
 * pass an `AbortSignal` to the fetcher;
 * abort when the final resource instance is disposed;
 * dedupe equivalent in-flight keys;
-* keep cached data as `stale` while revalidating;
+* keep cached data as `stale` while revalidating and expose `fetching`;
+* retry failed fetches when configured (`retry: { attempts, delay }`, where
+  `delay` is milliseconds or a function of the 1-based attempt);
 * expose `refetch()`;
 * expose `mutate()` for cache updates and optimistic rollback.
+
+## Component Lifecycle Binding
+
+`bindResource(resource, onChange)` subscribes, delivers the current snapshot
+immediately, and returns the unsubscribe cleanup. Inside a Naos `effect()`
+this follows the element's connect/disconnect lifecycle automatically, and the
+subscription starts a lazy resource's first fetch:
+
+```ts
+import { bindResource } from "@naos-ui/data"
+import { EMPTY_TASKS, tasksResource } from "./resources.ts"
+
+effect(() =>
+  bindResource(tasksResource, ({ status, data }) => {
+    loadState.set(status)
+    tasks.set(data ?? EMPTY_TASKS)
+  })
+)
+```
+
+Hand `onChange` values with stable identity to state — the snapshot's `data`
+reference plus module-level fallback constants — so the runtime's `Object.is`
+bail-out can skip redundant flushes. A fresh array or object on every call
+would re-trigger the flush loop instead.
 
 ## Subscriptions
 
@@ -158,6 +191,27 @@ const createTask = convexMutation(convex, api.tasks.create)
 The adapter uses the same `NaosResourceState` contract as `fetchResource()` and
 `subscriptionResource()`, while leaving Convex client creation and auth
 configuration to the app.
+
+## One Mutation Model
+
+Optimistic updates work the same way for fetch and Convex resources: both
+route through `cache.mutate()`. For Convex, pass an `optimistic` config to
+`convexMutation` — the optimistic value is visible immediately, rolled back
+when the mutation rejects, and reconciled by the live query subscription when
+the authoritative result arrives (`populateCache` stays off because the
+subscription owns the query payload):
+
+```ts
+const createTask = convexMutation(convex, api.tasks.create, {
+  optimistic: {
+    key: ["convex", "tasks:list", { projectId }],
+    optimisticData: (current, args) => [...(current ?? []), args.draft],
+  },
+})
+```
+
+Without `optimistic`, `convexMutation` stays a plain passthrough to
+`client.mutation(...)`.
 
 ## DSD and Hydration
 

@@ -56,6 +56,28 @@ export type NaosConvexResourceOptions<Data> = {
   key?: NaosResourceKey
 }
 
+export type NaosConvexOptimisticUpdate<Data, Args> = {
+  /** Cache of the query resource to update. Defaults to the shared cache. */
+  cache?: NaosResourceCache
+  /** Resource key of the query this mutation affects. */
+  key: NaosResourceKey
+  /** Produces the optimistic value from the current cached value and the mutation args. */
+  optimisticData: (current: Data | undefined, args: Args) => Data
+  /** Roll the optimistic value back when the mutation rejects. Defaults to true. */
+  rollbackOnError?: boolean
+}
+
+export type NaosConvexMutationOptions<Data, Args> = {
+  /** Convex MutationOptions forwarded to the client. */
+  clientOptions?: MutationOptions
+  /**
+   * Routes the mutation through `cache.mutate()`: the optimistic value is
+   * visible immediately, rolled back on error, and reconciled by the live
+   * query subscription when the authoritative result arrives.
+   */
+  optimistic?: NaosConvexOptimisticUpdate<Data, Args>
+}
+
 export type NaosConvexConnectionResourceOptions = {
   cache?: NaosResourceCache
   initialData?: ConnectionState
@@ -108,12 +130,39 @@ export function convexQueryKey<Query extends FunctionReference<"query">>(
   return normalized.key
 }
 
-export function convexMutation<Mutation extends FunctionReference<"mutation">>(
+export function convexMutation<
+  Mutation extends FunctionReference<"mutation">,
+  Data = unknown,
+>(
   client: NaosConvexMutationClient,
   mutation: Mutation,
-  options?: MutationOptions
+  options: NaosConvexMutationOptions<Data, FunctionArgs<Mutation>> = {}
 ): (...args: OptionalRestArgs<Mutation>) => Promise<Awaited<FunctionReturnType<Mutation>>> {
-  return (...args) => client.mutation(mutation, (args[0] ?? {}) as FunctionArgs<Mutation>, options)
+  return (...args) => {
+    const mutationArgs = (args[0] ?? {}) as FunctionArgs<Mutation>
+    const run = () => client.mutation(mutation, mutationArgs, options.clientOptions)
+
+    const optimistic = options.optimistic
+    if (!optimistic) {
+      return run()
+    }
+
+    const cache = optimistic.cache ?? defaultNaosResourceCache
+    const normalized = normalizeResourceKey(optimistic.key)
+    if (normalized.disabled) {
+      return run()
+    }
+
+    return cache
+      .mutate<Data, Awaited<FunctionReturnType<Mutation>>>(normalized.key, run, {
+        optimisticData: (current) => optimistic.optimisticData(current, mutationArgs),
+        // The live query subscription delivers the authoritative value; the
+        // mutation result is not the query payload, so never write it back.
+        populateCache: false,
+        rollbackOnError: optimistic.rollbackOnError ?? true,
+      })
+      .then((result) => result as Awaited<FunctionReturnType<Mutation>>)
+  }
 }
 
 export function convexAction<Action extends FunctionReference<"action">>(

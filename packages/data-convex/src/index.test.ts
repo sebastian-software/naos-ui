@@ -96,6 +96,68 @@ describe("convexMutation and convexAction", () => {
     await expect(summarize({ body: "hello world" })).resolves.toBe("summary")
     expect(client.action).toHaveBeenCalledWith(summarizeAction, { body: "hello world" })
   })
+
+  it("applies optimistic updates through the resource cache", async () => {
+    const cache = new NaosResourceCache()
+    const client = new FakeConvexClient(["existing"])
+    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache })
+    const key = convexQueryKey(messagesQuery, { channel: "general" })
+
+    let resolveMutation: (value: { id: string }) => void = () => {}
+    client.mutation.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveMutation = resolve
+      })
+    )
+
+    const createMessage = convexMutation<typeof createMessageMutation, string[]>(
+      client,
+      createMessageMutation,
+      {
+        optimistic: {
+          cache,
+          key: ["convex", "messages:list", { channel: "general" }],
+          optimisticData: (current, args) => [...(current ?? []), args.body],
+        },
+      }
+    )
+
+    const pendingMutation = createMessage({ body: "hello" })
+    expect(cache.snapshot<string[]>(key)).toEqual({
+      data: ["existing", "hello"],
+      status: "success",
+    })
+
+    resolveMutation({ id: "m1" })
+    await expect(pendingMutation).resolves.toEqual({ id: "m1" })
+
+    client.emit(["existing", "hello"])
+    expect(resource.snapshot()).toEqual({ data: ["existing", "hello"], status: "success" })
+  })
+
+  it("rolls the optimistic value back when the mutation rejects", async () => {
+    const cache = new NaosResourceCache()
+    const client = new FakeConvexClient(["existing"])
+    convexResource(client, messagesQuery, { channel: "general" }, { cache })
+    const key = convexQueryKey(messagesQuery, { channel: "general" })
+
+    client.mutation.mockRejectedValueOnce(new Error("rejected"))
+
+    const createMessage = convexMutation<typeof createMessageMutation, string[]>(
+      client,
+      createMessageMutation,
+      {
+        optimistic: {
+          cache,
+          key: ["convex", "messages:list", { channel: "general" }],
+          optimisticData: (current, args) => [...(current ?? []), args.body],
+        },
+      }
+    )
+
+    await expect(createMessage({ body: "hello" })).rejects.toThrow("rejected")
+    expect(cache.snapshot<string[]>(key)).toEqual({ data: ["existing"], status: "success" })
+  })
 })
 
 describe("convexConnectionResource", () => {

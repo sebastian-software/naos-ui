@@ -91,3 +91,7 @@ export function filterTasks(tasks: Task[], filter: string): Task[] {
   }
   return tasks.filter((task) => task.status === filter)
 }
+
+export const EMPTY_TASKS: Task[] = []
+
+export const EMPTY_ACTIVITY: string[] = []
