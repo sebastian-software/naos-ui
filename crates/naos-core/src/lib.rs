@@ -750,6 +750,49 @@ mod tests {
     }
 
     #[test]
+    fn analyze_component_module_should_resolve_annotations_at_word_boundaries() {
+        // `typeWidgetProps` and `WidgetPropsExtra` are identifier decoys; the
+        // real declaration follows both. `readonly_value` keeps its full name,
+        // and inline comments must not corrupt member types.
+        let source = r#"
+            const typeWidgetProps = { count: 5 };
+
+            type WidgetPropsExtra = {
+              other?: number;
+            };
+
+            type WidgetProps = {
+              readonly_value?: boolean;
+              readonly tone?: string; // trailing comment
+              /* block */ level?: number;
+            };
+
+            export function Widget({ readonly_value, tone, level }: WidgetProps = {}) {
+              return <span data-tone={tone}>{level}</span>;
+            }
+        "#;
+
+        let module = match analyze_component_module(source, "widget.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+
+        let kinds: Vec<(&str, PropKind)> = module
+            .props
+            .iter()
+            .map(|prop| (prop.prop_name.as_str(), prop.kind))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                ("readonly_value", PropKind::Boolean),
+                ("tone", PropKind::String),
+                ("level", PropKind::Number),
+            ]
+        );
+    }
+
+    #[test]
     fn analyze_component_module_should_reject_prop_type_default_conflicts() {
         let source = r#"
             export function Broken({ count = "many" }: { count?: number } = {}) {

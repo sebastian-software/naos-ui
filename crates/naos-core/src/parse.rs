@@ -184,10 +184,10 @@ fn capture_prop_type_annotations(
         return Ok(Vec::new());
     };
     let close = find_matching_delimiter(&body, open, '{', '}')?;
-    let members = &body[open + 1..close];
+    let members = strip_type_comments(&body[open + 1..close]);
 
     let mut annotations = Vec::new();
-    for member in split_top_level_members(members) {
+    for member in split_top_level_members(&members) {
         let member = member.trim();
         if member.is_empty() {
             continue;
@@ -195,10 +195,7 @@ fn capture_prop_type_annotations(
         let Some((name_source, type_text)) = member.split_once(':') else {
             continue;
         };
-        let name = name_source
-            .trim()
-            .trim_start_matches("readonly")
-            .trim()
+        let name = strip_readonly_modifier(name_source.trim())
             .trim_end_matches('?')
             .trim();
         if name.is_empty() || !name.chars().all(|ch| ch.is_alphanumeric() || ch == '_') {
@@ -207,6 +204,61 @@ fn capture_prop_type_annotations(
         annotations.push((name.to_owned(), type_text.trim().to_owned()));
     }
     Ok(annotations)
+}
+
+/// Strips a leading `readonly` modifier only when it is a whole word, so a
+/// member named `readonly_value` keeps its full name.
+fn strip_readonly_modifier(source: &str) -> &str {
+    if let Some(rest) = source.strip_prefix("readonly")
+        && rest.chars().next().is_some_and(char::is_whitespace)
+    {
+        return rest.trim_start();
+    }
+    source
+}
+
+/// Removes `//` line comments and `/* */` block comments from a type-literal
+/// body, preserving quoted string-literal types.
+fn strip_type_comments(source: &str) -> String {
+    let mut output = String::with_capacity(source.len());
+    let mut chars = source.chars().peekable();
+    let mut in_quote: Option<char> = None;
+    while let Some(ch) = chars.next() {
+        if let Some(quote) = in_quote {
+            output.push(ch);
+            if ch == quote {
+                in_quote = None;
+            }
+            continue;
+        }
+        match ch {
+            '"' | '\'' | '`' => {
+                in_quote = Some(ch);
+                output.push(ch);
+            }
+            '/' if chars.peek() == Some(&'/') => {
+                while let Some(&next) = chars.peek() {
+                    if next == '\n' {
+                        break;
+                    }
+                    chars.next();
+                }
+            }
+            '/' if chars.peek() == Some(&'*') => {
+                chars.next();
+                let mut previous = ' ';
+                for next in chars.by_ref() {
+                    if previous == '*' && next == '/' {
+                        break;
+                    }
+                    previous = next;
+                }
+                output.push(' ');
+            }
+            _ => output.push(ch),
+        }
+    }
+    output
 }
 
 /// Returns the annotation text up to a top-level `=` (the params default).
@@ -243,10 +295,24 @@ fn resolve_named_type_body(name: &str, source: &str) -> CompilerResult<Option<St
                 continue;
             }
             let rest = &source[index + keyword.len()..];
+            // The keyword must be a whole word (`typeMyWidget` is an
+            // identifier, not a `type` declaration for `MyWidget`).
+            if !rest.chars().next().is_some_and(char::is_whitespace) {
+                continue;
+            }
             let rest_trimmed = rest.trim_start();
             let Some(after_name) = rest_trimmed.strip_prefix(name) else {
                 continue;
             };
+            // The name must also end at a word boundary so `CardProps` does
+            // not match a `CardPropsExtra` declaration.
+            if after_name
+                .chars()
+                .next()
+                .is_some_and(|ch| ch.is_alphanumeric() || ch == '_')
+            {
+                continue;
+            }
             let after_name_trimmed = after_name.trim_start();
             let body_candidate = if keyword == "type" {
                 let Some(after_equals) = after_name_trimmed.strip_prefix('=') else {
