@@ -698,3 +698,39 @@ describe("NaosRouter", () => {
     expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-fast")
   })
 })
+
+describe("typed route params", () => {
+  it("threads typed path params through loaders, actions, and matches", () => {
+    const routes = defineRoutes([
+      {
+        path: "/products/:id",
+        tag: "app-product",
+        loader({ params }) {
+          const id: string = params.id
+          // @ts-expect-error - "slug" is not a param of "/products/:id"
+          void params.slug
+          return id
+        },
+        action({ params }) {
+          const id: string = params.id
+          return id
+        },
+        props({ params }) {
+          return { productId: params.id }
+        },
+      },
+      {
+        path: "/files/:section/:name?",
+        tag: "app-files",
+        loader({ params }) {
+          const section: string = params.section
+          const name: string | undefined = params.name
+          return [section, name]
+        },
+      },
+    ])
+
+    expect(routes[0].path).toBe("/products/:id")
+    expect(routes[1].path).toBe("/files/:section/:name?")
+  })
+})

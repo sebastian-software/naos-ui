@@ -46,6 +46,14 @@ createRouter({
 }).start()
 ```
 
+Routes defined through `defineRoutes()` derive typed path params from their
+path template: in the `/products/:id` loader above, `params` is
+`Readonly<{ id: string }>`, so `params.id` is a `string` and a misspelled name
+like `params.slug` is a compile error. Optional (`:name?`) and wildcard
+(`:name*`) segments type as `string | undefined`. The same typing applies to
+`action`, `props`, `attrs`, `canEnter`, `createElement`, and every
+`NaosRouteMatch` the router returns.
+
 Route elements receive `element.naosRoute`, including `params`, `search`,
 `data`, `actionData`, the current `URL`, and the navigation `AbortSignal`.
 Native forms opt into action handling with `data-naos-action`.
