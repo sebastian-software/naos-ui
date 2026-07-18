@@ -29,6 +29,7 @@ function createBindings(): NativeBindings {
       hasChanged: false,
       packageName: "@naos-ui/test",
       shadow: true,
+      styleImports: [],
       tagName: "x-counter",
       tagPrefix: "x",
     }),

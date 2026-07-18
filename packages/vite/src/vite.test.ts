@@ -89,6 +89,7 @@ describe("naos", () => {
         ...nativeMetadata,
         code: `compiled:${request.filename}:${request.source}`,
         hasChanged: true,
+        styleImports: [],
       }),
     })
 
@@ -134,6 +135,7 @@ describe("naos", () => {
           sourcesContent: [request.source],
           version: 3,
         },
+        styleImports: [],
       }),
     })
 
@@ -215,6 +217,7 @@ describe("naos", () => {
         ...nativeMetadata,
         code: "compiled",
         hasChanged: true,
+        styleImports: [],
       }),
     })
 
@@ -269,6 +272,7 @@ describe("naos", () => {
         ...nativeMetadata,
         code: "compiled",
         hasChanged: true,
+        styleImports: [],
       }),
     })
 
@@ -330,6 +334,7 @@ describe("naos", () => {
           ...nativeMetadata,
           code: "compiled",
           hasChanged: true,
+          styleImports: [{ localName: "css", source: "./counter.css?inline" }],
         }),
       })
 
@@ -350,10 +355,61 @@ describe("naos", () => {
       await rm(root, { force: true, recursive: true })
     }
   })
+
+  it("registers resolved inline CSS files as watch dependencies", async () => {
+    const root = await mkdtemp(join(tmpdir(), "naos-vite-"))
+    try {
+      const filename = join(root, "counter.wc.tsx")
+      await writeFile(
+        join(root, "package.json"),
+        '{"name":"@example/counter","version":"1.0.0"}\n'
+      )
+      await writeFile(join(root, "counter.css"), ":host { display: block; }\n")
+
+      setNativeBindingsForTesting({
+        getNativeInfo: () => ({ coreVersion: "test" }),
+        renderDeclarativeShadowDom: () => ({
+          ...nativeMetadata,
+          html: "<naos-ui-vite-counter></naos-ui-vite-counter>",
+          templateHtml: '<template shadowrootmode="open"></template>',
+          usesDeclarativeShadowDom: true,
+        }),
+        transformComponent: () => ({
+          ...nativeMetadata,
+          code: "compiled",
+          hasChanged: true,
+          styleImports: [{ localName: "css", source: "./counter.css?inline" }],
+        }),
+      })
+
+      const plugin = naos()
+      const transform = plugin.transform
+      if (typeof transform !== "function") {
+        throw new Error("Expected transform hook")
+      }
+
+      const addWatchFile = vi.fn()
+      await transform.call(
+        {
+          addWatchFile,
+          error(error: string): never {
+            throw new Error(error)
+          },
+        } as never,
+        'import css from "./counter.css?inline";\nexport const options = { styles: [css] }',
+        filename
+      )
+
+      expect(addWatchFile).toHaveBeenCalledWith(join(root, "counter.css"))
+    } finally {
+      await rm(root, { force: true, recursive: true })
+    }
+  })
 })
 
 function mockPluginContext() {
   return {
+    addWatchFile() {},
     error(error: string): never {
       throw new Error(error)
     },

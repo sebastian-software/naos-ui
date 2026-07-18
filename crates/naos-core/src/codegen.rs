@@ -46,14 +46,16 @@ pub fn transform_component_module(
     let mut generator = CodeGenerator::new(&module);
     let code = generator.generate(&module.template)?;
     let map = Some(source_map_for_transform(source, filename, &code));
+    let has_changed = code != source;
     Ok(TransformResult {
         code,
         map,
-        has_changed: true,
+        has_changed,
         tag_name: module.tag_name.clone(),
         class_name: module.class_name.clone(),
         export_name: module.export_name.clone(),
         shadow: module.options.shadow,
+        style_imports: module.style_imports.clone(),
         package: module.package.clone(),
     })
 }

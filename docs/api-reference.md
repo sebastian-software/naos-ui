@@ -104,7 +104,15 @@ type TransformComponentResult = {
   code: string
   hasChanged: boolean
   map?: SourceMap
+  styleImports: Array<{ localName: string; source: string }>
 }
+```
+
+`hasChanged` is `true` when the generated code differs from the input module
+source. `styleImports` lists the `?inline` CSS imports the compiler saw, so
+build integrations can resolve and watch them without re-parsing the source.
+
+```ts
 
 type RenderDeclarativeShadowDomRequest = {
   filename: string
