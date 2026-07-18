@@ -254,6 +254,10 @@ const ROUTER_EVENT_NAMES = new Set<string>([
 const MAX_REDIRECTS = 10
 const SCROLL_STATE_KEY = "__naosScrollKey"
 
+// The mapped signature infers each route's path literal so loaders, actions,
+// and match callbacks get typed params contextually. Elements widen to
+// NaosRoute<Path> in the return type; code that needs the tag/createElement
+// subtype after defineRoutes narrows via "tag" in route.
 export function defineRoutes<const Paths extends readonly string[]>(
   routes: { readonly [Index in keyof Paths]: NaosRoute<Paths[Index]> }
 ): { readonly [Index in keyof Paths]: NaosRoute<Paths[Index]> } {

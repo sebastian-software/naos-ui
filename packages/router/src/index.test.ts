@@ -728,9 +728,31 @@ describe("typed route params", () => {
           return [section, name]
         },
       },
+      {
+        path: "/docs/:rest*",
+        tag: "app-docs",
+        loader({ params }) {
+          const rest: string | undefined = params.rest
+          return rest
+        },
+      },
     ])
 
     expect(routes[0].path).toBe("/products/:id")
     expect(routes[1].path).toBe("/files/:section/:name?")
+    expect(routes[2].path).toBe("/docs/:rest*")
+  })
+
+  it("omits an absent wildcard param at runtime", () => {
+    const platform = setupPlatform("https://naos.test/docs")
+    const outlet = document.createElement("div")
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([{ path: "/docs/:rest*", tag: "app-docs" }]),
+      ...({ platform: platform.routerPlatform } as { platform: unknown }),
+    })
+
+    const match = router.match("/docs")
+    expect(match?.params).toEqual({})
   })
 })
