@@ -1,0 +1,19 @@
+[part~="root"] {
+  border-left: 2px solid var(--tasks-row-border, #d8dde5);
+  display: grid;
+  gap: 0.5rem;
+  padding-left: 1rem;
+}
+
+[part~="title"] {
+  font-size: 1rem;
+  margin: 0;
+}
+
+[part~="entries"] {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  margin: 0;
+  padding-left: 1.1rem;
+}

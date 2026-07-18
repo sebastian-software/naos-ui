@@ -68,6 +68,15 @@ jobs:
       - name: Build example
         run: pnpm --filter @naos-ui/example-counter build
 
+      - name: Check tasks example types
+        run: pnpm --filter @naos-ui/example-tasks type-check
+
+      - name: Unit test tasks example
+        run: pnpm --filter @naos-ui/example-tasks test:unit
+
+      - name: Build tasks example
+        run: pnpm --filter @naos-ui/example-tasks build
+
       - name: Build docs
         run: pnpm build:docs
 
@@ -153,3 +162,6 @@ jobs:
 
       - name: Run example browser tests
         run: pnpm --filter @naos-ui/example-counter exec playwright test --project=${{ matrix.browser }}
+
+      - name: Run tasks example browser tests
+        run: pnpm --filter @naos-ui/example-tasks exec playwright test --project=${{ matrix.browser }}
