@@ -864,7 +864,10 @@ mod tests {
             Err(error) => panic!("transform failed: {error}"),
         };
 
-        assert_contains(&result.code, "import { saveNote } from \"./note-actions.js\";");
+        assert_contains(
+            &result.code,
+            "import { saveNote } from \"./note-actions.js\";",
+        );
         assert_contains(&result.code, "FormAction = (saveNote);");
         assert_contains(&result.code, "typeof node0FormAction === \"string\"");
         assert_contains(
@@ -890,7 +893,10 @@ mod tests {
             Ok(result) => result,
             Err(error) => panic!("transform failed: {error}"),
         };
-        assert_contains(&static_result.code, "setAttribute(\"action\", \"/api/save\")");
+        assert_contains(
+            &static_result.code,
+            "setAttribute(\"action\", \"/api/save\")",
+        );
         assert!(!static_result.code.contains("naos.form.action"));
     }
 
