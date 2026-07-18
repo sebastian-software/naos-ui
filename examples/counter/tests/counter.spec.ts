@@ -655,6 +655,9 @@ test("compiled elements accept host-provided css custom properties", async ({
 test("compiled instances share one constructable stylesheet without per-instance style nodes", async ({
   page,
 }) => {
+  // The index page is client-side mounted. DSD-hydrated instances keep the
+  // template <style> fallback instead of adopting the shared sheet, so the
+  // existingSharesSheet assertion must not move to a prerendered page.
   await page.goto("/")
 
   const probe = await page.evaluate(() => {

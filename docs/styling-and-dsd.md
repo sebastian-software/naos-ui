@@ -36,6 +36,12 @@ instances keep that `<style>` fallback; if hydration fails and the component
 remounts imperatively, the remount adopts the shared sheet like any
 client-side mount.
 
+Constructable stylesheets do not process `@import` rules — `replaceSync()`
+treats them as parse errors and skips them. Vite's `?inline` pipeline resolves
+CSS imports at build time, so bundled component CSS is unaffected, but raw
+style strings must not rely on `@import url(...)`; inline the imported rules
+instead.
+
 `shadow: false` cannot be combined with `styles`: the public v0.1 API rejects
 any `shadow` option at compile time with `NAOS_UNSUPPORTED_COMPONENT_OPTIONS`,
 so component styles are never dropped silently. Internally the light-DOM
