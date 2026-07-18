@@ -18,10 +18,19 @@ export type ElementRef<ElementType extends Element = HTMLElement> =
   | undefined
   | ((element: ElementType) => void)
 
+/**
+ * Structural shape of a Naos form action (`@naos-ui/actions`). Declared
+ * structurally so `@naos-ui/core` stays dependency-free.
+ */
+export type FormActionLike = {
+  enhance(form: HTMLFormElement): () => void
+}
+
 export type IntrinsicElementAttributes = {
   [attribute: `aria-${string}`]: AttributeValue
   [attribute: `data-${string}`]: AttributeValue
   [attribute: `on${string}`]: EventHandler | undefined
+  action?: string | FormActionLike
   children?: JsxChild
   class?: string
   disabled?: boolean
@@ -79,6 +88,7 @@ export type IntrinsicElementAttributes = {
   onTransitionRun?: EventHandler<TransitionEvent>
   onTransitionStart?: EventHandler<TransitionEvent>
   part?: string
+  required?: boolean
   ref?: ElementRef
   role?: string
   slot?: string

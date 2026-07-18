@@ -96,6 +96,11 @@
       "component": "compiler-win32-x64-msvc",
       "package-name": "@naos-ui/compiler-win32-x64-msvc",
       "release-type": "node"
+    },
+    "packages/actions": {
+      "component": "actions",
+      "package-name": "@naos-ui/actions",
+      "release-type": "node"
     }
   }
 }

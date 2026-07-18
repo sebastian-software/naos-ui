@@ -790,6 +790,44 @@ test("router hover prefetch warms loader data without committing UI", async ({
   await expect(outlet.locator("router-settings-view")).toContainText("Router settings")
 })
 
+test("form actions enhance native forms with pending, error, and validation fallback", async ({
+  page,
+}) => {
+  await page.goto("/")
+
+  const form = page.locator("#actions-case demo-note-form form")
+  const input = form.locator("input[name='note']")
+  const saveButton = form.locator("button")
+  const noteCount = form.locator("[data-note-count]")
+
+  await expect(noteCount).toHaveText("0")
+
+  // Empty required input: native constraint validation blocks the submit and
+  // the reducer never runs.
+  await saveButton.click()
+  await expect(noteCount).toHaveText("0")
+  await expect(page).toHaveURL(/\/$/u)
+
+  await input.fill("first note")
+  await saveButton.click()
+  await expect(form).toHaveAttribute("data-pending", "true")
+  await expect(noteCount).toHaveText("1")
+  await expect(form).toHaveAttribute("data-pending", "false")
+  await expect(form).toHaveAttribute("data-failed", "false")
+  await expect(page).toHaveURL(/\/$/u)
+
+  // A rejected reducer reports through error() and keeps the committed state.
+  await input.fill("boom")
+  await saveButton.click()
+  await expect(form).toHaveAttribute("data-failed", "true")
+  await expect(noteCount).toHaveText("1")
+
+  await input.fill("second note")
+  await saveButton.click()
+  await expect(noteCount).toHaveText("2")
+  await expect(form).toHaveAttribute("data-failed", "false")
+})
+
 test("router nested routes reuse the parent layout and apply route metadata", async ({
   page,
 }) => {

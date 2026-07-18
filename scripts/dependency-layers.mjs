@@ -7,6 +7,7 @@ export const foundationPackageNames = freeze([
   "@naos-ui/runtime",
   "@naos-ui/motion",
   "@naos-ui/data",
+  "@naos-ui/actions",
   "@naos-ui/compiler",
 ])
 
