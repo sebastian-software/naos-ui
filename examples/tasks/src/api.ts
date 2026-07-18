@@ -66,14 +66,19 @@ const ACTIVITY: string[] = [
   "Mara opened “Motion pass over list surfaces”.",
 ]
 
+const ACTIVITY_FEED_LIMIT = 6
+
 export function subscribeToActivity(onEntry: (entries: string[]) => void): () => void {
   const seen: string[] = []
-  let index = 0
+  let sequence = 0
   const timer = setInterval(() => {
-    const entry = ACTIVITY[index % ACTIVITY.length]
-    index += 1
+    const entry = ACTIVITY[sequence % ACTIVITY.length]
+    sequence += 1
     if (entry) {
-      seen.push(entry)
+      seen.push(`#${sequence} ${entry}`)
+      if (seen.length > ACTIVITY_FEED_LIMIT) {
+        seen.splice(0, seen.length - ACTIVITY_FEED_LIMIT)
+      }
       onEntry([...seen])
     }
   }, 150)

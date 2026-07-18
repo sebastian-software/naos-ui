@@ -21,8 +21,12 @@ export function TaskList() {
       if (snapshot.status !== loadState()) {
         loadState.set(snapshot.status)
       }
+      // Guarded writes: an unconditional set of a fresh array from an effect
+      // re-triggers the flush and loops under the rerun-all-effects model.
+      const signature = (list: Task[]) =>
+        list.map((task) => `${task.id}:${task.status}`).join("|")
       const nextTasks = snapshot.data ?? []
-      if (nextTasks.length !== tasks().length) {
+      if (signature(nextTasks) !== signature(tasks())) {
         tasks.set(nextTasks)
       }
     }

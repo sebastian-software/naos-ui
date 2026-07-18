@@ -12,7 +12,8 @@ export function ActivityFeed() {
   effect(() => {
     const sync = () => {
       const next = activityResource.snapshot().data ?? []
-      if (next.length !== entries().length) {
+      const current = entries()
+      if (next.length !== current.length || next.at(-1) !== current.at(-1)) {
         entries.set(next)
       }
     }
