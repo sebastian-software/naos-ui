@@ -73,13 +73,27 @@ class RouterProductView extends HTMLElement {
 
 class RouterSettingsView extends HTMLElement {
   connectedCallback() {
+    if (this.querySelector("[data-naos-router-outlet]")) return
     this.innerHTML = `
       <article class="router-view" data-view="settings">
         <p class="case-kicker">Settings</p>
         <h3>Router settings</h3>
         <p>This view was lazy-loaded before mount.</p>
+        <div data-naos-router-outlet></div>
       </article>
     `
+  }
+}
+
+class RouterSettingsHomeView extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = `<p data-settings-child="home">General settings</p>`
+  }
+}
+
+class RouterSettingsAppearanceView extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = `<p data-settings-child="appearance">Appearance settings</p>`
   }
 }
 
@@ -97,6 +111,8 @@ class RouterNotFoundView extends HTMLElement {
 
 declare global {
   interface HTMLElementTagNameMap {
+    "router-settings-home-view": RouterSettingsHomeView
+    "router-settings-appearance-view": RouterSettingsAppearanceView
     "router-home-view": RouterHomeView
     "router-not-found-view": RouterNotFoundView
     "router-product-view": RouterProductView
@@ -116,6 +132,12 @@ if (!customElements.get("router-product-view")) {
 }
 if (!customElements.get("router-settings-view")) {
   customElements.define("router-settings-view", RouterSettingsView)
+}
+if (!customElements.get("router-settings-home-view")) {
+  customElements.define("router-settings-home-view", RouterSettingsHomeView)
+}
+if (!customElements.get("router-settings-appearance-view")) {
+  customElements.define("router-settings-appearance-view", RouterSettingsAppearanceView)
 }
 if (!customElements.get("router-not-found-view")) {
   customElements.define("router-not-found-view", RouterNotFoundView)
@@ -164,6 +186,18 @@ if (routerOutlet && routerSection) {
       tag: "router-settings-view",
       focusTarget: "h3",
       load: async () => Promise.resolve(),
+      meta: { description: "Naos router demo settings" },
+      children: [
+        { path: "/", tag: "router-settings-home-view" },
+        {
+          path: "appearance",
+          tag: "router-settings-appearance-view",
+          meta: {
+            tags: [{ content: "appearance", name: "naos-demo-section" }],
+            title: "Appearance - Naos demos",
+          },
+        },
+      ],
     },
   ] as const)
 
@@ -186,6 +220,11 @@ if (routerOutlet && routerSection) {
       })
     } else {
       anchor.href = router.href(routePath as "/" | "/settings")
+    }
+  }
+  for (const anchor of routerSection.querySelectorAll<HTMLAnchorElement>("[data-router-child-to]")) {
+    if (anchor.dataset.routerChildTo === "/settings/appearance") {
+      anchor.href = `${router.href("/settings")}/appearance`
     }
   }
 

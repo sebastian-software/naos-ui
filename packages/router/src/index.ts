@@ -65,8 +65,22 @@ export type NaosScrollRestorationOptions = {
   readonly getKey?: (args: NaosScrollKeyArgs) => string
 }
 
+export type NaosRouteMeta = {
+  readonly canonical?: string
+  readonly description?: string
+  /** Custom head tags; each record's entries become `<meta>` attributes. */
+  readonly tags?: ReadonlyArray<Readonly<Record<string, string>>>
+  readonly title?: string
+}
+
 export type NaosRouteBase<Path extends string = string> = {
   readonly path: Path
+  /**
+   * Nested child routes. Child paths are relative to this route's path, and a
+   * child path of `"/"` matches this route's path exactly (index child).
+   * Matched children mount into this route element's child outlet.
+   */
+  readonly children?: readonly NaosRoute[]
   // Callbacks receiving typed params use method syntax on purpose: methods are
   // compared bivariantly, so a route with a literal path (and therefore
   // narrower params) stays assignable to the base NaosRoute type.
@@ -74,11 +88,18 @@ export type NaosRouteBase<Path extends string = string> = {
   loader?(args: NaosLoaderArgs<NaosRoute<Path>>): Promise<unknown> | unknown
   load?(navigation: NaosNavigation): Promise<unknown> | unknown
   readonly focusTarget?: NaosFocusTarget
+  /**
+   * Explicit child outlet resolver. When absent, the router looks for
+   * `[data-naos-router-outlet]` in the route element's light DOM, then in its
+   * open shadow root.
+   */
+  outlet?(element: HTMLElement, match: NaosRouteMatch<NaosRoute<Path>>): Element | null | undefined
   props?(match: NaosRouteMatch<NaosRoute<Path>>): Record<string, unknown>
   attrs?(match: NaosRouteMatch<NaosRoute<Path>>): Record<string, string | null>
   canEnter?(
     match: NaosRouteMatch<NaosRoute<Path>>
   ): boolean | string | URL | Promise<boolean | string | URL>
+  readonly meta?: NaosRouteMeta | ((match: NaosRouteMatch) => NaosRouteMeta)
   readonly title?: string | ((match: NaosRouteMatch) => string)
 }
 
@@ -238,11 +259,19 @@ export type NaosRouteParams<Path extends string> = string extends Path
 
 type RouteMatcher = {
   readonly route: NaosRoute
+  /** Route chain from the outermost parent to the matched leaf. */
+  readonly chain: readonly NaosRoute[]
   exec(pathname: string): Readonly<Record<string, string>> | null
 }
 
 type RouteElement = HTMLElement & {
   naosRoute?: NaosRouteMatch
+}
+
+type MountedLevel = {
+  readonly element: RouteElement
+  readonly paramsKey: string
+  readonly route: NaosRoute | NaosFallbackRoute
 }
 
 type RouterPlatform = {
@@ -316,6 +345,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
   #linkRoot: (ParentNode & EventTarget) | null
   #loadPromises = new WeakMap<NaosRoute | NaosFallbackRoute, Promise<unknown>>()
   #matchers: RouteMatcher[]
+  #mountedLevels: MountedLevel[] = []
   #navigationId = 0
   #notFound: NaosFallbackRoute | null
   #error: NaosFallbackRoute | null
@@ -343,10 +373,7 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     this.#prefetchTtl = options.prefetchTtl ?? DEFAULT_PREFETCH_TTL
     this.#focusRestoration = normalizeFocusRestoration(options.focusRestoration)
     this.#scrollRestoration = normalizeScrollRestoration(options.scrollRestoration)
-    this.#matchers = options.routes.map((route) => ({
-      route,
-      exec: compileRoutePath(route.path),
-    }))
+    this.#matchers = compileRouteMatchers(options.routes)
   }
 
   get currentMatch(): NaosRouteMatch<Routes[number]> | null {
@@ -770,11 +797,16 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         this.#platform.history.replaceState(this.#historyStateFor(url, navigation, "replace"), "", url)
       }
 
-      await this.#commit(match, route, {
-        focus: options.focus,
-        scroll: options.scroll,
-        viewTransition: options.viewTransition,
-      })
+      await this.#commit(
+        match,
+        route,
+        {
+          focus: options.focus,
+          scroll: options.scroll,
+          viewTransition: options.viewTransition,
+        },
+        matched?.chain
+      )
       return match
     } catch (error) {
       if (!this.#isCurrent(navigation)) return null
@@ -912,11 +944,16 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         this.#platform.history.pushState(this.#historyStateFor(url, navigation, "push"), "", url)
       }
 
-      await this.#commit(match, route, {
-        focus: options.focus,
-        scroll: options.scroll,
-        viewTransition: options.viewTransition,
-      })
+      await this.#commit(
+        match,
+        route,
+        {
+          focus: options.focus,
+          scroll: options.scroll,
+          viewTransition: options.viewTransition,
+        },
+        matched.chain
+      )
       this.#dispatchRouterEvent("naos:actioncommit", {
         data: actionData,
         match,
@@ -968,12 +1005,14 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
       readonly focus: boolean
       readonly scroll: boolean
       readonly viewTransition: boolean
-    }
+    },
+    chain?: readonly NaosRoute[]
   ): Promise<void> {
     const commit = () => {
-      this.#mount(match, route)
+      this.#mount(match, route, chain)
       this.#currentMatch = match
-      this.#updateTitle(match, route)
+      this.#updateTitle(match, route, chain)
+      this.#updateMetadata(match, chain ?? [normalizeFallbackRoute(route)])
       this.#updateActiveLinks(match.url)
       this.#dispatchRouterEvent("naos:navigationcommit", {
         match,
@@ -1015,8 +1054,72 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     if (options.focus) this.#restoreFocus(match, route)
   }
 
-  #mount(match: NaosRouteMatch<Routes[number]>, route: NaosRoute | NaosFallbackRoute): void {
-    const element = createRouteElement(this.#platform.document, route, match)
+  #mount(
+    match: NaosRouteMatch<Routes[number]>,
+    route: NaosRoute | NaosFallbackRoute,
+    chain?: readonly NaosRoute[]
+  ): void {
+    const routes: ReadonlyArray<NaosRoute | NaosFallbackRoute> = chain ?? [route]
+    const nextLevels: MountedLevel[] = []
+    let container: Element = this.outlet
+    let reusePossible = true
+
+    for (let index = 0; index < routes.length; index += 1) {
+      const level = routes[index]!
+      const isLeaf = index === routes.length - 1
+      const paramsKey = routeParamsKey(level, match.params)
+      const previous = this.#mountedLevels[index]
+
+      // Parent layout levels are reused when the route and its own params are
+      // unchanged; the leaf always remounts fresh, matching flat behavior.
+      const reuse =
+        !isLeaf &&
+        reusePossible &&
+        previous !== undefined &&
+        previous.route === level &&
+        previous.paramsKey === paramsKey &&
+        previous.element.parentNode !== null
+
+      let element: RouteElement
+      if (reuse) {
+        element = previous.element
+      } else {
+        reusePossible = false
+        element = createRouteElement(this.#platform.document, level, match)
+      }
+      this.#applyRouteElement(element, level, match)
+      if (!reuse) {
+        container.replaceChildren(element)
+      }
+      nextLevels.push({ element, paramsKey, route: level })
+
+      if (!isLeaf) {
+        container = this.#resolveChildOutlet(element, level, match)
+      } else if (reuse) {
+        // A reused leaf cannot happen today, but keep the container coherent.
+        container.replaceChildren(element)
+      }
+    }
+
+    // Navigating from a child back to its layout: clear the now-empty outlet.
+    const finalLevel = nextLevels.at(-1)
+    if (
+      finalLevel &&
+      this.#mountedLevels.length > nextLevels.length &&
+      this.#mountedLevels[nextLevels.length - 1]?.element === finalLevel.element
+    ) {
+      const staleOutlet = this.#tryResolveChildOutlet(finalLevel.element, finalLevel.route, match)
+      staleOutlet?.replaceChildren()
+    }
+
+    this.#mountedLevels = nextLevels
+  }
+
+  #applyRouteElement(
+    element: RouteElement,
+    route: NaosRoute | NaosFallbackRoute,
+    match: NaosRouteMatch<Routes[number]>
+  ): void {
     const props = route.props?.(match) ?? {}
     for (const [name, value] of Object.entries(props)) {
       ;(element as unknown as Record<string, unknown>)[name] = value
@@ -1032,16 +1135,103 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
         element.setAttribute(name, value)
       }
     }
-
-    this.outlet.replaceChildren(element)
   }
 
-  #findRoute(url: URL): { readonly params: Readonly<Record<string, string>>; readonly route: NaosRoute } | null {
+  #resolveChildOutlet(
+    element: RouteElement,
+    route: NaosRoute | NaosFallbackRoute,
+    match: NaosRouteMatch<Routes[number]>
+  ): Element {
+    const outlet = this.#tryResolveChildOutlet(element, route, match)
+    if (!outlet) {
+      throw new Error(
+        `Route "${route.path ?? "*"}" matched a child route but exposes no child outlet. ` +
+          `Add [data-naos-router-outlet] to its element or define outlet() on the route.`
+      )
+    }
+    return outlet
+  }
+
+  #tryResolveChildOutlet(
+    element: RouteElement,
+    route: NaosRoute | NaosFallbackRoute,
+    match: NaosRouteMatch<Routes[number]>
+  ): Element | null {
+    if (route.outlet) {
+      return route.outlet(element, match) ?? null
+    }
+    return (
+      element.querySelector("[data-naos-router-outlet]") ??
+      element.shadowRoot?.querySelector("[data-naos-router-outlet]") ??
+      null
+    )
+  }
+
+  #updateMetadata(
+    match: NaosRouteMatch<Routes[number]>,
+    chain: ReadonlyArray<NaosRoute | NaosFallbackRoute>
+  ): void {
+    const documentRef = this.#platform.document
+    const merged: {
+      canonical?: string
+      description?: string
+      tags: Array<Readonly<Record<string, string>>>
+      title?: string
+    } = { tags: [] }
+    for (const route of chain) {
+      const meta = typeof route.meta === "function" ? route.meta(match) : route.meta
+      if (!meta) continue
+      if (meta.title !== undefined) merged.title = meta.title
+      if (meta.description !== undefined) merged.description = meta.description
+      if (meta.canonical !== undefined) merged.canonical = meta.canonical
+      if (meta.tags) merged.tags.push(...meta.tags)
+    }
+
+    for (const managed of documentRef.querySelectorAll("[data-naos-router-meta]")) {
+      managed.remove()
+    }
+
+    const head = documentRef.head
+    if (!head) return
+    // The leaf route's `title` field stays authoritative when both are set.
+    const leaf = chain.at(-1)
+    if (merged.title !== undefined && !leaf?.title) {
+      documentRef.title = merged.title
+    }
+    if (merged.description !== undefined) {
+      const description = documentRef.createElement("meta")
+      description.setAttribute("name", "description")
+      description.setAttribute("content", merged.description)
+      description.setAttribute("data-naos-router-meta", "")
+      head.append(description)
+    }
+    if (merged.canonical !== undefined) {
+      const canonical = documentRef.createElement("link")
+      canonical.setAttribute("rel", "canonical")
+      canonical.setAttribute("href", merged.canonical)
+      canonical.setAttribute("data-naos-router-meta", "")
+      head.append(canonical)
+    }
+    for (const tag of merged.tags) {
+      const metaElement = documentRef.createElement("meta")
+      for (const [name, value] of Object.entries(tag)) {
+        metaElement.setAttribute(name, value)
+      }
+      metaElement.setAttribute("data-naos-router-meta", "")
+      head.append(metaElement)
+    }
+  }
+
+  #findRoute(url: URL): {
+    readonly chain: readonly NaosRoute[]
+    readonly params: Readonly<Record<string, string>>
+    readonly route: NaosRoute
+  } | null {
     const pathname = this.#toInternalPath(url)
     if (pathname === null) return null
     for (const matcher of this.#matchers) {
       const params = matcher.exec(pathname)
-      if (params) return { params, route: matcher.route }
+      if (params) return { chain: matcher.chain, params, route: matcher.route }
     }
     return null
   }
@@ -1133,9 +1323,14 @@ export class NaosRouter<Routes extends readonly NaosRoute[] = readonly NaosRoute
     }
   }
 
-  #updateTitle(match: NaosRouteMatch<Routes[number]>, route: NaosRoute | NaosFallbackRoute): void {
-    if (!route.title) return
-    this.#platform.document.title = typeof route.title === "function" ? route.title(match) : route.title
+  #updateTitle(
+    match: NaosRouteMatch<Routes[number]>,
+    route: NaosRoute | NaosFallbackRoute,
+    chain?: readonly NaosRoute[]
+  ): void {
+    const leaf = chain?.at(-1) ?? route
+    if (!leaf.title) return
+    this.#platform.document.title = typeof leaf.title === "function" ? leaf.title(match) : leaf.title
   }
 
   #resolveUrl(to: string | URL): URL {
@@ -1529,6 +1724,47 @@ function createActionRequest(url: URL, navigation: NaosNavigation, submission: N
 
 function isRedirect(value: unknown): value is NaosRedirect {
   return Boolean(value && typeof value === "object" && "to" in value)
+}
+
+function compileRouteMatchers(routes: readonly NaosRoute[]): RouteMatcher[] {
+  const matchers: RouteMatcher[] = []
+  const visit = (route: NaosRoute, parents: readonly NaosRoute[], basePath: string) => {
+    const fullPath = joinRoutePaths(basePath, route.path)
+    const chain = [...parents, route]
+    // Children register before their own route so deeper matches win over a
+    // wildcard or param segment on the parent.
+    for (const child of route.children ?? []) {
+      visit(child, chain, fullPath)
+    }
+    matchers.push({
+      chain,
+      exec: compileRoutePath(fullPath),
+      route,
+    })
+  }
+  for (const route of routes) {
+    visit(route, [], "/")
+  }
+  return matchers
+}
+
+function joinRoutePaths(basePath: string, path: string): string {
+  const normalizedBase = normalizeRoutePath(basePath)
+  if (path === "*") return path
+  const normalizedPath = normalizeRoutePath(path)
+  if (normalizedPath === "/") return normalizedBase
+  if (normalizedBase === "/") return normalizedPath
+  return `${normalizedBase}${normalizedPath}`
+}
+
+function routeParamsKey(
+  route: NaosRoute | NaosFallbackRoute,
+  params: Readonly<Record<string, string>>
+): string {
+  const names = [...(route.path ?? "").matchAll(/:([A-Za-z0-9_]+)/gu)]
+    .map((match) => match[1])
+    .sort()
+  return JSON.stringify(names.map((name) => [name, params[name ?? ""] ?? null]))
 }
 
 function compileRoutePath(path: string): (pathname: string) => Readonly<Record<string, string>> | null {
