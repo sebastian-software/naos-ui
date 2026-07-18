@@ -790,6 +790,47 @@ test("router hover prefetch warms loader data without committing UI", async ({
   await expect(outlet.locator("router-settings-view")).toContainText("Router settings")
 })
 
+test("router nested routes reuse the parent layout and apply route metadata", async ({
+  page,
+}) => {
+  await page.goto("/")
+
+  const section = page.locator("#router-case")
+  const outlet = section.locator("#router-outlet")
+  const settingsLink = section.locator("[data-router-to='/settings']")
+  const appearanceLink = section.locator("[data-router-child-to='/settings/appearance']")
+
+  await settingsLink.click()
+  await expect(page).toHaveURL(/\/settings$/u)
+  const layout = outlet.locator("router-settings-view")
+  await expect(layout).toContainText("Router settings")
+  await expect(layout.locator("[data-settings-child='home']")).toBeVisible()
+
+  // Tag the layout element so we can prove it survives the child navigation.
+  await layout.evaluate((element) => {
+    element.setAttribute("data-layout-probe", "kept")
+  })
+
+  await appearanceLink.click()
+  await expect(page).toHaveURL(/\/settings\/appearance$/u)
+  await expect(layout).toHaveAttribute("data-layout-probe", "kept")
+  await expect(layout.locator("[data-settings-child='appearance']")).toBeVisible()
+  await expect(layout.locator("[data-settings-child='home']")).toHaveCount(0)
+  await expect(page).toHaveTitle("Appearance - Naos demos")
+  await expect(
+    page.locator("head meta[name='description'][data-naos-router-meta]")
+  ).toHaveAttribute("content", "Naos router demo settings")
+  await expect(
+    page.locator("head meta[name='naos-demo-section'][data-naos-router-meta]")
+  ).toHaveAttribute("content", "appearance")
+
+  await settingsLink.click()
+  await expect(page).toHaveURL(/\/settings$/u)
+  await expect(layout).toHaveAttribute("data-layout-probe", "kept")
+  await expect(layout.locator("[data-settings-child='home']")).toBeVisible()
+  await expect(page.locator("head meta[name='naos-demo-section']")).toHaveCount(0)
+})
+
 test("compiled design-system primitives expose native contracts", async ({
   page,
 }) => {

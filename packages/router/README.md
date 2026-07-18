@@ -107,6 +107,55 @@ dispatches `naos:viewtransitionstart` / `naos:viewtransitionend`. Browsers
 without the View Transition API and users preferring reduced motion
 (`prefers-reduced-motion: reduce`) navigate normally without animation.
 
+## Nested Routes and Layouts
+
+Routes accept `children` with paths relative to the parent (a child path of
+`"/"` is the index child and matches the parent path exactly). Deeper matches
+win over parent params/wildcards, and flat routes behave exactly as before.
+
+```ts
+{
+  path: "/settings",
+  tag: "app-settings-layout",
+  children: [
+    { path: "/", tag: "app-settings-overview" },
+    { path: "profile/:user", tag: "app-settings-profile" },
+  ],
+}
+```
+
+The parent mounts first; the matched child mounts into the parent element's
+child outlet. The outlet contract is explicit: the router looks for
+`[data-naos-router-outlet]` in the parent route element's light DOM, then in
+its open shadow root, or calls the route's `outlet(element, match)` resolver
+when defined. A matched child without a resolvable outlet is a navigation
+error (the configured `error` route commits).
+
+Parent layout elements stay mounted while navigating between their children —
+only levels whose route or own path params changed are re-created; the leaf
+element always remounts. Shadow DOM implication: placing the outlet inside a
+closed shadow root (or one the router must not reach into) requires the
+explicit `outlet()` resolver, since the router only searches light DOM and
+*open* shadow roots.
+
+## Route Metadata
+
+Routes accept `meta` — an object or a `(match) => NaosRouteMeta` callback —
+with `title`, `description`, `canonical`, and custom `tags` records. Metadata
+merges from the outermost parent to the leaf (leaf wins per field; `tags`
+concatenate), and the router owns the emitted head elements: managed tags are
+marked `data-naos-router-meta` and replaced on every commit. The leaf route's
+`title` field stays authoritative over `meta.title` when both are set.
+
+```ts
+meta: ({ params }) => ({
+  canonical: `https://example.com/products/${params.id}`,
+  description: "Product detail",
+  tags: [{ name: "og:type", content: "product" }],
+  title: `Product ${params.id}`,
+})
+```
+
 ## Error Views and URLs
 
 When a loader or action throws and an `error` fallback route is configured,

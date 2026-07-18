@@ -1122,6 +1122,276 @@ describe("view transitions", () => {
   })
 })
 
+describe("nested routes and metadata", () => {
+  function setupNestedRouter() {
+    document.body.innerHTML = `<main data-outlet></main>`
+
+    class AppShellLayout extends HTMLElement {
+      connectedCallback() {
+        if (!this.querySelector("[data-naos-router-outlet]")) {
+          this.innerHTML = `<h2>Shell</h2><section data-naos-router-outlet></section>`
+        }
+      }
+    }
+    class AppOverview extends HTMLElement {}
+    class AppProfile extends HTMLElement {}
+    class AppNestedError extends HTMLElement {}
+    if (!customElements.get("app-shell-layout")) customElements.define("app-shell-layout", AppShellLayout)
+    if (!customElements.get("app-overview")) customElements.define("app-overview", AppOverview)
+    if (!customElements.get("app-profile")) customElements.define("app-profile", AppProfile)
+    if (!customElements.get("app-nested-error")) customElements.define("app-nested-error", AppNestedError)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      error: { tag: "app-nested-error" },
+      outlet,
+      routes: [
+        {
+          path: "/settings",
+          tag: "app-shell-layout",
+          meta: { description: "Settings area", title: "Settings" },
+          children: [
+            { path: "/", tag: "app-overview" },
+            {
+              path: "/profile/:user",
+              tag: "app-profile",
+              meta: ({ params }) => ({
+                canonical: `https://naos.test/settings/profile/${String(params.user)}`,
+                tags: [{ content: "profile", name: "section" }],
+                title: `Profile ${String(params.user)}`,
+              }),
+            },
+          ],
+        },
+        { path: "/", tag: "app-overview" },
+      ],
+    })
+    return { outlet, router }
+  }
+
+  it("matches nested children with joined paths and merged params", () => {
+    const { router } = setupNestedRouter()
+
+    expect(router.match("/settings/profile/ada")?.params).toEqual({ user: "ada" })
+    expect(router.match("/settings")?.route.tag).toBe("app-overview")
+    expect(router.match("/settings/profile/ada")?.route.tag).toBe("app-profile")
+  })
+
+  it("mounts children into the parent outlet and keeps the layout mounted", async () => {
+    const { outlet, router } = setupNestedRouter()
+
+    await router.navigate("/settings")
+    const layout = outlet.firstElementChild
+    expect(layout?.tagName.toLowerCase()).toBe("app-shell-layout")
+    const nestedOutlet = layout?.querySelector("[data-naos-router-outlet]")
+    expect(nestedOutlet?.firstElementChild?.tagName.toLowerCase()).toBe("app-overview")
+
+    await router.navigate("/settings/profile/ada")
+    expect(outlet.firstElementChild).toBe(layout)
+    expect(nestedOutlet?.firstElementChild?.tagName.toLowerCase()).toBe("app-profile")
+
+    await router.navigate("/settings/profile/grace")
+    expect(outlet.firstElementChild).toBe(layout)
+    expect(
+      (nestedOutlet?.firstElementChild as HTMLElement & { naosRoute?: { params: unknown } })
+        ?.naosRoute?.params
+    ).toEqual({ user: "grace" })
+
+    await router.navigate("/settings")
+    expect(outlet.firstElementChild).toBe(layout)
+    expect(nestedOutlet?.firstElementChild?.tagName.toLowerCase()).toBe("app-overview")
+  })
+
+  it("supports an explicit outlet() resolver on the parent route", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppExplicitLayout extends HTMLElement {
+      connectedCallback() {
+        if (!this.querySelector("[data-slot]")) {
+          this.innerHTML = `<div data-slot></div>`
+        }
+      }
+    }
+    class AppExplicitChild extends HTMLElement {}
+    if (!customElements.get("app-explicit-layout")) customElements.define("app-explicit-layout", AppExplicitLayout)
+    if (!customElements.get("app-explicit-child")) customElements.define("app-explicit-child", AppExplicitChild)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: [
+        {
+          path: "/area",
+          tag: "app-explicit-layout",
+          outlet: (element) => element.querySelector("[data-slot]"),
+          children: [{ path: "child", tag: "app-explicit-child" }],
+        },
+      ],
+    })
+
+    await router.navigate("/area/child")
+    expect(
+      outlet.querySelector("[data-slot]")?.firstElementChild?.tagName.toLowerCase()
+    ).toBe("app-explicit-child")
+  })
+
+  it("commits the error route when a parent exposes no child outlet", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppNoOutletLayout extends HTMLElement {}
+    class AppMissingChild extends HTMLElement {}
+    class AppOutletError extends HTMLElement {}
+    if (!customElements.get("app-no-outlet-layout")) customElements.define("app-no-outlet-layout", AppNoOutletLayout)
+    if (!customElements.get("app-missing-child")) customElements.define("app-missing-child", AppMissingChild)
+    if (!customElements.get("app-outlet-error")) customElements.define("app-outlet-error", AppOutletError)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const errors: unknown[] = []
+    const router = createRouter({
+      error: { tag: "app-outlet-error" },
+      outlet,
+      routes: [
+        {
+          path: "/bare",
+          tag: "app-no-outlet-layout",
+          children: [{ path: "child", tag: "app-missing-child" }],
+        },
+      ],
+    })
+    router.addEventListener("naos:navigationerror", (event) => {
+      errors.push((event as CustomEvent<{ error: unknown }>).detail.error)
+    })
+
+    await router.navigate("/bare/child")
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-outlet-error")
+    expect(String(errors[0])).toContain("no child outlet")
+  })
+
+  it("applies merged route metadata and replaces managed head tags", async () => {
+    const { router } = setupNestedRouter()
+
+    await router.navigate("/settings/profile/ada")
+
+    expect(document.title).toBe("Profile ada")
+    expect(
+      document.head.querySelector("meta[name='description']")?.getAttribute("content")
+    ).toBe("Settings area")
+    expect(
+      document.head.querySelector("link[rel='canonical']")?.getAttribute("href")
+    ).toBe("https://naos.test/settings/profile/ada")
+    expect(
+      document.head.querySelector("meta[name='section']")?.getAttribute("content")
+    ).toBe("profile")
+
+    await router.navigate("/settings")
+    expect(document.title).toBe("Settings")
+    expect(document.head.querySelector("link[rel='canonical']")).toBeNull()
+    expect(document.head.querySelector("meta[name='section']")).toBeNull()
+    expect(
+      document.head.querySelector("meta[name='description']")?.getAttribute("content")
+    ).toBe("Settings area")
+
+    await router.navigate("/")
+    expect(document.head.querySelectorAll("[data-naos-router-meta]")).toHaveLength(0)
+  })
+
+  it("scopes wildcard children to their parent prefix", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppFilesLayout extends HTMLElement {
+      connectedCallback() {
+        if (!this.querySelector("[data-naos-router-outlet]")) {
+          this.innerHTML = `<div data-naos-router-outlet></div>`
+        }
+      }
+    }
+    class AppFilesFallback extends HTMLElement {}
+    class AppOther extends HTMLElement {}
+    if (!customElements.get("app-files-layout")) customElements.define("app-files-layout", AppFilesLayout)
+    if (!customElements.get("app-files-fallback")) customElements.define("app-files-fallback", AppFilesFallback)
+    if (!customElements.get("app-other")) customElements.define("app-other", AppOther)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: [
+        {
+          path: "/files",
+          tag: "app-files-layout",
+          children: [{ path: "*", tag: "app-files-fallback" }],
+        },
+        { path: "/other", tag: "app-other" },
+      ],
+    })
+
+    expect(router.match("/other")?.route.tag).toBe("app-other")
+    expect(router.match("/files/deep/nested")?.route.tag).toBe("app-files-fallback")
+
+    await router.navigate("/files/deep/nested")
+    expect(
+      outlet
+        .querySelector("[data-naos-router-outlet]")
+        ?.firstElementChild?.tagName.toLowerCase()
+    ).toBe("app-files-fallback")
+  })
+
+  it("restores the pre-router title when a route has no title source", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppMetaTitled extends HTMLElement {}
+    class AppUntitled extends HTMLElement {}
+    if (!customElements.get("app-meta-titled")) customElements.define("app-meta-titled", AppMetaTitled)
+    if (!customElements.get("app-untitled")) customElements.define("app-untitled", AppUntitled)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    document.title = "Base title"
+    const router = createRouter({
+      outlet,
+      routes: [
+        { path: "/titled", tag: "app-meta-titled", meta: { title: "Meta title" } },
+        { path: "/plain", tag: "app-untitled" },
+      ],
+    })
+
+    await router.navigate("/titled")
+    expect(document.title).toBe("Meta title")
+
+    await router.navigate("/plain")
+    expect(document.title).toBe("Base title")
+  })
+
+  it("keeps the leaf title field authoritative over meta titles", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppTitled extends HTMLElement {}
+    if (!customElements.get("app-titled")) customElements.define("app-titled", AppTitled)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: [
+        {
+          path: "/titled",
+          tag: "app-titled",
+          meta: { title: "From meta" },
+          title: "From title",
+        },
+      ],
+    })
+
+    await router.navigate("/titled")
+    expect(document.title).toBe("From title")
+  })
+})
+
 describe("typed route params", () => {
   it("threads typed path params through loaders, actions, and matches", () => {
     const routes = defineRoutes([
