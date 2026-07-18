@@ -22,18 +22,21 @@ export type NaosResourceState<Data, Error = unknown> =
       readonly data?: Data
       readonly error?: undefined
       readonly stale?: boolean
+      readonly fetching?: boolean
     }
   | {
       readonly status: "success"
       readonly data: Data
       readonly error?: undefined
       readonly stale?: boolean
+      readonly fetching?: boolean
     }
   | {
       readonly status: "error"
       readonly data?: Data
       readonly error: Error
       readonly stale?: boolean
+      readonly fetching?: boolean
     }
 
 export type NaosResourceMutateOptions<Data, MutationData = Data> = {
@@ -62,9 +65,27 @@ export type NaosResourceFetchContext = {
   readonly signal: AbortSignal
 }
 
+export type NaosResourceRetryOptions = {
+  /** Number of retries after the initial failed attempt. Defaults to 0. */
+  attempts?: number
+  /** Delay before each retry in milliseconds, or a function of the 1-based attempt. */
+  delay?: number | ((attempt: number) => number)
+}
+
 export type NaosResourceFetchOptions<Data> = {
   initialData?: Data
   revalidateIfStale?: boolean
+  retry?: NaosResourceRetryOptions
+}
+
+export type NaosFetchResourceOptions<Data> = NaosResourceFetchOptions<Data> & {
+  cache?: NaosResourceCache
+  /**
+   * Lazy resources start their first fetch on first `subscribe()` (or an
+   * explicit `refetch()`). Pass `false` to fetch eagerly at creation.
+   * Defaults to `true`.
+   */
+  lazy?: boolean
 }
 
 export type NaosResourceFetcher<Data, Key extends NaosEnabledResourceKey> = (
@@ -274,14 +295,13 @@ export class NaosResourceCache {
     const previousData = stateData(previous)
     const initialData = previousData ?? options.initialData
     if (initialData !== undefined) {
-      this.set<Data, Error>(key, { data: initialData, stale: true, status: "success" })
+      this.set<Data, Error>(key, { data: initialData, fetching: true, stale: true, status: "success" })
     } else {
-      this.set<Data, Error>(key, { status: "pending" })
+      this.set<Data, Error>(key, { fetching: true, status: "pending" })
     }
 
     const controller = new AbortController()
-    const promise = Promise.resolve()
-      .then(() => fetcher(argument, { signal: controller.signal }))
+    const promise = runFetchWithRetry(fetcher, argument, controller.signal, options.retry)
       .then((data) => {
         if (!controller.signal.aborted) {
           this.set<Data, Error>(key, { data, status: "success" })
@@ -393,6 +413,14 @@ export class NaosResourceCache {
     }
     this.#fetches.delete(key)
     fetch.controller.abort()
+
+    // The aborted fetch will never write a settled state, so drop the
+    // in-flight marker for listeners that outlive the fetch handle.
+    const entry = this.#entries.get(key)
+    if (entry?.state.fetching) {
+      const { fetching: _fetching, ...rest } = entry.state
+      this.set(key, rest as NaosResourceState<unknown, unknown>)
+    }
   }
 
   #abortSubscription(key: string): void {
@@ -471,7 +499,7 @@ export function normalizeResourceKey<Key extends NaosResourceKey>(key: Key): Nao
 export function fetchResource<Data, Key extends NaosResourceKey>(
   key: Key,
   fetcher: NaosResourceFetcher<Data, Exclude<Key, NaosDisabledResourceKey> & NaosEnabledResourceKey>,
-  options: NaosResourceFetchOptions<Data> & { cache?: NaosResourceCache } = {}
+  options: NaosFetchResourceOptions<Data> = {}
 ): NaosResource<Data> {
   const cache = options.cache ?? defaultNaosResourceCache
   const normalized = normalizeResourceKey(key)
@@ -482,7 +510,8 @@ export function fetchResource<Data, Key extends NaosResourceKey>(
   const resourceKey = normalized.key
   const resourceArgument = normalized.argument as Exclude<Key, NaosDisabledResourceKey> & NaosEnabledResourceKey
   const releaseEntry = cache.retain(resourceKey)
-  let releaseFetch = startFetch(false).release
+  let releaseFetch: () => void = () => {}
+  let started = false
   let disposed = false
 
   function startFetch(force: boolean): { promise: Promise<Data>; release: () => void } {
@@ -494,11 +523,27 @@ export function fetchResource<Data, Key extends NaosResourceKey>(
     )
   }
 
+  function ensureStarted(): void {
+    if (started || disposed) {
+      return
+    }
+    started = true
+    releaseFetch = startFetch(false).release
+  }
+
   function refetch(): Promise<Data> {
+    if (disposed) {
+      return Promise.reject(new Error("Cannot refetch a disposed resource."))
+    }
     releaseFetch()
+    started = true
     const fetch = startFetch(true)
     releaseFetch = fetch.release
     return fetch.promise
+  }
+
+  if (options.lazy === false) {
+    ensureStarted()
   }
 
   return {
@@ -524,9 +569,36 @@ export function fetchResource<Data, Key extends NaosResourceKey>(
       return cache.snapshot<Data>(resourceKey)
     },
     subscribe(callback) {
+      ensureStarted()
       return cache.subscribe(resourceKey, callback)
     },
   }
+}
+
+/**
+ * Binds a resource to a component lifecycle scope: subscribes, delivers the
+ * current snapshot immediately, and returns the unsubscribe cleanup. Inside
+ * a Naos `effect()` this follows connect/disconnect automatically:
+ *
+ * ```ts
+ * effect(() => bindResource(tasksResource, ({ status, data }) => {
+ *   loadState.set(status)
+ *   tasks.set(data ?? EMPTY_TASKS)
+ * }))
+ * ```
+ *
+ * Hand `onChange` values with stable identity to state (for example the
+ * snapshot's `data` reference, with a module-level constant as fallback) so
+ * the runtime's equality bail-out can skip redundant flushes.
+ */
+export function bindResource<Data, Error = unknown>(
+  resource: NaosResource<Data, Error>,
+  onChange: (state: NaosResourceState<Data, Error>) => void
+): () => void {
+  const notify = () => onChange(resource.snapshot())
+  const unsubscribe = resource.subscribe(notify)
+  notify()
+  return () => unsubscribe()
 }
 
 export function subscriptionResource<Data, Key extends NaosResourceKey, Error = unknown>(
@@ -589,6 +661,57 @@ function disabledResource<Data, Error = unknown>(): NaosResource<Data, Error> {
 
 function stateData<Data>(state: NaosResourceState<Data>): Data | undefined {
   return state.data
+}
+
+async function runFetchWithRetry<Data, Key extends NaosEnabledResourceKey>(
+  fetcher: NaosResourceFetcher<Data, Key>,
+  argument: Key,
+  signal: AbortSignal,
+  retry: NaosResourceRetryOptions | undefined
+): Promise<Data> {
+  const attempts = Math.max(0, retry?.attempts ?? 0)
+  let attempt = 0
+  for (;;) {
+    try {
+      return await fetcher(argument, { signal })
+    } catch (error) {
+      if (signal.aborted || attempt >= attempts) {
+        throw error
+      }
+      attempt += 1
+      await retryDelay(retryDelayMs(retry?.delay, attempt), signal)
+      if (signal.aborted) {
+        throw new DOMException("The fetch was aborted during a retry delay.", "AbortError")
+      }
+    }
+  }
+}
+
+function retryDelayMs(
+  delay: NaosResourceRetryOptions["delay"],
+  attempt: number
+): number {
+  if (typeof delay === "function") {
+    return Math.max(0, delay(attempt))
+  }
+  return Math.max(0, delay ?? 0)
+}
+
+function retryDelay(ms: number, signal: AbortSignal): Promise<void> {
+  if (ms === 0) {
+    return Promise.resolve()
+  }
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort)
+      resolve()
+    }, ms)
+    const onAbort = () => {
+      clearTimeout(timer)
+      resolve()
+    }
+    signal.addEventListener("abort", onAbort, { once: true })
+  })
 }
 
 function unrefTimer(timer: ReturnType<typeof setTimeout>): void {

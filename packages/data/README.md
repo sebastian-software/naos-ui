@@ -1,15 +1,15 @@
 # `@naos-ui/data`
 
 `@naos-ui/data` loads remote data for Naos and plain Custom Element
-applications: `fetchResource()` for pull-based requests and
+applications: `fetchResource()` for lazy pull-based requests and
 `subscriptionResource()` for push-based sources, with a shared ref-counted
-cache, request dedup, stale-while-revalidate, optimistic `mutate()`, and
-configurable idle eviction. Inspired by SWR's model without depending on SWR
-or React.
+cache, request dedup, stale-while-revalidate with a `fetching` flag,
+configurable retry, optimistic `mutate()`, configurable idle eviction, and
+`bindResource()` as the component lifecycle glue. Inspired by SWR's model
+without depending on SWR or React.
 
-**Stability: experimental.** Pre-1.0 and under active design; lifecycle
-binding and retry semantics are still evolving, and APIs may change in any
-release.
+**Stability: experimental.** Pre-1.0 and under active design; APIs may change
+in any release.
 
 ```ts
 import { fetchResource } from "@naos-ui/data"

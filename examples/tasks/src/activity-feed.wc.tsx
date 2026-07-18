@@ -1,4 +1,6 @@
 import { effect, state, type ComponentOptions } from "@naos-ui/core"
+import { bindResource } from "@naos-ui/data"
+import { EMPTY_ACTIVITY } from "./api.ts"
 import { activityResource } from "./resources.ts"
 import css from "./activity-feed.wc.css?inline"
 
@@ -9,18 +11,11 @@ export const options = {
 export function ActivityFeed() {
   const entries = state<string[]>([])
 
-  effect(() => {
-    const sync = () => {
-      const next = activityResource.snapshot().data ?? []
-      const current = entries()
-      if (next.length !== current.length || next.at(-1) !== current.at(-1)) {
-        entries.set(next)
-      }
-    }
-    const unsubscribe = activityResource.subscribe(sync)
-    sync()
-    return () => unsubscribe()
-  })
+  effect(() =>
+    bindResource(activityResource, ({ data }) => {
+      entries.set(data ?? EMPTY_ACTIVITY)
+    })
+  )
 
   return (
     <aside part="root" aria-label="Latest activity" data-entry-count={entries().length}>
