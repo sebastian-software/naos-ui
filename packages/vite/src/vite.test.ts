@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { naos } from "./vite.js"
 
@@ -24,6 +24,40 @@ const fixtureFilename = join(process.cwd(), "src/counter.wc.tsx")
 describe("naos", () => {
   afterEach(() => {
     setNativeBindingsForTesting(null)
+  })
+
+  it("triggers a full reload when a component module changes in dev", () => {
+    const plugin = naos()
+    const handleHotUpdate = plugin.handleHotUpdate
+    if (typeof handleHotUpdate !== "function") {
+      throw new Error("Expected handleHotUpdate hook")
+    }
+
+    const send = vi.fn()
+    const result = handleHotUpdate.call(
+      mockPluginContext(),
+      mockHotContext(`${fixtureFilename}?raw`, send)
+    )
+
+    expect(send).toHaveBeenCalledWith({ path: "*", type: "full-reload" })
+    expect(result).toEqual([])
+  })
+
+  it("keeps default hot update handling for other modules", () => {
+    const plugin = naos()
+    const handleHotUpdate = plugin.handleHotUpdate
+    if (typeof handleHotUpdate !== "function") {
+      throw new Error("Expected handleHotUpdate hook")
+    }
+
+    const send = vi.fn()
+    const result = handleHotUpdate.call(
+      mockPluginContext(),
+      mockHotContext("/src/plain.ts", send)
+    )
+
+    expect(send).not.toHaveBeenCalled()
+    expect(result).toBeUndefined()
   })
 
   it("passes through files outside the include filter", async () => {
@@ -323,5 +357,13 @@ function mockPluginContext() {
     error(error: string): never {
       throw new Error(error)
     },
+  } as never
+}
+
+function mockHotContext(file: string, send: (payload: unknown) => void) {
+  return {
+    file,
+    modules: [],
+    server: { ws: { send } },
   } as never
 }
