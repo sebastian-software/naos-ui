@@ -760,6 +760,36 @@ test("router package mounts Custom Element routes from normal anchors", async ({
   await expect(outlet.locator("router-home-view")).toContainText("Router home")
 })
 
+test("router hover prefetch warms loader data without committing UI", async ({
+  page,
+}) => {
+  await page.goto("/")
+
+  const section = page.locator("#router-case")
+  const outlet = section.locator("#router-outlet")
+  const productLink = section.locator("[data-router-to='/products/:id']")
+  const settingsLink = section.locator("[data-router-to='/settings']")
+
+  await expect(outlet.locator("router-home-view")).toContainText("Router home")
+
+  await productLink.hover()
+  await expect(page.locator("body")).toHaveAttribute("data-router-loader-runs", "1")
+  await expect(outlet.locator("router-home-view")).toContainText("Router home")
+  await expect(page).toHaveURL(/\/$/u)
+
+  await productLink.click()
+  await expect(outlet.locator("router-product-view")).toContainText(
+    "Loader data: 18 units ready"
+  )
+  await expect(page.locator("body")).toHaveAttribute("data-router-loader-runs", "1")
+
+  // The settings anchor opts into View Transitions; browsers without the API
+  // (or with reduced motion) must still navigate normally.
+  await settingsLink.click()
+  await expect(page).toHaveURL(/\/settings$/u)
+  await expect(outlet.locator("router-settings-view")).toContainText("Router settings")
+})
+
 test("compiled design-system primitives expose native contracts", async ({
   page,
 }) => {

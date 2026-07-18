@@ -136,6 +136,8 @@ if (routerOutlet && routerSection) {
       load: async () => Promise.resolve(),
       loader({ params, search }) {
         const id = params.id ?? "unknown"
+        const previousRuns = Number(document.body.dataset.routerLoaderRuns ?? "0")
+        document.body.dataset.routerLoaderRuns = String(previousRuns + 1)
         return {
           inventory: search.get("tab") === "details" ? "18 units ready" : "summary hidden",
           label: `Product ${id}`,

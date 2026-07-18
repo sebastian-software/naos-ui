@@ -699,6 +699,429 @@ describe("NaosRouter", () => {
   })
 })
 
+describe("prefetch", () => {
+  function setupLoaderRoute(prefetchTtl?: number) {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppPrefetched extends HTMLElement {}
+    if (!customElements.get("app-prefetched")) customElements.define("app-prefetched", AppPrefetched)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const loader = vi.fn(({ params }: { params: { id?: string } }) => ({ id: params.id }))
+    const router = createRouter({
+      outlet,
+      prefetchTtl,
+      routes: defineRoutes([
+        { path: "/items/:id", tag: "app-prefetched", loader },
+        { path: "/", tag: "app-prefetched" },
+      ] as const),
+    })
+    return { loader, outlet, router }
+  }
+
+  it("reuses prefetched loader data on the next navigation without re-running the loader", async () => {
+    const { loader, outlet, router } = setupLoaderRoute()
+
+    await router.prefetch("/items/7")
+    expect(loader).toHaveBeenCalledTimes(1)
+    expect(outlet.firstElementChild).toBeNull()
+
+    const match = await router.navigate("/items/7")
+    expect(loader).toHaveBeenCalledTimes(1)
+    expect(match?.data).toEqual({ id: "7" })
+
+    await router.navigate("/")
+    await router.navigate("/items/7")
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it("expires prefetched loader data after the configured window", async () => {
+    vi.useFakeTimers()
+    try {
+      const { loader, router } = setupLoaderRoute(50)
+
+      await router.prefetch("/items/7")
+      vi.advanceTimersByTime(51)
+      await router.navigate("/items/7")
+
+      expect(loader).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("only warms modules when loader-data caching is disabled", async () => {
+    const { loader, router } = setupLoaderRoute(0)
+
+    await router.prefetch("/items/7")
+    expect(loader).not.toHaveBeenCalled()
+
+    await router.navigate("/items/7")
+    expect(loader).toHaveBeenCalledTimes(1)
+  })
+
+  it("aborts an in-flight prefetch when a navigation supersedes it", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppSuperseded extends HTMLElement {}
+    if (!customElements.get("app-superseded")) customElements.define("app-superseded", AppSuperseded)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    let loaderSignal: AbortSignal | null = null
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        {
+          path: "/pending",
+          tag: "app-superseded",
+          loader({ navigation }) {
+            loaderSignal = navigation.signal
+            return new Promise((_resolve, reject) => {
+              navigation.signal.addEventListener(
+                "abort",
+                () => reject(new Error("Prefetch aborted.")),
+                { once: true }
+              )
+            })
+          },
+        },
+        { path: "/", tag: "app-superseded" },
+      ] as const),
+    })
+
+    const prefetching = router.prefetch("/pending").catch(() => {})
+    await waitForRouterWork()
+    expect(loaderSignal).not.toBeNull()
+    expect(loaderSignal!.aborted).toBe(false)
+
+    await router.navigate("/")
+    expect(loaderSignal!.aborted).toBe(true)
+    await prefetching
+  })
+
+  it("runs the loader once for concurrent prefetches of the same URL", async () => {
+    const { loader, router } = setupLoaderRoute()
+
+    await Promise.all([
+      router.prefetch("/items/7"),
+      router.prefetch("/items/7"),
+      router.prefetch("/items/7"),
+    ])
+
+    expect(loader).toHaveBeenCalledTimes(1)
+  })
+
+  it("aborts a consumed in-flight prefetch when a later navigation supersedes it", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppConsumed extends HTMLElement {}
+    if (!customElements.get("app-consumed")) customElements.define("app-consumed", AppConsumed)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    let loaderSignal: AbortSignal | null = null
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        {
+          path: "/slow-data",
+          tag: "app-consumed",
+          loader({ navigation }) {
+            loaderSignal = navigation.signal
+            return new Promise((_resolve, reject) => {
+              navigation.signal.addEventListener(
+                "abort",
+                () => reject(new Error("Prefetch aborted.")),
+                { once: true }
+              )
+            })
+          },
+        },
+        { path: "/", tag: "app-consumed" },
+      ] as const),
+    })
+
+    const prefetching = router.prefetch("/slow-data").catch(() => {})
+    await waitForRouterWork()
+    expect(loaderSignal).not.toBeNull()
+
+    // Consume the in-flight prefetch, then navigate away before it settles.
+    const consuming = router.navigate("/slow-data")
+    await waitForRouterWork()
+    expect(loaderSignal!.aborted).toBe(false)
+
+    await router.navigate("/")
+    expect(loaderSignal!.aborted).toBe(true)
+    await expect(consuming).resolves.toBeNull()
+    await prefetching
+  })
+
+  it("starts prefetch from hover and focus triggers without committing UI", async () => {
+    document.body.innerHTML = `
+      <section data-root>
+        <a href="/items/1" data-naos-prefetch="hover" data-hover>Hover</a>
+        <a href="/items/2" data-naos-prefetch="focus" data-focus>Focus</a>
+        <main data-outlet></main>
+      </section>
+    `
+    class AppTriggered extends HTMLElement {}
+    if (!customElements.get("app-triggered")) customElements.define("app-triggered", AppTriggered)
+
+    const outlet = document.querySelector("[data-outlet]")
+    const linkRoot = document.querySelector("[data-root]")
+    const hoverAnchor = document.querySelector("[data-hover]")
+    const focusAnchor = document.querySelector("[data-focus]")
+    if (!outlet || !linkRoot || !hoverAnchor || !focusAnchor) throw new Error("Missing prefetch setup.")
+
+    const loader = vi.fn(({ params }: { params: { id?: string } }) => ({ id: params.id }))
+    const router = createRouter({
+      linkRoot,
+      outlet,
+      routes: defineRoutes([{ path: "/items/:id", tag: "app-triggered", loader }] as const),
+    })
+    router.start()
+    await waitForRouterWork()
+    const mountedBefore = outlet.firstElementChild
+
+    hoverAnchor.dispatchEvent(new Event("pointerover", { bubbles: true }))
+    await waitForRouterWork()
+    focusAnchor.dispatchEvent(new Event("focusin", { bubbles: true }))
+    await waitForRouterWork()
+
+    expect(loader).toHaveBeenCalledTimes(2)
+    expect(loader.mock.calls.map(([args]) => (args as { params: { id?: string } }).params.id)).toEqual(["1", "2"])
+    expect(outlet.firstElementChild).toBe(mountedBefore)
+
+    router.stop()
+  })
+
+  it("starts prefetch when viewport-mode links become visible", async () => {
+    const observed: Element[] = []
+    let intersect: (targets: Element[]) => void = () => {}
+    class FakeIntersectionObserver {
+      #callback: IntersectionObserverCallback
+      constructor(callback: IntersectionObserverCallback) {
+        this.#callback = callback
+        intersect = (targets) => {
+          this.#callback(
+            targets.map((target) => ({ isIntersecting: true, target }) as IntersectionObserverEntry),
+            this as unknown as IntersectionObserver
+          )
+        }
+      }
+      observe(target: Element) {
+        observed.push(target)
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver)
+
+    try {
+      document.body.innerHTML = `
+        <section data-root>
+          <a href="/items/9" data-naos-prefetch="viewport" data-viewport>Viewport</a>
+          <main data-outlet></main>
+        </section>
+      `
+      class AppViewport extends HTMLElement {}
+      if (!customElements.get("app-viewport")) customElements.define("app-viewport", AppViewport)
+
+      const outlet = document.querySelector("[data-outlet]")
+      const linkRoot = document.querySelector("[data-root]")
+      const anchor = document.querySelector("[data-viewport]")
+      if (!outlet || !linkRoot || !anchor) throw new Error("Missing viewport setup.")
+
+      const loader = vi.fn(() => ({ ready: true }))
+      const router = createRouter({
+        linkRoot,
+        outlet,
+        routes: defineRoutes([{ path: "/items/:id", tag: "app-viewport", loader }] as const),
+      })
+      router.start()
+      await waitForRouterWork()
+
+      expect(observed).toContain(anchor)
+      intersect([anchor])
+      await waitForRouterWork()
+
+      expect(loader).toHaveBeenCalledTimes(1)
+      router.stop()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe("error-view URL semantics", () => {
+  function setupErrorRouter(initialUrl = "https://naos.test/") {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppErrorPage extends HTMLElement {}
+    class AppErrorView extends HTMLElement {}
+    if (!customElements.get("app-error-page")) customElements.define("app-error-page", AppErrorPage)
+    if (!customElements.get("app-error-view")) customElements.define("app-error-view", AppErrorView)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const platform = setupPlatform(initialUrl)
+    const router = createRouter({
+      error: { tag: "app-error-view" },
+      outlet,
+      routes: defineRoutes([
+        { path: "/", tag: "app-error-page" },
+        {
+          path: "/broken",
+          tag: "app-error-page",
+          loader() {
+            throw new Error("loader failed")
+          },
+          action() {
+            throw new Error("action failed")
+          },
+        },
+      ] as const),
+      ...({ platform: platform.routerPlatform } as { platform: unknown }),
+    })
+    return { outlet, platform, router }
+  }
+
+  it("advances the URL when a loader failure commits the error view", async () => {
+    const { outlet, platform, router } = setupErrorRouter()
+
+    const match = await router.navigate("/broken")
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-error-view")
+    expect(match?.url.pathname).toBe("/broken")
+    expect(new URL(platform.location.href).pathname).toBe("/broken")
+
+    platform.history.back()
+    await waitForRouterWork()
+    expect(new URL(platform.location.href).pathname).toBe("/")
+  })
+
+  it("advances the URL when a failed action commits the error view", async () => {
+    const { outlet, platform, router } = setupErrorRouter()
+
+    await router.submit("/broken", { formData: {}, method: "post" })
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-error-view")
+    expect(new URL(platform.location.href).pathname).toBe("/broken")
+  })
+
+  it("yields to a navigation started by a navigationerror listener", async () => {
+    const { outlet, platform, router } = setupErrorRouter()
+    let recovery: Promise<unknown> = Promise.resolve()
+    router.addEventListener(
+      "naos:navigationerror",
+      () => {
+        recovery = router.navigate("/")
+      },
+      { once: true }
+    )
+
+    const errored = await router.navigate("/broken")
+    await recovery
+
+    expect(errored).toBeNull()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-error-page")
+    expect(new URL(platform.location.href).pathname).toBe("/")
+  })
+})
+
+describe("view transitions", () => {
+  type TransitionDocument = Omit<Document, "startViewTransition"> & {
+    startViewTransition?: (callback: () => void) => { finished?: Promise<unknown> }
+  }
+
+  function setupTransitionRouter() {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppTransition extends HTMLElement {}
+    if (!customElements.get("app-transition")) customElements.define("app-transition", AppTransition)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        { path: "/", tag: "app-transition" },
+        { path: "/next", tag: "app-transition" },
+      ] as const),
+    })
+    return { outlet, router }
+  }
+
+  it("navigates normally when the View Transition API is unavailable", async () => {
+    const { outlet, router } = setupTransitionRouter()
+    const transitionEvents: string[] = []
+    router.addEventListener("naos:viewtransitionstart", () => transitionEvents.push("start"))
+    router.addEventListener("naos:viewtransitionend", () => transitionEvents.push("end"))
+
+    const match = await router.navigate("/next", { viewTransition: true })
+
+    expect(match?.url.pathname).toBe("/next")
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-transition")
+    expect(transitionEvents).toEqual([])
+    expect(router.activeViewTransition).toBeNull()
+  })
+
+  it("exposes transition state and events while a view transition runs", async () => {
+    const { router } = setupTransitionRouter()
+    const transitionDocument = document as unknown as TransitionDocument
+    const startViewTransition = vi.fn((callback: () => void) => {
+      callback()
+      return { finished: Promise.resolve() }
+    })
+    transitionDocument.startViewTransition = startViewTransition
+
+    try {
+      const observedUrls: Array<string | null> = []
+      router.addEventListener("naos:viewtransitionstart", () => {
+        observedUrls.push(router.activeViewTransition?.url.pathname ?? null)
+      })
+      const ends: string[] = []
+      router.addEventListener("naos:viewtransitionend", (event) => {
+        ends.push((event as CustomEvent<{ url: URL }>).detail.url.pathname)
+      })
+
+      await router.navigate("/next", { viewTransition: true })
+
+      expect(startViewTransition).toHaveBeenCalledTimes(1)
+      expect(observedUrls).toEqual(["/next"])
+      expect(ends).toEqual(["/next"])
+      expect(router.activeViewTransition).toBeNull()
+    } finally {
+      delete transitionDocument.startViewTransition
+    }
+  })
+
+  it("skips the view transition when reduced motion is preferred", async () => {
+    const { outlet, router } = setupTransitionRouter()
+    const transitionDocument = document as unknown as TransitionDocument
+    const startViewTransition = vi.fn((callback: () => void) => {
+      callback()
+      return { finished: Promise.resolve() }
+    })
+    transitionDocument.startViewTransition = startViewTransition
+    const matchMedia = vi
+      .spyOn(window, "matchMedia")
+      .mockReturnValue({ matches: true } as MediaQueryList)
+
+    try {
+      await router.navigate("/next", { viewTransition: true })
+
+      expect(startViewTransition).not.toHaveBeenCalled()
+      expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-transition")
+    } finally {
+      matchMedia.mockRestore()
+      delete transitionDocument.startViewTransition
+    }
+  })
+})
+
 describe("typed route params", () => {
   it("threads typed path params through loaders, actions, and matches", () => {
     const routes = defineRoutes([
