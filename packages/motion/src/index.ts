@@ -44,6 +44,15 @@ export type NaosFlipOptions = {
   reducedMotion?: NaosReducedMotionPreference
 }
 
+export type NaosAutoLayoutEnterPreset = "fade" | "fade-scale"
+
+export type NaosAutoLayoutOptions = {
+  enter?: NaosAutoLayoutEnterPreset | false
+  layout?: NaosSpringPreset | NaosSpringOptions
+  reducedMotion?: NaosReducedMotionPreference
+  signal?: AbortSignal | null
+}
+
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
 const DEFAULT_ANIMATION_TIMEOUT = 4000
 const DEFAULT_SPRING_SAMPLE_COUNT = 24
@@ -224,6 +233,126 @@ export function flipMovedElements(
   }
 
   return animations
+}
+
+/**
+ * Animates layout changes among a container's direct children: persisted
+ * children FLIP from their previous position on every child-list mutation,
+ * and newly added children can opt into a modest enter animation. Layout
+ * moves are the primary use case — exit animations and resize tracking are
+ * intentionally out of scope for this first iteration.
+ *
+ * Positions are snapshotted per mutation pass, so layout shifts that happen
+ * without a child-list mutation (for example a sibling resizing) are not
+ * animated. Running layout animations are canceled before each new pass and
+ * on disposal so measurements always see untransformed layout positions.
+ */
+export function autoLayout(container: Element, options: NaosAutoLayoutOptions = {}): () => void {
+  if (typeof MutationObserver !== "function") return () => undefined
+
+  const timing = spring(options.layout ?? "snappy")
+  const positions = new Map<Element, DOMRectReadOnly>()
+  const running = new Set<Animation>()
+  let disposed = false
+
+  const track = (animation: Animation) => {
+    running.add(animation)
+    const untrack = () => running.delete(animation)
+    animation.finished?.then(untrack, untrack)
+  }
+
+  const cancelRunning = () => {
+    for (const animation of running) animation.cancel()
+    running.clear()
+  }
+
+  const measureChildren = () => {
+    positions.clear()
+    for (const child of container.children) {
+      if (typeof child.getBoundingClientRect !== "function") continue
+      positions.set(child, child.getBoundingClientRect())
+    }
+  }
+
+  const pass = (records: MutationRecord[]) => {
+    if (disposed) return
+    const previous = new Map(positions)
+    cancelRunning()
+    measureChildren()
+    if (shouldSkipMotion(options.reducedMotion)) return
+
+    const added = new Set<Element>()
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (isElementNode(node) && node.parentElement === container && !previous.has(node)) {
+          added.add(node)
+        }
+      }
+    }
+
+    const firstRects = new Map<Element, DOMRectReadOnly>()
+    for (const child of container.children) {
+      const firstRect = previous.get(child)
+      if (firstRect) firstRects.set(child, firstRect)
+    }
+
+    for (const animation of flipMovedElements(firstRects, {
+      duration: timing.duration,
+      easing: timing.easing,
+      reducedMotion: options.reducedMotion,
+    })) {
+      track(animation)
+    }
+
+    const enter = options.enter ?? false
+    if (enter === false) return
+    for (const element of added) {
+      if (element.parentElement !== container || typeof element.animate !== "function") continue
+      track(
+        element.animate(enterKeyframes(element, enter), {
+          duration: timing.duration,
+          easing: timing.easing,
+        }),
+      )
+    }
+  }
+
+  const observer = new MutationObserver(pass)
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    observer.disconnect()
+    cancelRunning()
+    positions.clear()
+    options.signal?.removeEventListener("abort", dispose)
+  }
+
+  if (options.signal?.aborted) {
+    dispose()
+    return dispose
+  }
+
+  measureChildren()
+  observer.observe(container, { childList: true })
+  options.signal?.addEventListener("abort", dispose, { once: true })
+  return dispose
+}
+
+function isElementNode(node: Node): node is Element {
+  return node.nodeType === 1
+}
+
+function enterKeyframes(element: Element, preset: NaosAutoLayoutEnterPreset): Keyframe[] {
+  if (preset === "fade") {
+    return [{ opacity: 0 }, { opacity: 1 }]
+  }
+  const baseTransform = transformForElement(element)
+  const fromTransform = baseTransform === "none" ? "scale(0.96)" : `scale(0.96) ${baseTransform}`
+  const toTransform = baseTransform === "none" ? "scale(1)" : baseTransform
+  return [
+    { opacity: 0, transform: fromTransform },
+    { opacity: 1, transform: toTransform },
+  ]
 }
 
 function getPendingAnimations(element: Element, subtree: boolean) {

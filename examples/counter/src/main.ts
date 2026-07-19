@@ -1,5 +1,6 @@
 import "./demo.css"
 import "@naos-ui/primitives"
+import { autoLayout } from "@naos-ui/motion"
 import { createRouter, defineRoutes, type NaosRouteMatch } from "@naos-ui/router"
 import "./counter.wc.tsx"
 import "./disclosure.wc.tsx"
@@ -434,5 +435,26 @@ if (primitiveForm instanceof HTMLFormElement) {
         primitiveFormEvent.textContent = `Last primitive form data: ${value}`
       }
     }, 50)
+  })
+}
+
+const autoLayoutList = document.querySelector("#auto-layout-list")
+const autoLayoutRotate = document.querySelector("#auto-layout-rotate")
+const autoLayoutAdd = document.querySelector("#auto-layout-add")
+
+if (autoLayoutList instanceof HTMLElement) {
+  autoLayout(autoLayoutList, { enter: "fade" })
+
+  autoLayoutRotate?.addEventListener("click", () => {
+    const firstItem = autoLayoutList.firstElementChild
+    if (firstItem) autoLayoutList.append(firstItem)
+  })
+
+  autoLayoutAdd?.addEventListener("click", () => {
+    const item = document.createElement("li")
+    const index = autoLayoutList.children.length + 1
+    item.dataset.autoLayoutItem = `item-${index}`
+    item.textContent = `Item ${index}`
+    autoLayoutList.append(item)
   })
 }
