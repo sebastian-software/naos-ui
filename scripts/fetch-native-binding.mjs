@@ -79,12 +79,53 @@ async function bindingFromNpm(packageName, workspace) {
   return findBinding(workspace)
 }
 
+function runCapture(command, args) {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(command, args, { stdio: ["ignore", "pipe", "inherit"] })
+    let stdout = ""
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk
+    })
+    child.on("error", reject)
+    child.on("exit", (code, signal) => {
+      if (code === 0) {
+        resolvePromise(stdout)
+        return
+      }
+      reject(new Error(`${command} ${args.join(" ")} failed with ${signal ?? `exit ${code}`}`))
+    })
+  })
+}
+
 async function bindingFromCiArtifact(workspace) {
   const name = artifactName()
   console.log(`[fetch-native] trying CI artifact ${name} via GitHub CLI`)
+  // Pin to the latest successful CI run on main so a PR-branch artifact can
+  // never shadow the mainline binding.
+  const runsJson = await runCapture("gh", [
+    "run",
+    "list",
+    "--repo",
+    repoSlug,
+    "--branch",
+    "main",
+    "--workflow",
+    "CI",
+    "--status",
+    "success",
+    "--limit",
+    "1",
+    "--json",
+    "databaseId",
+  ])
+  const runId = JSON.parse(runsJson)[0]?.databaseId
+  if (!runId) {
+    throw new Error("No successful CI run found on main.")
+  }
   await run("gh", [
     "run",
     "download",
+    String(runId),
     "--repo",
     repoSlug,
     "--name",
@@ -97,6 +138,9 @@ async function bindingFromCiArtifact(workspace) {
 
 const fromIndex = process.argv.indexOf("--from")
 const fromSource = fromIndex === -1 ? null : process.argv[fromIndex + 1]
+if (fromIndex !== -1 && !fromSource) {
+  throw new Error("--from requires a path to a naos-node.node file or a platform-package .tgz.")
+}
 const packageDir = currentNativePackage()
 const workspace = await mkdtemp(join(tmpdir(), "naos-native-binding-"))
 
