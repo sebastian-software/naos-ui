@@ -54,12 +54,16 @@ describe("naosPlugin", () => {
       input: counterEntry,
       plugins: [naosPlugin.rollup()],
     })
-    const { output } = await bundle.generate({ format: "esm" })
-    await bundle.close()
-
-    const chunk = output.find((entry) => entry.type === "chunk")
-    expect(chunk?.type).toBe("chunk")
-    assertCompiledCounter(chunk && chunk.type === "chunk" ? chunk.code : "")
+    try {
+      const { output } = await bundle.generate({ format: "esm" })
+      const chunk = output.find((entry) => entry.type === "chunk")
+      if (chunk?.type !== "chunk") {
+        throw new Error("Rollup produced no chunk output.")
+      }
+      assertCompiledCounter(chunk.code)
+    } finally {
+      await bundle.close()
+    }
   })
 
   it("surfaces compiler diagnostics with code frames", async () => {
