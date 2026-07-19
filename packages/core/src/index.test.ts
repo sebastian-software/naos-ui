@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest"
 
-import { Show, clx, computed, effect, event, formControl, host, on, state } from "./index.js"
+import {
+  Show,
+  clx,
+  computed,
+  effect,
+  event,
+  formControl,
+  host,
+  inspect,
+  on,
+  state,
+} from "./index.js"
 
 describe("authoring runtime stubs", () => {
   it("keeps authoring stubs compiler-only", () => {
@@ -12,6 +23,7 @@ describe("authoring runtime stubs", () => {
     expect(() => host()).toThrow("Naos host()")
     expect(() => event<number>("change")).toThrow("Naos event()")
     expect(() => formControl({ value: () => null })).toThrow("Naos formControl()")
+    expect(() => inspect(1)).toThrow("Naos inspect()")
   })
 })
 

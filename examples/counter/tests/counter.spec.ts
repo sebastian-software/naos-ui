@@ -149,6 +149,28 @@ test("compiled clx classes and style objects update native elements", async ({ p
   await expect.poll(readMeterStyle).toEqual({ level: "1", opacity: "" })
 })
 
+test("inspect traces reactive values with dev-only console output", async ({ page }) => {
+  const inspectLogs: string[] = []
+  page.on("console", (message) => {
+    if (message.text().includes("<demo-reactivity-probe> inspect(primary(), secondary())")) {
+      inspectLogs.push(message.text())
+    }
+  })
+
+  await page.goto("/")
+  await expect.poll(() => inspectLogs.length).toBeGreaterThan(0)
+
+  const mountLogCount = inspectLogs.length
+  await page.locator("#reactivity-probe-case [data-probe-primary-button]").click()
+  await expect.poll(() => inspectLogs.length).toBeGreaterThan(mountLogCount)
+
+  // Setting the same value again must not re-fire the trace.
+  const settledLogCount = inspectLogs.length
+  await page.locator("#reactivity-probe-case [data-probe-equal-button]").click()
+  await page.waitForTimeout(100)
+  expect(inspectLogs.length).toBe(settledLogCount)
+})
+
 test("autoLayout animates reordered and added list children", async ({ page }) => {
   await page.goto("/")
 
@@ -463,7 +485,7 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
     }
     return { mappedLine, originalColumn, originalSource }
   })
-  expect(mappedErrorLine.mappedLine).toBe(16)
+  expect(mappedErrorLine.mappedLine).toBe(18)
 
   await probe.locator("[data-probe-recover-button]").click()
   await expect(primary).toHaveText("1")

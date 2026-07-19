@@ -83,6 +83,7 @@ fn analyze_function_component(
         computed: function_component.semantics.computed,
         keyed_selectors: function_component.semantics.keyed_selectors,
         effects: function_component.semantics.effects,
+        inspects: function_component.semantics.inspects,
         connected_callbacks: function_component.semantics.connected_callbacks,
         disconnected_callbacks: function_component.semantics.disconnected_callbacks,
         uses_host_helpers: function_component.semantics.uses_host_helpers,

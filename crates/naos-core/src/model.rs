@@ -42,6 +42,8 @@ pub struct ComponentModule {
     pub keyed_selectors: Vec<KeyedSelectorDefinition>,
     /// Lifecycle side effect declarations.
     pub effects: Vec<EffectDefinition>,
+    /// Dev-only reactive tracing declarations.
+    pub inspects: Vec<InspectDefinition>,
     /// Connected lifecycle callbacks.
     pub connected_callbacks: Vec<LifecycleCallbackDefinition>,
     /// Disconnected lifecycle callbacks.
@@ -311,6 +313,13 @@ pub struct KeyedSelectorDefinition {
 pub struct EffectDefinition {
     /// Source text for the effect callback body.
     pub body: String,
+}
+
+/// Dev-only reactive tracing declaration (`inspect(...)`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct InspectDefinition {
+    /// Source text of the traced value expressions, comma separated.
+    pub arguments: String,
 }
 
 /// Custom element lifecycle callback declaration.

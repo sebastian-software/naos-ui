@@ -20,10 +20,10 @@ pub use error::{CompilerError, CompilerResult, location_for_span};
 pub use model::{
     AttributeValue, CompilerDiagnostic, ComponentImport, ComponentModule, ComponentOptions,
     ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticLocation, DiagnosticSeverity,
-    DiagnosticSpan, EffectDefinition, EventDefinition, KeyedSelectorDefinition, PackageContext,
-    PropAccess, PropDefinition, PropKind, SourceMap, StateDefinition, StateKind, StyleImport,
-    TemplateAttribute, TemplateChild, TemplateElement, TemplateEventHandler, TemplateList,
-    TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
+    DiagnosticSpan, EffectDefinition, EventDefinition, InspectDefinition, KeyedSelectorDefinition,
+    PackageContext, PropAccess, PropDefinition, PropKind, SourceMap, StateDefinition, StateKind,
+    StyleImport, TemplateAttribute, TemplateChild, TemplateElement, TemplateEventHandler,
+    TemplateList, TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -2504,6 +2504,65 @@ mod tests {
         assert!(result.code[spread_index..].contains(
             "if (this.#shouldUpdate(null, dirtySources)) {\n      const node0_data_state_value = active() ? \"on\" : \"off\";"
         ));
+    }
+
+    #[test]
+    fn transform_component_module_should_lower_inspect_to_dev_tracing() {
+        let source = r#"
+            import { computed, inspect, state } from "@naos-ui/core";
+
+            export function Probe() {
+              const count = state(0);
+              const doubled = computed(() => count() * 2);
+
+              inspect(count(), doubled());
+
+              return (
+                <button onClick={() => count.set(count() + 1)}>{count()}</button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "probe.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains(
+            "if (this.#isDevelopment()) console.debug(\"[naos] <\" + this.localName + \"> inspect(count(), doubled())\", count(), doubled());"
+        ));
+        // The tracing step rides the dependency-gated update path.
+        let inspect_index = result
+            .code
+            .find("> inspect(count(), doubled())")
+            .expect("inspect step should be generated");
+        let gate_index = result.code[..inspect_index]
+            .rfind("this.#shouldUpdate(")
+            .expect("inspect step should be dependency gated");
+        assert!(result.code[gate_index..inspect_index].contains("\"count\""));
+    }
+
+    #[test]
+    fn transform_component_module_should_reject_empty_inspect() {
+        let source = r#"
+            import { inspect, state } from "@naos-ui/core";
+
+            export function Probe() {
+              const count = state(0);
+
+              inspect();
+
+              return <span>{count()}</span>;
+            }
+        "#;
+
+        let error = transform_component_module(source, "probe.wc.tsx")
+            .expect_err("empty inspect should be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("inspect() requires at least one value expression.")
+        );
     }
 
     #[test]
