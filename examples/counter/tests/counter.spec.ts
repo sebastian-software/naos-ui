@@ -149,6 +149,46 @@ test("compiled clx classes and style objects update native elements", async ({ p
   await expect.poll(readMeterStyle).toEqual({ level: "1", opacity: "" })
 })
 
+test("autoLayout animates reordered and added list children", async ({ page }) => {
+  await page.goto("/")
+
+  const items = page.locator("#auto-layout-list li")
+  await expect(items.first()).toHaveText("Alpha")
+
+  const moveAnimationCount = await page.evaluate(async () => {
+    document.querySelector<HTMLButtonElement>("#auto-layout-rotate")?.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const list = document.querySelector("#auto-layout-list")
+    return list?.getAnimations({ subtree: true }).length ?? 0
+  })
+  expect(moveAnimationCount).toBeGreaterThan(0)
+  await expect(items.first()).toHaveText("Beta")
+  await expect(items.last()).toHaveText("Alpha")
+
+  const enterAnimationCount = await page.evaluate(async () => {
+    document.querySelector<HTMLButtonElement>("#auto-layout-add")?.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const listItems = document.querySelectorAll("#auto-layout-list li")
+    return listItems[listItems.length - 1]?.getAnimations().length ?? 0
+  })
+  expect(enterAnimationCount).toBeGreaterThan(0)
+  await expect(items.last()).toHaveText("Item 4")
+})
+
+test("autoLayout keeps DOM updates without animation under reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.goto("/")
+
+  const animationCount = await page.evaluate(async () => {
+    document.querySelector<HTMLButtonElement>("#auto-layout-rotate")?.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const list = document.querySelector("#auto-layout-list")
+    return list?.getAnimations({ subtree: true }).length ?? 0
+  })
+  expect(animationCount).toBe(0)
+  await expect(page.locator("#auto-layout-list li").first()).toHaveText("Beta")
+})
+
 test("duplicate package versions warn and keep the first registration", async ({ page }) => {
   const warnings: string[] = []
   page.on("console", (message) => {

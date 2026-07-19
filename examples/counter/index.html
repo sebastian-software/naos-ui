@@ -555,9 +555,36 @@ style={{ "--probe-level": String(level()) }}</code></pre>
         </div>
       </section>
 
-      <section class="demo-case" id="router-case" aria-labelledby="router-title">
+      <section class="demo-case" id="auto-layout-case" aria-labelledby="auto-layout-title">
         <div class="case-copy">
           <p class="case-kicker">Use case 10</p>
+          <h2 id="auto-layout-title">Automatic layout motion</h2>
+          <p>
+            The imperative <code>autoLayout()</code> helper from
+            <code>@naos-ui/motion</code> animates direct children of a container
+            when the child list changes.
+          </p>
+          <ul>
+            <li>Persisted children FLIP from their previous position.</li>
+            <li>Added children can opt into a modest enter animation.</li>
+            <li>Reduced-motion users get the same DOM update without animation.</li>
+          </ul>
+        </div>
+        <div class="case-surface">
+          <ul id="auto-layout-list" class="auto-layout-list">
+            <li data-auto-layout-item="alpha">Alpha</li>
+            <li data-auto-layout-item="beta">Beta</li>
+            <li data-auto-layout-item="gamma">Gamma</li>
+          </ul>
+          <button id="auto-layout-rotate" type="button">Rotate</button>
+          <button id="auto-layout-add" type="button">Add item</button>
+          <pre><code>const dispose = autoLayout(list, { enter: "fade" })</code></pre>
+        </div>
+      </section>
+
+      <section class="demo-case" id="router-case" aria-labelledby="router-title">
+        <div class="case-copy">
+          <p class="case-kicker">Use case 11</p>
           <h2 id="router-title">Custom Element router</h2>
           <p>
             The optional <code>@naos-ui/router</code> package maps browser URLs to

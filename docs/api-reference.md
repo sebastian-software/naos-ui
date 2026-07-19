@@ -28,11 +28,28 @@ for v0.1 and are not published to crates.io.
 | `springMotionTokenClassName(options)` | Experimental | Generate only the deterministic class name for build/runtime coordination. |
 | `springMotionTokenCss(options)` | Experimental | Generate only the CSS rule for compiler or package-build output. |
 | `flipMovedElements(firstRects, options?)` | Experimental | Play transform-only FLIP move animations for preserved keyed elements. |
+| `autoLayout(container, options?)` | Experimental | Animate direct-child layout changes of one container on child-list mutations: persisted children FLIP, added children can opt into an enter animation. Returns a dispose function and accepts an `AbortSignal`. |
 | `waitForAnimations(element, options?)` | Experimental | Wait for pending Web Animations API animations, with reduced-motion and timeout guards. |
 
 Motion token classes are intended for compiler or package-build CSS output. For
 example, primitives can share `--naos-presence-motion-*` variables through a
 stable class without injecting inline `style` strings at render time.
+
+`autoLayout()` targets a deliberately small container and its direct children
+only. Layout moves are the primary use case: positions are snapshotted per
+mutation pass, running layout animations are canceled before each new pass,
+and reduced-motion users get the same DOM update without animation. Exit
+animations, resize tracking, and compiler-assisted integration are
+intentionally out of scope for this first iteration (#137 phase 2). Applying
+unrelated `transform` animations to the same element can conflict with the
+FLIP transform until a composition strategy is finalized.
+
+```ts
+import { autoLayout } from "@naos-ui/motion"
+
+const dispose = autoLayout(list, { layout: "snappy", enter: "fade" })
+// later: dispose()
+```
 
 ## `@naos-ui/core`
 
