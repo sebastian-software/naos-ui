@@ -83,6 +83,134 @@
   color: #475569;
 }
 
+.naos-playground {
+  display: grid;
+  gap: 1.5rem;
+  padding: 2rem 0;
+}
+
+.naos-playground-header {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.naos-playground-header h1 {
+  margin: 0;
+  color: #111827;
+  letter-spacing: 0;
+}
+
+.naos-playground-header p {
+  max-width: 760px;
+  margin: 0;
+  color: #475569;
+}
+
+.naos-playground-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+
+.naos-playground-pane {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid #d7dde5;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  background: #ffffff;
+}
+
+.naos-playground-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.naos-playground-pane-header h2 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.1rem;
+  letter-spacing: 0;
+}
+
+.naos-playground-pane-header button {
+  min-height: 2.25rem;
+  border: 1px solid #0f766e;
+  border-radius: 0.375rem;
+  padding: 0.4rem 0.85rem;
+  background: #0f766e;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.naos-playground-pane-header button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.naos-playground-pane textarea {
+  min-height: 24rem;
+  border: 1px solid #d7dde5;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.naos-playground-preview {
+  min-height: 6rem;
+  display: grid;
+  place-items: center;
+  border: 1px dashed #d7dde5;
+  border-radius: 0.375rem;
+  padding: 1rem;
+}
+
+.naos-playground-notice {
+  margin: 0;
+  border: 1px solid #f4c7ab;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.naos-playground-diagnostics {
+  border: 1px solid #fecaca;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.naos-playground-diagnostics h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+
+.naos-playground-diagnostics ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.naos-playground-code pre {
+  max-height: 24rem;
+  overflow: auto;
+  margin: 0.5rem 0 0;
+  border-radius: 0.375rem;
+  padding: 0.75rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
 @media (max-width: 780px) {
   .naos-hero {
     padding-top: 2rem;
@@ -93,6 +221,10 @@
   }
 
   .naos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .naos-playground-columns {
     grid-template-columns: 1fr;
   }
 }

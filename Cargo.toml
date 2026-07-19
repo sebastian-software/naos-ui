@@ -1,6 +1,15 @@
 [workspace]
-members = ["crates/naos-core", "crates/naos-node"]
+members = ["crates/naos-core", "crates/naos-node", "crates/naos-wasm"]
 resolver = "2"
+
+# Distribution profile for the WASM playground/fallback artifact (ADR 0025):
+# fat LTO and a single codegen unit for size, stripped symbols. Kept separate
+# from `release` so native binding builds stay fast.
+[profile.wasm-release]
+codegen-units = 1
+inherits = "release"
+lto = true
+strip = true
 
 [workspace.package]
 edition = "2024"

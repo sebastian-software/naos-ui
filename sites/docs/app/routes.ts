@@ -9,6 +9,7 @@ export default [
   route("guide/getting-started", "routes/guide/getting-started.mdx"),
   route("guide/styling-and-dsd", "routes/guide/styling-and-dsd.mdx"),
   route("guide/testing", "routes/guide/testing.mdx"),
+  route("playground", "routes/playground.tsx"),
   route("reference/api", "routes/reference/api.mdx"),
   route("reference/packages", "routes/reference/packages.mdx"),
 ] satisfies RouteConfig
