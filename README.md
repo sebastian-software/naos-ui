@@ -372,7 +372,9 @@ authoring boundary and no framework runtime goal.
 
 ## Development
 
-Build and test from the workspace root.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full setup — including the
+devcontainer and a JS-only workflow (`pnpm fetch:native`) that needs no Rust
+toolchain. Build and test from the workspace root.
 
 ```sh
 pnpm install

@@ -1,0 +1,25 @@
+name: Bug report
+description: Something behaves incorrectly in a Naos package or the compiler.
+labels: []
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: A minimal component or repository that shows the problem, plus the commands you ran.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Affected @naos-ui package versions plus Node and OS.
+    validations:
+      required: true

@@ -33,7 +33,9 @@
     "test:rust": "cargo test --workspace",
     "verify:fresh-project": "node scripts/verify-fresh-project.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,mts,js,mjs,cjs}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,mts,js,mjs,cjs}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,mts,js,mjs,cjs}\"",
+    "fetch:native": "node scripts/fetch-native-binding.mjs",
+    "check:js": "pnpm check-api-conventions && pnpm check-dependency-boundaries && pnpm check-release-set && pnpm check-native-types && pnpm check-types && pnpm check:docs"
   },
   "devDependencies": {
     "@types/node": "^25.0.0",
