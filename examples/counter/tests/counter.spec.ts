@@ -164,11 +164,15 @@ test("inspect traces reactive values with dev-only console output", async ({ pag
   await page.locator("#reactivity-probe-case [data-probe-primary-button]").click()
   await expect.poll(() => inspectLogs.length).toBeGreaterThan(mountLogCount)
 
-  // Setting the same value again must not re-fire the trace.
+  // Setting the same value again must not re-fire the trace. A follow-up
+  // real change provides an ordered signal: console messages arrive in
+  // order, so once the "2 0" log is here, any spurious log from the
+  // identical-value set would already have been recorded before it.
   const settledLogCount = inspectLogs.length
   await page.locator("#reactivity-probe-case [data-probe-equal-button]").click()
-  await page.waitForTimeout(100)
-  expect(inspectLogs.length).toBe(settledLogCount)
+  await page.locator("#reactivity-probe-case [data-probe-primary-button]").click()
+  await expect.poll(() => inspectLogs.some((log) => log.endsWith(" 2 0"))).toBe(true)
+  expect(inspectLogs.length).toBe(settledLogCount + 1)
 })
 
 test("autoLayout animates reordered and added list children", async ({ page }) => {
