@@ -402,6 +402,7 @@ Workspace layout:
 * `packages/core`: authoring API and JSX types
 * `packages/runtime`: runtime helper surface
 * `packages/vite`: Vite plugin and prerender metadata integration
+* `packages/unplugin`: bundler-agnostic transform for Rollup, esbuild, webpack, and Rspack
 * `examples/counter`: browser smoke-test example and static DSD output
 * `sites/docs`: Ardo documentation site for v0.1 docs and API content
 

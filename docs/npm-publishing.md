@@ -23,6 +23,7 @@ verified by `pnpm check-release-set`:
 | `@naos-ui/testing` | `packages/testing` |
 | `@naos-ui/compiler` | `packages/compiler` |
 | `@naos-ui/vite` | `packages/vite` |
+| `@naos-ui/unplugin` | `packages/unplugin` |
 | `@naos-ui/cli` | `packages/cli` |
 | `create-naos` | `packages/create-naos` |
 | `@naos-ui/compiler-linux-x64-gnu` | `packages/compiler-linux-x64-gnu` |
