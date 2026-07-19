@@ -605,6 +605,54 @@ list expression changes. The lowering is generic and does not hard-code
 `aria-selected`, `data-state`, class names, or text bindings. Unsupported
 selector shapes fall back to the normal conservative dependency behavior.
 
+## Class And Style Expressions
+
+`clx()` from `@naos-ui/core` builds class strings from conditional parts. It
+accepts strings, numbers, nested arrays, and objects whose keys are included
+when their values are truthy; falsy inputs are skipped. Inside components the
+compiler lowers `clx` to a generated module helper, so the emitted element code
+stays free of `@naos-ui/core` imports. Outside compiled components the same
+function works as a plain runtime import.
+
+```tsx
+import { clx, state } from "@naos-ui/core"
+
+export function Chip() {
+  const active = state(false)
+
+  return (
+    <span
+      class={clx("chip", active() && "chip--active", { "chip--idle": !active() })}
+      onClick={() => active.set(!active())}
+    >
+      Chip
+    </span>
+  )
+}
+```
+
+Braced `style` values on native elements accept strings or per-property
+objects. Object keys use camelCase for standard properties and literal
+`--custom-property` names for CSS custom properties, which are applied through
+`style.setProperty()`. Nullish or `false` property values remove the
+property, and properties that disappear from the object between updates are
+cleaned up. Static string styles stay plain attributes.
+
+```tsx
+<div
+  style={{
+    "--meter-level": String(level()),
+    opacity: level() > 0 ? "1" : false,
+  }}
+>
+  ...
+</div>
+```
+
+Server prerendering (declarative Shadow DOM) serializes only statically
+foldable attribute values; dynamic class and style expressions are applied
+when the element hydrates, matching other dynamic attributes.
+
 ## Primitive Contracts
 
 Primitive Web Component fixtures should use platform-readable contracts rather

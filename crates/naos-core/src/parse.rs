@@ -30,6 +30,7 @@ pub fn analyze_component_module(
     let runtime_imports = ast_facts.runtime_imports.clone();
     let style_imports = ast_facts.style_imports.clone();
     let component_options = ast_facts.component_options.clone();
+    let clx_local = ast_facts.clx_local.clone();
     if let Some(function_component) = capture_function_component(source, &ast_facts)? {
         return analyze_function_component(
             function_component,
@@ -38,6 +39,7 @@ pub fn analyze_component_module(
             runtime_imports,
             style_imports,
             component_options,
+            clx_local,
             package,
         );
     }
@@ -61,6 +63,7 @@ fn analyze_function_component(
     runtime_imports: Vec<RuntimeImport>,
     style_imports: Vec<StyleImport>,
     component_options: ComponentOptions,
+    clx_local: Option<String>,
     package: &PackageContext,
 ) -> CompilerResult<ComponentModule> {
     let tag_name = custom_element_tag_for_component(&function_component.name, package)?;
@@ -83,6 +86,7 @@ fn analyze_function_component(
         connected_callbacks: function_component.semantics.connected_callbacks,
         disconnected_callbacks: function_component.semantics.disconnected_callbacks,
         uses_host_helpers: function_component.semantics.uses_host_helpers,
+        clx_local,
         events: function_component.semantics.events,
         template: function_component.semantics.template.ok_or_else(|| {
             unsupported_with_code(

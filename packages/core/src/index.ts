@@ -81,6 +81,40 @@ export type FormControlHandle = {
   readonly formAssociated: true
 }
 
+export type NaosClassValue =
+  | string
+  | number
+  | null
+  | undefined
+  | boolean
+  | readonly NaosClassValue[]
+  | Readonly<Record<string, unknown>>
+
+// Inside compiled components the compiler swaps clx for a generated
+// __naosClx helper (emit_clx_helper in crates/naos-core/src/codegen.rs);
+// semantic changes here must be mirrored there.
+export function clx(...inputs: NaosClassValue[]): string {
+  const classes: string[] = []
+  for (const input of inputs) {
+    if (!input) continue
+    if (typeof input === "string" || typeof input === "number") {
+      classes.push(String(input))
+      continue
+    }
+    if (Array.isArray(input)) {
+      const nested = clx(...input)
+      if (nested) classes.push(nested)
+      continue
+    }
+    if (typeof input === "object") {
+      for (const [name, active] of Object.entries(input)) {
+        if (active) classes.push(name)
+      }
+    }
+  }
+  return classes.join(" ")
+}
+
 export function state<T>(_initialValue: T): StateAccessor<T> {
   return authoringRuntimeError("state")
 }
@@ -147,4 +181,4 @@ function authoringRuntimeError(apiName: string): never {
   )
 }
 
-export type { ElementRef, JSX } from "./jsx-runtime.js"
+export type { ElementRef, JSX, NaosStyleValue } from "./jsx-runtime.js"

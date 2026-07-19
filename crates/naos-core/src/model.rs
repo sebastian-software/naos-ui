@@ -48,6 +48,8 @@ pub struct ComponentModule {
     pub disconnected_callbacks: Vec<LifecycleCallbackDefinition>,
     /// Whether the component body references `host()`.
     pub uses_host_helpers: bool,
+    /// Local binding name of the `clx` class helper imported from `@naos-ui/core`.
+    pub clx_local: Option<String>,
     /// Custom event declarations.
     pub events: Vec<EventDefinition>,
     /// Structured JSX template returned by the component callback.

@@ -8,6 +8,7 @@ import "./field.wc.tsx"
 import "./list-reconciler-probe.wc.tsx"
 import "./note-form.wc.tsx"
 import "./reactivity-probe.wc.tsx"
+import "./style-probe.wc.tsx"
 import "./toolbar.wc.tsx"
 import "./toggle.wc.tsx"
 

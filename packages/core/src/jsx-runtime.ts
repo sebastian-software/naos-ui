@@ -26,6 +26,13 @@ export type FormActionLike = {
   enhance(form: HTMLFormElement): () => void
 }
 
+/**
+ * Per-property style object for braced `style` values. Keys are camelCase
+ * standard properties or literal `--custom-property` names; nullish and
+ * `false` values remove the property.
+ */
+export type NaosStyleValue = Readonly<Record<string, string | number | null | undefined | false>>
+
 export type IntrinsicElementAttributes = {
   [attribute: `aria-${string}`]: AttributeValue
   [attribute: `data-${string}`]: AttributeValue
@@ -92,6 +99,7 @@ export type IntrinsicElementAttributes = {
   ref?: ElementRef
   role?: string
   slot?: string
+  style?: string | NaosStyleValue | null
   tabindex?: number
   type?: string
   value?: string | number | readonly string[]

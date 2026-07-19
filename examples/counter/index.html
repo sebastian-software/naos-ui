@@ -534,9 +534,30 @@ dispatch native CustomEvents.</code></pre>
         </div>
       </section>
 
-      <section class="demo-case" id="router-case" aria-labelledby="router-title">
+      <section class="demo-case" id="style-probe-case" aria-labelledby="style-probe-title">
         <div class="case-copy">
           <p class="case-kicker">Use case 09</p>
+          <h2 id="style-probe-title">Class helper and style objects</h2>
+          <p>
+            A fixture for <code>clx()</code> class expressions and per-property
+            <code>style</code> objects with CSS custom properties.
+          </p>
+          <ul>
+            <li><code>clx()</code> joins strings, conditionals, and object maps.</li>
+            <li><code>--custom-property</code> keys go through <code>style.setProperty()</code>.</li>
+            <li>Nullish or <code>false</code> property values remove the property.</li>
+          </ul>
+        </div>
+        <div class="case-surface">
+          <demo-style-probe></demo-style-probe>
+          <pre><code>class={clx("chip", active() &amp;&amp; "chip--active")}
+style={{ "--probe-level": String(level()) }}</code></pre>
+        </div>
+      </section>
+
+      <section class="demo-case" id="router-case" aria-labelledby="router-title">
+        <div class="case-copy">
+          <p class="case-kicker">Use case 10</p>
           <h2 id="router-title">Custom Element router</h2>
           <p>
             The optional <code>@naos-ui/router</code> package maps browser URLs to
