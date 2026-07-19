@@ -142,12 +142,14 @@ struct CodeGenerator<'a> {
     element_ref_names: Vec<String>,
     list_record_fields: Vec<String>,
     spread_fields: Vec<String>,
+    style_cache_fields: Vec<String>,
     text_fields: Vec<String>,
     mount_lines: Vec<String>,
     ref_lines: Vec<String>,
     listener_lines: Vec<String>,
     update_steps: Vec<UpdateStep>,
     uses_spread_attributes: bool,
+    uses_style_objects: bool,
     uses_motion_flip: bool,
 }
 
@@ -161,12 +163,14 @@ impl<'a> CodeGenerator<'a> {
             element_ref_names: Vec::new(),
             list_record_fields: Vec::new(),
             spread_fields: Vec::new(),
+            style_cache_fields: Vec::new(),
             text_fields: Vec::new(),
             mount_lines: Vec::new(),
             ref_lines: Vec::new(),
             listener_lines: Vec::new(),
             update_steps: Vec::new(),
             uses_spread_attributes: false,
+            uses_style_objects: false,
             uses_motion_flip: false,
         }
     }
@@ -182,6 +186,7 @@ impl<'a> CodeGenerator<'a> {
         self.emit_style_imports(&mut code)?;
         self.emit_component_imports(&mut code)?;
         self.emit_component_style_sheet(&mut code)?;
+        self.emit_clx_helper(&mut code)?;
         writeln!(
             code,
             "class {} extends HTMLElement {{",
@@ -248,6 +253,38 @@ impl<'a> CodeGenerator<'a> {
         .map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  return __naosComponentStyleSheet;").map_err(format_error)?;
+        writeln!(code, "}}").map_err(format_error)?;
+        writeln!(code).map_err(format_error)?;
+        Ok(())
+    }
+
+    fn emit_clx_helper(&self, code: &mut String) -> CompilerResult<()> {
+        if self.module.clx_local.is_none() {
+            return Ok(());
+        }
+        writeln!(code, "function __naosClx(...inputs) {{").map_err(format_error)?;
+        writeln!(code, "  const classes = [];").map_err(format_error)?;
+        writeln!(code, "  for (const input of inputs.flat(Infinity)) {{").map_err(format_error)?;
+        writeln!(code, "    if (!input) continue;").map_err(format_error)?;
+        writeln!(
+            code,
+            "    if (typeof input === \"string\" || typeof input === \"number\") {{"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      classes.push(String(input));").map_err(format_error)?;
+        writeln!(code, "      continue;").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    if (typeof input === \"object\") {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "      for (const [name, active] of Object.entries(input)) {{"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "        if (active) classes.push(name);").map_err(format_error)?;
+        writeln!(code, "      }}").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  return classes.join(\" \");").map_err(format_error)?;
         writeln!(code, "}}").map_err(format_error)?;
         writeln!(code).map_err(format_error)?;
         Ok(())
@@ -489,6 +526,10 @@ impl<'a> CodeGenerator<'a> {
                 "  #{field} = {{ names: new Set(), listeners: new Map(), styles: new Set() }};"
             )
             .map_err(format_error)?;
+        }
+        for field in &self.style_cache_fields {
+            writeln!(code, "  #{field} = {{ styles: new Set(), raw: false }};")
+                .map_err(format_error)?;
         }
         for field in &self.text_fields {
             writeln!(code, "  #{field};").map_err(format_error)?;
@@ -988,6 +1029,9 @@ impl<'a> CodeGenerator<'a> {
             .map_err(format_error)?;
             writeln!(code, "      flushSync: () => this.#flushSync(),").map_err(format_error)?;
             writeln!(code, "    }});").map_err(format_error)?;
+        }
+        if let Some(clx_local) = &self.module.clx_local {
+            writeln!(code, "    const {clx_local} = __naosClx;").map_err(format_error)?;
         }
         let names = self.binding_names().join(", ");
         writeln!(code, "    return {{ {names} }};").map_err(format_error)?;
@@ -1508,9 +1552,19 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_spread_helpers(&self, code: &mut String) -> CompilerResult<()> {
-        if !self.uses_spread_attributes {
-            return Ok(());
+        if self.uses_spread_attributes {
+            self.emit_spread_attribute_helpers(code)?;
         }
+        if self.uses_style_objects {
+            self.emit_style_value_helper(code)?;
+        }
+        if self.uses_spread_attributes || self.uses_style_objects {
+            self.emit_style_property_helpers(code)?;
+        }
+        Ok(())
+    }
+
+    fn emit_spread_attribute_helpers(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  #applySpreadAttributes(target, cache, values) {{")
             .map_err(format_error)?;
         writeln!(code, "    const next = values ?? {{}};").map_err(format_error)?;
@@ -1622,7 +1676,7 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "    if (name === \"style\") {{").map_err(format_error)?;
         writeln!(
             code,
-            "      for (const property of cache.styles) target.style[property] = \"\";"
+            "      for (const property of cache.styles) this.#setStyleProperty(target, property, null);"
         )
         .map_err(format_error)?;
         writeln!(code, "      cache.styles.clear();").map_err(format_error)?;
@@ -1639,33 +1693,6 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "      try {{ target[name] = false; }} catch {{}}").map_err(format_error)?;
         writeln!(code, "    }}").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  #applySpreadStyles(target, cache, styles) {{").map_err(format_error)?;
-        writeln!(code, "    const seen = new Set();").map_err(format_error)?;
-        writeln!(
-            code,
-            "    for (const [property, value] of Object.entries(styles)) {{"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      seen.add(property);").map_err(format_error)?;
-        writeln!(
-            code,
-            "      target.style[property] = value == null ? \"\" : String(value);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(
-            code,
-            "    for (const property of Array.from(cache.styles)) {{"
-        )
-        .map_err(format_error)?;
-        writeln!(
-            code,
-            "      if (!seen.has(property)) target.style[property] = \"\";"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    cache.styles = seen;").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #attributeNameFromSpreadKey(name) {{").map_err(format_error)?;
         writeln!(code, "    if (name === \"className\") return \"class\";")
             .map_err(format_error)?;
@@ -1678,6 +1705,90 @@ impl<'a> CodeGenerator<'a> {
             .map_err(format_error)?;
         writeln!(code, "    return {{ \"before-input\": \"beforeinput\", \"context-menu\": \"contextmenu\", \"key-down\": \"keydown\", \"key-up\": \"keyup\", \"pointer-cancel\": \"pointercancel\", \"pointer-down\": \"pointerdown\", \"pointer-enter\": \"pointerenter\", \"pointer-leave\": \"pointerleave\", \"pointer-move\": \"pointermove\", \"pointer-out\": \"pointerout\", \"pointer-over\": \"pointerover\", \"pointer-up\": \"pointerup\", \"focus-in\": \"focusin\", \"focus-out\": \"focusout\" }}[eventName] ?? eventName;")
             .map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        Ok(())
+    }
+
+    fn emit_style_value_helper(&self, code: &mut String) -> CompilerResult<()> {
+        writeln!(code, "  #applyStyleValue(target, cache, value) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "    if (value !== null && typeof value === \"object\") {{"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      if (cache.raw) {{").map_err(format_error)?;
+        writeln!(code, "        target.removeAttribute(\"style\");").map_err(format_error)?;
+        writeln!(code, "        cache.raw = false;").map_err(format_error)?;
+        writeln!(code, "      }}").map_err(format_error)?;
+        writeln!(code, "      this.#applySpreadStyles(target, cache, value);")
+            .map_err(format_error)?;
+        writeln!(code, "      return;").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    cache.styles.clear();").map_err(format_error)?;
+        writeln!(code, "    if (value == null || value === false) {{").map_err(format_error)?;
+        writeln!(code, "      target.removeAttribute(\"style\");").map_err(format_error)?;
+        writeln!(code, "      cache.raw = false;").map_err(format_error)?;
+        writeln!(code, "      return;").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    target.setAttribute(\"style\", String(value));")
+            .map_err(format_error)?;
+        writeln!(code, "    cache.raw = true;").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        Ok(())
+    }
+
+    fn emit_style_property_helpers(&self, code: &mut String) -> CompilerResult<()> {
+        writeln!(code, "  #applySpreadStyles(target, cache, styles) {{").map_err(format_error)?;
+        writeln!(code, "    const seen = new Set();").map_err(format_error)?;
+        writeln!(
+            code,
+            "    for (const [property, value] of Object.entries(styles)) {{"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "      if (value == null || value === false) continue;"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      seen.add(property);").map_err(format_error)?;
+        writeln!(
+            code,
+            "      this.#setStyleProperty(target, property, String(value));"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(
+            code,
+            "    for (const property of Array.from(cache.styles)) {{"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "      if (!seen.has(property)) this.#setStyleProperty(target, property, null);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(code, "    cache.styles = seen;").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        writeln!(code, "  #setStyleProperty(target, property, value) {{").map_err(format_error)?;
+        writeln!(code, "    if (property.startsWith(\"--\")) {{").map_err(format_error)?;
+        writeln!(
+            code,
+            "      if (value == null) target.style.removeProperty(property);"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "      else target.style.setProperty(property, value);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      return;").map_err(format_error)?;
+        writeln!(code, "    }}").map_err(format_error)?;
+        writeln!(
+            code,
+            "    target.style[property] = value == null ? \"\" : value;"
+        )
+        .map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         Ok(())
     }
@@ -2533,6 +2644,30 @@ impl<'a> CodeGenerator<'a> {
             return Ok(());
         }
 
+        if name == "style"
+            && !is_component_element
+            && matches!(value, AttributeValue::Expression(_))
+        {
+            let AttributeValue::Expression(expression) = value else {
+                return Err(unsupported_at("Unreachable style value shape.", span));
+            };
+            self.uses_style_objects = true;
+            let style_cache = format!("{variable}StyleCache");
+            build.create_lines.push(format!(
+                "const {style_cache} = {{ styles: new Set(), raw: false }};"
+            ));
+            build.record_properties.push(style_cache.clone());
+            self.push_list_row_update_line(
+                build,
+                expression,
+                format!(
+                    "this.#applyStyleValue({}.{variable}, {}.{style_cache}, ({expression}));",
+                    build.record_variable, build.record_variable
+                ),
+            );
+            return Ok(());
+        }
+
         let attribute_name = attribute_name_for_element(name, is_component_element);
         match value {
             AttributeValue::Boolean => {
@@ -2756,6 +2891,33 @@ impl<'a> CodeGenerator<'a> {
             ));
             self.mount_lines.push(
                 "else { throw new Error(\"<form action={...}> requires a string URL or a Naos form action object.\"); }".to_owned(),
+            );
+            return Ok(());
+        }
+
+        if name == "style"
+            && !is_component_element
+            && matches!(value, AttributeValue::Expression(_))
+        {
+            let AttributeValue::Expression(expression) = value else {
+                return Err(unsupported_at("Unreachable style value shape.", span));
+            };
+            // Braced style values dispatch at runtime: strings stay plain
+            // attributes while objects apply per-property, which also covers
+            // `--custom-property` names via style.setProperty().
+            self.uses_style_objects = true;
+            let style_cache = format!("{field_name}StyleCache");
+            self.style_cache_fields.push(style_cache.clone());
+            let dependencies = if follows_spread {
+                ReactiveDependencies::Unknown
+            } else {
+                self.dependencies_for_expression(expression)
+            };
+            self.push_update_line(
+                format!(
+                    "this.#applyStyleValue({field_reference}, this.#{style_cache}, ({expression}));"
+                ),
+                dependencies,
             );
             return Ok(());
         }
@@ -4683,6 +4845,9 @@ fn binding_names_with_refs(module: &ComponentModule, ref_names: &[String]) -> Ve
     names.extend(ref_names.iter().cloned());
     if module.uses_host_helpers {
         names.push("host".to_owned());
+    }
+    if let Some(clx_local) = &module.clx_local {
+        names.push(clx_local.clone());
     }
     names
 }

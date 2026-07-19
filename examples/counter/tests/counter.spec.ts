@@ -122,6 +122,33 @@ test("compiled counter renders, updates, and emits detail", async ({ page }) => 
   await expect(page.locator("#counter-event")).toHaveText("Last counter event: 1")
 })
 
+test("compiled clx classes and style objects update native elements", async ({ page }) => {
+  await page.goto("/")
+
+  const probe = page.locator("#style-probe-case demo-style-probe")
+  const chip = probe.locator("[data-style-probe-chip]")
+  const meter = probe.locator("[data-style-probe-meter]")
+  const readMeterStyle = () =>
+    meter.evaluate((element) => ({
+      level: element.style.getPropertyValue("--probe-level"),
+      opacity: element.style.opacity,
+    }))
+
+  await expect(chip).toHaveClass("chip chip--idle")
+  await expect.poll(readMeterStyle).toEqual({ level: "0", opacity: "" })
+
+  await probe.locator("[data-style-probe-toggle]").click()
+  await expect(chip).toHaveClass("chip chip--active")
+  await expect.poll(readMeterStyle).toEqual({ level: "0", opacity: "0.5" })
+
+  await probe.locator("[data-style-probe-raise]").click()
+  await expect.poll(readMeterStyle).toEqual({ level: "1", opacity: "0.5" })
+
+  await probe.locator("[data-style-probe-toggle]").click()
+  await expect(chip).toHaveClass("chip chip--idle")
+  await expect.poll(readMeterStyle).toEqual({ level: "1", opacity: "" })
+})
+
 test("duplicate package versions warn and keep the first registration", async ({ page }) => {
   const warnings: string[] = []
   page.on("console", (message) => {

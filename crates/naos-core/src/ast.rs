@@ -78,6 +78,7 @@ pub(crate) struct AstModuleFacts {
     pub(crate) runtime_imports: Vec<RuntimeImport>,
     pub(crate) style_imports: Vec<StyleImport>,
     pub(crate) function_components: Vec<AstFunctionComponent>,
+    pub(crate) clx_local: Option<String>,
 }
 
 pub(crate) fn analyze_module(source: &str, filename: &str) -> CompilerResult<AstModuleFacts> {
@@ -130,6 +131,7 @@ impl<'a, 'program> AstAnalyzer<'a, 'program> {
             Statement::ImportDeclaration(import) => {
                 capture_component_imports(import, facts);
                 capture_style_imports(import, facts);
+                capture_core_helper_imports(import, facts);
                 capture_runtime_import(self.source, import, facts)?;
             }
             Statement::ExportNamedDeclaration(export) => match &export.declaration {
@@ -247,6 +249,31 @@ fn capture_runtime_import(
         source: source_span(source, SourceSpan::from_oxc(import.span()))?.to_owned(),
     });
     Ok(())
+}
+
+fn capture_core_helper_imports(
+    import: &oxc_ast::ast::ImportDeclaration<'_>,
+    facts: &mut AstModuleFacts,
+) {
+    if import.source.value.as_str() != "@naos-ui/core"
+        || import.import_kind == ImportOrExportKind::Type
+    {
+        return;
+    }
+    let Some(specifiers) = &import.specifiers else {
+        return;
+    };
+    for specifier in specifiers {
+        let ImportDeclarationSpecifier::ImportSpecifier(specifier) = specifier else {
+            continue;
+        };
+        if specifier.import_kind == ImportOrExportKind::Type {
+            continue;
+        }
+        if module_export_name(&specifier.imported).as_deref() == Some("clx") {
+            facts.clx_local = Some(specifier.local.name.as_str().to_owned());
+        }
+    }
 }
 
 fn is_type_import_specifier(specifier: &ImportDeclarationSpecifier<'_>) -> bool {

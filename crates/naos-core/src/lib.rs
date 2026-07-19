@@ -2507,6 +2507,148 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_expose_clx_class_helper() {
+        let source = r#"
+            import { clx, state } from "@naos-ui/core";
+
+            export function Chip() {
+              const active = state(false);
+
+              return (
+                <span
+                  class={clx("chip", active() && "chip--active", { "chip--idle": !active() })}
+                  onClick={() => active.set(!active())}
+                >
+                  Chip
+                </span>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "chip.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("function __naosClx(...inputs) {"));
+        assert!(result.code.contains("const clx = __naosClx;"));
+        assert!(
+            result
+                .code
+                .contains("const { active, clx } = this.#createBindings();")
+        );
+        assert!(result.code.contains(
+            "clx(\"chip\", active() && \"chip--active\", { \"chip--idle\": !active() })"
+        ));
+        assert!(!result.code.contains("import { clx"));
+    }
+
+    #[test]
+    fn transform_component_module_should_respect_clx_import_alias() {
+        let source = r#"
+            import { clx as classNames, state } from "@naos-ui/core";
+
+            export function Tag() {
+              const active = state(false);
+
+              return (
+                <span
+                  class={classNames({ active: active() })}
+                  onClick={() => active.set(!active())}
+                >
+                  Tag
+                </span>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "tag.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("const classNames = __naosClx;"));
+        assert!(
+            result
+                .code
+                .contains("const { active, classNames } = this.#createBindings();")
+        );
+    }
+
+    #[test]
+    fn transform_component_module_should_apply_style_objects_with_custom_properties() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+
+            export function Meter() {
+              const level = state(0);
+
+              return (
+                <div style={{ "--meter-level": String(level()), opacity: level() > 0 ? "1" : false }}>
+                  <button onClick={() => level.set(level() + 1)}>Raise</button>
+                </div>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "meter.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            result
+                .code
+                .contains("#node0StyleCache = { styles: new Set(), raw: false };")
+        );
+        assert!(result.code.contains(
+            "this.#applyStyleValue(this.#node0, this.#node0StyleCache, ({ \"--meter-level\": String(level()), opacity: level() > 0 ? \"1\" : false }));"
+        ));
+        assert!(
+            result
+                .code
+                .contains("target.style.setProperty(property, value)")
+        );
+        assert!(
+            result
+                .code
+                .contains("target.style.removeProperty(property)")
+        );
+        // Style objects alone must not drag in the full spread machinery.
+        assert!(!result.code.contains("#applySpreadAttributes"));
+    }
+
+    #[test]
+    fn transform_component_module_should_keep_static_style_strings_as_attributes() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+
+            export function Banner() {
+              const open = state(false);
+
+              return (
+                <div style="color: red" data-open={open() ? "yes" : "no"}>
+                  <button onClick={() => open.set(!open())}>Toggle</button>
+                </div>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "banner.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            result
+                .code
+                .contains("node0.setAttribute(\"style\", \"color: red\");")
+        );
+        assert!(!result.code.contains("#applyStyleValue"));
+        assert!(!result.code.contains("__naosClx"));
+    }
+
+    #[test]
     fn transform_component_module_should_reject_jsx_spread_on_pascal_components() {
         let source = r#"
             import { computed } from "@naos-ui/core";
