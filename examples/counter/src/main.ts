@@ -443,7 +443,8 @@ const autoLayoutRotate = document.querySelector("#auto-layout-rotate")
 const autoLayoutAdd = document.querySelector("#auto-layout-add")
 
 if (autoLayoutList instanceof HTMLElement) {
-  autoLayout(autoLayoutList, { enter: "fade" })
+  const disposeAutoLayout = autoLayout(autoLayoutList, { enter: "fade" })
+  window.addEventListener("pagehide", disposeAutoLayout, { once: true })
 
   autoLayoutRotate?.addEventListener("click", () => {
     const firstItem = autoLayoutList.firstElementChild

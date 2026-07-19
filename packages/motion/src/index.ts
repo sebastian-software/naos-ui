@@ -41,6 +41,8 @@ export type NaosSpringMotionToken = NaosSpringTiming & {
 export type NaosFlipOptions = {
   duration?: number
   easing?: string
+  /** Pre-measured current rects; elements missing here are measured live. */
+  lastRects?: ReadonlyMap<Element, DOMRectReadOnly>
   reducedMotion?: NaosReducedMotionPreference
 }
 
@@ -208,14 +210,15 @@ export function flipMovedElements(
   const animations: Animation[] = []
 
   for (const [element, firstRect] of firstRects) {
+    const providedLastRect = options.lastRects?.get(element)
     if (
-      typeof element.getBoundingClientRect !== "function" ||
-      typeof element.animate !== "function"
+      typeof element.animate !== "function" ||
+      (providedLastRect == null && typeof element.getBoundingClientRect !== "function")
     ) {
       continue
     }
 
-    const lastRect = element.getBoundingClientRect()
+    const lastRect = providedLastRect ?? element.getBoundingClientRect()
     const deltaX = firstRect.left - lastRect.left
     const deltaY = firstRect.top - lastRect.top
     if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) continue
@@ -299,6 +302,8 @@ export function autoLayout(container: Element, options: NaosAutoLayoutOptions = 
     for (const animation of flipMovedElements(firstRects, {
       duration: timing.duration,
       easing: timing.easing,
+      // The pass already measured current layout; skip a second read per child.
+      lastRects: positions,
       reducedMotion: options.reducedMotion,
     })) {
       track(animation)

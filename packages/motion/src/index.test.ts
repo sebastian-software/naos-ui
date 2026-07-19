@@ -278,6 +278,33 @@ describe("@naos-ui/motion", () => {
     }
   })
 
+  it("uses provided last rects instead of re-measuring", () => {
+    const animateCalls: unknown[] = []
+    const element = {
+      animate: (...args: unknown[]) => {
+        animateCalls.push(args)
+        return { playState: "running" }
+      },
+      getBoundingClientRect: () => {
+        throw new Error("provided last rects should not re-measure")
+      },
+    } as unknown as Element
+
+    const firstRect = { left: 30, top: 36 } as DOMRectReadOnly
+    const lastRect = { left: 10, top: 0 } as DOMRectReadOnly
+    const animations = flipMovedElements(new Map([[element, firstRect]]), {
+      duration: 180,
+      easing: "linear",
+      lastRects: new Map([[element, lastRect]]),
+    })
+
+    expect(animations).toHaveLength(1)
+    expect(animateCalls[0]).toEqual([
+      [{ transform: "translate(20px, 36px)" }, { transform: "translate(0px, 0px)" }],
+      { duration: 180, easing: "linear" },
+    ])
+  })
+
   it("skips FLIP when reduced motion is requested", () => {
     const element = {
       animate: () => {
