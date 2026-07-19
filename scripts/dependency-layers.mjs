@@ -16,6 +16,7 @@ export const outwardPackageNames = freeze([
   "@naos-ui/testing",
   "@naos-ui/router",
   "@naos-ui/vite",
+  "@naos-ui/unplugin",
   "@naos-ui/cli",
   "@naos-ui/data-convex",
   "create-naos",

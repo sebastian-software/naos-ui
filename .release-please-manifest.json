@@ -19,5 +19,6 @@
   "packages/router": "1.0.0",
   "packages/runtime": "1.0.0",
   "packages/testing": "1.0.0",
+  "packages/unplugin": "1.0.0",
   "packages/vite": "1.0.0"
 }
