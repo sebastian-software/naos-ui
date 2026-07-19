@@ -24,11 +24,21 @@ const runtimeAssets = [
 
 await mkdir(outDir, { recursive: true })
 
+// Build the two runtime packages here instead of relying on an earlier
+// workflow step or a previous local build having produced their dist files.
+const packagesBuild = spawnSync(
+  "pnpm",
+  ["--filter", "@naos-ui/runtime", "--filter", "@naos-ui/motion", "build"],
+  { cwd: root, stdio: "inherit" },
+)
+if (packagesBuild.status !== 0) {
+  console.error("[playground] building @naos-ui/runtime and @naos-ui/motion failed.")
+  process.exit(1)
+}
+
 for (const [source, target] of runtimeAssets) {
   if (!existsSync(source)) {
-    console.error(
-      `[playground] missing ${source}. Build the packages first: \`pnpm --filter @naos-ui/runtime build && pnpm --filter @naos-ui/motion build\`.`,
-    )
+    console.error(`[playground] missing ${source} after the package build.`)
     process.exit(1)
   }
   await copyFile(source, join(outDir, target))

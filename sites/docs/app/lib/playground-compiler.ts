@@ -50,7 +50,15 @@ export class PlaygroundCompiler {
     if (!response.ok) {
       throw new Error(`Compiler module unavailable (HTTP ${response.status}).`)
     }
-    const { instance } = await WebAssembly.instantiate(await response.arrayBuffer(), {})
+    const fallback = response.clone()
+    let instance: WebAssembly.Instance
+    try {
+      // Streaming compiles while bytes are still in flight.
+      instance = (await WebAssembly.instantiateStreaming(response, {})).instance
+    } catch {
+      // Some static hosts serve .wasm without the application/wasm MIME type.
+      instance = (await WebAssembly.instantiate(await fallback.arrayBuffer(), {})).instance
+    }
     return new PlaygroundCompiler(instance.exports as WasmExports)
   }
 
@@ -67,6 +75,7 @@ export class PlaygroundCompiler {
     )
 
     const requestPtr = naos_alloc(request.length)
+    // 4 bytes: wasm32 usize is 32-bit; matches the getUint32 read below.
     const outLenPtr = naos_alloc(4)
     let responseText: string
     try {
@@ -111,9 +120,11 @@ export function rewriteRuntimeImports(
   code: string,
   assetUrls: { runtime: string; motion: string },
 ): string {
+  // Codegen emits double-quoted specifiers today; match both quote styles
+  // anyway so a future emitter change fails loudly here instead of at import.
   return code
-    .replaceAll('from "@naos-ui/runtime"', `from ${JSON.stringify(assetUrls.runtime)}`)
-    .replaceAll('from "@naos-ui/motion"', `from ${JSON.stringify(assetUrls.motion)}`)
+    .replace(/from\s+["']@naos-ui\/runtime["']/g, `from ${JSON.stringify(assetUrls.runtime)}`)
+    .replace(/from\s+["']@naos-ui\/motion["']/g, `from ${JSON.stringify(assetUrls.motion)}`)
 }
 
 /** Loads a generated module from a blob URL and mounts its custom element. */
