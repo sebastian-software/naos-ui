@@ -90,6 +90,9 @@ export type NaosClassValue =
   | readonly NaosClassValue[]
   | Readonly<Record<string, unknown>>
 
+// Inside compiled components the compiler swaps clx for a generated
+// __naosClx helper (emit_clx_helper in crates/naos-core/src/codegen.rs);
+// semantic changes here must be mirrored there.
 export function clx(...inputs: NaosClassValue[]): string {
   const classes: string[] = []
   for (const input of inputs) {

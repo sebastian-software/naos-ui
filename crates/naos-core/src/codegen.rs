@@ -259,6 +259,9 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_clx_helper(&self, code: &mut String) -> CompilerResult<()> {
+        // Must stay semantically in sync with the runtime `clx()` in
+        // `packages/core/src/index.ts`: falsy inputs are skipped, nested
+        // arrays flatten, and object keys join when their values are truthy.
         if self.module.clx_local.is_none() {
             return Ok(());
         }
@@ -1710,6 +1713,13 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_style_value_helper(&self, code: &mut String) -> CompilerResult<()> {
+        // Object values apply per-property; string/nullish values fall through
+        // to whole-attribute writes. On those paths `cache.styles.clear()`
+        // only resets bookkeeping: the DOM cleanup itself comes from
+        // `setAttribute("style", ...)`/`removeAttribute("style")` replacing
+        // the entire inline declaration, including custom properties written
+        // via `style.setProperty()`. Do not swap the clear for an explicit
+        // per-property removal loop — the attribute write already covers it.
         writeln!(code, "  #applyStyleValue(target, cache, value) {{").map_err(format_error)?;
         writeln!(
             code,
