@@ -406,6 +406,26 @@ between documents also preserves its state; Naos does not currently expose an
 authoring-level `adoptedCallback`, and connection setup resumes when the host is
 inserted into its destination document.
 
+## Dev-Only Tracing
+
+`inspect(...values)` logs the given reactive value expressions to the console
+whenever one of their sources changes, plus once on mount. The compiler lowers
+it onto the same dependency-gated update path as DOM bindings, guarded by the
+generated development check — production builds where the bundler defines
+`import.meta.env.DEV` as `false` skip the tracing entirely. Like the other
+authoring APIs it only works inside compiled components.
+
+```tsx
+const count = state(0)
+const doubled = computed(() => count() * 2)
+
+inspect(count(), doubled())
+// console: [naos] <x-counter> inspect(count(), doubled()) 1 2
+```
+
+Setting a state to an identical value does not re-fire the trace, because the
+update pass never runs — the same `Object.is` bail-out that gates DOM updates.
+
 ## Runtime Errors
 
 Generated render and effect errors do not leave an update scope open. Pending

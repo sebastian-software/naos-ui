@@ -58,6 +58,7 @@ const dispose = autoLayout(list, { layout: "snappy", enter: "fade" })
 | `state(initialValue)` | Public | Writable local component state. |
 | `computed(() => value)` | Public | Read-only derived value. |
 | `effect(() => cleanup?)` | Public | Lifecycle-aware side effect with optional cleanup. |
+| `inspect(...values)` | Experimental | Dev-only reactive tracing: logs the values on mount and whenever one of their sources changes; skipped when `import.meta.env.DEV` is `false`. |
 | `event<Detail>(name)` | Public | Typed `CustomEvent` dispatcher. |
 | `on(handler, options?)` | Public | Optional listener-options and invocation-scoped abort-signal marker. Normal JSX listeners use bare handlers. |
 | `host()` | Public | Current element, root, props, lifecycle signals, and update/task handle. |

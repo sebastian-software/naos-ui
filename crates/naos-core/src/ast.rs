@@ -21,10 +21,10 @@ use crate::error::{
 };
 use crate::model::{
     AttributeValue, ComponentImport, ComponentOptions, ComputedDefinition, DiagnosticSpan,
-    EffectDefinition, EventDefinition, FormControlDefinition, KeyedSelectorDefinition,
-    LifecycleCallbackDefinition, RuntimeImport, StateDefinition, StateKind, StyleImport,
-    TemplateAttribute, TemplateChild, TemplateElement, TemplateEventHandler, TemplateList,
-    TemplateListKey, TemplateListKind, TemplateListMotion,
+    EffectDefinition, EventDefinition, FormControlDefinition, InspectDefinition,
+    KeyedSelectorDefinition, LifecycleCallbackDefinition, RuntimeImport, StateDefinition,
+    StateKind, StyleImport, TemplateAttribute, TemplateChild, TemplateElement,
+    TemplateEventHandler, TemplateList, TemplateListKey, TemplateListKind, TemplateListMotion,
 };
 use crate::naming::{event_name_from_attribute, is_pascal_case_identifier};
 
@@ -57,6 +57,7 @@ pub(crate) struct AstComponentSemantics {
     pub(crate) computed: Vec<ComputedDefinition>,
     pub(crate) keyed_selectors: Vec<KeyedSelectorDefinition>,
     pub(crate) effects: Vec<EffectDefinition>,
+    pub(crate) inspects: Vec<InspectDefinition>,
     pub(crate) connected_callbacks: Vec<LifecycleCallbackDefinition>,
     pub(crate) disconnected_callbacks: Vec<LifecycleCallbackDefinition>,
     pub(crate) events: Vec<EventDefinition>,
@@ -439,6 +440,22 @@ fn capture_body_statement(
                                 body: capture_arrow_body_source(source, callback)?,
                             });
                         }
+                    }
+                    Some("inspect") => {
+                        let (Some(first), Some(last)) =
+                            (call.arguments.first(), call.arguments.last())
+                        else {
+                            return Err(unsupported(
+                                "inspect() requires at least one value expression.",
+                            ));
+                        };
+                        let span = SourceSpan {
+                            start: first.span().start as usize,
+                            end: last.span().end as usize,
+                        };
+                        semantics.inspects.push(InspectDefinition {
+                            arguments: source_span(source, span)?.to_owned(),
+                        });
                     }
                     Some("onConnected") => {
                         let Some(callback) = call.arguments.first() else {

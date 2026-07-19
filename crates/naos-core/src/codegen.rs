@@ -180,6 +180,7 @@ impl<'a> CodeGenerator<'a> {
         let root_variable = self.emit_element(root)?;
         self.mount_lines
             .push(format!("this.#root.append({root_variable});"));
+        self.push_inspect_steps();
 
         let mut code = String::new();
         self.emit_runtime_imports(&mut code)?;
@@ -291,6 +292,24 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "}}").map_err(format_error)?;
         writeln!(code).map_err(format_error)?;
         Ok(())
+    }
+
+    fn push_inspect_steps(&mut self) {
+        // inspect(...) lowers to dev-only console tracing gated on
+        // #isDevelopment(), sharing the dependency-gated update path so a log
+        // fires on mount and whenever one of the traced sources changes.
+        let inspects = self.module.inspects.clone();
+        for inspect in inspects {
+            let dependencies = self.dependencies_for_expression(&inspect.arguments);
+            self.push_update_line(
+                format!(
+                    "if (this.#isDevelopment()) console.debug(\"[naos] <\" + this.localName + \"> inspect({})\", {});",
+                    escape_js_string(&inspect.arguments),
+                    inspect.arguments
+                ),
+                dependencies,
+            );
+        }
     }
 
     fn push_update_line(&mut self, line: String, dependencies: ReactiveDependencies) {

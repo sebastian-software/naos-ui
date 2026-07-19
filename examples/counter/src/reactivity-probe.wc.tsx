@@ -1,9 +1,11 @@
-import { effect, host, on, state } from "@naos-ui/core"
+import { effect, host, inspect, on, state } from "@naos-ui/core"
 
 export function ReactivityProbe() {
   const primary = state(0)
   const secondary = state(0)
   const shouldThrow = state(false)
+
+  inspect(primary(), secondary())
 
   effect(() => {
     const runs = Number(document.body.dataset.probeEffectRuns ?? "0") + 1

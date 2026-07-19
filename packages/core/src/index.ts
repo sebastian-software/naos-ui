@@ -167,6 +167,10 @@ export function formControl(_options: FormControlOptions): FormControlHandle {
   return authoringRuntimeError("formControl")
 }
 
+export function inspect(..._values: unknown[]): void {
+  authoringRuntimeError("inspect")
+}
+
 export function onConnected(_callback: () => void): void {
   authoringRuntimeError("onConnected")
 }
