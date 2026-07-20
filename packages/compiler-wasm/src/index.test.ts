@@ -14,6 +14,11 @@ if (!wasmModuleAvailable) {
   )
 }
 
+const nativeBindingPath = fileURLToPath(
+  new URL("../../compiler/native/naos-node.node", import.meta.url),
+)
+const nativeBindingAvailable = existsSync(nativeBindingPath)
+
 const counterSource = `import { state } from "@naos-ui/core"
 
 export function Counter({ label = "Count" }) {
@@ -53,14 +58,7 @@ describe.skipIf(!wasmModuleAvailable)("@naos-ui/compiler-wasm", () => {
     expect(result.map?.sourcesContent).toEqual([counterSource])
   })
 
-  it("matches the native binding output when the native binding is present", () => {
-    const nativeBindingPath = fileURLToPath(
-      new URL("../../compiler/native/naos-node.node", import.meta.url),
-    )
-    if (!existsSync(nativeBindingPath)) {
-      console.warn("[compiler-wasm] native binding not built - skipping the parity assertion.")
-      return
-    }
+  it.skipIf(!nativeBindingAvailable)("matches the native binding output", () => {
     const nativeRequire = createRequire(import.meta.url)
     const native = nativeRequire(nativeBindingPath) as {
       transformComponent: (request: object) => { code: string }

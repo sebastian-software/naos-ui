@@ -205,7 +205,14 @@ function callJson<Result>(
 }
 
 function unwrap<Result>(response: WireResponse<Result>): Result {
-  if (response.ok && response.result) {
+  if (response.ok) {
+    if (response.result == null) {
+      // A missing result on an ok envelope is a wasm-boundary bug, not a
+      // compile error - keep it distinguishable from real diagnostics.
+      throw new Error(
+        "@naos-ui/compiler-wasm received a malformed response envelope: ok without result.",
+      )
+    }
     return response.result
   }
   const payload = JSON.stringify({
