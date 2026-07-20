@@ -2491,35 +2491,18 @@ mod tests {
         };
 
         assert!(result.code.contains(
-            "#node0Spread0 = { names: new Set(), listeners: new Map(), styles: new Set() };"
+            "#node0Spread0 = { names: new Set(), listeners: new Map(), styles: new Set(), raw: false };"
         ));
         assert!(result.code.contains(
-            "this.#applySpreadAttributes(this.#node0, this.#node0Spread0, triggerProps());"
+            "__naosApplySpreadAttributes(this.#node0, this.#node0Spread0, triggerProps());"
         ));
         assert!(
             result
                 .code
-                .contains("removeEventListener(eventName, previous)")
+                .contains("applySpreadAttributes as __naosApplySpreadAttributes")
         );
-        assert!(result.code.contains("\"pointer-move\": \"pointermove\""));
-        assert!(result.code.contains("\"pointer-over\": \"pointerover\""));
-        assert!(result.code.contains("\"pointer-leave\": \"pointerleave\""));
-        assert!(
-            result
-                .code
-                .contains("\"pointer-cancel\": \"pointercancel\"")
-        );
-        assert!(result.code.contains("\"context-menu\": \"contextmenu\""));
-        assert!(result.code.contains("\"before-input\": \"beforeinput\""));
-        assert!(result.code.contains("target.style[property]"));
-        assert!(
-            result
-                .code
-                .contains("if (name === \"className\") return \"class\";")
-        );
-        assert!(result.code.contains(
-            "const attributeValue = attributeName.startsWith(\"aria-\") ? String(value) : value === true ? \"\" : String(value);"
-        ));
+        assert!(!result.code.contains("#applySpreadAttributes"));
+        assert!(!result.code.contains("#applySpreadValue"));
         assert!(
             result
                 .code
@@ -2527,7 +2510,7 @@ mod tests {
         );
         let spread_index = result
             .code
-            .find("this.#applySpreadAttributes(this.#node0, this.#node0Spread0, triggerProps());")
+            .find("__naosApplySpreadAttributes(this.#node0, this.#node0Spread0, triggerProps());")
             .expect("spread update should be generated");
         let explicit_after_index = result.code[spread_index..]
             .find("this.#node0.setAttribute(\"part\", \"after\");")
@@ -2621,7 +2604,8 @@ mod tests {
             Err(error) => panic!("transform failed: {error}"),
         };
 
-        assert!(result.code.contains("function __naosClx(...inputs) {"));
+        assert!(result.code.contains("clx as __naosClx"));
+        assert!(!result.code.contains("function __naosClx(...inputs) {"));
         assert!(result.code.contains("const clx = __naosClx;"));
         assert!(
             result
@@ -2693,20 +2677,16 @@ mod tests {
                 .contains("#node0StyleCache = { styles: new Set(), raw: false };")
         );
         assert!(result.code.contains(
-            "this.#applyStyleValue(this.#node0, this.#node0StyleCache, ({ \"--meter-level\": String(level()), opacity: level() > 0 ? \"1\" : false }));"
+            "__naosApplyStyleValue(this.#node0, this.#node0StyleCache, ({ \"--meter-level\": String(level()), opacity: level() > 0 ? \"1\" : false }));"
         ));
         assert!(
             result
                 .code
-                .contains("target.style.setProperty(property, value)")
+                .contains("applyStyleValue as __naosApplyStyleValue")
         );
-        assert!(
-            result
-                .code
-                .contains("target.style.removeProperty(property)")
-        );
-        // Style objects alone must not drag in the full spread machinery.
-        assert!(!result.code.contains("#applySpreadAttributes"));
+        assert!(!result.code.contains("#applyStyleValue"));
+        // Style objects alone must not import the full spread helper.
+        assert!(!result.code.contains("applySpreadAttributes as"));
     }
 
     #[test]

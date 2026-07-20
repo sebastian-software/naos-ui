@@ -26,6 +26,27 @@ export type ComponentMetadata = {
 }
 
 export type LazyStyleSheet = () => CSSStyleSheet
+export type ClassValue =
+  | string
+  | number
+  | null
+  | undefined
+  | boolean
+  | readonly ClassValue[]
+  | Readonly<Record<string, unknown>>
+
+type StyleTarget = HTMLElement | SVGElement
+type StylePropertiesCache = { styles: Set<string> }
+
+/** Tracks the style representation last applied to one generated DOM node. */
+export type StyleCache = StylePropertiesCache & { raw: boolean }
+
+/** Tracks dynamic JSX spread values last applied to one generated DOM node. */
+export type SpreadAttributeCache = StylePropertiesCache & {
+  names: Set<string>
+  listeners: Map<string, EventListener>
+  raw: boolean
+}
 
 export type KernelSpec = {
   /** A Custom Element can opt into light DOM without changing kernel APIs. */
@@ -405,6 +426,189 @@ export function setAttr(element: Element, name: string, value: unknown, removeFa
     return
   }
   element.setAttribute(name, String(value))
+}
+
+/** Joins JSX class values while preserving the authoring `clx()` semantics. */
+export function clx(...inputs: ClassValue[]): string {
+  const classes: string[] = []
+  for (const input of inputs) {
+    if (!input) continue
+    if (typeof input === "string" || typeof input === "number") {
+      classes.push(String(input))
+      continue
+    }
+    if (Array.isArray(input)) {
+      const nested = clx(...input)
+      if (nested) classes.push(nested)
+      continue
+    }
+    if (typeof input === "object") {
+      for (const [name, active] of Object.entries(input)) {
+        if (active) classes.push(name)
+      }
+    }
+  }
+  return classes.join(" ")
+}
+
+/** Applies a dynamic JSX `style={...}` value and preserves per-property cleanup. */
+export function applyStyleValue(target: StyleTarget, cache: StyleCache, value: unknown): void {
+  if (value !== null && typeof value === "object") {
+    if (cache.raw) {
+      target.removeAttribute("style")
+      cache.raw = false
+    }
+    applySpreadStyles(target, cache, value)
+    return
+  }
+
+  cache.styles.clear()
+  if (value == null || value === false) {
+    target.removeAttribute("style")
+    cache.raw = false
+    return
+  }
+  target.setAttribute("style", String(value))
+  cache.raw = true
+}
+
+/** Applies a dynamic JSX spread and removes values that disappeared since its last update. */
+export function applySpreadAttributes(
+  target: StyleTarget,
+  cache: SpreadAttributeCache,
+  values: unknown,
+): void {
+  const next = values ?? {}
+  const seen = new Set<string>()
+  for (const [name, value] of Object.entries(next)) {
+    seen.add(name)
+    applySpreadValue(target, cache, name, value)
+  }
+  for (const name of Array.from(cache.names)) {
+    if (!seen.has(name)) removeSpreadValue(target, cache, name)
+  }
+  cache.names = seen
+}
+
+function applySpreadValue(
+  target: StyleTarget,
+  cache: SpreadAttributeCache,
+  name: string,
+  value: unknown,
+): void {
+  const eventName = eventNameFromSpreadKey(name)
+  if (eventName) {
+    const previous = cache.listeners.get(name)
+    if (previous) target.removeEventListener(eventName, previous)
+    if (typeof value === "function") {
+      const listener = value as EventListener
+      target.addEventListener(eventName, listener)
+      cache.listeners.set(name, listener)
+    } else {
+      cache.listeners.delete(name)
+    }
+    return
+  }
+
+  if (name === "style") {
+    applyStyleValue(target, cache, value)
+    return
+  }
+
+  const attributeName = attributeNameFromSpreadKey(name)
+  if (value == null || (value === false && !attributeName.startsWith("aria-"))) {
+    target.removeAttribute(attributeName)
+  } else {
+    const attributeValue = attributeName.startsWith("aria-")
+      ? String(value)
+      : value === true
+        ? ""
+        : String(value)
+    target.setAttribute(attributeName, attributeValue)
+  }
+  if (name in target && !attributeName.startsWith("aria-") && !attributeName.startsWith("data-")) {
+    try {
+      ;(target as unknown as Record<string, unknown>)[name] = value == null ? "" : value
+    } catch {}
+  }
+}
+
+function removeSpreadValue(target: StyleTarget, cache: SpreadAttributeCache, name: string): void {
+  const eventName = eventNameFromSpreadKey(name)
+  if (eventName) {
+    const previous = cache.listeners.get(name)
+    if (previous) target.removeEventListener(eventName, previous)
+    cache.listeners.delete(name)
+    return
+  }
+
+  if (name === "style") {
+    applyStyleValue(target, cache, null)
+    return
+  }
+
+  const attributeName = attributeNameFromSpreadKey(name)
+  target.removeAttribute(attributeName)
+  if (name in target && !attributeName.startsWith("aria-") && !attributeName.startsWith("data-")) {
+    try {
+      ;(target as unknown as Record<string, unknown>)[name] = false
+    } catch {}
+  }
+}
+
+function applySpreadStyles(target: StyleTarget, cache: StylePropertiesCache, styles: object): void {
+  const seen = new Set<string>()
+  for (const [property, value] of Object.entries(styles)) {
+    if (value == null || value === false) continue
+    seen.add(property)
+    setStyleProperty(target, property, String(value))
+  }
+  for (const property of Array.from(cache.styles)) {
+    if (!seen.has(property)) setStyleProperty(target, property, null)
+  }
+  cache.styles = seen
+}
+
+function setStyleProperty(target: StyleTarget, property: string, value: string | null): void {
+  if (property.startsWith("--")) {
+    if (value == null) target.style.removeProperty(property)
+    else target.style.setProperty(property, value)
+    return
+  }
+  ;(target.style as unknown as Record<string, string>)[property] = value ?? ""
+}
+
+function attributeNameFromSpreadKey(name: string): string {
+  if (name === "className") return "class"
+  if (name === "htmlFor") return "for"
+  return name
+}
+
+function eventNameFromSpreadKey(name: string): string | null {
+  if (!/^on[A-Z]/.test(name)) return null
+  const eventName = name
+    .slice(2)
+    .replace(/([A-Z])/g, "-$1")
+    .replace(/^-/, "")
+    .toLowerCase()
+  return (
+    {
+      "before-input": "beforeinput",
+      "context-menu": "contextmenu",
+      "key-down": "keydown",
+      "key-up": "keyup",
+      "pointer-cancel": "pointercancel",
+      "pointer-down": "pointerdown",
+      "pointer-enter": "pointerenter",
+      "pointer-leave": "pointerleave",
+      "pointer-move": "pointermove",
+      "pointer-out": "pointerout",
+      "pointer-over": "pointerover",
+      "pointer-up": "pointerup",
+      "focus-in": "focusin",
+      "focus-out": "focusout",
+    }[eventName] ?? eventName
+  )
 }
 
 /** Caches one constructable sheet per generated module. */

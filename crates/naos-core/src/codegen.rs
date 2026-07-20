@@ -193,7 +193,6 @@ impl<'a> CodeGenerator<'a> {
         self.emit_style_imports(&mut code)?;
         self.emit_component_imports(&mut code)?;
         self.emit_component_style_sheet(&mut code)?;
-        self.emit_clx_helper(&mut code)?;
         self.emit_kernel_spec(&mut code)?;
         writeln!(
             code,
@@ -213,7 +212,6 @@ impl<'a> CodeGenerator<'a> {
         self.emit_hydration(&mut code)?;
         self.emit_bindings(&mut code)?;
         self.emit_effects(&mut code)?;
-        self.emit_spread_helpers(&mut code)?;
         self.emit_update(&mut code)?;
         writeln!(code, "}}").map_err(format_error)?;
         if !self.module.props.is_empty() {
@@ -261,41 +259,6 @@ impl<'a> CodeGenerator<'a> {
             self.module.options.styles.join(", ")
         )
         .map_err(format_error)?;
-        writeln!(code).map_err(format_error)?;
-        Ok(())
-    }
-
-    fn emit_clx_helper(&self, code: &mut String) -> CompilerResult<()> {
-        // Must stay semantically in sync with the runtime `clx()` in
-        // `packages/core/src/index.ts`: falsy inputs are skipped, nested
-        // arrays flatten, and object keys join when their values are truthy.
-        if self.module.clx_local.is_none() {
-            return Ok(());
-        }
-        writeln!(code, "function __naosClx(...inputs) {{").map_err(format_error)?;
-        writeln!(code, "  const classes = [];").map_err(format_error)?;
-        writeln!(code, "  for (const input of inputs.flat(Infinity)) {{").map_err(format_error)?;
-        writeln!(code, "    if (!input) continue;").map_err(format_error)?;
-        writeln!(
-            code,
-            "    if (typeof input === \"string\" || typeof input === \"number\") {{"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      classes.push(String(input));").map_err(format_error)?;
-        writeln!(code, "      continue;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    if (typeof input === \"object\") {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "      for (const [name, active] of Object.entries(input)) {{"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "        if (active) classes.push(name);").map_err(format_error)?;
-        writeln!(code, "      }}").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  return classes.join(\" \");").map_err(format_error)?;
-        writeln!(code, "}}").map_err(format_error)?;
         writeln!(code).map_err(format_error)?;
         Ok(())
     }
@@ -455,6 +418,9 @@ impl<'a> CodeGenerator<'a> {
         if self.module.uses_host_helpers {
             kernel_helpers.push("hostApi as __naosHostApi");
         }
+        if self.module.clx_local.is_some() {
+            kernel_helpers.push("clx as __naosClx");
+        }
         if !self.update_steps.is_empty()
             || !self.module.effects.is_empty()
             || !self.module.form_controls.is_empty()
@@ -476,6 +442,12 @@ impl<'a> CodeGenerator<'a> {
         }
         if self.uses_set_attr {
             kernel_helpers.push("setAttr as __naosSetAttr");
+        }
+        if self.uses_spread_attributes {
+            kernel_helpers.push("applySpreadAttributes as __naosApplySpreadAttributes");
+        }
+        if self.uses_style_objects {
+            kernel_helpers.push("applyStyleValue as __naosApplyStyleValue");
         }
         if !self.module.form_controls.is_empty() {
             kernel_helpers.push("flushSync as __naosFlushSync");
@@ -659,7 +631,7 @@ impl<'a> CodeGenerator<'a> {
         for field in &self.spread_fields {
             writeln!(
                 code,
-                "  #{field} = {{ names: new Set(), listeners: new Map(), styles: new Set() }};"
+                "  #{field} = {{ names: new Set(), listeners: new Map(), styles: new Set(), raw: false }};"
             )
             .map_err(format_error)?;
         }
@@ -1175,256 +1147,6 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "  }}").map_err(format_error)?;
         Ok(())
     }
-
-    fn emit_spread_helpers(&self, code: &mut String) -> CompilerResult<()> {
-        if self.uses_spread_attributes {
-            self.emit_spread_attribute_helpers(code)?;
-        }
-        if self.uses_style_objects {
-            self.emit_style_value_helper(code)?;
-        }
-        if self.uses_spread_attributes || self.uses_style_objects {
-            self.emit_style_property_helpers(code)?;
-        }
-        Ok(())
-    }
-
-    fn emit_spread_attribute_helpers(&self, code: &mut String) -> CompilerResult<()> {
-        writeln!(code, "  #applySpreadAttributes(target, cache, values) {{")
-            .map_err(format_error)?;
-        writeln!(code, "    const next = values ?? {{}};").map_err(format_error)?;
-        writeln!(code, "    const seen = new Set();").map_err(format_error)?;
-        writeln!(
-            code,
-            "    for (const [name, value] of Object.entries(next)) {{"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      seen.add(name);").map_err(format_error)?;
-        writeln!(
-            code,
-            "      this.#applySpreadValue(target, cache, name, value);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    for (const name of Array.from(cache.names)) {{")
-            .map_err(format_error)?;
-        writeln!(
-            code,
-            "      if (!seen.has(name)) this.#removeSpreadValue(target, cache, name);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    cache.names = seen;").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  #applySpreadValue(target, cache, name, value) {{")
-            .map_err(format_error)?;
-        writeln!(
-            code,
-            "    const eventName = this.#eventNameFromSpreadKey(name);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    if (eventName) {{").map_err(format_error)?;
-        writeln!(code, "      const previous = cache.listeners.get(name);")
-            .map_err(format_error)?;
-        writeln!(
-            code,
-            "      if (previous) target.removeEventListener(eventName, previous);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      if (typeof value === \"function\") {{").map_err(format_error)?;
-        writeln!(code, "        target.addEventListener(eventName, value);")
-            .map_err(format_error)?;
-        writeln!(code, "        cache.listeners.set(name, value);").map_err(format_error)?;
-        writeln!(code, "      }} else {{").map_err(format_error)?;
-        writeln!(code, "        cache.listeners.delete(name);").map_err(format_error)?;
-        writeln!(code, "      }}").map_err(format_error)?;
-        writeln!(code, "      return;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(
-            code,
-            "    if (name === \"style\" && value && typeof value === \"object\") {{"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      this.#applySpreadStyles(target, cache, value);")
-            .map_err(format_error)?;
-        writeln!(code, "      return;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(
-            code,
-            "    const attributeName = this.#attributeNameFromSpreadKey(name);"
-        )
-        .map_err(format_error)?;
-        writeln!(
-            code,
-            "    if (value == null || (value === false && !attributeName.startsWith(\"aria-\"))) {{"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      target.removeAttribute(attributeName);").map_err(format_error)?;
-        writeln!(code, "    }} else {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "      const attributeValue = attributeName.startsWith(\"aria-\") ? String(value) : value === true ? \"\" : String(value);"
-        )
-        .map_err(format_error)?;
-        writeln!(
-            code,
-            "      target.setAttribute(attributeName, attributeValue);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    if (name in target && !attributeName.startsWith(\"aria-\") && !attributeName.startsWith(\"data-\")) {{")
-            .map_err(format_error)?;
-        writeln!(
-            code,
-            "      try {{ target[name] = value == null ? \"\" : value; }} catch {{}}"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  #removeSpreadValue(target, cache, name) {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "    const eventName = this.#eventNameFromSpreadKey(name);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    if (eventName) {{").map_err(format_error)?;
-        writeln!(code, "      const previous = cache.listeners.get(name);")
-            .map_err(format_error)?;
-        writeln!(
-            code,
-            "      if (previous) target.removeEventListener(eventName, previous);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      cache.listeners.delete(name);").map_err(format_error)?;
-        writeln!(code, "      return;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    if (name === \"style\") {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "      for (const property of cache.styles) this.#setStyleProperty(target, property, null);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      cache.styles.clear();").map_err(format_error)?;
-        writeln!(code, "      return;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(
-            code,
-            "    const attributeName = this.#attributeNameFromSpreadKey(name);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    target.removeAttribute(attributeName);").map_err(format_error)?;
-        writeln!(code, "    if (name in target && !attributeName.startsWith(\"aria-\") && !attributeName.startsWith(\"data-\")) {{")
-            .map_err(format_error)?;
-        writeln!(code, "      try {{ target[name] = false; }} catch {{}}").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  #attributeNameFromSpreadKey(name) {{").map_err(format_error)?;
-        writeln!(code, "    if (name === \"className\") return \"class\";")
-            .map_err(format_error)?;
-        writeln!(code, "    if (name === \"htmlFor\") return \"for\";").map_err(format_error)?;
-        writeln!(code, "    return name;").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  #eventNameFromSpreadKey(name) {{").map_err(format_error)?;
-        writeln!(code, "    if (!/^on[A-Z]/.test(name)) return null;").map_err(format_error)?;
-        writeln!(code, "    const eventName = name.slice(2).replace(/([A-Z])/g, \"-$1\").replace(/^-/, \"\").toLowerCase();")
-            .map_err(format_error)?;
-        writeln!(code, "    return {{ \"before-input\": \"beforeinput\", \"context-menu\": \"contextmenu\", \"key-down\": \"keydown\", \"key-up\": \"keyup\", \"pointer-cancel\": \"pointercancel\", \"pointer-down\": \"pointerdown\", \"pointer-enter\": \"pointerenter\", \"pointer-leave\": \"pointerleave\", \"pointer-move\": \"pointermove\", \"pointer-out\": \"pointerout\", \"pointer-over\": \"pointerover\", \"pointer-up\": \"pointerup\", \"focus-in\": \"focusin\", \"focus-out\": \"focusout\" }}[eventName] ?? eventName;")
-            .map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        Ok(())
-    }
-
-    fn emit_style_value_helper(&self, code: &mut String) -> CompilerResult<()> {
-        // Object values apply per-property; string/nullish values fall through
-        // to whole-attribute writes. On those paths `cache.styles.clear()`
-        // only resets bookkeeping: the DOM cleanup itself comes from
-        // `setAttribute("style", ...)`/`removeAttribute("style")` replacing
-        // the entire inline declaration, including custom properties written
-        // via `style.setProperty()`. Do not swap the clear for an explicit
-        // per-property removal loop — the attribute write already covers it.
-        writeln!(code, "  #applyStyleValue(target, cache, value) {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "    if (value !== null && typeof value === \"object\") {{"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      if (cache.raw) {{").map_err(format_error)?;
-        writeln!(code, "        target.removeAttribute(\"style\");").map_err(format_error)?;
-        writeln!(code, "        cache.raw = false;").map_err(format_error)?;
-        writeln!(code, "      }}").map_err(format_error)?;
-        writeln!(code, "      this.#applySpreadStyles(target, cache, value);")
-            .map_err(format_error)?;
-        writeln!(code, "      return;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    cache.styles.clear();").map_err(format_error)?;
-        writeln!(code, "    if (value == null || value === false) {{").map_err(format_error)?;
-        writeln!(code, "      target.removeAttribute(\"style\");").map_err(format_error)?;
-        writeln!(code, "      cache.raw = false;").map_err(format_error)?;
-        writeln!(code, "      return;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    target.setAttribute(\"style\", String(value));")
-            .map_err(format_error)?;
-        writeln!(code, "    cache.raw = true;").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        Ok(())
-    }
-
-    fn emit_style_property_helpers(&self, code: &mut String) -> CompilerResult<()> {
-        writeln!(code, "  #applySpreadStyles(target, cache, styles) {{").map_err(format_error)?;
-        writeln!(code, "    const seen = new Set();").map_err(format_error)?;
-        writeln!(
-            code,
-            "    for (const [property, value] of Object.entries(styles)) {{"
-        )
-        .map_err(format_error)?;
-        writeln!(
-            code,
-            "      if (value == null || value === false) continue;"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      seen.add(property);").map_err(format_error)?;
-        writeln!(
-            code,
-            "      this.#setStyleProperty(target, property, String(value));"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(
-            code,
-            "    for (const property of Array.from(cache.styles)) {{"
-        )
-        .map_err(format_error)?;
-        writeln!(
-            code,
-            "      if (!seen.has(property)) this.#setStyleProperty(target, property, null);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    cache.styles = seen;").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  #setStyleProperty(target, property, value) {{").map_err(format_error)?;
-        writeln!(code, "    if (property.startsWith(\"--\")) {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "      if (value == null) target.style.removeProperty(property);"
-        )
-        .map_err(format_error)?;
-        writeln!(
-            code,
-            "      else target.style.setProperty(property, value);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      return;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(
-            code,
-            "    target.style[property] = value == null ? \"\" : value;"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        Ok(())
-    }
-
     fn emit_update(&self, code: &mut String) -> CompilerResult<()> {
         if self.update_steps.is_empty() {
             return Ok(());
@@ -2111,11 +1833,11 @@ impl<'a> CodeGenerator<'a> {
                 self.uses_spread_attributes = true;
                 let spread_cache = format!("{variable}Spread{}", build.record_properties.len());
                 build.create_lines.push(format!(
-                    "const {spread_cache} = {{ names: new Set(), listeners: new Map(), styles: new Set() }};"
+                    "const {spread_cache} = {{ names: new Set(), listeners: new Map(), styles: new Set(), raw: false }};"
                 ));
                 build.record_properties.push(spread_cache.clone());
                 build.update_lines.push(ListRowUpdateLine::plain(format!(
-                    "this.#applySpreadAttributes({}.{variable}, {}.{spread_cache}, {expression});",
+                    "__naosApplySpreadAttributes({}.{variable}, {}.{spread_cache}, {expression});",
                     build.record_variable, build.record_variable
                 )));
                 return Ok(());
@@ -2193,7 +1915,7 @@ impl<'a> CodeGenerator<'a> {
                 build,
                 expression,
                 format!(
-                    "this.#applyStyleValue({}.{variable}, {}.{style_cache}, ({expression}));",
+                    "__naosApplyStyleValue({}.{variable}, {}.{style_cache}, ({expression}));",
                     build.record_variable, build.record_variable
                 ),
             );
@@ -2331,7 +2053,7 @@ impl<'a> CodeGenerator<'a> {
                 self.spread_fields.push(spread_field.clone());
                 self.push_update_line(
                     format!(
-                        "this.#applySpreadAttributes({field_reference}, this.#{spread_field}, {expression});"
+                        "__naosApplySpreadAttributes({field_reference}, this.#{spread_field}, {expression});"
                     ),
                     self.dependencies_for_expression(expression),
                 );
@@ -2423,7 +2145,7 @@ impl<'a> CodeGenerator<'a> {
             };
             self.push_update_line(
                 format!(
-                    "this.#applyStyleValue({field_reference}, this.#{style_cache}, ({expression}));"
+                    "__naosApplyStyleValue({field_reference}, this.#{style_cache}, ({expression}));"
                 ),
                 dependencies,
             );
