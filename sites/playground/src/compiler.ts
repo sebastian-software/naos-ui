@@ -127,11 +127,16 @@ export function rewriteRuntimeImports(
     .replace(/from\s+["']@naos-ui\/motion["']/g, `from ${JSON.stringify(assetUrls.motion)}`)
 }
 
-/** Loads a generated module from a blob URL and mounts its custom element. */
+/**
+ * Loads a generated module from a blob URL and mounts its custom element.
+ * When `isCurrent` reports false after the module import resolved, the mount
+ * is skipped so a superseded run cannot overwrite a newer preview.
+ */
 export async function mountPlaygroundModule(
   code: string,
   tagName: string,
   container: HTMLElement,
+  isCurrent: () => boolean = () => true,
 ): Promise<void> {
   const moduleUrl = URL.createObjectURL(new Blob([code], { type: "text/javascript" }))
   try {
@@ -139,5 +144,6 @@ export async function mountPlaygroundModule(
   } finally {
     URL.revokeObjectURL(moduleUrl)
   }
+  if (!isCurrent()) return
   container.replaceChildren(document.createElement(tagName))
 }

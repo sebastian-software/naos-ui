@@ -1,0 +1,309 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  background: #f1f5f9;
+  color: #0f172a;
+  font: 1rem/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid #d7dde5;
+  padding: 0.6rem 1.25rem;
+  background: #ffffff;
+}
+
+.wordmark {
+  color: #0f172a;
+  font-size: 1.15rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.topbar-title {
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  background: #ccfbf1;
+  color: #0f766e;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.example-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.example-picker select {
+  max-width: 18rem;
+  border: 1px solid #d7dde5;
+  border-radius: 0.4rem;
+  padding: 0.35rem 0.5rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.85rem;
+}
+
+.example-description {
+  flex: 1;
+  overflow: hidden;
+  margin: 0;
+  color: #64748b;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.status-chip::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.status-chip[data-state="ready"] {
+  background: #ccfbf1;
+  color: #0f766e;
+}
+
+.status-chip[data-state="loading"] {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.status-chip[data-state="unavailable"] {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.topbar-link {
+  color: #0f766e;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.topbar-link:hover {
+  text-decoration: underline;
+}
+
+.workbench {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 0;
+  width: 100%;
+  max-width: 100rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid #d7dde5;
+  border-radius: 0.75rem;
+  background: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.05);
+}
+
+.pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid #e5eaf0;
+  padding: 0.55rem 1rem;
+  background: #f8fafc;
+}
+
+.pane-header h2 {
+  margin: 0;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.pane-header-code {
+  border-top: 1px solid #e5eaf0;
+}
+
+.pane-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.pane-tools kbd {
+  border: 1px solid #d7dde5;
+  border-radius: 0.3rem;
+  padding: 0.15rem 0.4rem;
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
+.pane-tools button {
+  min-height: 1.9rem;
+  border: 0;
+  border-radius: 0.4rem;
+  padding: 0.3rem 1rem;
+  background: #0f766e;
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.pane-tools button:hover {
+  background: #115e59;
+}
+
+.pane-tools button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.editor-host {
+  flex: 1;
+  min-height: 0;
+}
+
+.editor-host .cm-editor {
+  height: 100%;
+}
+
+.tag-chip {
+  color: #0f766e;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.stage {
+  display: grid;
+  place-items: center;
+  min-height: 10rem;
+  flex: 0 0 auto;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at 1px 1px, #dbe3ec 1px, transparent 0) 0 0 / 18px 18px,
+    linear-gradient(180deg, #fbfdff, #f2f6fa);
+}
+
+.notice {
+  margin: 0.75rem;
+  border: 1px solid #f4c7ab;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #fff7ed;
+  color: #9a3412;
+}
+
+.notice-page {
+  margin: 0 1.25rem 1.25rem;
+}
+
+.diagnostics {
+  margin: 0.75rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.diagnostics h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.diagnostics ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.85rem;
+}
+
+.core-chip {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.generated {
+  flex: 1;
+  min-height: 8rem;
+  overflow: hidden;
+  display: grid;
+}
+
+.generated pre,
+.generated .shiki {
+  overflow: auto;
+  margin: 0;
+  padding: 1rem;
+  font-size: 0.8rem;
+  line-height: 1.55;
+}
+
+/* Keep the one-dark surface for the plain fallback as well. */
+.generated pre {
+  background: #282c34;
+  color: #abb2bf;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+@media (max-width: 960px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .example-description {
+    display: none;
+  }
+
+  .workbench {
+    grid-template-columns: 1fr;
+  }
+
+  .pane-editor {
+    min-height: 24rem;
+  }
+}

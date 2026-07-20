@@ -83,6 +83,11 @@ jobs:
           mkdir -p sites/docs/build/client/demos
           cp -R examples/counter/dist/. sites/docs/build/client/demos/
 
+      - name: Copy playground into docs artifact
+        run: |
+          mkdir -p sites/docs/build/client/playground
+          cp -R sites/playground/dist/. sites/docs/build/client/playground/
+
       - name: Add custom domain (CNAME)
         run: echo "naos-ui.dev" > sites/docs/build/client/CNAME
 
