@@ -22,8 +22,8 @@ afterEach(async () => {
 })
 
 function assertCompiledCounter(output: string) {
-  expect(output).toContain('customElements.define("demo-counter"')
-  expect(output).toContain("CustomEvent")
+  expect(output).toMatch(/(?:__naos)?[Dd]efineComponent\("demo-counter"/)
+  expect(output).toMatch(/(?:__naos)?[Ee]mitter\(/)
   expect(output).toContain("data-count")
   // The ?inline CSS import is inlined as a string for the shared stylesheet.
   expect(output).toContain("--naos-control-border")
