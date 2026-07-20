@@ -129,14 +129,21 @@ async function run() {
     runtime: assetUrl("naos-runtime.js"),
     motion: assetUrl("naos-motion.js"),
   })
+  let mountError: unknown = null
   try {
-    await mountPlaygroundModule(runtimeCode, result.tagName, preview)
-    previewError.hidden = true
+    await mountPlaygroundModule(runtimeCode, result.tagName, preview, () => token === runToken)
   } catch (error) {
+    mountError = error
+  }
+  // A newer run owns the panes from here on.
+  if (token !== runToken) return
+  if (mountError) {
     previewError.textContent = `Preview failed: ${
-      error instanceof Error ? error.message : String(error)
+      mountError instanceof Error ? mountError.message : String(mountError)
     }`
     previewError.hidden = false
+  } else {
+    previewError.hidden = true
   }
 
   renderGeneratedPlain(result.code)
