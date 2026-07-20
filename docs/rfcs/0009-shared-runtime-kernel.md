@@ -219,32 +219,43 @@ on every flush and event dispatch; bind lazily or cache per instance.
 
 ## Appendix: Measurements (2026-07-20)
 
-Corpus: 16 example components compiled at `e1930db`; prototypes and benchmark
-scripts lived in the analysis session and are reproducible from this RFC's
-description.
+Corpus: 16 example components compiled at `e1930db`. The prototype sources,
+the benchmark harness, and the exact esbuild/gzip invocations are preserved
+in [`assets/0009-shared-runtime-kernel/`](assets/0009-shared-runtime-kernel/).
 
-Current output (unminified):
+Current output per component (minified: esbuild 0.24 `--minify --format=esm`,
+CSS/cross-module imports stubbed or external; gzip -9):
 
-| Component | Source | Generated | Factor |
-| --- | --- | --- | --- |
-| `board` (static) | 385 B | 6 381 B | 16.5× |
-| `status-badge` | 436 B | 7 360 B | 16.8× |
-| `toggle` | 1 628 B | 19 012 B | 11.6× |
-| `task-list` | 2 843 B | 22 284 B | 7.8× |
+| Component | Source | Generated | Factor | Minified | Min+gzip |
+| --- | --- | --- | --- | --- | --- |
+| `board` (static) | 385 B | 6 381 B | 16.5× | 3 042 B | 1 421 B |
+| `status-badge` | 436 B | 7 360 B | 16.8× | 3 537 B | 1 573 B |
+| `toggle` | 1 628 B | 19 012 B | 11.6× | 8 839 B | 3 180 B |
+| `task-list` | 2 843 B | 22 284 B | 7.8× | 10 558 B | 3 570 B |
 
 Duplication: 26 byte-identical chunks, 3 307 B, present in all 16 modules
 (52 % of `board`, 17 % of `toggle`). Sum of all 16 modules: 217 KB; with the
 identical share emitted once: 168 KB.
 
-Prototype A/B (feature-equivalent, esbuild `--bundle --minify`, gzip -9):
+Prototype A/B (feature-equivalent, esbuild `--bundle --minify`, gzip -9).
+The "Current output" row is the component alone with everything inlined —
+that is the whole bundle today, so it reads against the "+ runtime" rows,
+which already include the full shared runtime; every additional component
+then costs only the marginal row:
 
 | Scenario | Base class | Functional kernel |
 | --- | --- | --- |
+| Current output (`toggle`, all inlined) | 8 839 B (3 180 gz) | — |
 | Runtime alone | 4 788 B (2 009 gz) | 4 836 B (2 143 gz) |
 | Static component + runtime | 5 180 B (2 168 gz) | 3 270 B (1 513 gz) |
 | Toggle + runtime | 8 410 B (3 069 gz) | 7 720 B (3 043 gz) |
 | Marginal component (runtime external) | 539–3 769 B | 742–3 670 B |
 
-Micro-benchmark (Node 22, mirrored flush pipeline without DOM, median of 5):
-20 000 instances × 200 update cycles — class 1 056 ms, kernel 1 078 ms;
-creation 4.9 ms both; heap per instance 448 B versus 440 B.
+The prototypes omit the hydration/DSD paths in both variants, so the A/B
+comparison is internally consistent while absolute sizes are indicative.
+
+Micro-benchmark (Node 22 `--expose-gc`, mirrored flush pipeline without DOM;
+20 000 instances × 200 update cycles per run, median of 5 interleaved runs;
+heap measured as `heapUsed` delta across 50 000 retained instances after
+forced GC): class 1 056 ms, kernel 1 078 ms; creation 4.9 ms both; heap per
+instance 448 B versus 440 B.
