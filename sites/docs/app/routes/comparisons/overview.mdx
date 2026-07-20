@@ -26,6 +26,28 @@ their own docs.
 | [Gea](./gea) | Compiler-first UI framework | Nearly identical vocabulary; Gea patches standard DOM as an app framework, Naos emits native Custom Elements |
 | [React](./react) | App runtime library | A different corner: React is a VDOM app runtime; Naos is complementary and ships a small shared kernel instead of a framework runtime |
 
+## Runtime-size snapshot
+
+This is a **baseline-size snapshot, not an application-bundle benchmark**. It
+measures a minimal browser entry for each package with tsdown/Rolldown 0.22.3,
+ESM output targeted at ES2023, minification, and `gzip -9`. The values include
+the dependencies pulled in by that entry, but omit application code, component
+code, and any additional product packages.
+
+| Baseline entry | Version | gzip |
+| --- | --- | --- |
+| Naos complete `@naos-ui/runtime/internal` contract | current workspace | 3.8 kB |
+| Lit `LitElement` + `html` | 3.3.3 | 5.7 kB |
+| Solid `createSignal` + DOM `render` | 1.9.14 | 3.3 kB |
+| Stencil minimal `@stencil/core/internal/client` import | 4.43.5 | 2.2 kB |
+| React `createElement` + React DOM `createRoot` | 19.2.7 | 59.0 kB |
+
+The entries reflect different architectures, so the figures are useful for
+orientation rather than ranking. In particular, Stencil's internal client entry
+is not its entire component-runtime surface, while React's figure includes its
+full DOM renderer. Gea is intentionally omitted: its runtime is assembled at an
+application entry rather than exposed as one stable, comparable browser package.
+
 ## How to read them
 
 - **Same output target** (Stencil, Lit): the honest question is *how* the element

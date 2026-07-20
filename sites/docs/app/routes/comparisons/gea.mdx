@@ -29,7 +29,7 @@ which job.
 | Reactivity | Explicit signals: `state()`, `computed()`, `effect()` (read by calling) | Proxy-based deep reactivity: mutate directly (`this.count++`), getters for computed |
 | Authoring unit | Exported PascalCase functions | Classes first (`Store` / `Component` with `template()`); functions compile to classes |
 | Virtual DOM | None | None |
-| Runtime model | Small shared, tree-shakeable execution kernel (~6 kB gzip complete); no framework runtime | Application framework runtime with proxy reactivity and direct DOM patching |
+| Runtime model | Small shared, tree-shakeable execution kernel; no framework runtime | Application framework runtime with proxy reactivity and direct DOM patching |
 | JSX | Compile-time, narrow analyzable subset | Compile-time transform |
 | Compiler | Rust / OXC core over an N-API boundary | JavaScript compiler in the Vite plugin |
 | Update model | Generated direct DOM code per element | HTML string templates + deep proxy + surgical patching |
