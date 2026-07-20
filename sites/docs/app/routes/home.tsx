@@ -14,6 +14,34 @@ function withBase(path: string): string {
   return `${base}${path.replace(/^\//, "")}`
 }
 
+const comparisons = [
+  {
+    slug: "stencil",
+    name: "vs. Stencil",
+    line: "The closest neighbor — but Naos drops the virtual DOM entirely and authors with functions and signals instead of classes and decorators.",
+  },
+  {
+    slug: "lit",
+    name: "vs. Lit",
+    line: "Same native-element output, without the template runtime: a compiler with JSX and signals instead of tagged templates and reactive properties.",
+  },
+  {
+    slug: "solid",
+    name: "vs. Solid",
+    line: "The same signals you would reach for in Solid — except the Custom Element is the primary output, not an app rendered into a page.",
+  },
+  {
+    slug: "gea",
+    name: "vs. Gea",
+    line: "Nearly the same pitch, opposite core: Gea patches plain DOM as an app framework; Naos compiles to real Custom Elements.",
+  },
+  {
+    slug: "react",
+    name: "vs. React",
+    line: "Not a rival — a complement. Build components in Naos, consume them in React (and everything else), with no runtime shipped along.",
+  },
+]
+
 export default function HomePage() {
   return (
     <main className="naos-home">
@@ -30,6 +58,9 @@ export default function HomePage() {
           </a>
           <a className="naos-action" href={withBase("reference/api")}>
             API reference
+          </a>
+          <a className="naos-action" href={withBase("comparisons/overview")}>
+            Comparisons
           </a>
           <a className="naos-action" href={withBase("playground/")}>
             Playground
@@ -72,6 +103,44 @@ export default function HomePage() {
             for events, scheduling, and hydration support.
           </p>
         </article>
+      </section>
+
+      <section className="naos-compare" aria-label="How Naos compares to other tools">
+        <p className="naos-eyebrow">Where Naos fits</p>
+        <h2>Familiar words, a different core bet.</h2>
+        <p className="naos-compare-lead">
+          Naos shares the "compiler-first, no virtual DOM" vocabulary of today's
+          tools — but it compiles to native Custom Elements, ships no framework
+          runtime, and updates with signals. Here is how that lands next to the
+          tools you already know.
+        </p>
+        <ul className="naos-compare-list">
+          {comparisons.map((item) => (
+            <li key={item.slug}>
+              <a
+                className="naos-compare-row"
+                href={withBase(`comparisons/${item.slug}`)}
+              >
+                <span className="naos-compare-name">{item.name}</span>
+                <span className="naos-compare-line">{item.line}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p className="naos-compare-kicker">
+          If a component should outlive the framework that renders it, author it
+          once in Naos and ship it as a native element — instead of rebuilding it
+          for React, Vue, and Angular in turn.
+        </p>
+        <div className="naos-actions">
+          <a
+            className="naos-action"
+            data-primary="true"
+            href={withBase("comparisons/overview")}
+          >
+            See all comparisons
+          </a>
+        </div>
       </section>
     </main>
   )

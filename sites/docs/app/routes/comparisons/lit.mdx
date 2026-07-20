@@ -1,0 +1,151 @@
+---
+title: Lit
+description: Naos vs. Lit — compiler with signals vs. runtime library with templates.
+order: 3
+---
+
+# Naos and Lit
+
+Lit is the default way most teams build Web Components today: a small, mature
+runtime library from Google. Naos targets the same output — native Custom
+Elements — but gets there as a **compiler** rather than a runtime library, and
+with JSX and signals instead of tagged template literals and reactive
+properties.
+
+> Positioning snapshot from July 2026. Naos is a v0.1 prerelease; Lit is a
+> mature, widely deployed library. This page explains where Naos fits, not a
+> ranking of a mature project against an MVP.
+
+## At a glance
+
+| | **Naos** | **Lit** |
+| --- | --- | --- |
+| One-line pitch | TSX compiler for native interface elements | Simple, fast library for building Web Components |
+| Kind | **Compiler** — output is generated per element | **Runtime library** — shipped with your components |
+| Output target | Native Custom Elements, Shadow DOM, slots, `part`, DSD, form-associated | Native Custom Elements, Shadow DOM, slots, `part` |
+| Templating | **JSX / TSX** compiled to direct DOM code | **`html` tagged template literals** (lit-html) |
+| Authoring unit | Exported PascalCase functions | Classes extending `LitElement` (+ decorators) |
+| Reactivity | Explicit signals: `state()`, `computed()`, `effect()` | Reactive properties (`@property` / `@state`) trigger re-render |
+| Virtual DOM | None | None (lit-html template diffing) |
+| Runtime cost | Minimal generated code; no template runtime | Small shared runtime (~5 KB) + your components |
+| Build step | Required (Vite plugin / CLI) | **Optional** — works with plain JS + templates |
+| Batteries | Optional layer: primitives, router, data, motion | Labs packages (context, task, ssr, virtualizer) + broad ecosystem |
+| Maturity | v0.1 prerelease | Mature, production |
+
+## Common ground
+
+- The **output is the same category**: standards-based Custom Elements with
+  Shadow DOM, slots, and `part`-based styling.
+- **No virtual DOM.** Lit diffs templates via lit-html; Naos generates direct
+  DOM updates. Both avoid a React-style VDOM.
+- Both prize a **small footprint** and framework-neutral distribution.
+- Both offer SSR paths (Lit's `@lit-labs/ssr`; Naos's Declarative Shadow DOM
+  prerender + hydration).
+
+## Where they diverge
+
+### Compiler vs. runtime library — the core split
+
+**Lit is a runtime library.** Your components extend `LitElement`, and the Lit
+runtime (reactive-update lifecycle + lit-html) is shipped to the browser
+alongside them. A key upside: **no build step is required** — you can author Lit
+with plain JavaScript and template literals.
+
+**Naos is a compiler.** Components are compiled ahead of time to direct
+custom-element code; there is no template/reactivity library to ship. The
+trade is the mirror image of Lit's: you **need a build step** (the Vite plugin
+or CLI), and in return there is little to no framework runtime in the output.
+
+### Templating and reactivity
+
+- **Lit** uses `html` **tagged template literals** and **reactive properties**:
+  changing a `@property` or `@state` schedules a re-render, and lit-html
+  efficiently updates the changed template parts.
+- **Naos** uses **JSX/TSX** and **signals**: `state()`, `computed()`, `effect()`.
+  Reads happen by calling the signal (`count()`); updates touch only the exact
+  bindings that depend on it, with no component-level re-render.
+
+### Authoring unit
+
+- **Lit**: classes extending `LitElement`, typically with decorators.
+- **Naos**: exported PascalCase functions; the function name becomes the tag.
+
+### Implementation
+
+Lit's engine is JavaScript. Naos owns compiler semantics in **Rust / OXC** and
+keeps the TypeScript packages thin.
+
+## Side by side
+
+**Naos** — a function compiled to a Custom Element:
+
+```tsx
+import { state } from "@naos-ui/core"
+
+export function Counter() {
+  const count = state(0)
+  return (
+    <button part="button" onClick={() => count.set(count() + 1)}>
+      Count: {count()}
+    </button>
+  )
+}
+```
+
+**Lit** — a `LitElement` class with a tagged-template `render()`:
+
+```ts
+import { LitElement, html } from "lit"
+import { customElement, state } from "lit/decorators.js"
+
+@customElement("my-counter")
+export class MyCounter extends LitElement {
+  @state() count = 0
+
+  render() {
+    return html`
+      <button part="button" @click=${() => this.count++}>
+        Count: ${this.count}
+      </button>
+    `
+  }
+}
+```
+
+## Which one fits
+
+Reach for **Lit** when:
+
+- you want the **mainstream, battle-tested** Web Components library with a huge
+  ecosystem and Google backing
+- you value **no required build step** — author with plain JS and templates
+- **tagged template literals** and **reactive properties** suit your team better
+  than JSX and signals
+- you want the safest, most documented path for framework-agnostic components
+  today
+
+Reach for **Naos** when:
+
+- you want a **compiler** that ships **no template/reactivity runtime** in the
+  output
+- you prefer **JSX/TSX + signals** and **function** components
+- you want **Declarative Shadow DOM** and **form-associated** output as
+  first-class compiler concerns
+- a **Rust/OXC compiler core** and a narrow, statically analyzable surface appeal
+  to you
+- you are comfortable adopting a **v0.1 prerelease**, and a required build step
+
+## Honest caveats
+
+- Naos is a **v0.1 prerelease**; Lit is mature and production-proven. This is a
+  direction comparison, not a readiness one.
+- "No runtime library" does not automatically mean smaller in every app — Lit's
+  runtime is shared across all its components, which amortizes well at scale.
+- Treat this as a July 2026 snapshot and re-check both projects' current docs.
+
+## Sources
+
+- Naos: the [project README](https://github.com/sebastian-software/naos-ui#readme)
+- Lit: [lit.dev](https://lit.dev/)
+- Lit vs FAST vs Stencil (2026):
+  [pkgpulse.com guide](https://www.pkgpulse.com/guides/lit-vs-fast-vs-stencil-web-component-frameworks-2026)

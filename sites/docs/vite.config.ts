@@ -29,7 +29,7 @@ export default defineConfig({
         license: "Apache-2.0",
       },
       sidebar: {
-        sectionOrder: ["guide", "reference"],
+        sectionOrder: ["guide", "comparisons", "reference"],
       },
     }),
   ],
