@@ -21,9 +21,10 @@ application.
 
 The shared kernel is now the default compiler output. Lifecycle sequencing,
 dirty tracking, host update scopes, data-driven props/attributes, effects,
-listener abort scopes, keyed-selector registrations, and keyed DOM ordering
-are emitted through `@naos-ui/runtime/internal`. Compiler-output tests assert
-that those helpers are imported instead of re-emitting their implementation.
+listener abort scopes, keyed-selector registrations, keyed DOM ordering,
+class resolution, and dynamic style/spread updates are emitted through
+`@naos-ui/runtime/internal`. Compiler-output tests assert that those helpers
+are imported instead of re-emitting their implementation.
 
 The RFC remains partially implemented: hydration/DSD helpers are still
 component-local, the `--standalone` inline-output flag has not landed, and the
@@ -142,7 +143,9 @@ The kernel is a plain per-instance record (`dirty`, `props`, `state`, abort
 controllers, computed cache, node references) stored on the element under a
 runtime-private `Symbol`. All shared machinery is free functions over that
 record: `markDirty(k, source)`, `flush(k)`, `shouldUpdate(deps, dirty)`,
-`reconcileKeyed(...)`, `setAttr(node, name, value)`, `stateAccessor(k, name)`,
+`reconcileKeyed(...)`, `setAttr(node, name, value)`, `clx(...)`,
+`applyStyleValue(node, cache, value)`, `applySpreadAttributes(node, cache, values)`,
+`stateAccessor(k, name)`,
 `computedAccessor(k, name, fn)`, `emitter(k, name)`, `hostApi(k)`,
 `listen(k, node, type, handler)`, `runEffect(k, index, dirty, deps, body)`.
 

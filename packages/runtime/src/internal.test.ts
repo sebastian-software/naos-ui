@@ -3,7 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   K,
   type Kernel,
+  applySpreadAttributes,
+  applyStyleValue,
   attrChanged,
+  clx,
   computedAccessor,
   connect,
   createKernel,
@@ -54,6 +57,24 @@ class FakeElement extends EventTarget {
   removeAttribute(name: string): void {
     this.attributes.delete(name)
   }
+}
+
+class FakeStyle {
+  values = new Map<string, string>()
+
+  setProperty(name: string, value: string): void {
+    this.values.set(name, value)
+  }
+
+  removeProperty(name: string): string {
+    const previous = this.values.get(name) ?? ""
+    this.values.delete(name)
+    return previous
+  }
+}
+
+class FakeStyledElement extends FakeElement {
+  style = new FakeStyle()
 }
 
 function kernel(spec: Parameters<typeof createKernel>[1] = {}): Kernel {
@@ -294,6 +315,58 @@ describe("shared runtime kernel", () => {
     expect(warn).toHaveBeenCalledOnce()
     warn.mockRestore()
     vi.unstubAllGlobals()
+  })
+
+  it("centralizes class, dynamic style, and spread-attribute updates", () => {
+    expect(clx("card", ["active", { hidden: false, selected: true }, [0, 2]])).toBe(
+      "card active selected 2",
+    )
+
+    const element = new FakeStyledElement()
+    const styleCache = { styles: new Set<string>(), raw: false }
+    applyStyleValue(element as unknown as HTMLElement, styleCache, {
+      "--tone": "blue",
+      opacity: "0.5",
+    })
+    expect(element.style.values.get("--tone")).toBe("blue")
+    expect((element.style as unknown as { opacity?: string }).opacity).toBe("0.5")
+
+    applyStyleValue(element as unknown as HTMLElement, styleCache, { opacity: "1" })
+    expect(element.style.values.has("--tone")).toBe(false)
+    expect((element.style as unknown as { opacity?: string }).opacity).toBe("1")
+
+    applyStyleValue(element as unknown as HTMLElement, styleCache, "display: block")
+    expect(element.getAttribute("style")).toBe("display: block")
+    applyStyleValue(element as unknown as HTMLElement, styleCache, null)
+    expect(element.getAttribute("style")).toBeNull()
+
+    const listener = vi.fn()
+    const spreadCache = {
+      names: new Set<string>(),
+      listeners: new Map<string, EventListener>(),
+      raw: false,
+      styles: new Set<string>(),
+    }
+    applySpreadAttributes(element as unknown as HTMLElement, spreadCache, {
+      "aria-pressed": false,
+      className: "selected",
+      onKeyDown: listener,
+      style: { "--tone": "green" },
+    })
+    expect(element.getAttribute("aria-pressed")).toBe("false")
+    expect(element.getAttribute("class")).toBe("selected")
+    element.dispatchEvent(new Event("keydown"))
+    expect(listener).toHaveBeenCalledOnce()
+
+    applySpreadAttributes(element as unknown as HTMLElement, spreadCache, { style: "color: green" })
+    expect(element.getAttribute("style")).toBe("color: green")
+
+    applySpreadAttributes(element as unknown as HTMLElement, spreadCache, { title: "next" })
+    expect(element.getAttribute("aria-pressed")).toBeNull()
+    expect(element.getAttribute("class")).toBeNull()
+    expect(element.getAttribute("style")).toBeNull()
+    element.dispatchEvent(new Event("keydown"))
+    expect(listener).toHaveBeenCalledOnce()
   })
 
   it("reports errors through both the component event and platform reporter", () => {
