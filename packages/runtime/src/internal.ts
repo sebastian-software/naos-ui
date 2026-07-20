@@ -203,6 +203,7 @@ export function connect(kernel: Kernel): void {
 /** Releases lifecycle-scoped work while preserving DOM for a later reconnect. */
 export function disconnect(kernel: Kernel): void {
   kernel.effectsConnected = false
+  kernel.flushScheduled = false
   kernel.spec.disconnected?.(kernel)
   abortEventHandlers(kernel)
   kernel.lifecycleAbort.abort()
@@ -568,6 +569,11 @@ export function defineComponent(
   )
 }
 
+/** Resets module-scoped duplicate-registration warning state for isolated tests. */
+export function resetRegistrationWarningForTesting(): void {
+  registrationWarningEmitted = false
+}
+
 function requiredKernel(element: KernelElement): Kernel {
   const kernel = element[K]
   if (!kernel) {
@@ -650,7 +656,7 @@ function abortHostUpdateScope(kernel: Kernel): void {
 }
 
 function abortEventHandlers(kernel: Kernel): void {
-  for (const controller of kernel.eventAbortControllers) controller.abort()
+  for (const controller of Array.from(kernel.eventAbortControllers)) controller.abort()
   kernel.eventAbortControllers.clear()
 }
 
@@ -738,8 +744,8 @@ function runKeyedBindings(kernel: Kernel, dirty: DirtySources): void {
   for (const source of dirty) {
     const records = registry.get(source)
     if (!records) continue
-    for (const bindings of records.values()) {
-      for (const update of bindings.values()) update()
+    for (const bindings of Array.from(records.values())) {
+      for (const update of Array.from(bindings.values())) update()
     }
   }
 }

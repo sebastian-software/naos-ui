@@ -15,7 +15,8 @@ export default defineConfig({
     runtime: "./src/runtime.ts",
   },
   failOnWarn: false,
+  fixedExtension: true,
   format: ["esm", "cjs"],
-  platform: "node",
-  target: "node22",
+  platform: "browser",
+  target: "es2023",
 })
