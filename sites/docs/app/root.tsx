@@ -9,8 +9,7 @@ export const meta: MetaFunction = () => [
   { title: config.title },
   {
     name: "description",
-    content:
-      "Naos documentation for React-like TSX authoring and native Custom Element output.",
+    content: "Naos documentation for React-like TSX authoring and native Custom Element output.",
   },
 ]
 

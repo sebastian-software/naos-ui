@@ -17,10 +17,7 @@ import {
   subscribeNaosToasts,
   syncNaosToastServices,
 } from "./internal/zag/toast.js"
-import type {
-  NaosToastView,
-  NaosZagToastGroupService,
-} from "./internal/zag/toast.js"
+import type { NaosToastView, NaosZagToastGroupService } from "./internal/zag/toast.js"
 import css from "./toast-root.wc.css?inline"
 
 export type NaosToastRootProps = {
@@ -50,36 +47,42 @@ export function NaosToastRoot({
       root: host().root,
     })
     groupService.set(service)
-    toasts.set(syncNaosToastServices({
-      current: toasts(),
-      host: host().element,
-      onStatusChange(id, details) {
-        statusChanged.emit({ id, status: details.status })
-        if (details.status === "unmounted") {
-          removeNaosToast(id)
-        }
-        host().update()
-      },
-      parent: service,
-      root: host().root,
-    }))
-    unsubscribe.set(subscribeNaosToasts(() => {
-      queueMicrotask(() => {
-        toasts.set(syncNaosToastServices({
-          current: toasts(),
-          host: host().element,
-          onStatusChange(id, details) {
-            statusChanged.emit({ id, status: details.status })
-            if (details.status === "unmounted") {
-              removeNaosToast(id)
-            }
-            host().update()
-          },
-          parent: service,
-          root: host().root,
-        }))
-      })
-    }))
+    toasts.set(
+      syncNaosToastServices({
+        current: toasts(),
+        host: host().element,
+        onStatusChange(id, details) {
+          statusChanged.emit({ id, status: details.status })
+          if (details.status === "unmounted") {
+            removeNaosToast(id)
+          }
+          host().update()
+        },
+        parent: service,
+        root: host().root,
+      }),
+    )
+    unsubscribe.set(
+      subscribeNaosToasts(() => {
+        queueMicrotask(() => {
+          toasts.set(
+            syncNaosToastServices({
+              current: toasts(),
+              host: host().element,
+              onStatusChange(id, details) {
+                statusChanged.emit({ id, status: details.status })
+                if (details.status === "unmounted") {
+                  removeNaosToast(id)
+                }
+                host().update()
+              },
+              parent: service,
+              root: host().root,
+            }),
+          )
+        })
+      }),
+    )
   })
   onDisconnected(() => {
     unsubscribe()?.()
@@ -105,10 +108,7 @@ export function NaosToastRoot({
           data-type={toast.type}
           data-state={toast.status}
         >
-          <div
-            {...(getNaosZagToastApi(toast.service)?.getTitleProps() ?? {})}
-            part="title"
-          >
+          <div {...(getNaosZagToastApi(toast.service)?.getTitleProps() ?? {})} part="title">
             {toast.title}
           </div>
           <div

@@ -6,6 +6,8 @@ import type { NativeBindings } from "./generated/naos-node-types.js"
 
 export const NATIVE_BINDING_ENV = "NAOS_NATIVE_BINDING_PATH"
 
+export const WASM_FALLBACK_PACKAGE = "@naos-ui/compiler-wasm"
+
 export type LinuxLibc = "gnu" | "musl"
 
 export type NativeTarget = {
@@ -121,7 +123,7 @@ export function resolveNativeTarget(options: {
       (target) =>
         target.nodePlatform === options.platform &&
         target.nodeArch === options.arch &&
-        target.libc === libc
+        target.libc === libc,
     ) ?? null
   )
 }
@@ -147,15 +149,12 @@ export function loadNativeBindings(): NativeBindings {
   return loadedBindings
 }
 
-export function loadNativeBindingsWithContext(
-  context: NativeLoaderContext = {}
-): NativeBindings {
+export function loadNativeBindingsWithContext(context: NativeLoaderContext = {}): NativeBindings {
   const env = context.env ?? process.env
   const platform = context.platform ?? process.platform
   const arch = context.arch ?? process.arch
   const report =
-    context.report ??
-    (process.report?.getReport?.() as NativeProcessReport | undefined)
+    context.report ?? (process.report?.getReport?.() as NativeProcessReport | undefined)
   const requireBinding =
     context.requireBinding ?? createRequire(context.importMetaUrl ?? import.meta.url)
   const bindingExists = context.bindingExists ?? existsSync
@@ -169,6 +168,12 @@ export function loadNativeBindingsWithContext(
   const target = resolveNativeTarget({ arch, libc, platform })
 
   if (!target) {
+    let wasmError: unknown
+    try {
+      return requireBinding(WASM_FALLBACK_PACKAGE)
+    } catch (error) {
+      wasmError = error
+    }
     throw new Error(
       [
         `No Naos native compiler package is available for ${formatRuntimeTarget({
@@ -177,8 +182,9 @@ export function loadNativeBindingsWithContext(
           platform,
         })}.`,
         `Supported native packages: ${supportedPackageList()}.`,
+        wasmFallbackGuidance(wasmError),
         sourceBuildGuidance(),
-      ].join(" ")
+      ].join(" "),
     )
   }
 
@@ -194,15 +200,24 @@ export function loadNativeBindingsWithContext(
     return requireBinding(localBindingPath)
   }
 
+  let wasmError: unknown
+  try {
+    return requireBinding(WASM_FALLBACK_PACKAGE)
+  } catch (error) {
+    wasmError = error
+  }
+
   throw new Error(
     [
       `Failed to load Naos native compiler binding for ${target.rustTarget}.`,
       `Attempted optional package: ${target.packageName}.`,
       `Attempted workspace binding: ${localBindingPath}.`,
+      `Attempted WebAssembly fallback: ${WASM_FALLBACK_PACKAGE}.`,
       `Supported native packages: ${supportedPackageList()}.`,
       `Original package load error: ${formatUnknownError(packageError)}.`,
+      wasmFallbackGuidance(wasmError),
       sourceBuildGuidance(),
-    ].join(" ")
+    ].join(" "),
   )
 }
 
@@ -220,6 +235,12 @@ function formatRuntimeTarget(options: {
 
 function formatUnknownError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function wasmFallbackGuidance(error: unknown): string {
+  return `The WebAssembly fallback was not loadable (${formatUnknownError(
+    error,
+  )}); \`npm install ${WASM_FALLBACK_PACKAGE}\` provides a slower but portable compiler for unsupported platforms.`
 }
 
 function sourceBuildGuidance(): string {

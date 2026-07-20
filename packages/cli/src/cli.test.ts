@@ -19,10 +19,7 @@ const nativeMetadata = {
 
 async function createProjectRoot(): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), "naos-cli-"))
-  await writeFile(
-    join(root, "package.json"),
-    '{"name":"@example/counter","version":"1.0.0"}\n'
-  )
+  await writeFile(join(root, "package.json"), '{"name":"@example/counter","version":"1.0.0"}\n')
   return root
 }
 
@@ -67,7 +64,14 @@ describe("@naos-ui/cli", () => {
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
-      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+      transformComponent: () => ({
+        ...nativeMetadata,
+        code: "",
+        hasChanged: false,
+        styleImports: [],
+        props: [],
+        events: [],
+      }),
     })
     const io = createIo()
 
@@ -89,7 +93,14 @@ describe("@naos-ui/cli", () => {
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
-      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+      transformComponent: () => ({
+        ...nativeMetadata,
+        code: "",
+        hasChanged: false,
+        styleImports: [],
+        props: [],
+        events: [],
+      }),
     })
     const io = createIo()
 
@@ -100,7 +111,7 @@ describe("@naos-ui/cli", () => {
         native: { coreVersion: "1.2.3" },
         node: process.versions.node,
         platform: process.platform,
-      })}\n`
+      })}\n`,
     )
   })
 
@@ -120,7 +131,7 @@ describe("@naos-ui/cli", () => {
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
-        ...nativeMetadata,
+          ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
@@ -132,6 +143,9 @@ describe("@naos-ui/cli", () => {
           ...nativeMetadata,
           code: `compiled:${request.filename}:${request.source}`,
           hasChanged: true,
+          styleImports: [],
+          props: [],
+          events: [],
         }),
       })
       const io = createIo(root)
@@ -150,7 +164,7 @@ describe("@naos-ui/cli", () => {
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
-        ...nativeMetadata,
+          ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
@@ -170,15 +184,16 @@ describe("@naos-ui/cli", () => {
             sourcesContent: [request.source],
             version: 3,
           },
+          styleImports: [],
+          props: [],
+          events: [],
         }),
       })
       const io = createIo(root)
 
-      await expect(
-        runCli(["compile", "counter.wc.tsx", "-o", "counter.js"], io)
-      ).resolves.toBe(0)
+      await expect(runCli(["compile", "counter.wc.tsx", "-o", "counter.js"], io)).resolves.toBe(0)
       expect(await readFile(join(root, "counter.js"), "utf8")).toBe(
-        "compiled\n//# sourceMappingURL=counter.js.map\n"
+        "compiled\n//# sourceMappingURL=counter.js.map\n",
       )
       expect(JSON.parse(await readFile(join(root, "counter.js.map"), "utf8"))).toMatchObject({
         mappings: "AAAA",
@@ -197,7 +212,7 @@ describe("@naos-ui/cli", () => {
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
-        ...nativeMetadata,
+          ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
@@ -217,12 +232,15 @@ describe("@naos-ui/cli", () => {
             sourcesContent: [request.source],
             version: 3,
           },
+          styleImports: [],
+          props: [],
+          events: [],
         }),
       })
       const io = createIo(root)
 
       await expect(
-        runCli(["compile", "counter.wc.tsx", "-o", "counter.js", "--json"], io)
+        runCli(["compile", "counter.wc.tsx", "-o", "counter.js", "--json"], io),
       ).resolves.toBe(0)
       expect(JSON.parse(io.stdoutText())).toEqual({
         className: "CounterElement",
@@ -250,7 +268,7 @@ describe("@naos-ui/cli", () => {
     try {
       await writeFile(
         join(root, "counter.wc.tsx"),
-        'import css from "./counter.css?inline";\nexport const options = { styles: [css] }'
+        'import css from "./counter.css?inline";\nexport const options = { styles: [css] }',
       )
       await writeFile(join(root, "counter.css"), ":host { display: block; }\n")
       let propsJson: string | undefined
@@ -271,22 +289,25 @@ describe("@naos-ui/cli", () => {
             usesDeclarativeShadowDom: true,
           }
         },
-        transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+        transformComponent: () => ({
+          ...nativeMetadata,
+          code: "",
+          hasChanged: false,
+          styleImports: [],
+          props: [],
+          events: [],
+        }),
       })
       const io = createIo(root)
 
       await expect(
-        runCli([
-          "prerender",
-          "counter.wc.tsx",
-          "--props",
-          '{"label":"Count"}',
-          "-o",
-          "counter.html",
-        ], io)
+        runCli(
+          ["prerender", "counter.wc.tsx", "--props", '{"label":"Count"}', "-o", "counter.html"],
+          io,
+        ),
       ).resolves.toBe(0)
       expect(await readFile(join(root, "counter.html"), "utf8")).toBe(
-        "<example-counter-counter></example-counter-counter>\n"
+        "<example-counter-counter></example-counter-counter>\n",
       )
       expect(propsJson).toBe('{"label":"Count"}')
       expect(inlineStylesJson).toBe('{"css":":host { display: block; }\\n"}')
@@ -303,7 +324,7 @@ describe("@naos-ui/cli", () => {
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
-        ...nativeMetadata,
+          ...nativeMetadata,
           className: "CounterElement",
           html: "<example-counter-counter></example-counter-counter>",
           shadow: true,
@@ -311,12 +332,19 @@ describe("@naos-ui/cli", () => {
           templateHtml: '<template shadowrootmode="open"></template>',
           usesDeclarativeShadowDom: true,
         }),
-        transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+        transformComponent: () => ({
+          ...nativeMetadata,
+          code: "",
+          hasChanged: false,
+          styleImports: [],
+          props: [],
+          events: [],
+        }),
       })
       const io = createIo(root)
 
       await expect(
-        runCli(["prerender", "counter.wc.tsx", "-o", "counter.html", "--json", "--pretty"], io)
+        runCli(["prerender", "counter.wc.tsx", "-o", "counter.html", "--json", "--pretty"], io),
       ).resolves.toBe(0)
       expect(JSON.parse(io.stdoutText())).toEqual({
         command: "prerender",
@@ -339,7 +367,7 @@ describe("@naos-ui/cli", () => {
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
-        ...nativeMetadata,
+          ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
@@ -347,16 +375,19 @@ describe("@naos-ui/cli", () => {
           templateHtml: "",
           usesDeclarativeShadowDom: true,
         }),
-        transformComponent: () => ({ ...nativeMetadata, code: "compiled", hasChanged: true }),
+        transformComponent: () => ({
+          ...nativeMetadata,
+          code: "compiled",
+          hasChanged: true,
+          styleImports: [],
+          props: [],
+          events: [],
+        }),
       })
       const io = createIo(root)
 
-      await expect(
-        runCli(["compile", "counter.wc.tsx", "--stdout", "--json"], io)
-      ).resolves.toBe(1)
-      expect(io.stderrText()).toBe(
-        "naos compile --json cannot be combined with --stdout\n"
-      )
+      await expect(runCli(["compile", "counter.wc.tsx", "--stdout", "--json"], io)).resolves.toBe(1)
+      expect(io.stderrText()).toBe("naos compile --json cannot be combined with --stdout\n")
       expect(io.stdoutText()).toBe("")
     } finally {
       await rm(root, { force: true, recursive: true })
@@ -383,7 +414,7 @@ describe("@naos-ui/cli", () => {
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
-        ...nativeMetadata,
+          ...nativeMetadata,
           className: "CounterElement",
           html: "",
           shadow: true,
@@ -408,7 +439,7 @@ describe("@naos-ui/cli", () => {
 
       await expect(runCli(["compile", "counter.wc.tsx"], io)).resolves.toBe(1)
       expect(io.stderrText()).toBe(
-        "counter.wc.tsx:4-12 error NAOS_UNSUPPORTED_SYNTAX: Unsupported JSX\nhint: Use supported syntax.\n"
+        "counter.wc.tsx:4-12 error NAOS_UNSUPPORTED_SYNTAX: Unsupported JSX\nhint: Use supported syntax.\n",
       )
     } finally {
       await rm(root, { force: true, recursive: true })

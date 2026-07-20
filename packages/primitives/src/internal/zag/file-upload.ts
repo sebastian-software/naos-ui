@@ -85,14 +85,12 @@ export function createNaosZagFileUploadService({
 }
 
 export function getNaosZagFileUploadApi(
-  service: NaosZagFileUploadService | null
+  service: NaosZagFileUploadService | null,
 ): ZagFileUploadApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagFileUploadService(
-  service: NaosZagFileUploadService | null
-) {
+export function stopNaosZagFileUploadService(service: NaosZagFileUploadService | null) {
   service?.stop()
 }

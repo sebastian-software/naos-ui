@@ -1,0 +1,23 @@
+[part~="root"] {
+  border: 1px solid var(--tasks-row-border, #d8dde5);
+  border-radius: 0.8rem;
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem 1.2rem;
+}
+
+[part~="header"] {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+[part~="title"] {
+  margin: 0;
+}
+
+[part~="owner"] {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}

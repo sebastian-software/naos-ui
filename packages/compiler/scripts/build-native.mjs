@@ -6,9 +6,7 @@ import { fileURLToPath } from "node:url"
 const scriptDir = path.dirname(fileURLToPath(import.meta.url))
 const packageDir = process.cwd()
 const repoRoot = path.resolve(scriptDir, "../../..")
-const packageJson = JSON.parse(
-  readFileSync(path.join(packageDir, "package.json"), "utf8")
-)
+const packageJson = JSON.parse(readFileSync(path.join(packageDir, "package.json"), "utf8"))
 
 const targets = {
   "@naos-ui/compiler-darwin-arm64": {
@@ -67,7 +65,7 @@ const forcedTarget = Boolean(process.env.NAOS_CARGO_TARGET)
 
 if (!forcedTarget && (process.platform !== target.platform || process.arch !== target.arch)) {
   console.log(
-    `Skipping native build for ${packageJson.name} on ${process.platform}/${process.arch}`
+    `Skipping native build for ${packageJson.name} on ${process.platform}/${process.arch}`,
   )
   process.exit(0)
 }

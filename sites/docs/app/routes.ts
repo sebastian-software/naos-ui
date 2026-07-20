@@ -14,6 +14,7 @@ export default [
   route("guide/demos", "routes/guide/demos.mdx"),
   route("guide/getting-started", "routes/guide/getting-started.mdx"),
   route("guide/styling-and-dsd", "routes/guide/styling-and-dsd.mdx"),
+  route("guide/testing", "routes/guide/testing.mdx"),
   route("reference/api", "routes/reference/api.mdx"),
   route("reference/packages", "routes/reference/packages.mdx"),
 ] satisfies RouteConfig

@@ -51,9 +51,7 @@ export function NaosCombobox({
   const form = formControl({
     value: () => selected() || null,
     reset: () => {
-      const resetInputValue = value
-        ? labelForNaosComboboxValue(host().element, value)
-        : ""
+      const resetInputValue = value ? labelForNaosComboboxValue(host().element, value) : ""
       selected.set(value)
       input.set(resetInputValue)
       comboboxApi()?.setValue(value ? [value] : [])
@@ -68,29 +66,31 @@ export function NaosCombobox({
     const hostElement = host().element
     const initialInput = value ? labelForNaosComboboxValue(hostElement, value) : ""
     input.set(initialInput)
-    comboboxService.set(createNaosZagComboboxService({
-      disabled,
-      host: hostElement,
-      id: "naos-combobox",
-      inputValue: initialInput,
-      items: collectNaosComboboxItems(hostElement),
-      name,
-      onInputValueChange(nextValue) {
-        input.set(nextValue)
-        inputChanged.emit({ inputValue: nextValue })
-      },
-      onOpenChange(nextOpen) {
-        open.set(nextOpen)
-        opened.emit({ open: nextOpen })
-      },
-      onValueChange(nextValue) {
-        selected.set(nextValue)
-        changed.emit({ value: nextValue })
-      },
-      placeholder,
-      root: host().root,
-      value: selected(),
-    }))
+    comboboxService.set(
+      createNaosZagComboboxService({
+        disabled,
+        host: hostElement,
+        id: "naos-combobox",
+        inputValue: initialInput,
+        items: collectNaosComboboxItems(hostElement),
+        name,
+        onInputValueChange(nextValue) {
+          input.set(nextValue)
+          inputChanged.emit({ inputValue: nextValue })
+        },
+        onOpenChange(nextOpen) {
+          open.set(nextOpen)
+          opened.emit({ open: nextOpen })
+        },
+        onValueChange(nextValue) {
+          selected.set(nextValue)
+          changed.emit({ value: nextValue })
+        },
+        placeholder,
+        root: host().root,
+        value: selected(),
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagComboboxService(comboboxService())

@@ -81,6 +81,40 @@ export type FormControlHandle = {
   readonly formAssociated: true
 }
 
+export type NaosClassValue =
+  | string
+  | number
+  | null
+  | undefined
+  | boolean
+  | readonly NaosClassValue[]
+  | Readonly<Record<string, unknown>>
+
+// Inside compiled components the compiler swaps clx for a generated
+// __naosClx helper (emit_clx_helper in crates/naos-core/src/codegen.rs);
+// semantic changes here must be mirrored there.
+export function clx(...inputs: NaosClassValue[]): string {
+  const classes: string[] = []
+  for (const input of inputs) {
+    if (!input) continue
+    if (typeof input === "string" || typeof input === "number") {
+      classes.push(String(input))
+      continue
+    }
+    if (Array.isArray(input)) {
+      const nested = clx(...input)
+      if (nested) classes.push(nested)
+      continue
+    }
+    if (typeof input === "object") {
+      for (const [name, active] of Object.entries(input)) {
+        if (active) classes.push(name)
+      }
+    }
+  }
+  return classes.join(" ")
+}
+
 export function state<T>(_initialValue: T): StateAccessor<T> {
   return authoringRuntimeError("state")
 }
@@ -115,7 +149,7 @@ export function Index<T>(_props: IndexProps<T>): JSX.Element {
 
 export function on<EventType extends Event = Event>(
   handler: (event: EventType, signal: AbortSignal) => void | Promise<void>,
-  options?: ListenerOptions
+  options?: ListenerOptions,
 ): (event: EventType & { currentTarget: EventTarget }) => void
 export function on(): never {
   return authoringRuntimeError("on")
@@ -125,15 +159,16 @@ export function host<Props extends object = Record<string, unknown>>(): HostHand
   return authoringRuntimeError("host")
 }
 
-export function event<Detail = void>(
-  _name: string,
-  _options?: EventOptions
-): EventEmitter<Detail> {
+export function event<Detail = void>(_name: string, _options?: EventOptions): EventEmitter<Detail> {
   return authoringRuntimeError("event")
 }
 
 export function formControl(_options: FormControlOptions): FormControlHandle {
   return authoringRuntimeError("formControl")
+}
+
+export function inspect(..._values: unknown[]): void {
+  authoringRuntimeError("inspect")
 }
 
 export function onConnected(_callback: () => void): void {
@@ -146,8 +181,8 @@ export function onDisconnected(_callback: () => void): void {
 
 function authoringRuntimeError(apiName: string): never {
   throw new Error(
-    `Naos ${apiName}() can only be used in source files transformed by the Naos compiler.`
+    `Naos ${apiName}() can only be used in source files transformed by the Naos compiler.`,
   )
 }
 
-export type { ElementRef, JSX } from "./jsx-runtime.js"
+export type { ElementRef, JSX, NaosStyleValue } from "./jsx-runtime.js"

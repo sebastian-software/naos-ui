@@ -30,7 +30,7 @@ export function progressValue(
   indeterminate: boolean,
   value: number,
   min: number,
-  max: number
+  max: number,
 ): number | null {
   if (indeterminate) return null
   if (!Number.isFinite(value)) return min
@@ -78,14 +78,12 @@ export function createNaosZagProgressService({
 }
 
 export function getNaosZagProgressApi(
-  service: NaosZagProgressService | null
+  service: NaosZagProgressService | null,
 ): ZagProgressApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagProgressService(
-  service: NaosZagProgressService | null
-) {
+export function stopNaosZagProgressService(service: NaosZagProgressService | null) {
   service?.stop()
 }

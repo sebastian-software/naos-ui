@@ -55,21 +55,23 @@ export function NaosSlider({
   void name
 
   onConnected(() => {
-    sliderService.set(createNaosZagSliderService({
-      disabled,
-      host: host().element,
-      id: "naos-slider",
-      label,
-      max,
-      min,
-      onValueChange(nextValue) {
-        current.set(nextValue)
-        changed.emit({ value: nextValue })
-      },
-      root: host().root,
-      step,
-      value,
-    }))
+    sliderService.set(
+      createNaosZagSliderService({
+        disabled,
+        host: host().element,
+        id: "naos-slider",
+        label,
+        max,
+        min,
+        onValueChange(nextValue) {
+          current.set(nextValue)
+          changed.emit({ value: nextValue })
+        },
+        root: host().root,
+        step,
+        value,
+      }),
+    )
     host().element.addEventListener(
       "keydown",
       (event) => {
@@ -99,7 +101,7 @@ export function NaosSlider({
           api.setValue([max])
         }
       },
-      { signal: host().signal }
+      { signal: host().signal },
     )
   })
   onDisconnected(() => {

@@ -1,0 +1,21 @@
+[package]
+name = "naos-wasm"
+description = "C-ABI WASM wrapper around the Naos Rust compiler core (ADR 0025)."
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+naos-core = { path = "../naos-core" }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+
+[lints]
+workspace = true

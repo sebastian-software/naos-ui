@@ -1,0 +1,92 @@
+---
+title: Testing Components
+description: Mount, flush, and inspect Naos components with @naos-ui/testing.
+order: 5
+---
+
+# Testing Components
+
+`@naos-ui/testing` is the supported harness for component tests. It mounts a
+compiled component, awaits the runtime's microtask flush, drives props and
+attributes, captures typed events, and queries shadow content — including
+named parts, which are the public styling contract.
+
+Earlier repo examples wrote component state into `document.body.dataset.*`
+probe attributes and read them back from Playwright. That pattern is
+superseded: it couples tests to internal wiring and guesses at flush timing.
+Use the harness instead.
+
+## Mounting
+
+```ts
+import { mount } from "@naos-ui/testing"
+import "@naos-ui/primitives/button"
+
+const component = await mount("naos-button", {
+  attrs: { "data-testid": "cta" },
+  props: { label: "Send" },
+})
+
+component.queryPart("control")?.textContent // "Send"
+component.unmount()
+```
+
+`mount()` creates the element (or accepts an existing one), applies initial
+attributes and properties, appends it to a container in `document.body`, and
+resolves after the runtime flush — the component's first render is complete
+when the promise settles.
+
+## Driving Updates
+
+```ts
+await component.setProps({ label: "Submit", variant: "primary" })
+await component.setAttrs({ "aria-label": "Submit", hidden: null })
+```
+
+Both helpers await the flush, so assertions immediately after them observe the
+updated DOM. `null` removes an attribute.
+
+## Scheduling
+
+```ts
+import { flush, nextTick } from "@naos-ui/testing"
+
+await nextTick() // exactly one runtime scheduler turn
+await flush()    // drains cascaded updates
+```
+
+Both are tied to the real runtime scheduler (`scheduleNaosUpdate`), so tests
+never guess with `setTimeout`.
+
+## Events
+
+```ts
+const presses = component.capture<{ variant: string }>("naos-press")
+
+component.queryPart<HTMLButtonElement>("control")?.click()
+
+presses.count              // 1
+presses.last?.detail       // { variant: "primary" }
+```
+
+Captures are typed by their detail payload and disposed automatically on
+`unmount()`. `captureEvents(target, name)` is available for arbitrary targets.
+
+## Queries
+
+* `component.shadow()` — the shadow root (throws for light-DOM components).
+* `component.query(selector)` / `queryAll(selector)` — shadow-first queries.
+* `component.queryPart(name)` — finds `[part~=name]`, piercing nested shadow
+  roots, so tests assert against the public part contract instead of internal
+  markup.
+
+## Environment
+
+The harness runs anywhere Custom Elements and Shadow DOM exist. In Vitest, use
+the `happy-dom` environment:
+
+```ts
+// @vitest-environment happy-dom
+```
+
+or set `--environment happy-dom` on the test script.

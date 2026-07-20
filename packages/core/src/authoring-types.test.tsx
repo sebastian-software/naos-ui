@@ -53,14 +53,9 @@ type FunctionCounterProps = {
   onChange?: (event: CustomEvent<number>) => void
 }
 
-function FunctionCounter({
-  enabled = true,
-  label = "Count",
-  onChange,
-}: FunctionCounterProps = {}) {
+function FunctionCounter({ enabled = true, label = "Count", onChange }: FunctionCounterProps = {}) {
   let buttonRef: HTMLButtonElement | null = null
-  const callbackRef: ElementRef = (element) =>
-    element.setAttribute("data-ref", "typed")
+  const callbackRef: ElementRef = (element) => element.setAttribute("data-ref", "typed")
   void callbackRef
   const count = state(0)
   const doubled = computed(() => count() * 2)
@@ -106,10 +101,13 @@ function FunctionCounter({
   const typedLabel: string | undefined = typedHostHandle.props.label
   void typedLabel
 
-  on((event: MouseEvent, signal) => {
-    event.preventDefault()
-    signal.throwIfAborted()
-  }, { once: true })
+  on(
+    (event: MouseEvent, signal) => {
+      event.preventDefault()
+      signal.throwIfAborted()
+    },
+    { once: true },
+  )
 
   // @ts-expect-error the JSX attribute owns the event name
   on("click", () => undefined)
@@ -133,9 +131,7 @@ function FunctionCounter({
     >
       {label}: {count()}
       <Show when={count() > 0} fallback={<span>Empty</span>}>
-        <span ref={(element) => element.setAttribute("data-ref", "callback")}>
-          {doubled()}
-        </span>
+        <span ref={(element) => element.setAttribute("data-ref", "callback")}>{doubled()}</span>
       </Show>
       <Switch>
         <Match when={count() < 0}>
@@ -161,9 +157,7 @@ function FunctionCounter({
         )}
       </For>
       <Index each={editableItems()}>
-        {(item, index) => (
-          <input data-index={index} value={item()} />
-        )}
+        {(item, index) => <input data-index={index} value={item()} />}
       </Index>
     </button>
   )

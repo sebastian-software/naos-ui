@@ -55,17 +55,19 @@ export function NaosPopover({
   const changed = event<{ open: boolean }>("naos-open-change")
 
   onConnected(() => {
-    popoverService.set(createNaosZagPopoverService({
-      host: host().element,
-      id: "naos-popover",
-      modal,
-      onOpenChange(nextOpen) {
-        expanded.set(nextOpen)
-        changed.emit({ open: nextOpen })
-      },
-      open: expanded(),
-      root: host().root,
-    }))
+    popoverService.set(
+      createNaosZagPopoverService({
+        host: host().element,
+        id: "naos-popover",
+        modal,
+        onOpenChange(nextOpen) {
+          expanded.set(nextOpen)
+          changed.emit({ open: nextOpen })
+        },
+        open: expanded(),
+        root: host().root,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagPopoverService(popoverService())
@@ -86,14 +88,11 @@ export function NaosPopover({
     }
     if (snapshot.phase !== "closing") return
     const content = host().root.querySelector("[part~='content']")
-    return waitForNaosPresenceExit(
-      content instanceof Element ? content : null,
-      () => {
-        if (!expanded()) {
-          presence.set(settleNaosPresenceSnapshot(presence(), false))
-        }
+    return waitForNaosPresenceExit(content instanceof Element ? content : null, () => {
+      if (!expanded()) {
+        presence.set(settleNaosPresenceSnapshot(presence(), false))
       }
-    )
+    })
   })
   effect(() => {
     const api = popoverApi()
@@ -150,10 +149,7 @@ export function NaosPopover({
             <h2 {...(popoverApi()?.getTitleProps() ?? {})} part="title">
               <slot name="title">{title}</slot>
             </h2>
-            <button
-              {...(popoverApi()?.getCloseTriggerProps() ?? {})}
-              part="close"
-            >
+            <button {...(popoverApi()?.getCloseTriggerProps() ?? {})} part="close">
               <slot name="close">Close</slot>
             </button>
           </div>

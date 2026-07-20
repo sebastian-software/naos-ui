@@ -1,0 +1,17 @@
+{
+  "name": "naos-ui",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {}
+  },
+  "postCreateCommand": "corepack enable && corepack prepare pnpm@11.6.0 --activate && pnpm install --frozen-lockfile && pnpm build:native",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "oxc.oxc-vscode",
+        "rust-lang.rust-analyzer"
+      ]
+    }
+  }
+}

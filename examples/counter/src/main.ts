@@ -1,12 +1,15 @@
 import "./demo.css"
 import "@naos-ui/primitives"
+import { autoLayout } from "@naos-ui/motion"
 import { createRouter, defineRoutes, type NaosRouteMatch } from "@naos-ui/router"
 import "./counter.wc.tsx"
 import "./disclosure.wc.tsx"
 import "./effect-lifecycle-list.wc.tsx"
 import "./field.wc.tsx"
 import "./list-reconciler-probe.wc.tsx"
+import "./note-form.wc.tsx"
 import "./reactivity-probe.wc.tsx"
+import "./style-probe.wc.tsx"
 import "./toolbar.wc.tsx"
 import "./toggle.wc.tsx"
 
@@ -73,13 +76,27 @@ class RouterProductView extends HTMLElement {
 
 class RouterSettingsView extends HTMLElement {
   connectedCallback() {
+    if (this.querySelector("[data-naos-router-outlet]")) return
     this.innerHTML = `
       <article class="router-view" data-view="settings">
         <p class="case-kicker">Settings</p>
         <h3>Router settings</h3>
         <p>This view was lazy-loaded before mount.</p>
+        <div data-naos-router-outlet></div>
       </article>
     `
+  }
+}
+
+class RouterSettingsHomeView extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = `<p data-settings-child="home">General settings</p>`
+  }
+}
+
+class RouterSettingsAppearanceView extends HTMLElement {
+  connectedCallback() {
+    this.innerHTML = `<p data-settings-child="appearance">Appearance settings</p>`
   }
 }
 
@@ -97,6 +114,8 @@ class RouterNotFoundView extends HTMLElement {
 
 declare global {
   interface HTMLElementTagNameMap {
+    "router-settings-home-view": RouterSettingsHomeView
+    "router-settings-appearance-view": RouterSettingsAppearanceView
     "router-home-view": RouterHomeView
     "router-not-found-view": RouterNotFoundView
     "router-product-view": RouterProductView
@@ -117,6 +136,12 @@ if (!customElements.get("router-product-view")) {
 if (!customElements.get("router-settings-view")) {
   customElements.define("router-settings-view", RouterSettingsView)
 }
+if (!customElements.get("router-settings-home-view")) {
+  customElements.define("router-settings-home-view", RouterSettingsHomeView)
+}
+if (!customElements.get("router-settings-appearance-view")) {
+  customElements.define("router-settings-appearance-view", RouterSettingsAppearanceView)
+}
 if (!customElements.get("router-not-found-view")) {
   customElements.define("router-not-found-view", RouterNotFoundView)
 }
@@ -136,6 +161,8 @@ if (routerOutlet && routerSection) {
       load: async () => Promise.resolve(),
       loader({ params, search }) {
         const id = params.id ?? "unknown"
+        const previousRuns = Number(document.body.dataset.routerLoaderRuns ?? "0")
+        document.body.dataset.routerLoaderRuns = String(previousRuns + 1)
         return {
           inventory: search.get("tab") === "details" ? "18 units ready" : "summary hidden",
           label: `Product ${id}`,
@@ -162,6 +189,18 @@ if (routerOutlet && routerSection) {
       tag: "router-settings-view",
       focusTarget: "h3",
       load: async () => Promise.resolve(),
+      meta: { description: "Naos router demo settings" },
+      children: [
+        { path: "/", tag: "router-settings-home-view" },
+        {
+          path: "appearance",
+          tag: "router-settings-appearance-view",
+          meta: {
+            tags: [{ content: "appearance", name: "naos-demo-section" }],
+            title: "Appearance - Naos demos",
+          },
+        },
+      ],
     },
   ] as const)
 
@@ -179,11 +218,22 @@ if (routerOutlet && routerSection) {
     const routePath = anchor.dataset.routerTo
     if (!routePath) continue
     if (routePath === "/products/:id") {
-      anchor.href = router.href(routePath, { id: "42" }, {
-        search: { tab: "details" },
-      })
+      anchor.href = router.href(
+        routePath,
+        { id: "42" },
+        {
+          search: { tab: "details" },
+        },
+      )
     } else {
       anchor.href = router.href(routePath as "/" | "/settings")
+    }
+  }
+  for (const anchor of routerSection.querySelectorAll<HTMLAnchorElement>(
+    "[data-router-child-to]",
+  )) {
+    if (anchor.dataset.routerChildTo === "/settings/appearance") {
+      anchor.href = `${router.href("/settings")}/appearance`
     }
   }
 
@@ -222,7 +272,7 @@ function escapeHtml(value: string): string {
         return "&lt;"
       case ">":
         return "&gt;"
-      case "\"":
+      case '"':
         return "&quot;"
       case "'":
         return "&#39;"
@@ -369,10 +419,7 @@ if (primitiveForm instanceof HTMLFormElement) {
   primitiveForm.addEventListener("submit", (event) => {
     event.preventDefault()
     const entries = [...new FormData(primitiveForm).entries()]
-    const value =
-      entries.length > 0
-        ? entries.map(formatEntry).join(", ")
-        : "none"
+    const value = entries.length > 0 ? entries.map(formatEntry).join(", ") : "none"
     document.body.dataset.lastPrimitiveForm = value
     if (primitiveFormEvent) {
       primitiveFormEvent.textContent = `Last primitive form data: ${value}`
@@ -382,14 +429,33 @@ if (primitiveForm instanceof HTMLFormElement) {
   primitiveForm.addEventListener("reset", () => {
     setTimeout(() => {
       const entries = [...new FormData(primitiveForm).entries()]
-      const value =
-        entries.length > 0
-          ? entries.map(formatEntry).join(", ")
-          : "none"
+      const value = entries.length > 0 ? entries.map(formatEntry).join(", ") : "none"
       document.body.dataset.lastPrimitiveForm = value
       if (primitiveFormEvent) {
         primitiveFormEvent.textContent = `Last primitive form data: ${value}`
       }
     }, 50)
+  })
+}
+
+const autoLayoutList = document.querySelector("#auto-layout-list")
+const autoLayoutRotate = document.querySelector("#auto-layout-rotate")
+const autoLayoutAdd = document.querySelector("#auto-layout-add")
+
+if (autoLayoutList instanceof HTMLElement) {
+  const disposeAutoLayout = autoLayout(autoLayoutList, { enter: "fade" })
+  window.addEventListener("pagehide", disposeAutoLayout, { once: true })
+
+  autoLayoutRotate?.addEventListener("click", () => {
+    const firstItem = autoLayoutList.firstElementChild
+    if (firstItem) autoLayoutList.append(firstItem)
+  })
+
+  autoLayoutAdd?.addEventListener("click", () => {
+    const item = document.createElement("li")
+    const index = autoLayoutList.children.length + 1
+    item.dataset.autoLayoutItem = `item-${index}`
+    item.textContent = `Item ${index}`
+    autoLayoutList.append(item)
   })
 }

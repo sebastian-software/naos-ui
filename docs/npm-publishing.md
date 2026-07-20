@@ -13,15 +13,20 @@ verified by `pnpm check-release-set`:
 | npm package | Workspace path |
 | --- | --- |
 | `@naos-ui/core` | `packages/core` |
+| `@naos-ui/actions` | `packages/actions` |
 | `@naos-ui/data` | `packages/data` |
 | `@naos-ui/data-convex` | `packages/data-convex` |
 | `@naos-ui/motion` | `packages/motion` |
 | `@naos-ui/runtime` | `packages/runtime` |
 | `@naos-ui/primitives` | `packages/primitives` |
 | `@naos-ui/router` | `packages/router` |
+| `@naos-ui/testing` | `packages/testing` |
 | `@naos-ui/compiler` | `packages/compiler` |
+| `@naos-ui/compiler-wasm` | `packages/compiler-wasm` |
 | `@naos-ui/vite` | `packages/vite` |
+| `@naos-ui/unplugin` | `packages/unplugin` |
 | `@naos-ui/cli` | `packages/cli` |
+| `create-naos` | `packages/create-naos` |
 | `@naos-ui/compiler-linux-x64-gnu` | `packages/compiler-linux-x64-gnu` |
 | `@naos-ui/compiler-linux-arm64-gnu` | `packages/compiler-linux-arm64-gnu` |
 | `@naos-ui/compiler-linux-x64-musl` | `packages/compiler-linux-x64-musl` |

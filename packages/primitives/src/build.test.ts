@@ -1,26 +1,25 @@
-import { readFileSync } from "node:fs"
+import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
 import { describe, expect, it } from "vitest"
+import ts from "typescript"
 
 const distRoot = join(import.meta.dirname, "..", "dist")
 const { version: packageVersion } = JSON.parse(
-  readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8")
+  readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8"),
 ) as { version: string }
 
 describe("@naos-ui/primitives build output", () => {
   it("ships compiled component modules without Vite-only CSS imports", () => {
     const button = readFileSync(join(distRoot, "button.mjs"), "utf8")
 
-    expect(button).toContain("customElements.define(\"naos-button\"")
+    expect(button).toContain('customElements.define("naos-button"')
     expect(button).toContain("const css =")
     expect(button).not.toContain("?inline")
   })
 
   it("ships a package-stable component manifest", () => {
-    const manifest = JSON.parse(
-      readFileSync(join(distRoot, "naos-manifest.json"), "utf8")
-    ) as {
+    const manifest = JSON.parse(readFileSync(join(distRoot, "naos-manifest.json"), "utf8")) as {
       schemaVersion: number
       package: { name: string; tagPrefix: string; version: string | null }
       components: Array<{ importPath: string; tagName: string }>
@@ -36,57 +35,57 @@ describe("@naos-ui/primitives build output", () => {
       expect.objectContaining({
         importPath: "src/button.wc.tsx",
         tagName: "naos-button",
-      })
+      }),
     )
   })
 
   it("exports every first-version primitive from the package entry", () => {
     const index = readFileSync(join(distRoot, "index.mjs"), "utf8")
 
-    expect(index).toContain("export * from \"./accordion.mjs\"")
-    expect(index).toContain("export * from \"./accordion-item.mjs\"")
-    expect(index).toContain("export * from \"./avatar.mjs\"")
-    expect(index).toContain("export * from \"./button.mjs\"")
-    expect(index).toContain("export * from \"./button-group.mjs\"")
-    expect(index).toContain("export * from \"./checkbox.mjs\"")
-    expect(index).toContain("export * from \"./collapsible.mjs\"")
-    expect(index).toContain("export * from \"./combobox.mjs\"")
-    expect(index).toContain("export * from \"./combobox-item.mjs\"")
-    expect(index).toContain("export * from \"./context-menu.mjs\"")
-    expect(index).toContain("export * from \"./date-picker.mjs\"")
-    expect(index).toContain("export * from \"./dialog.mjs\"")
-    expect(index).toContain("export * from \"./editable.mjs\"")
-    expect(index).toContain("export * from \"./dropdown.mjs\"")
-    expect(index).toContain("export * from \"./field.mjs\"")
-    expect(index).toContain("export * from \"./file-upload.mjs\"")
-    expect(index).toContain("export * from \"./hover-card.mjs\"")
-    expect(index).toContain("export * from \"./listbox.mjs\"")
-    expect(index).toContain("export * from \"./listbox-item.mjs\"")
-    expect(index).toContain("export * from \"./menu.mjs\"")
-    expect(index).toContain("export * from \"./menu-item.mjs\"")
-    expect(index).toContain("export * from \"./number-input.mjs\"")
-    expect(index).toContain("export * from \"./pin-input.mjs\"")
-    expect(index).toContain("export * from \"./popover.mjs\"")
-    expect(index).toContain("export * from \"./progress.mjs\"")
-    expect(index).toContain("export * from \"./radio.mjs\"")
-    expect(index).toContain("export * from \"./radio-group.mjs\"")
-    expect(index).toContain("export * from \"./rating-group.mjs\"")
-    expect(index).toContain("export * from \"./segmented-control.mjs\"")
-    expect(index).toContain("export * from \"./segmented-item.mjs\"")
-    expect(index).toContain("export * from \"./select.mjs\"")
-    expect(index).toContain("export * from \"./select-item.mjs\"")
-    expect(index).toContain("export * from \"./slider.mjs\"")
-    expect(index).toContain("export * from \"./switch.mjs\"")
-    expect(index).toContain("export * from \"./tab.mjs\"")
-    expect(index).toContain("export * from \"./tab-panel.mjs\"")
-    expect(index).toContain("export * from \"./tabs.mjs\"")
-    expect(index).toContain("export * from \"./tags-input.mjs\"")
-    expect(index).toContain("export * from \"./tooltip.mjs\"")
-    expect(index).toContain("export * from \"./toast.mjs\"")
-    expect(index).toContain("export * from \"./toast-root.mjs\"")
-    expect(index).toContain("export * from \"./toggle.mjs\"")
-    expect(index).toContain("export * from \"./toggle-group.mjs\"")
-    expect(index).toContain("export * from \"./toggle-item.mjs\"")
+    expect(index).toContain('export * from "./accordion.mjs"')
+    expect(index).toContain('export * from "./accordion-item.mjs"')
+    expect(index).toContain('export * from "./avatar.mjs"')
+    expect(index).toContain('export * from "./button.mjs"')
+    expect(index).toContain('export * from "./button-group.mjs"')
+    expect(index).toContain('export * from "./checkbox.mjs"')
+    expect(index).toContain('export * from "./collapsible.mjs"')
+    expect(index).toContain('export * from "./combobox.mjs"')
+    expect(index).toContain('export * from "./combobox-item.mjs"')
+    expect(index).toContain('export * from "./context-menu.mjs"')
+    expect(index).toContain('export * from "./date-picker.mjs"')
+    expect(index).toContain('export * from "./dialog.mjs"')
+    expect(index).toContain('export * from "./editable.mjs"')
+    expect(index).toContain('export * from "./dropdown.mjs"')
+    expect(index).toContain('export * from "./field.mjs"')
+    expect(index).toContain('export * from "./file-upload.mjs"')
+    expect(index).toContain('export * from "./hover-card.mjs"')
+    expect(index).toContain('export * from "./listbox.mjs"')
+    expect(index).toContain('export * from "./listbox-item.mjs"')
+    expect(index).toContain('export * from "./menu.mjs"')
+    expect(index).toContain('export * from "./menu-item.mjs"')
+    expect(index).toContain('export * from "./number-input.mjs"')
+    expect(index).toContain('export * from "./pin-input.mjs"')
+    expect(index).toContain('export * from "./popover.mjs"')
+    expect(index).toContain('export * from "./progress.mjs"')
+    expect(index).toContain('export * from "./radio.mjs"')
+    expect(index).toContain('export * from "./radio-group.mjs"')
+    expect(index).toContain('export * from "./rating-group.mjs"')
+    expect(index).toContain('export * from "./segmented-control.mjs"')
+    expect(index).toContain('export * from "./segmented-item.mjs"')
+    expect(index).toContain('export * from "./select.mjs"')
+    expect(index).toContain('export * from "./select-item.mjs"')
+    expect(index).toContain('export * from "./slider.mjs"')
+    expect(index).toContain('export * from "./switch.mjs"')
+    expect(index).toContain('export * from "./tab.mjs"')
+    expect(index).toContain('export * from "./tab-panel.mjs"')
+    expect(index).toContain('export * from "./tabs.mjs"')
+    expect(index).toContain('export * from "./tags-input.mjs"')
+    expect(index).toContain('export * from "./tooltip.mjs"')
+    expect(index).toContain('export * from "./toast.mjs"')
+    expect(index).toContain('export * from "./toast-root.mjs"')
+    expect(index).toContain('export * from "./toggle.mjs"')
+    expect(index).toContain('export * from "./toggle-group.mjs"')
+    expect(index).toContain('export * from "./toggle-item.mjs"')
   })
 
   it("keeps primitive behavior kernels private but available to compiled components", () => {
@@ -103,17 +102,17 @@ describe("@naos-ui/primitives build output", () => {
     expect(dialog).toContain(".naos-motion-presence-spring-snappy")
     expect(dialog).toContain("--naos-presence-motion-duration: ")
     expect(dialog).toContain("--naos-presence-motion-easing: linear(")
-    expect(dialog).not.toContain("style: \"--naos-presence-motion-duration")
-    expect(dropdown).toContain("from \"./internal/behavior/disclosure.js\"")
-    expect(hoverCardComponent).toContain("from \"./internal/behavior/presence.js\"")
+    expect(dialog).not.toContain('style: "--naos-presence-motion-duration')
+    expect(dropdown).toContain('from "./internal/behavior/disclosure.js"')
+    expect(hoverCardComponent).toContain('from "./internal/behavior/presence.js"')
     expect(hoverCardComponent).toContain("getNaosPresenceMotionAttributes")
-    expect(popover).toContain("from \"./internal/behavior/overlay.js\"")
-    expect(popover).toContain("from \"./internal/behavior/presence.js\"")
-    expect(tooltipComponent).toContain("from \"./internal/behavior/presence.js\"")
+    expect(popover).toContain('from "./internal/behavior/overlay.js"')
+    expect(popover).toContain('from "./internal/behavior/presence.js"')
+    expect(tooltipComponent).toContain('from "./internal/behavior/presence.js"')
     expect(context).toContain("context-request")
     expect(context).toContain("createNaosContext")
     expect(overlay).toContain("getNaosOverlayStateAttributes")
-    expect(presence).toContain("from \"@naos-ui/motion\"")
+    expect(presence).toContain('from "@naos-ui/motion"')
     expect(presence).toContain("springMotionTokenClassName")
     expect(presence).not.toContain("--naos-presence-motion-duration")
     expect(presence).not.toContain("--naos-presence-motion-easing")
@@ -145,7 +144,10 @@ describe("@naos-ui/primitives build output", () => {
     const service = readFileSync(join(distRoot, "internal", "zag", "service.js"), "utf8")
     const props = readFileSync(join(distRoot, "internal", "zag", "props.js"), "utf8")
     const scope = readFileSync(join(distRoot, "internal", "zag", "scope.js"), "utf8")
-    const segmentedControl = readFileSync(join(distRoot, "internal", "zag", "segmented-control.js"), "utf8")
+    const segmentedControl = readFileSync(
+      join(distRoot, "internal", "zag", "segmented-control.js"),
+      "utf8",
+    )
     const select = readFileSync(join(distRoot, "internal", "zag", "select.js"), "utf8")
     const slider = readFileSync(join(distRoot, "internal", "zag", "slider.js"), "utf8")
     const switchAdapter = readFileSync(join(distRoot, "internal", "zag", "switch.js"), "utf8")
@@ -209,23 +211,23 @@ describe("@naos-ui/primitives build output", () => {
     const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
     const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")
 
-    expect(checkbox).toContain("from \"./internal/zag/checkbox.js\"")
+    expect(checkbox).toContain('from "./internal/zag/checkbox.js"')
     expect(checkbox).toContain("createNaosZagCheckboxService")
     expect(checkbox).toContain("#applySpreadAttributes")
-    expect(checkbox).not.toContain("from \"./internal/behavior/checkbox.js\"")
+    expect(checkbox).not.toContain('from "./internal/behavior/checkbox.js"')
     expect(checkbox).not.toContain("type NaosZagCheckboxService")
 
-    expect(toggle).toContain("from \"./internal/zag/toggle.js\"")
+    expect(toggle).toContain('from "./internal/zag/toggle.js"')
     expect(toggle).toContain("createNaosZagToggleService")
     expect(toggle).toContain("#applySpreadAttributes")
-    expect(toggle).not.toContain("from \"./internal/behavior/toggle.js\"")
+    expect(toggle).not.toContain('from "./internal/behavior/toggle.js"')
     expect(toggle).not.toContain("type NaosZagToggleService")
   })
 
   it("backs accordion with the private Zag adapter", () => {
     const accordion = readFileSync(join(distRoot, "accordion.mjs"), "utf8")
 
-    expect(accordion).toContain("from \"./internal/zag/accordion.js\"")
+    expect(accordion).toContain('from "./internal/zag/accordion.js"')
     expect(accordion).toContain("createNaosZagAccordionService")
     expect(accordion).toContain("syncNaosAccordionItems")
     expect(accordion).toContain("#applySpreadAttributes")
@@ -236,7 +238,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs avatar with the private Zag adapter", () => {
     const avatar = readFileSync(join(distRoot, "avatar.mjs"), "utf8")
 
-    expect(avatar).toContain("from \"./internal/zag/avatar.js\"")
+    expect(avatar).toContain('from "./internal/zag/avatar.js"')
     expect(avatar).toContain("createNaosZagAvatarService")
     expect(avatar).toContain("#applySpreadAttributes")
     expect(avatar).not.toContain("@naos-ui/core")
@@ -246,18 +248,18 @@ describe("@naos-ui/primitives build output", () => {
   it("backs tabs with the private Zag adapter", () => {
     const tabs = readFileSync(join(distRoot, "tabs.mjs"), "utf8")
 
-    expect(tabs).toContain("from \"./internal/zag/tabs.js\"")
+    expect(tabs).toContain('from "./internal/zag/tabs.js"')
     expect(tabs).toContain("createNaosZagTabsService")
     expect(tabs).toContain("syncNaosTabsItems")
     expect(tabs).toContain("#applySpreadAttributes")
-    expect(tabs).not.toContain("from \"./internal/behavior/tabs.js\"")
+    expect(tabs).not.toContain('from "./internal/behavior/tabs.js"')
     expect(tabs).not.toContain("type NaosZagTabsService")
   })
 
   it("backs radio group with the private Zag adapter", () => {
     const radioGroup = readFileSync(join(distRoot, "radio-group.mjs"), "utf8")
 
-    expect(radioGroup).toContain("from \"./internal/zag/radio-group.js\"")
+    expect(radioGroup).toContain('from "./internal/zag/radio-group.js"')
     expect(radioGroup).toContain("createNaosZagRadioGroupService")
     expect(radioGroup).toContain("createNaosRadioGroupContextController")
     expect(radioGroup).toContain("#applySpreadAttributes")
@@ -268,7 +270,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs rating group with the private Zag adapter", () => {
     const ratingGroup = readFileSync(join(distRoot, "rating-group.mjs"), "utf8")
 
-    expect(ratingGroup).toContain("from \"./internal/zag/rating-group.js\"")
+    expect(ratingGroup).toContain('from "./internal/zag/rating-group.js"')
     expect(ratingGroup).toContain("createNaosZagRatingGroupService")
     expect(ratingGroup).toContain("#applySpreadAttributes")
     expect(ratingGroup).toContain("static formAssociated = true;")
@@ -279,7 +281,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs segmented control with the private Zag adapter", () => {
     const segmentedControl = readFileSync(join(distRoot, "segmented-control.mjs"), "utf8")
 
-    expect(segmentedControl).toContain("from \"./internal/zag/segmented-control.js\"")
+    expect(segmentedControl).toContain('from "./internal/zag/segmented-control.js"')
     expect(segmentedControl).toContain("createNaosZagSegmentedControlService")
     expect(segmentedControl).toContain("syncNaosSegmentedItems")
     expect(segmentedControl).toContain("#applySpreadAttributes")
@@ -290,7 +292,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs select with the private Zag adapter", () => {
     const select = readFileSync(join(distRoot, "select.mjs"), "utf8")
 
-    expect(select).toContain("from \"./internal/zag/select.js\"")
+    expect(select).toContain('from "./internal/zag/select.js"')
     expect(select).toContain("createNaosZagSelectService")
     expect(select).toContain("syncNaosSelectItems")
     expect(select).toContain("#applySpreadAttributes")
@@ -301,7 +303,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs listbox with the private Zag adapter", () => {
     const listbox = readFileSync(join(distRoot, "listbox.mjs"), "utf8")
 
-    expect(listbox).toContain("from \"./internal/zag/listbox.js\"")
+    expect(listbox).toContain('from "./internal/zag/listbox.js"')
     expect(listbox).toContain("createNaosZagListboxService")
     expect(listbox).toContain("syncNaosListboxItems")
     expect(listbox).toContain("listboxFormValue")
@@ -313,7 +315,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs combobox with the private Zag adapter", () => {
     const combobox = readFileSync(join(distRoot, "combobox.mjs"), "utf8")
 
-    expect(combobox).toContain("from \"./internal/zag/combobox.js\"")
+    expect(combobox).toContain('from "./internal/zag/combobox.js"')
     expect(combobox).toContain("createNaosZagComboboxService")
     expect(combobox).toContain("syncNaosComboboxItems")
     expect(combobox).toContain("#applySpreadAttributes")
@@ -324,7 +326,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs date picker with the private Zag adapter", () => {
     const datePicker = readFileSync(join(distRoot, "date-picker.mjs"), "utf8")
 
-    expect(datePicker).toContain("from \"./internal/zag/date-picker.js\"")
+    expect(datePicker).toContain('from "./internal/zag/date-picker.js"')
     expect(datePicker).toContain("createNaosZagDatePickerService")
     expect(datePicker).toContain("datePickerFormValue")
     expect(datePicker).toContain("#applySpreadAttributes")
@@ -336,7 +338,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs editable with the private Zag adapter", () => {
     const editable = readFileSync(join(distRoot, "editable.mjs"), "utf8")
 
-    expect(editable).toContain("from \"./internal/zag/editable.js\"")
+    expect(editable).toContain('from "./internal/zag/editable.js"')
     expect(editable).toContain("createNaosZagEditableService")
     expect(editable).toContain("editableFormValue")
     expect(editable).toContain("#applySpreadAttributes")
@@ -348,7 +350,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs menu with the private Zag adapter", () => {
     const menu = readFileSync(join(distRoot, "menu.mjs"), "utf8")
 
-    expect(menu).toContain("from \"./internal/zag/menu.js\"")
+    expect(menu).toContain('from "./internal/zag/menu.js"')
     expect(menu).toContain("createNaosZagMenuService")
     expect(menu).toContain("syncNaosMenuItems")
     expect(menu).toContain("#applySpreadAttributes")
@@ -359,7 +361,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs context menu with the private Zag menu adapter", () => {
     const contextMenu = readFileSync(join(distRoot, "context-menu.mjs"), "utf8")
 
-    expect(contextMenu).toContain("from \"./internal/zag/menu.js\"")
+    expect(contextMenu).toContain('from "./internal/zag/menu.js"')
     expect(contextMenu).toContain("createNaosZagMenuService")
     expect(contextMenu).toContain("getContextTriggerProps")
     expect(contextMenu).toContain("#applySpreadAttributes")
@@ -370,7 +372,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs number input with the private Zag adapter", () => {
     const numberInput = readFileSync(join(distRoot, "number-input.mjs"), "utf8")
 
-    expect(numberInput).toContain("from \"./internal/zag/number-input.js\"")
+    expect(numberInput).toContain('from "./internal/zag/number-input.js"')
     expect(numberInput).toContain("createNaosZagNumberInputService")
     expect(numberInput).toContain("#applySpreadAttributes")
     expect(numberInput).toContain("static formAssociated = true;")
@@ -381,7 +383,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs pin input with the private Zag adapter", () => {
     const pinInput = readFileSync(join(distRoot, "pin-input.mjs"), "utf8")
 
-    expect(pinInput).toContain("from \"./internal/zag/pin-input.js\"")
+    expect(pinInput).toContain('from "./internal/zag/pin-input.js"')
     expect(pinInput).toContain("createNaosZagPinInputService")
     expect(pinInput).toContain("#applySpreadAttributes")
     expect(pinInput).toContain("static formAssociated = true;")
@@ -394,7 +396,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs slider with the private Zag adapter", () => {
     const slider = readFileSync(join(distRoot, "slider.mjs"), "utf8")
 
-    expect(slider).toContain("from \"./internal/zag/slider.js\"")
+    expect(slider).toContain('from "./internal/zag/slider.js"')
     expect(slider).toContain("createNaosZagSliderService")
     expect(slider).toContain("#applySpreadAttributes")
     expect(slider).toContain("static formAssociated = true;")
@@ -405,7 +407,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs dialog with the private Zag adapter", () => {
     const dialog = readFileSync(join(distRoot, "dialog.mjs"), "utf8")
 
-    expect(dialog).toContain("from \"./internal/zag/dialog.js\"")
+    expect(dialog).toContain('from "./internal/zag/dialog.js"')
     expect(dialog).toContain("createNaosZagDialogService")
     expect(dialog).toContain("#applySpreadAttributes")
     expect(dialog).not.toContain("@naos-ui/core")
@@ -415,7 +417,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs collapsible with the private Zag adapter", () => {
     const collapsible = readFileSync(join(distRoot, "collapsible.mjs"), "utf8")
 
-    expect(collapsible).toContain("from \"./internal/zag/collapsible.js\"")
+    expect(collapsible).toContain('from "./internal/zag/collapsible.js"')
     expect(collapsible).toContain("createNaosZagCollapsibleService")
     expect(collapsible).toContain("#applySpreadAttributes")
     expect(collapsible).not.toContain("@naos-ui/core")
@@ -425,7 +427,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs popover with the private Zag adapter", () => {
     const popover = readFileSync(join(distRoot, "popover.mjs"), "utf8")
 
-    expect(popover).toContain("from \"./internal/zag/popover.js\"")
+    expect(popover).toContain('from "./internal/zag/popover.js"')
     expect(popover).toContain("createNaosZagPopoverService")
     expect(popover).toContain("#applySpreadAttributes")
     expect(popover).not.toContain("@naos-ui/core")
@@ -435,7 +437,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs progress with the private Zag adapter", () => {
     const progress = readFileSync(join(distRoot, "progress.mjs"), "utf8")
 
-    expect(progress).toContain("from \"./internal/zag/progress.js\"")
+    expect(progress).toContain('from "./internal/zag/progress.js"')
     expect(progress).toContain("createNaosZagProgressService")
     expect(progress).toContain("#applySpreadAttributes")
     expect(progress).not.toContain("@naos-ui/core")
@@ -445,7 +447,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs tooltip with the private Zag adapter", () => {
     const tooltip = readFileSync(join(distRoot, "tooltip.mjs"), "utf8")
 
-    expect(tooltip).toContain("from \"./internal/zag/tooltip.js\"")
+    expect(tooltip).toContain('from "./internal/zag/tooltip.js"')
     expect(tooltip).toContain("createNaosZagTooltipService")
     expect(tooltip).toContain("#applySpreadAttributes")
     expect(tooltip).not.toContain("@naos-ui/core")
@@ -456,10 +458,10 @@ describe("@naos-ui/primitives build output", () => {
     const toast = readFileSync(join(distRoot, "toast.mjs"), "utf8")
     const toastRoot = readFileSync(join(distRoot, "toast-root.mjs"), "utf8")
 
-    expect(toast).toContain("from \"./internal/zag/toast.js\"")
+    expect(toast).toContain('from "./internal/zag/toast.js"')
     expect(toast).toContain("createNaosToast")
     expect(toast).not.toContain("@naos-ui/core")
-    expect(toastRoot).toContain("from \"./internal/zag/toast.js\"")
+    expect(toastRoot).toContain('from "./internal/zag/toast.js"')
     expect(toastRoot).toContain("createNaosZagToastGroupService")
     expect(toastRoot).toContain("syncNaosToastServices")
     expect(toastRoot).toContain("#applySpreadAttributes")
@@ -470,7 +472,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs hover card with the private Zag adapter", () => {
     const hoverCard = readFileSync(join(distRoot, "hover-card.mjs"), "utf8")
 
-    expect(hoverCard).toContain("from \"./internal/zag/hover-card.js\"")
+    expect(hoverCard).toContain('from "./internal/zag/hover-card.js"')
     expect(hoverCard).toContain("createNaosZagHoverCardService")
     expect(hoverCard).toContain("#applySpreadAttributes")
     expect(hoverCard).not.toContain("@naos-ui/core")
@@ -480,7 +482,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs file upload with the private Zag adapter", () => {
     const fileUpload = readFileSync(join(distRoot, "file-upload.mjs"), "utf8")
 
-    expect(fileUpload).toContain("from \"./internal/zag/file-upload.js\"")
+    expect(fileUpload).toContain('from "./internal/zag/file-upload.js"')
     expect(fileUpload).toContain("createNaosZagFileUploadService")
     expect(fileUpload).toContain("#applySpreadAttributes")
     expect(fileUpload).toContain("static formAssociated = true;")
@@ -491,7 +493,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs toggle group with the private Zag adapter", () => {
     const toggleGroup = readFileSync(join(distRoot, "toggle-group.mjs"), "utf8")
 
-    expect(toggleGroup).toContain("from \"./internal/zag/toggle-group.js\"")
+    expect(toggleGroup).toContain('from "./internal/zag/toggle-group.js"')
     expect(toggleGroup).toContain("createNaosZagToggleGroupService")
     expect(toggleGroup).toContain("syncNaosToggleGroupItems")
     expect(toggleGroup).toContain("toggleGroupFormValue")
@@ -503,7 +505,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs switch with the private Zag adapter", () => {
     const switchComponent = readFileSync(join(distRoot, "switch.mjs"), "utf8")
 
-    expect(switchComponent).toContain("from \"./internal/zag/switch.js\"")
+    expect(switchComponent).toContain('from "./internal/zag/switch.js"')
     expect(switchComponent).toContain("createNaosZagSwitchService")
     expect(switchComponent).toContain("#applySpreadAttributes")
     expect(switchComponent).toContain("static formAssociated = true;")
@@ -514,7 +516,7 @@ describe("@naos-ui/primitives build output", () => {
   it("backs tags input with the private Zag adapter", () => {
     const tagsInput = readFileSync(join(distRoot, "tags-input.mjs"), "utf8")
 
-    expect(tagsInput).toContain("from \"./internal/zag/tags-input.js\"")
+    expect(tagsInput).toContain('from "./internal/zag/tags-input.js"')
     expect(tagsInput).toContain("createNaosZagTagsInputService")
     expect(tagsInput).toContain("#applySpreadAttributes")
     expect(tagsInput).toContain("static formAssociated = true;")
@@ -542,7 +544,25 @@ describe("@naos-ui/primitives build output", () => {
     const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")
     const toggleGroup = readFileSync(join(distRoot, "toggle-group.mjs"), "utf8")
 
-    for (const source of [checkbox, combobox, datePicker, editable, fileUpload, listbox, numberInput, pinInput, radioGroup, ratingGroup, segmentedControl, select, slider, switchComponent, tagsInput, toggle, toggleGroup]) {
+    for (const source of [
+      checkbox,
+      combobox,
+      datePicker,
+      editable,
+      fileUpload,
+      listbox,
+      numberInput,
+      pinInput,
+      radioGroup,
+      ratingGroup,
+      segmentedControl,
+      select,
+      slider,
+      switchComponent,
+      tagsInput,
+      toggle,
+      toggleGroup,
+    ]) {
       expect(source).toContain("static formAssociated = true")
       expect(source).toContain("this.#internals = this.attachInternals()")
       expect(source).toContain("this.#internals.setFormValue")
@@ -555,9 +575,70 @@ describe("@naos-ui/primitives build output", () => {
     const dropdown = readFileSync(join(distRoot, "dropdown.mjs"), "utf8")
     const tabs = readFileSync(join(distRoot, "tabs.mjs"), "utf8")
 
-    expect(dropdown).toContain("addEventListener(\"keydown\"")
-    expect(tabs).toContain("\"key-down\": \"keydown\"")
-    expect(dropdown).not.toContain("addEventListener(\"key-down\"")
-    expect(tabs).not.toContain("addEventListener(\"key-down\"")
+    expect(dropdown).toContain('addEventListener("keydown"')
+    expect(tabs).toContain('"key-down": "keydown"')
+    expect(dropdown).not.toContain('addEventListener("key-down"')
+    expect(tabs).not.toContain('addEventListener("key-down"')
+  })
+
+  it("ships element declarations with typed props, events, and tag names", () => {
+    const toggle = readFileSync(join(distRoot, "toggle.d.mts"), "utf8")
+
+    expect(toggle).toContain("export declare class NaosToggleElement extends HTMLElement {")
+    expect(toggle).toContain("pressed: boolean;")
+    expect(toggle).toContain("label: string;")
+    expect(toggle).toContain('"naos-change": CustomEvent<{ pressed: boolean }>;')
+    expect(toggle).toContain('"naos-toggle": NaosToggleElement;')
+  })
+
+  it("type-checks a consumer against the generated element declarations", () => {
+    const consumerPath = join(distRoot, "__type-probe.ts")
+    const consumerSource = `
+      const created = document.createElement("naos-toggle")
+      created.pressed = true
+      created.label = "Power"
+      created.addEventListener("naos-change", (event) => {
+        const pressed: boolean = event.detail.pressed
+        void pressed
+      })
+      // @ts-expect-error - pressed is a boolean prop
+      created.pressed = "yes"
+      // @ts-expect-error - label is a string prop
+      created.label = 5
+
+      const queried = document.querySelector("naos-toggle")
+      if (queried) {
+        const label: string = queried.label
+        void label
+      }
+    `
+
+    // index.d.mts only re-exports "./*.mjs" specifiers, which do not resolve
+    // in this bare compiler-API program; the element declarations are the
+    // files under test.
+    const declarationFiles = readdirSync(distRoot)
+      .filter((file) => file.endsWith(".d.mts") && file !== "index.d.mts")
+      .map((file) => join(distRoot, file))
+    const options: ts.CompilerOptions = {
+      lib: ["lib.dom.d.ts", "lib.es2023.d.ts"],
+      noEmit: true,
+      skipLibCheck: true,
+      strict: true,
+      target: ts.ScriptTarget.ES2023,
+    }
+    const host = ts.createCompilerHost(options)
+    const defaultReadFile = host.readFile.bind(host)
+    const defaultFileExists = host.fileExists.bind(host)
+    host.readFile = (fileName) =>
+      fileName === consumerPath ? consumerSource : defaultReadFile(fileName)
+    host.fileExists = (fileName) => (fileName === consumerPath ? true : defaultFileExists(fileName))
+
+    const program = ts.createProgram([...declarationFiles, consumerPath], options, host)
+    const diagnostics = ts.getPreEmitDiagnostics(program)
+    const messages = diagnostics.map((diagnostic) =>
+      ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n"),
+    )
+
+    expect(messages).toEqual([])
   })
 })

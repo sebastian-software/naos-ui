@@ -82,7 +82,7 @@ export async function runCli(
   io: CliIo = {
     stderr: process.stderr,
     stdout: process.stdout,
-  }
+  },
 ): Promise<number> {
   const cwd = io.cwd ?? process.cwd()
   const [command, ...args] = argv
@@ -116,11 +116,7 @@ export async function runCli(
   }
 }
 
-async function compileCommand(
-  args: readonly string[],
-  cwd: string,
-  io: CliIo
-): Promise<number> {
+async function compileCommand(args: readonly string[], cwd: string, io: CliIo): Promise<number> {
   const parsed = parseArgs(args, { props: false })
   if (parsed.help) {
     io.stdout.write(compileHelpText)
@@ -161,7 +157,7 @@ async function compileCommand(
           shadow: result.shadow,
           tagName: result.tagName,
         },
-        parsed.pretty
+        parsed.pretty,
       )
     }
     return 0
@@ -174,11 +170,7 @@ async function compileCommand(
   return 0
 }
 
-async function prerenderCommand(
-  args: readonly string[],
-  cwd: string,
-  io: CliIo
-): Promise<number> {
+async function prerenderCommand(args: readonly string[], cwd: string, io: CliIo): Promise<number> {
   const parsed = parseArgs(args, { props: true })
   if (parsed.help) {
     io.stdout.write(prerenderHelpText)
@@ -211,7 +203,7 @@ async function prerenderCommand(
           tagName: result.tagName,
           usesDeclarativeShadowDom: result.usesDeclarativeShadowDom,
         },
-        parsed.pretty
+        parsed.pretty,
       )
     }
     return 0
@@ -239,15 +231,12 @@ function infoCommand(args: readonly string[], io: CliIo): number {
       node: process.versions.node,
       platform: process.platform,
     },
-    parsed.pretty || !parsed.json
+    parsed.pretty || !parsed.json,
   )
   return 0
 }
 
-function parseArgs(
-  args: readonly string[],
-  options: { props: boolean }
-): ParsedArgs {
+function parseArgs(args: readonly string[], options: { props: boolean }): ParsedArgs {
   const parsed: ParsedArgs = { help: false, json: false, pretty: false, stdout: false }
 
   for (let index = 0; index < args.length; index += 1) {
@@ -346,7 +335,7 @@ function parseProps(source: string): Record<string, unknown> {
 
 async function resolveInlineStyles(
   source: string,
-  filename: string
+  filename: string,
 ): Promise<Record<string, string> | undefined> {
   const imports = inlineCssImports(source)
   if (imports.length === 0) {
@@ -386,11 +375,13 @@ function stripQuery(id: string): string {
 function formatDiagnostics(diagnostics: readonly NaosDiagnostic[]): string {
   return diagnostics
     .map((diagnostic) => {
-      const span = diagnostic.span
-        ? `:${diagnostic.span.start}-${diagnostic.span.end}`
-        : ""
+      const location = diagnostic.loc
+        ? `:${diagnostic.loc.startLine}:${diagnostic.loc.startColumn}`
+        : diagnostic.span
+          ? `:${diagnostic.span.start}-${diagnostic.span.end}`
+          : ""
       const hint = diagnostic.hint ? `\nhint: ${diagnostic.hint}` : ""
-      return `${diagnostic.filename}${span} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${hint}`
+      return `${diagnostic.filename}${location} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${hint}`
     })
     .join("\n")
 }

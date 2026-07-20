@@ -57,18 +57,20 @@ export function NaosDialog({
   const changed = event<{ open: boolean }>("naos-open-change")
 
   onConnected(() => {
-    dialogService.set(createNaosZagDialogService({
-      host: host().element,
-      id: "naos-dialog",
-      label,
-      modal,
-      onOpenChange(nextOpen) {
-        expanded.set(nextOpen)
-        changed.emit({ open: nextOpen })
-      },
-      open: expanded(),
-      root: host().root,
-    }))
+    dialogService.set(
+      createNaosZagDialogService({
+        host: host().element,
+        id: "naos-dialog",
+        label,
+        modal,
+        onOpenChange(nextOpen) {
+          expanded.set(nextOpen)
+          changed.emit({ open: nextOpen })
+        },
+        open: expanded(),
+        root: host().root,
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagDialogService(dialogService())
@@ -89,14 +91,11 @@ export function NaosDialog({
     }
     if (snapshot.phase !== "closing") return
     const content = host().root.querySelector("[part~='content']")
-    return waitForNaosPresenceExit(
-      content instanceof Element ? content : null,
-      () => {
-        if (!expanded()) {
-          presence.set(settleNaosPresenceSnapshot(presence(), false))
-        }
+    return waitForNaosPresenceExit(content instanceof Element ? content : null, () => {
+      if (!expanded()) {
+        presence.set(settleNaosPresenceSnapshot(presence(), false))
       }
-    )
+    })
   })
   effect(() => {
     const api = dialogApi()
@@ -114,12 +113,16 @@ export function NaosDialog({
       onClose: closeDialog,
       target: document,
     })
-    document.addEventListener("pointerdown", (event) => {
-      const path = event.composedPath()
-      if (content != null && path.includes(content)) return
-      if (trigger != null && path.includes(trigger)) return
-      closeDialog()
-    }, { capture: true, signal: abort.signal })
+    document.addEventListener(
+      "pointerdown",
+      (event) => {
+        const path = event.composedPath()
+        if (content != null && path.includes(content)) return
+        if (trigger != null && path.includes(trigger)) return
+        closeDialog()
+      },
+      { capture: true, signal: abort.signal },
+    )
     return () => {
       cleanupEscape()
       abort.abort()
@@ -183,10 +186,7 @@ export function NaosDialog({
             <h2 {...(dialogApi()?.getTitleProps() ?? {})} part="title">
               <slot name="title">{title}</slot>
             </h2>
-            <button
-              {...(dialogApi()?.getCloseTriggerProps() ?? {})}
-              part="close"
-            >
+            <button {...(dialogApi()?.getCloseTriggerProps() ?? {})} part="close">
               <slot name="close">Close</slot>
             </button>
           </div>

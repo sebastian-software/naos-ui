@@ -46,14 +46,12 @@ export function createNaosZagCollapsibleService({
 }
 
 export function getNaosZagCollapsibleApi(
-  service: NaosZagCollapsibleService | null
+  service: NaosZagCollapsibleService | null,
 ): ZagCollapsibleApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagCollapsibleService(
-  service: NaosZagCollapsibleService | null
-) {
+export function stopNaosZagCollapsibleService(service: NaosZagCollapsibleService | null) {
   service?.stop()
 }

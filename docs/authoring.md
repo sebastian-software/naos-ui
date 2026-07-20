@@ -107,6 +107,12 @@ naos({
 })
 ```
 
+In dev mode, saving a `.wc.tsx` file triggers a full page reload rather than
+hot module replacement. The browser's custom element registry does not allow
+re-registering a tag name, so existing instances cannot be upgraded in place;
+the plugin reloads the page so the edited definition takes effect
+predictably. Files outside the plugin filter keep Vite's normal HMR behavior.
+
 The Vite plugin emits `naos-manifest.json` for every normal build. The manifest
 records the package identity, stable tag names, source paths, and whether a
 component also received Declarative Shadow DOM output.
@@ -251,16 +257,31 @@ export function Counter({
 }
 ```
 
-The compiler infers the MVP conversion kind from the default value:
+The compiler derives the conversion kind from the TypeScript annotation
+first — the inline type literal, or a `type`/`interface` declared in the same
+module:
 
-* string literal defaults become string props.
-* `true` or `false` defaults become boolean props.
-* numeric defaults become number props.
-* props without defaults currently fall back to string conversion.
+* `boolean` (and literal unions of booleans) become boolean props, including
+  props without a default literal.
+* `number` (and numeric literal unions) become number props.
+* `string` (and string literal unions such as `"info" | "warn"`) become
+  string props.
+* every other type — arrays, objects, mixed unions, and references the
+  compiler cannot resolve — becomes a rich prop: property-only, never
+  observed or reflected as an attribute, and set uncoerced so complex data
+  round-trips through the property.
 
-The compiler generates property getters/setters and observed attribute handling.
-String and number props synchronize as string attributes. Boolean props
-synchronize through attribute presence.
+When no annotation resolves, the default literal decides: string literals
+become string props, `true`/`false` become boolean props, numeric defaults
+become number props, and props without defaults fall back to string
+conversion. A default literal that contradicts the annotation (for example
+`count: number` defaulted to `"many"`) fails compilation with
+`NAOS_PROP_TYPE_MISMATCH`.
+
+The compiler generates property getters/setters and observed attribute
+handling for the primitive kinds. String and number props synchronize as
+string attributes. Boolean props synchronize through attribute presence.
+Rich props stay off `observedAttributes` entirely.
 
 ## State
 
@@ -384,6 +405,26 @@ runs before the move completes and setup runs after reconnection. Moving a host
 between documents also preserves its state; Naos does not currently expose an
 authoring-level `adoptedCallback`, and connection setup resumes when the host is
 inserted into its destination document.
+
+## Dev-Only Tracing
+
+`inspect(...values)` logs the given reactive value expressions to the console
+whenever one of their sources changes, plus once on mount. The compiler lowers
+it onto the same dependency-gated update path as DOM bindings, guarded by the
+generated development check — production builds where the bundler defines
+`import.meta.env.DEV` as `false` skip the tracing entirely. Like the other
+authoring APIs it only works inside compiled components.
+
+```tsx
+const count = state(0)
+const doubled = computed(() => count() * 2)
+
+inspect(count(), doubled())
+// console: [naos] <x-counter> inspect(count(), doubled()) 1 2
+```
+
+Setting a state to an identical value does not re-fire the trace, because the
+update pass never runs — the same `Object.is` bail-out that gates DOM updates.
 
 ## Runtime Errors
 
@@ -583,6 +624,54 @@ the next key rerun; the list container itself still reconciles only when the
 list expression changes. The lowering is generic and does not hard-code
 `aria-selected`, `data-state`, class names, or text bindings. Unsupported
 selector shapes fall back to the normal conservative dependency behavior.
+
+## Class And Style Expressions
+
+`clx()` from `@naos-ui/core` builds class strings from conditional parts. It
+accepts strings, numbers, nested arrays, and objects whose keys are included
+when their values are truthy; falsy inputs are skipped. Inside components the
+compiler lowers `clx` to a generated module helper, so the emitted element code
+stays free of `@naos-ui/core` imports. Outside compiled components the same
+function works as a plain runtime import.
+
+```tsx
+import { clx, state } from "@naos-ui/core"
+
+export function Chip() {
+  const active = state(false)
+
+  return (
+    <span
+      class={clx("chip", active() && "chip--active", { "chip--idle": !active() })}
+      onClick={() => active.set(!active())}
+    >
+      Chip
+    </span>
+  )
+}
+```
+
+Braced `style` values on native elements accept strings or per-property
+objects. Object keys use camelCase for standard properties and literal
+`--custom-property` names for CSS custom properties, which are applied through
+`style.setProperty()`. Nullish or `false` property values remove the
+property, and properties that disappear from the object between updates are
+cleaned up. Static string styles stay plain attributes.
+
+```tsx
+<div
+  style={{
+    "--meter-level": String(level()),
+    opacity: level() > 0 ? "1" : false,
+  }}
+>
+  ...
+</div>
+```
+
+Server prerendering (declarative Shadow DOM) serializes only statically
+foldable attribute values; dynamic class and style expressions are applied
+when the element hydrates, matching other dynamic attributes.
 
 ## Primitive Contracts
 

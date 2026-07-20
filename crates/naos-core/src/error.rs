@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::model::{CompilerDiagnostic, DiagnosticSeverity, DiagnosticSpan};
+use crate::model::{CompilerDiagnostic, DiagnosticLocation, DiagnosticSeverity, DiagnosticSpan};
 
 pub(crate) const DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS: &str =
     "Check the v0.1 authoring limitations for supported TSX.";
@@ -23,6 +23,7 @@ pub(crate) const DIAGNOSTIC_HINT_REMOVED_API: &str =
 pub(crate) const DIAGNOSTIC_HINT_SHOW: &str =
     "Use explicit <Show when={...} fallback={...}> or <Switch>/<Match> control flow.";
 pub(crate) const DIAGNOSTIC_HINT_SWITCH: &str = "Use static <Switch> children with <Match when={...}> arms and one optional trailing <Match> default.";
+pub(crate) const DIAGNOSTIC_HINT_PROP_TYPES: &str = "Align the prop's TypeScript annotation and its default literal; string, boolean, and number reflect to attributes while other types stay property-only.";
 
 pub(crate) const DIAGNOSTIC_CODE_DSD_INPUT: &str = "NAOS_DSD_INPUT";
 pub(crate) const DIAGNOSTIC_CODE_INVALID_PACKAGE_CONTEXT: &str = "NAOS_INVALID_PACKAGE_CONTEXT";
@@ -48,6 +49,7 @@ pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER: &str = "NAOS_UNSUPPO
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK: &str = "NAOS_UNSUPPORTED_SHOW_FALLBACK";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH: &str = "NAOS_UNSUPPORTED_SWITCH_MATCH";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX: &str = "NAOS_UNSUPPORTED_SYNTAX";
+pub(crate) const DIAGNOSTIC_CODE_PROP_TYPE_MISMATCH: &str = "NAOS_PROP_TYPE_MISMATCH";
 
 /// Shared result type for compiler operations.
 pub type CompilerResult<T> = Result<T, CompilerError>;
@@ -96,12 +98,36 @@ impl CompilerError {
     /// Converts this compiler error into structured diagnostics.
     #[must_use]
     pub fn diagnostics(&self, fallback_filename: &str) -> Vec<CompilerDiagnostic> {
+        self.diagnostics_with_source(fallback_filename, None)
+    }
+
+    /// Converts this compiler error into structured diagnostics, resolving
+    /// line/column locations from the module source when available.
+    #[must_use]
+    pub fn diagnostics_with_source(
+        &self,
+        fallback_filename: &str,
+        source: Option<&str>,
+    ) -> Vec<CompilerDiagnostic> {
+        let mut diagnostics = self.base_diagnostics(fallback_filename);
+        if let Some(source) = source {
+            for diagnostic in &mut diagnostics {
+                diagnostic.loc = diagnostic
+                    .span
+                    .and_then(|span| location_for_span(source, span));
+            }
+        }
+        diagnostics
+    }
+
+    fn base_diagnostics(&self, fallback_filename: &str) -> Vec<CompilerDiagnostic> {
         vec![match self {
             Self::ParseModuleSource { filename, messages } => CompilerDiagnostic {
                 code: "NAOS_PARSE_MODULE_SOURCE".to_owned(),
                 filename: filename.clone(),
                 hint: Some("Fix the TypeScript/TSX syntax before Naos analysis runs.".to_owned()),
                 message: messages.clone(),
+                loc: None,
                 severity: DiagnosticSeverity::Error,
                 span: None,
             },
@@ -112,6 +138,7 @@ impl CompilerError {
                     "Export a supported function component from a .wc.tsx module.".to_owned(),
                 ),
                 message: self.to_string(),
+                loc: None,
                 severity: DiagnosticSeverity::Error,
                 span: None,
             },
@@ -120,6 +147,7 @@ impl CompilerError {
                 filename: fallback_filename.to_owned(),
                 hint: Some("Report this as an Naos compiler bug.".to_owned()),
                 message: self.to_string(),
+                loc: None,
                 severity: DiagnosticSeverity::Error,
                 span: None,
             },
@@ -133,6 +161,7 @@ impl CompilerError {
                 filename: fallback_filename.to_owned(),
                 hint: Some((*hint).to_owned()),
                 message: message.clone(),
+                loc: None,
                 severity: DiagnosticSeverity::Error,
                 span: *span,
             },
@@ -201,4 +230,60 @@ pub(crate) fn unsupported_with_code_and_span(
         message: message.into(),
         span: Some(span),
     }
+}
+
+pub(crate) fn unsupported_at(
+    message: impl Into<String>,
+    span: Option<DiagnosticSpan>,
+) -> CompilerError {
+    unsupported_with_code_at(
+        DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
+        message,
+        DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
+        span,
+    )
+}
+
+pub(crate) fn unsupported_with_code_at(
+    code: &'static str,
+    message: impl Into<String>,
+    hint: &'static str,
+    span: Option<DiagnosticSpan>,
+) -> CompilerError {
+    CompilerError::Unsupported {
+        code,
+        hint,
+        message: message.into(),
+        span,
+    }
+}
+
+/// Resolves a UTF-8 byte span to one-based line/column positions.
+///
+/// Columns count Unicode scalar values. Spans that fall outside the source
+/// resolve to `None` instead of panicking.
+#[must_use]
+pub fn location_for_span(source: &str, span: DiagnosticSpan) -> Option<DiagnosticLocation> {
+    if span.start > span.end || span.end > source.len() {
+        return None;
+    }
+    let (start_line, start_column) = line_column_at(source, span.start)?;
+    let (end_line, end_column) = line_column_at(source, span.end)?;
+    Some(DiagnosticLocation {
+        start_line,
+        start_column,
+        end_line,
+        end_column,
+    })
+}
+
+fn line_column_at(source: &str, offset: usize) -> Option<(usize, usize)> {
+    if !source.is_char_boundary(offset) {
+        return None;
+    }
+    let prefix = &source[..offset];
+    let line = prefix.matches('\n').count() + 1;
+    let line_start = prefix.rfind('\n').map_or(0, |index| index + 1);
+    let column = prefix[line_start..].chars().count() + 1;
+    Some((line, column))
 }

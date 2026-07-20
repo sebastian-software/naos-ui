@@ -80,14 +80,12 @@ export function createNaosZagPinInputService({
 }
 
 export function getNaosZagPinInputApi(
-  service: NaosZagPinInputService | null
+  service: NaosZagPinInputService | null,
 ): ZagPinInputApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagPinInputService(
-  service: NaosZagPinInputService | null
-) {
+export function stopNaosZagPinInputService(service: NaosZagPinInputService | null) {
   service?.stop()
 }

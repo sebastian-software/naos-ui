@@ -9,6 +9,8 @@ build/
 packages/core-node/native/*.node
 packages/compiler/native/*.node
 packages/compiler-*/naos-node.node
+packages/compiler-wasm/native/
+sites/playground/public/
 test-results/
 *.log
 .DS_Store

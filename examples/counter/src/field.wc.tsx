@@ -10,10 +10,7 @@ export const options = {
   styles: [css],
 } satisfies ComponentOptions
 
-export function Field({
-  invalid = false,
-  label = "Project name",
-}: FieldProps = {}) {
+export function Field({ invalid = false, label = "Project name" }: FieldProps = {}) {
   const currentValue = state("@naos-ui")
   const changed = event<string>("field-change")
 

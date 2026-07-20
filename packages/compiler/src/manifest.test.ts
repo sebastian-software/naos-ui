@@ -17,10 +17,7 @@ describe("Naos manifests", () => {
       component("/workspace/src/alpha.wc.tsx", "acme-alpha"),
     ])
 
-    expect(manifest.components.map((entry) => entry.tagName)).toEqual([
-      "acme-alpha",
-      "acme-zeta",
-    ])
+    expect(manifest.components.map((entry) => entry.tagName)).toEqual(["acme-alpha", "acme-zeta"])
     expect(manifest.components[0]?.importPath).toBe("src/alpha.wc.tsx")
     expect(serializeNaosManifest(manifest)).toMatch(/^\{[\s\S]*\}\n$/)
   })
@@ -30,7 +27,7 @@ describe("Naos manifests", () => {
       createNaosManifest([
         component("/workspace/src/one.wc.tsx", "acme-button"),
         component("/workspace/src/two.wc.tsx", "acme-button"),
-      ])
+      ]),
     ).toThrow("src/one.wc.tsx and src/two.wc.tsx")
   })
 })

@@ -5,15 +5,20 @@ const freezeRecord = (record) => Object.freeze(record)
 
 export const javaScriptPackages = Object.freeze([
   freezeRecord({ name: "@naos-ui/core", path: "packages/core" }),
+  freezeRecord({ name: "@naos-ui/actions", path: "packages/actions" }),
   freezeRecord({ name: "@naos-ui/data", path: "packages/data" }),
   freezeRecord({ name: "@naos-ui/data-convex", path: "packages/data-convex" }),
   freezeRecord({ name: "@naos-ui/motion", path: "packages/motion" }),
   freezeRecord({ name: "@naos-ui/runtime", path: "packages/runtime" }),
   freezeRecord({ name: "@naos-ui/primitives", path: "packages/primitives" }),
   freezeRecord({ name: "@naos-ui/router", path: "packages/router" }),
+  freezeRecord({ name: "@naos-ui/testing", path: "packages/testing" }),
   freezeRecord({ name: "@naos-ui/compiler", path: "packages/compiler" }),
+  freezeRecord({ name: "@naos-ui/compiler-wasm", path: "packages/compiler-wasm" }),
   freezeRecord({ name: "@naos-ui/vite", path: "packages/vite" }),
+  freezeRecord({ name: "@naos-ui/unplugin", path: "packages/unplugin" }),
   freezeRecord({ name: "@naos-ui/cli", path: "packages/cli" }),
+  freezeRecord({ name: "create-naos", path: "packages/create-naos" }),
 ])
 
 export const nativeTargets = Object.freeze([
@@ -91,8 +96,8 @@ export const javaScriptPackagePaths = Object.freeze(javaScriptPackages.map(({ pa
 export const nativePackageNames = Object.freeze(nativeTargets.map(({ name }) => name))
 export const nativeReleaseMatrix = Object.freeze(
   nativeTargets.map(({ name, path, runner, rustTarget }) =>
-    freezeRecord({ package: name, path, os: runner, rust_target: rustTarget })
-  )
+    freezeRecord({ package: name, path, os: runner, rust_target: rustTarget }),
+  ),
 )
 
 export function formatPackageTable() {

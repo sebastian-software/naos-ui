@@ -3,6 +3,23 @@
 This quickstart takes a new package consumer from install to a compiled Custom
 Element. Repository contributors should also run the local native build step.
 
+## Create a Project (fastest)
+
+The `create-naos` starter scaffolds a ready-to-run Vite project — tsconfig
+JSX settings, the Vite plugin, a sample component, and a primitives import
+are pre-wired:
+
+```sh
+npm create naos@latest my-app
+cd my-app
+npm install   # or: pnpm install
+npm run dev   # or: pnpm dev
+```
+
+The generated project builds with `pnpm build` and type-checks with
+`pnpm type-check`. The manual steps below show what the starter sets up, for
+adding Naos to an existing project.
+
 ## Install Packages
 
 ```sh
@@ -68,6 +85,11 @@ export default defineConfig({
 The default plugin filter transforms `.wc.tsx` files and excludes
 `node_modules`. Vite owns the module graph, chunks, assets, CSS imports, and
 cache invalidation.
+
+During `vite dev`, editing a `.wc.tsx` file triggers a full page reload
+instead of hot module replacement. Custom element tags cannot be
+re-registered under the same name, so a reload is the only way an edited
+component definition can take effect.
 
 ## Write A Component
 

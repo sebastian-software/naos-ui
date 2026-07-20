@@ -1,0 +1,13 @@
+dist/
+build/
+target/
+node_modules/
+coverage/
+.tsbuildinfo/
+.tsdown-types/
+pnpm-lock.yaml
+CHANGELOG.md
+packages/compiler/src/generated/
+crates/naos-core/tests/fixtures/
+scripts/fixtures/
+sites/docs/build/

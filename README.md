@@ -372,7 +372,9 @@ authoring boundary and no framework runtime goal.
 
 ## Development
 
-Build and test from the workspace root.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full setup — including the
+devcontainer and a JS-only workflow (`pnpm fetch:native`) that needs no Rust
+toolchain. Build and test from the workspace root.
 
 ```sh
 pnpm install
@@ -386,6 +388,12 @@ pnpm --filter @naos-ui/example-counter build
 pnpm --filter @naos-ui/example-counter test
 ```
 
+Linting and formatting cover both languages, and CI enforces all of it via
+`pnpm lint`: `oxlint` (JS/TS lint, `--deny-warnings`), Prettier
+(`pnpm format:check`; run `pnpm format` to write), and `cargo clippy` plus
+`cargo fmt --check` on the Rust side. Editor defaults live in
+`.editorconfig`.
+
 Workspace layout:
 
 * `crates/naos-core`: Rust compiler analysis and code generation
@@ -396,6 +404,7 @@ Workspace layout:
 * `packages/core`: authoring API and JSX types
 * `packages/runtime`: runtime helper surface
 * `packages/vite`: Vite plugin and prerender metadata integration
+* `packages/unplugin`: bundler-agnostic transform for Rollup, esbuild, webpack, and Rspack
 * `examples/counter`: browser smoke-test example and static DSD output
 * `sites/docs`: Ardo documentation site for v0.1 docs and API content
 

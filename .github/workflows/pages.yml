@@ -36,6 +36,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -61,6 +63,9 @@ jobs:
       - name: Test demo
         run: pnpm --filter @naos-ui/example-counter exec playwright test --project=chromium
 
+      - name: Build playground assets
+        run: pnpm build:playground
+
       - name: Build docs site
         run: pnpm build:docs
         env:
@@ -77,6 +82,11 @@ jobs:
         run: |
           mkdir -p sites/docs/build/client/demos
           cp -R examples/counter/dist/. sites/docs/build/client/demos/
+
+      - name: Copy playground into docs artifact
+        run: |
+          mkdir -p sites/docs/build/client/playground
+          cp -R sites/playground/dist/. sites/docs/build/client/playground/
 
       - name: Add custom domain (CNAME)
         run: echo "naos-ui.dev" > sites/docs/build/client/CNAME

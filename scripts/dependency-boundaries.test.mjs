@@ -32,15 +32,12 @@ test("manifest validation rejects every dependency field deterministically", () 
     },
   ]
 
-  assert.deepEqual(
-    validateDependencyBoundaries(packages).map(formatDependencyBoundaryViolation),
-    [
-      "Dependency boundary violation:\n  package: @naos-ui/core\n  field: dependencies\n  target: @naos-ui/vite\n  rule: foundation packages cannot depend on outward layers",
-      "Dependency boundary violation:\n  package: @naos-ui/core\n  field: devDependencies\n  target: @naos-ui/data-convex\n  rule: foundation packages cannot depend on outward layers",
-      "Dependency boundary violation:\n  package: @naos-ui/core\n  field: optionalDependencies\n  target: @naos-ui/router\n  rule: foundation packages cannot depend on outward layers",
-      "Dependency boundary violation:\n  package: @naos-ui/core\n  field: peerDependencies\n  target: @naos-ui/primitives\n  rule: foundation packages cannot depend on outward layers",
-    ]
-  )
+  assert.deepEqual(validateDependencyBoundaries(packages).map(formatDependencyBoundaryViolation), [
+    "Dependency boundary violation:\n  package: @naos-ui/core\n  field: dependencies\n  target: @naos-ui/vite\n  rule: foundation packages cannot depend on outward layers",
+    "Dependency boundary violation:\n  package: @naos-ui/core\n  field: devDependencies\n  target: @naos-ui/data-convex\n  rule: foundation packages cannot depend on outward layers",
+    "Dependency boundary violation:\n  package: @naos-ui/core\n  field: optionalDependencies\n  target: @naos-ui/router\n  rule: foundation packages cannot depend on outward layers",
+    "Dependency boundary violation:\n  package: @naos-ui/core\n  field: peerDependencies\n  target: @naos-ui/primitives\n  rule: foundation packages cannot depend on outward layers",
+  ])
 })
 
 test("manifest validation rejects an unclassified public package", () => {
@@ -53,7 +50,7 @@ test("manifest validation rejects an unclassified public package", () => {
 
   assert.equal(
     formatDependencyBoundaryViolation(violation),
-    "Dependency layer classification invalid:\n  package: @naos-ui/new-package\n  path: packages/new-package\n  layers: none\n  rule: every published @naos-ui package must belong to exactly one layer"
+    "Dependency layer classification invalid:\n  package: @naos-ui/new-package\n  path: packages/new-package\n  layers: none\n  rule: every published @naos-ui package must belong to exactly one layer",
   )
 })
 

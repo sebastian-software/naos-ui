@@ -31,6 +31,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -56,7 +58,7 @@ jobs:
       - name: Check Rust formatting
         run: cargo fmt --check
 
-      - name: Lint Rust
+      - name: Lint and format (JS/TS + Rust)
         run: pnpm lint
 
       - name: Test packages and Rust
@@ -68,8 +70,49 @@ jobs:
       - name: Build example
         run: pnpm --filter @naos-ui/example-counter build
 
+      - name: Check tasks example types
+        run: pnpm --filter @naos-ui/example-tasks type-check
+
+      - name: Unit test tasks example
+        run: pnpm --filter @naos-ui/example-tasks test:unit
+
+      - name: Build tasks example
+        run: pnpm --filter @naos-ui/example-tasks build
+
+      - name: Build playground assets
+        run: pnpm build:playground
+
       - name: Build docs
         run: pnpm build:docs
+
+  fresh-project:
+    name: Fresh Project (create-naos)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.6.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.18.0
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify scaffolded project
+        run: pnpm verify:fresh-project
 
   native:
     name: Native Build (${{ matrix.os }})
@@ -95,6 +138,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -104,6 +149,13 @@ jobs:
 
       - name: Build local native binding
         run: pnpm build:native
+
+      - name: Upload native binding artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-binding-${{ runner.os }}
+          path: packages/compiler/native/naos-node.node
+          retention-days: 14
 
       - name: Build packages
         run: pnpm build
@@ -135,6 +187,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -153,3 +207,6 @@ jobs:
 
       - name: Run example browser tests
         run: pnpm --filter @naos-ui/example-counter exec playwright test --project=${{ matrix.browser }}
+
+      - name: Run tasks example browser tests
+        run: pnpm --filter @naos-ui/example-tasks exec playwright test --project=${{ matrix.browser }}

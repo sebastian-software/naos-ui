@@ -14,11 +14,15 @@ describe("runtime helpers", () => {
   })
 
   it("respects explicit custom event options", () => {
-    const customEvent = createNaosEvent("naos-select", { id: "a" }, {
-      bubbles: false,
-      cancelable: true,
-      composed: false,
-    })
+    const customEvent = createNaosEvent(
+      "naos-select",
+      { id: "a" },
+      {
+        bubbles: false,
+        cancelable: true,
+        composed: false,
+      },
+    )
 
     expect(customEvent.type).toBe("naos-select")
     expect(customEvent.detail).toEqual({ id: "a" })

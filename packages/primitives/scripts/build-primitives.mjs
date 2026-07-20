@@ -3,6 +3,7 @@ import { dirname, join, resolve } from "node:path"
 
 import {
   createNaosManifest,
+  renderNaosElementDeclaration,
   serializeNaosManifest,
   transformComponent,
 } from "@naos-ui/compiler"
@@ -59,15 +60,7 @@ const components = [
   "toggle-group",
   "toggle-item",
 ]
-const behaviorFiles = [
-  "checkbox",
-  "context",
-  "disclosure",
-  "overlay",
-  "presence",
-  "tabs",
-  "toggle",
-]
+const behaviorFiles = ["checkbox", "context", "disclosure", "overlay", "presence", "tabs", "toggle"]
 const zagFiles = [
   "accordion",
   "avatar",
@@ -118,7 +111,13 @@ for (const component of components) {
   await writeFile(join(distRoot, `${component}.mjs`), `${code}\n`)
   await writeFile(
     join(distRoot, `${component}.d.mts`),
-    declarationFor(component, transformed.tagName)
+    renderNaosElementDeclaration({
+      className: transformed.className,
+      exportName: transformed.exportName,
+      tagName: transformed.tagName,
+      props: transformed.props,
+      events: transformed.events,
+    }),
   )
   manifestEntries.push({
     className: transformed.className,
@@ -134,23 +133,22 @@ for (const component of components) {
 
 await writeFile(
   join(distRoot, "index.mjs"),
-  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`
+  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`,
 )
 await writeFile(
   join(distRoot, "naos-manifest.json"),
-  serializeNaosManifest(createNaosManifest(manifestEntries))
+  serializeNaosManifest(createNaosManifest(manifestEntries)),
 )
 await writeFile(
   join(distRoot, "index.d.mts"),
-  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`
+  `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`,
 )
 
 await buildBehaviorHelpers()
 await buildZagHelpers()
 
 async function inlineCssImports(code, filename, { motionCss = "" } = {}) {
-  const cssImport =
-    /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline)["'];?/g
+  const cssImport = /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline)["'];?/g
   const sideEffectCssImport = /import\s+["']([^"']+\.css\?inline)["'];?/g
   let output = code
   for (const match of code.matchAll(cssImport)) {
@@ -211,30 +209,4 @@ async function buildTypeScriptFile({ distRoot, filename, sourceRoot }) {
     fileName: filename,
   })
   await writeFile(join(distRoot, filename.replace(/\.ts$/, ".js")), `${output.outputText}\n`)
-}
-
-function declarationFor(component, tagName) {
-  const className = classNameFor(component)
-  return `export declare class ${className} extends HTMLElement {}
-export { ${className} as ${exportNameFor(component)} };
-export default ${className};
-
-declare global {
-  interface HTMLElementTagNameMap {
-    "${tagName}": ${className};
-  }
-}
-`
-}
-
-function classNameFor(component) {
-  return `${exportNameFor(component)}Element`
-}
-
-function exportNameFor(component) {
-  return component
-    .split("-")
-    .map((part) => `${part[0].toUpperCase()}${part.slice(1)}`)
-    .join("")
-    .replace(/^/, "Naos")
 }

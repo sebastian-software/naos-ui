@@ -519,9 +519,72 @@ dispatch native CustomEvents.</code></pre>
         </div>
       </section>
 
-      <section class="demo-case" id="router-case" aria-labelledby="router-title">
+      <section class="demo-case" id="actions-case" aria-labelledby="actions-title">
+        <header class="case-header">
+          <p class="case-kicker">@naos-ui/actions</p>
+          <h2 id="actions-title">Component-local form actions</h2>
+          <p class="case-copy">
+            <code>formAction()</code> enhances the native form: invalid submits
+            stay with browser constraint validation, valid ones run the reducer
+            sequentially with pending and error reporting.
+          </p>
+        </header>
+        <div class="case-surface">
+          <demo-note-form></demo-note-form>
+        </div>
+      </section>
+
+      <section class="demo-case" id="style-probe-case" aria-labelledby="style-probe-title">
         <div class="case-copy">
           <p class="case-kicker">Use case 09</p>
+          <h2 id="style-probe-title">Class helper and style objects</h2>
+          <p>
+            A fixture for <code>clx()</code> class expressions and per-property
+            <code>style</code> objects with CSS custom properties.
+          </p>
+          <ul>
+            <li><code>clx()</code> joins strings, conditionals, and object maps.</li>
+            <li><code>--custom-property</code> keys go through <code>style.setProperty()</code>.</li>
+            <li>Nullish or <code>false</code> property values remove the property.</li>
+          </ul>
+        </div>
+        <div class="case-surface">
+          <demo-style-probe></demo-style-probe>
+          <pre><code>class={clx("chip", active() &amp;&amp; "chip--active")}
+style={{ "--probe-level": String(level()) }}</code></pre>
+        </div>
+      </section>
+
+      <section class="demo-case" id="auto-layout-case" aria-labelledby="auto-layout-title">
+        <div class="case-copy">
+          <p class="case-kicker">Use case 10</p>
+          <h2 id="auto-layout-title">Automatic layout motion</h2>
+          <p>
+            The imperative <code>autoLayout()</code> helper from
+            <code>@naos-ui/motion</code> animates direct children of a container
+            when the child list changes.
+          </p>
+          <ul>
+            <li>Persisted children FLIP from their previous position.</li>
+            <li>Added children can opt into a modest enter animation.</li>
+            <li>Reduced-motion users get the same DOM update without animation.</li>
+          </ul>
+        </div>
+        <div class="case-surface">
+          <ul id="auto-layout-list" class="auto-layout-list">
+            <li data-auto-layout-item="alpha">Alpha</li>
+            <li data-auto-layout-item="beta">Beta</li>
+            <li data-auto-layout-item="gamma">Gamma</li>
+          </ul>
+          <button id="auto-layout-rotate" type="button">Rotate</button>
+          <button id="auto-layout-add" type="button">Add item</button>
+          <pre><code>const dispose = autoLayout(list, { enter: "fade" })</code></pre>
+        </div>
+      </section>
+
+      <section class="demo-case" id="router-case" aria-labelledby="router-title">
+        <div class="case-copy">
+          <p class="case-kicker">Use case 11</p>
           <h2 id="router-title">Custom Element router</h2>
           <p>
             The optional <code>@naos-ui/router</code> package maps browser URLs to
@@ -539,12 +602,25 @@ dispatch native CustomEvents.</code></pre>
             <a
               data-router-to="/products/:id"
               data-naos-active-match="prefix"
+              data-naos-prefetch="hover"
               href="./products/42?tab=details"
             >
               Product
             </a>
-            <a data-router-to="/settings" data-naos-active-match="exact" href="./settings">
+            <a
+              data-router-to="/settings"
+              data-naos-active-match="exact"
+              data-naos-view-transition
+              href="./settings"
+            >
               Settings
+            </a>
+            <a
+              data-router-child-to="/settings/appearance"
+              data-naos-active-match="exact"
+              href="./settings/appearance"
+            >
+              Appearance
             </a>
             <a data-router-to="/missing" data-naos-active-match="exact" href="./missing">
               Missing

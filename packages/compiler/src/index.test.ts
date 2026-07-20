@@ -18,7 +18,7 @@ const nativeMetadata = {
   tagPrefix: "naos-ui-compiler",
 }
 const { version: packageVersion } = JSON.parse(
-  readFileSync(new URL("../package.json", import.meta.url), "utf8")
+  readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 ) as { version: string }
 
 describe("@naos-ui/compiler wrapper", () => {
@@ -29,7 +29,14 @@ describe("@naos-ui/compiler wrapper", () => {
   it("forwards native info requests to the binding", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
-      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+      transformComponent: () => ({
+        ...nativeMetadata,
+        code: "",
+        hasChanged: false,
+        styleImports: [],
+        props: [],
+        events: [],
+      }),
       renderDeclarativeShadowDom: () => ({
         ...nativeMetadata,
         html: "",
@@ -56,6 +63,9 @@ describe("@naos-ui/compiler wrapper", () => {
           sourcesContent: [request.source],
           version: 3,
         },
+        styleImports: [],
+        props: [],
+        events: [],
       }),
       renderDeclarativeShadowDom: () => ({
         ...nativeMetadata,
@@ -69,7 +79,7 @@ describe("@naos-ui/compiler wrapper", () => {
       transformComponent({
         filename: "counter.wc.tsx",
         source: "source",
-      })
+      }),
     ).toEqual({
       className: "CounterElement",
       code: "compiled:counter.wc.tsx:6",
@@ -90,6 +100,9 @@ describe("@naos-ui/compiler wrapper", () => {
         version: packageVersion,
       },
       shadow: true,
+      styleImports: [],
+      props: [],
+      events: [],
       tagName: "naos-ui-compiler-counter",
     })
   })
@@ -99,7 +112,7 @@ describe("@naos-ui/compiler wrapper", () => {
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
       transformComponent: () => {
         throw new Error(
-          'NAOS_COMPILER_DIAGNOSTICS:{"message":"Unsupported JSX","diagnostics":[{"code":"NAOS_UNSUPPORTED_SYNTAX","severity":"error","message":"Unsupported JSX","filename":"counter.wc.tsx","span":null,"hint":"Use supported syntax."}]}'
+          'NAOS_COMPILER_DIAGNOSTICS:{"message":"Unsupported JSX","diagnostics":[{"code":"NAOS_UNSUPPORTED_SYNTAX","severity":"error","message":"Unsupported JSX","filename":"counter.wc.tsx","span":null,"hint":"Use supported syntax."}]}',
         )
       },
       renderDeclarativeShadowDom: () => ({
@@ -114,7 +127,7 @@ describe("@naos-ui/compiler wrapper", () => {
       transformComponent({
         filename: "counter.wc.tsx",
         source: "source",
-      })
+      }),
     ).toThrow(NaosCompilerError)
 
     try {
@@ -140,11 +153,18 @@ describe("@naos-ui/compiler wrapper", () => {
   it("serializes prerender props and inline styles before forwarding DSD requests", () => {
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
-      transformComponent: () => ({ ...nativeMetadata, code: "", hasChanged: false }),
+      transformComponent: () => ({
+        ...nativeMetadata,
+        code: "",
+        hasChanged: false,
+        styleImports: [],
+        props: [],
+        events: [],
+      }),
       renderDeclarativeShadowDom: (request) => ({
         ...nativeMetadata,
         html: `props:${request.propsJson};styles:${request.inlineStylesJson}`,
-        templateHtml: "<template shadowrootmode=\"open\"></template>",
+        templateHtml: '<template shadowrootmode="open"></template>',
         usesDeclarativeShadowDom: true,
       }),
     })
@@ -155,7 +175,7 @@ describe("@naos-ui/compiler wrapper", () => {
         inlineStyles: { css: ":host { display: block; }" },
         props: { label: "Count" },
         source: "source",
-      })
+      }),
     ).toEqual({
       className: "CounterElement",
       exportName: "Counter",

@@ -3,6 +3,7 @@ import { dirname, resolve } from "node:path"
 
 import {
   createNaosManifest,
+  formatNaosCodeFrame,
   isNaosCompilerError,
   renderDeclarativeShadowDom,
   serializeNaosManifest,
@@ -11,6 +12,7 @@ import {
   type NaosManifest,
   type NaosManifestComponent,
   type NaosManifestComponentInput,
+  type NativeStyleImport,
   type RenderDeclarativeShadowDomRequest,
   type RenderDeclarativeShadowDomResult,
 } from "@naos-ui/compiler"
@@ -39,7 +41,7 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
   const prerenderFilter = prerenderOptions
     ? createFilter(
         prerenderOptions.include ?? options.include ?? /\.wc\.tsx$/,
-        prerenderOptions.exclude ?? options.exclude ?? /node_modules/
+        prerenderOptions.exclude ?? options.exclude ?? /node_modules/,
       )
     : null
   const manifest = new Map<string, NaosManifestComponentInput>()
@@ -74,7 +76,9 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
         })
 
         if (prerenderFilter?.(filename)) {
-          const inlineStyles = await resolveInlineStyles(code, filename)
+          const inlineStyles = await resolveInlineStyles(result.styleImports, filename, (cssPath) =>
+            this.addWatchFile(cssPath),
+          )
           const prerendered = renderNaosDeclarativeShadowDom({
             filename,
             inlineStyles,
@@ -97,11 +101,35 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
         }
       } catch (error) {
         if (isNaosCompilerError(error)) {
-          this.error(formatNaosDiagnostics(error.diagnostics, filename))
+          const loc = error.diagnostics[0]?.loc
+          this.error({
+            id: filename,
+            message: formatNaosDiagnostics(error.diagnostics, filename),
+            ...(loc
+              ? {
+                  frame: formatNaosCodeFrame(code, loc),
+                  loc: {
+                    column: loc.startColumn - 1,
+                    file: filename,
+                    line: loc.startLine,
+                  },
+                }
+              : {}),
+          })
         }
         const message = error instanceof Error ? error.message : String(error)
         this.error(`Naos transform failed in ${filename}: ${message}`)
       }
+    },
+    handleHotUpdate(context) {
+      if (!filter(stripQuery(context.file))) {
+        return
+      }
+
+      // Custom element tags cannot be re-registered, so an edited component
+      // module can only take effect through a full page reload.
+      context.server.hot.send({ type: "full-reload" })
+      return []
     },
     generateBundle() {
       if (!manifestFile || manifest.size === 0) {
@@ -121,59 +149,44 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
 
 export function formatNaosDiagnostics(
   diagnostics: readonly NaosDiagnostic[],
-  fallbackFilename: string
+  fallbackFilename: string,
 ): string {
   return diagnostics
     .map((diagnostic) => {
       const filename = diagnostic.filename || fallbackFilename
-      const span = diagnostic.span
-        ? `:${diagnostic.span.start}-${diagnostic.span.end}`
-        : ""
+      const location = diagnostic.loc
+        ? `:${diagnostic.loc.startLine}:${diagnostic.loc.startColumn}`
+        : diagnostic.span
+          ? `:${diagnostic.span.start}-${diagnostic.span.end}`
+          : ""
       const hint = diagnostic.hint ? `\nhint: ${diagnostic.hint}` : ""
-      return `${filename}${span} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${hint}`
+      return `${filename}${location} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}${hint}`
     })
     .join("\n")
 }
 
 export function renderNaosDeclarativeShadowDom(
-  request: RenderDeclarativeShadowDomRequest
+  request: RenderDeclarativeShadowDomRequest,
 ): RenderDeclarativeShadowDomResult {
   return renderDeclarativeShadowDom(request)
 }
 
 async function resolveInlineStyles(
-  source: string,
-  filename: string
+  styleImports: readonly NativeStyleImport[],
+  filename: string,
+  addWatchFile: (cssPath: string) => void,
 ): Promise<Record<string, string> | undefined> {
-  const imports = inlineCssImports(source)
-  if (imports.length === 0) {
+  if (styleImports.length === 0) {
     return undefined
   }
 
   const inlineStyles: Record<string, string> = {}
-  for (const styleImport of imports) {
+  for (const styleImport of styleImports) {
     const cssPath = resolve(dirname(filename), stripQuery(styleImport.source))
+    addWatchFile(cssPath)
     inlineStyles[styleImport.localName] = await readFile(cssPath, "utf8")
   }
   return inlineStyles
-}
-
-type InlineCssImport = {
-  localName: string
-  source: string
-}
-
-function inlineCssImports(source: string): InlineCssImport[] {
-  const imports: InlineCssImport[] = []
-  const regex =
-    /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline(?:&[^"']*)?)["']/g
-  for (const match of source.matchAll(regex)) {
-    const [, localName, importSource] = match
-    if (localName && importSource) {
-      imports.push({ localName, source: importSource })
-    }
-  }
-  return imports
 }
 
 function stripQuery(id: string): string {
@@ -181,7 +194,7 @@ function stripQuery(id: string): string {
 }
 
 function normalizePrerenderOptions(
-  options: NaosVitePluginOptions["prerender"]
+  options: NaosVitePluginOptions["prerender"],
 ): NaosDeclarativeShadowDomPrerenderOptions | null {
   if (options === false) {
     return null

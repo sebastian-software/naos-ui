@@ -7,9 +7,7 @@ import {
   type ComponentOptions,
 } from "@naos-ui/core"
 import { consumeNaosContext } from "./internal/behavior/context.js"
-import {
-  NAOS_RADIO_GROUP_CONTEXT,
-} from "./internal/zag/radio-group.js"
+import { NAOS_RADIO_GROUP_CONTEXT } from "./internal/zag/radio-group.js"
 import type { NaosRadioGroupContext } from "./internal/zag/radio-group.js"
 import css from "./radio.wc.css?inline"
 
@@ -23,22 +21,20 @@ export const options = {
   styles: [css],
 } satisfies ComponentOptions
 
-export function NaosRadio({
-  disabled = false,
-  label = "",
-  value = "",
-}: NaosRadioProps = {}) {
+export function NaosRadio({ disabled = false, label = "", value = "" }: NaosRadioProps = {}) {
   const radioContext = state<NaosRadioGroupContext | null>(null)
   const contextCleanup = state<VoidFunction | null>(null)
 
   onConnected(() => {
-    contextCleanup.set(consumeNaosContext({
-      callback(context) {
-        radioContext.set(context)
-      },
-      context: NAOS_RADIO_GROUP_CONTEXT,
-      element: host().element,
-    }))
+    contextCleanup.set(
+      consumeNaosContext({
+        callback(context) {
+          radioContext.set(context)
+        },
+        context: NAOS_RADIO_GROUP_CONTEXT,
+        element: host().element,
+      }),
+    )
   })
   onDisconnected(() => {
     contextCleanup()?.()

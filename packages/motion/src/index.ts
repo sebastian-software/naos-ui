@@ -41,7 +41,18 @@ export type NaosSpringMotionToken = NaosSpringTiming & {
 export type NaosFlipOptions = {
   duration?: number
   easing?: string
+  /** Pre-measured current rects; elements missing here are measured live. */
+  lastRects?: ReadonlyMap<Element, DOMRectReadOnly>
   reducedMotion?: NaosReducedMotionPreference
+}
+
+export type NaosAutoLayoutEnterPreset = "fade" | "fade-scale"
+
+export type NaosAutoLayoutOptions = {
+  enter?: NaosAutoLayoutEnterPreset | false
+  layout?: NaosSpringPreset | NaosSpringOptions
+  reducedMotion?: NaosReducedMotionPreference
+  signal?: AbortSignal | null
 }
 
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)"
@@ -83,7 +94,7 @@ export function prefersReducedMotion(query = REDUCED_MOTION_QUERY) {
 
 export function waitForAnimations(
   element: Element | null | undefined,
-  options: NaosAnimationWaitOptions = {}
+  options: NaosAnimationWaitOptions = {},
 ) {
   if (
     element == null ||
@@ -120,19 +131,16 @@ export function waitForAnimations(
       timeout = globalThis.setTimeout(finish, Math.max(0, timeoutMs))
     }
 
-    void Promise.allSettled(animations.map((animation) => animation.finished))
-      .then(finish)
+    void Promise.allSettled(animations.map((animation) => animation.finished)).then(finish)
   })
 }
 
-export function spring(
-  options: NaosSpringOptions | NaosSpringPreset = "smooth"
-): NaosSpringTiming {
+export function spring(options: NaosSpringOptions | NaosSpringPreset = "smooth"): NaosSpringTiming {
   const resolved = resolveSpringOptions(options)
   const duration = springDuration(resolved)
   const sampleCount = Math.max(
     2,
-    Math.min(80, Math.round(resolved.sampleCount ?? DEFAULT_SPRING_SAMPLE_COUNT))
+    Math.min(80, Math.round(resolved.sampleCount ?? DEFAULT_SPRING_SAMPLE_COUNT)),
   )
   const values = Array.from({ length: sampleCount }, (_, index) => {
     const progress = index / (sampleCount - 1)
@@ -148,14 +156,12 @@ export function spring(
   }
 }
 
-export function springEasing(
-  options: NaosSpringOptions | NaosSpringPreset = "smooth"
-) {
+export function springEasing(options: NaosSpringOptions | NaosSpringPreset = "smooth") {
   return spring(options).easing
 }
 
 export function springMotionToken(
-  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth"
+  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth",
 ): NaosSpringMotionToken {
   const token = resolveSpringMotionTokenOptions(options)
   const timing = spring(token.preset ?? token.options ?? "smooth")
@@ -174,7 +180,7 @@ export function springMotionToken(
 }
 
 export function springMotionTokenClassName(
-  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth"
+  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth",
 ) {
   const token = resolveSpringMotionTokenOptions(options)
   if (token.preset != null) {
@@ -182,13 +188,11 @@ export function springMotionTokenClassName(
   }
 
   const normalized = normalizeSpringOptions(token.options)
-  return `naos-motion-${token.kind}-spring-${hashMotionTokenSignature(
-    JSON.stringify(normalized)
-  )}`
+  return `naos-motion-${token.kind}-spring-${hashMotionTokenSignature(JSON.stringify(normalized))}`
 }
 
 export function springMotionTokenCss(
-  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth"
+  options: NaosSpringMotionTokenOptions | NaosSpringPreset = "smooth",
 ) {
   const token = springMotionToken(options)
   return token.css
@@ -196,7 +200,7 @@ export function springMotionTokenCss(
 
 export function flipMovedElements(
   firstRects: ReadonlyMap<Element, DOMRectReadOnly>,
-  options: NaosFlipOptions = {}
+  options: NaosFlipOptions = {},
 ): Animation[] {
   if (shouldSkipMotion(options.reducedMotion)) return []
 
@@ -206,44 +210,161 @@ export function flipMovedElements(
   const animations: Animation[] = []
 
   for (const [element, firstRect] of firstRects) {
+    const providedLastRect = options.lastRects?.get(element)
     if (
-      typeof element.getBoundingClientRect !== "function" ||
-      typeof element.animate !== "function"
+      typeof element.animate !== "function" ||
+      (providedLastRect == null && typeof element.getBoundingClientRect !== "function")
     ) {
       continue
     }
 
-    const lastRect = element.getBoundingClientRect()
+    const lastRect = providedLastRect ?? element.getBoundingClientRect()
     const deltaX = firstRect.left - lastRect.left
     const deltaY = firstRect.top - lastRect.top
     if (Math.abs(deltaX) < 0.5 && Math.abs(deltaY) < 0.5) continue
 
     const baseTransform = transformForElement(element)
     const fromTransform = transformWithOffset(baseTransform, deltaX, deltaY)
-    const toTransform =
-      baseTransform === "none" ? "translate(0px, 0px)" : baseTransform
+    const toTransform = baseTransform === "none" ? "translate(0px, 0px)" : baseTransform
 
     animations.push(
-      element.animate(
-        [{ transform: fromTransform }, { transform: toTransform }],
-        {
-          duration,
-          easing,
-        }
-      )
+      element.animate([{ transform: fromTransform }, { transform: toTransform }], {
+        duration,
+        easing,
+      }),
     )
   }
 
   return animations
 }
 
+/**
+ * Animates layout changes among a container's direct children: persisted
+ * children FLIP from their previous position on every child-list mutation,
+ * and newly added children can opt into a modest enter animation. Layout
+ * moves are the primary use case — exit animations and resize tracking are
+ * intentionally out of scope for this first iteration.
+ *
+ * Positions are snapshotted per mutation pass, so layout shifts that happen
+ * without a child-list mutation (for example a sibling resizing) are not
+ * animated. Running layout animations are canceled before each new pass and
+ * on disposal so measurements always see untransformed layout positions.
+ */
+export function autoLayout(container: Element, options: NaosAutoLayoutOptions = {}): () => void {
+  if (typeof MutationObserver !== "function") return () => undefined
+
+  const timing = spring(options.layout ?? "snappy")
+  const positions = new Map<Element, DOMRectReadOnly>()
+  const running = new Set<Animation>()
+  let disposed = false
+
+  const track = (animation: Animation) => {
+    running.add(animation)
+    const untrack = () => running.delete(animation)
+    animation.finished?.then(untrack, untrack)
+  }
+
+  const cancelRunning = () => {
+    for (const animation of running) animation.cancel()
+    running.clear()
+  }
+
+  const measureChildren = () => {
+    positions.clear()
+    for (const child of container.children) {
+      if (typeof child.getBoundingClientRect !== "function") continue
+      positions.set(child, child.getBoundingClientRect())
+    }
+  }
+
+  const pass = (records: MutationRecord[]) => {
+    if (disposed) return
+    const previous = new Map(positions)
+    cancelRunning()
+    measureChildren()
+    if (shouldSkipMotion(options.reducedMotion)) return
+
+    const added = new Set<Element>()
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (isElementNode(node) && node.parentElement === container && !previous.has(node)) {
+          added.add(node)
+        }
+      }
+    }
+
+    const firstRects = new Map<Element, DOMRectReadOnly>()
+    for (const child of container.children) {
+      const firstRect = previous.get(child)
+      if (firstRect) firstRects.set(child, firstRect)
+    }
+
+    for (const animation of flipMovedElements(firstRects, {
+      duration: timing.duration,
+      easing: timing.easing,
+      // The pass already measured current layout; skip a second read per child.
+      lastRects: positions,
+      reducedMotion: options.reducedMotion,
+    })) {
+      track(animation)
+    }
+
+    const enter = options.enter ?? false
+    if (enter === false) return
+    for (const element of added) {
+      if (element.parentElement !== container || typeof element.animate !== "function") continue
+      track(
+        element.animate(enterKeyframes(element, enter), {
+          duration: timing.duration,
+          easing: timing.easing,
+        }),
+      )
+    }
+  }
+
+  const observer = new MutationObserver(pass)
+  const dispose = () => {
+    if (disposed) return
+    disposed = true
+    observer.disconnect()
+    cancelRunning()
+    positions.clear()
+    options.signal?.removeEventListener("abort", dispose)
+  }
+
+  if (options.signal?.aborted) {
+    dispose()
+    return dispose
+  }
+
+  measureChildren()
+  observer.observe(container, { childList: true })
+  options.signal?.addEventListener("abort", dispose, { once: true })
+  return dispose
+}
+
+function isElementNode(node: Node): node is Element {
+  return node.nodeType === 1
+}
+
+function enterKeyframes(element: Element, preset: NaosAutoLayoutEnterPreset): Keyframe[] {
+  if (preset === "fade") {
+    return [{ opacity: 0 }, { opacity: 1 }]
+  }
+  const baseTransform = transformForElement(element)
+  const fromTransform = baseTransform === "none" ? "scale(0.96)" : `scale(0.96) ${baseTransform}`
+  const toTransform = baseTransform === "none" ? "scale(1)" : baseTransform
+  return [
+    { opacity: 0, transform: fromTransform },
+    { opacity: 1, transform: toTransform },
+  ]
+}
+
 function getPendingAnimations(element: Element, subtree: boolean) {
   try {
     return element
       .getAnimations({ subtree })
-      .filter((animation) =>
-        animation.playState !== "finished" && animation.playState !== "idle"
-      )
+      .filter((animation) => animation.playState !== "finished" && animation.playState !== "idle")
   } catch {
     return []
   }
@@ -271,7 +392,7 @@ function resolveSpringOptions(options: NaosSpringOptions | NaosSpringPreset) {
 }
 
 function resolveSpringMotionTokenOptions(
-  options: NaosSpringMotionTokenOptions | NaosSpringPreset
+  options: NaosSpringMotionTokenOptions | NaosSpringPreset,
 ): Required<Pick<NaosSpringMotionTokenOptions, "kind">> &
   (
     | { options: NaosSpringOptions; preset?: undefined }
@@ -305,7 +426,7 @@ function normalizeSpringOptions(options: NaosSpringOptions) {
     restSpeed: resolved.restSpeed,
     sampleCount: Math.max(
       2,
-      Math.min(80, Math.round(resolved.sampleCount ?? DEFAULT_SPRING_SAMPLE_COUNT))
+      Math.min(80, Math.round(resolved.sampleCount ?? DEFAULT_SPRING_SAMPLE_COUNT)),
     ),
     stiffness: resolved.stiffness,
   }
@@ -339,21 +460,13 @@ function springDuration(options: RequiredSpringOptions) {
   let velocity = options.initialVelocity
   const maxDurationSeconds = options.maxDuration / 1000
 
-  for (
-    let elapsed = 0;
-    elapsed <= maxDurationSeconds;
-    elapsed += SPRING_STEP_SECONDS
-  ) {
-    if (
-      Math.abs(1 - value) <= options.restDelta &&
-      Math.abs(velocity) <= options.restSpeed
-    ) {
+  for (let elapsed = 0; elapsed <= maxDurationSeconds; elapsed += SPRING_STEP_SECONDS) {
+    if (Math.abs(1 - value) <= options.restDelta && Math.abs(velocity) <= options.restSpeed) {
       return elapsed
     }
 
     const acceleration =
-      (-options.stiffness * (value - 1) - options.damping * velocity) /
-      options.mass
+      (-options.stiffness * (value - 1) - options.damping * velocity) / options.mass
     velocity += acceleration * SPRING_STEP_SECONDS
     value += velocity * SPRING_STEP_SECONDS
   }
@@ -368,8 +481,7 @@ function springValueAt(options: RequiredSpringOptions, seconds: number) {
   for (let elapsed = 0; elapsed < seconds; elapsed += SPRING_STEP_SECONDS) {
     const step = Math.min(SPRING_STEP_SECONDS, seconds - elapsed)
     const acceleration =
-      (-options.stiffness * (value - 1) - options.damping * velocity) /
-      options.mass
+      (-options.stiffness * (value - 1) - options.damping * velocity) / options.mass
     velocity += acceleration * step
     value += velocity * step
   }
@@ -394,15 +506,10 @@ function transformForElement(element: Element) {
   }
 }
 
-function transformWithOffset(
-  baseTransform: string,
-  deltaX: number,
-  deltaY: number
-) {
+function transformWithOffset(baseTransform: string, deltaX: number, deltaY: number) {
   const offset = `translate(${formatPx(deltaX)}, ${formatPx(deltaY)})`
   return baseTransform === "none" ? offset : `${offset} ${baseTransform}`
 }
 
-type RequiredSpringOptions = Required<
-  Omit<NaosSpringOptions, "sampleCount">
-> & Pick<NaosSpringOptions, "sampleCount">
+type RequiredSpringOptions = Required<Omit<NaosSpringOptions, "sampleCount">> &
+  Pick<NaosSpringOptions, "sampleCount">

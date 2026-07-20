@@ -150,9 +150,15 @@ describe("NaosRouter", () => {
   it("matches route params and builds typed hrefs", () => {
     const { router } = setupRouter()
 
-    expect(router.href("/products/:id", { id: "abc 123" }, {
-      search: { tab: "details" },
-    })).toBe("/products/abc%20123?tab=details")
+    expect(
+      router.href(
+        "/products/:id",
+        { id: "abc 123" },
+        {
+          search: { tab: "details" },
+        },
+      ),
+    ).toBe("/products/abc%20123?tab=details")
 
     const match = router.match("/products/42?tab=details")
     expect(match?.params).toEqual({ id: "42" })
@@ -300,7 +306,8 @@ describe("NaosRouter", () => {
 
     class AppHome extends HTMLElement {}
     class AppSave extends HTMLElement {}
-    if (!customElements.get("app-redirect-home")) customElements.define("app-redirect-home", AppHome)
+    if (!customElements.get("app-redirect-home"))
+      customElements.define("app-redirect-home", AppHome)
     if (!customElements.get("app-save")) customElements.define("app-save", AppSave)
 
     const outlet = document.querySelector("[data-outlet]")
@@ -363,9 +370,13 @@ describe("NaosRouter", () => {
     })
 
     const actionCommit = new Promise<NaosRouteMatch>((resolve) => {
-      router.addEventListener("naos:actioncommit", (event) => {
-        resolve((event as CustomEvent<{ match: NaosRouteMatch }>).detail.match)
-      }, { once: true })
+      router.addEventListener(
+        "naos:actioncommit",
+        (event) => {
+          resolve((event as CustomEvent<{ match: NaosRouteMatch }>).detail.match)
+        },
+        { once: true },
+      )
     })
     router.start()
     form.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }))
@@ -494,8 +505,10 @@ describe("NaosRouter", () => {
       }
     }
     class AppManualScroll extends HTMLElement {}
-    if (!customElements.get("app-hash-target")) customElements.define("app-hash-target", AppHashTarget)
-    if (!customElements.get("app-manual-scroll")) customElements.define("app-manual-scroll", AppManualScroll)
+    if (!customElements.get("app-hash-target"))
+      customElements.define("app-hash-target", AppHashTarget)
+    if (!customElements.get("app-manual-scroll"))
+      customElements.define("app-manual-scroll", AppManualScroll)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -532,7 +545,8 @@ describe("NaosRouter", () => {
       }
     }
     if (!customElements.get("app-focused")) customElements.define("app-focused", AppFocused)
-    if (!customElements.get("app-fallback-focus")) customElements.define("app-fallback-focus", AppFallbackFocus)
+    if (!customElements.get("app-fallback-focus"))
+      customElements.define("app-fallback-focus", AppFallbackFocus)
 
     const outlet = document.querySelector("[data-outlet]")
     if (!outlet) throw new Error("Missing test outlet.")
@@ -640,7 +654,8 @@ describe("NaosRouter", () => {
     const { router } = setupRouter()
     const aborts: number[] = []
     router.addEventListener("naos:navigationabort", (event) => {
-      const navigation = (event as CustomEvent<{ navigation: NaosRouteMatch["navigation"] }>).detail.navigation
+      const navigation = (event as CustomEvent<{ navigation: NaosRouteMatch["navigation"] }>).detail
+        .navigation
       aborts.push(navigation.id)
     })
 
@@ -696,5 +711,772 @@ describe("NaosRouter", () => {
     await slowNavigation
 
     expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-fast")
+  })
+})
+
+describe("prefetch", () => {
+  function setupLoaderRoute(prefetchTtl?: number) {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppPrefetched extends HTMLElement {}
+    if (!customElements.get("app-prefetched"))
+      customElements.define("app-prefetched", AppPrefetched)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const loader = vi.fn(({ params }: { params: { id?: string } }) => ({ id: params.id }))
+    const router = createRouter({
+      outlet,
+      prefetchTtl,
+      routes: defineRoutes([
+        { path: "/items/:id", tag: "app-prefetched", loader },
+        { path: "/", tag: "app-prefetched" },
+      ] as const),
+    })
+    return { loader, outlet, router }
+  }
+
+  it("reuses prefetched loader data on the next navigation without re-running the loader", async () => {
+    const { loader, outlet, router } = setupLoaderRoute()
+
+    await router.prefetch("/items/7")
+    expect(loader).toHaveBeenCalledTimes(1)
+    expect(outlet.firstElementChild).toBeNull()
+
+    const match = await router.navigate("/items/7")
+    expect(loader).toHaveBeenCalledTimes(1)
+    expect(match?.data).toEqual({ id: "7" })
+
+    await router.navigate("/")
+    await router.navigate("/items/7")
+    expect(loader).toHaveBeenCalledTimes(2)
+  })
+
+  it("expires prefetched loader data after the configured window", async () => {
+    vi.useFakeTimers()
+    try {
+      const { loader, router } = setupLoaderRoute(50)
+
+      await router.prefetch("/items/7")
+      vi.advanceTimersByTime(51)
+      await router.navigate("/items/7")
+
+      expect(loader).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it("only warms modules when loader-data caching is disabled", async () => {
+    const { loader, router } = setupLoaderRoute(0)
+
+    await router.prefetch("/items/7")
+    expect(loader).not.toHaveBeenCalled()
+
+    await router.navigate("/items/7")
+    expect(loader).toHaveBeenCalledTimes(1)
+  })
+
+  it("aborts an in-flight prefetch when a navigation supersedes it", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppSuperseded extends HTMLElement {}
+    if (!customElements.get("app-superseded"))
+      customElements.define("app-superseded", AppSuperseded)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    let loaderSignal: AbortSignal | null = null
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        {
+          path: "/pending",
+          tag: "app-superseded",
+          loader({ navigation }) {
+            loaderSignal = navigation.signal
+            return new Promise((_resolve, reject) => {
+              navigation.signal.addEventListener(
+                "abort",
+                () => reject(new Error("Prefetch aborted.")),
+                { once: true },
+              )
+            })
+          },
+        },
+        { path: "/", tag: "app-superseded" },
+      ] as const),
+    })
+
+    const prefetching = router.prefetch("/pending").catch(() => {})
+    await waitForRouterWork()
+    expect(loaderSignal).not.toBeNull()
+    expect(loaderSignal!.aborted).toBe(false)
+
+    await router.navigate("/")
+    expect(loaderSignal!.aborted).toBe(true)
+    await prefetching
+  })
+
+  it("runs the loader once for concurrent prefetches of the same URL", async () => {
+    const { loader, router } = setupLoaderRoute()
+
+    await Promise.all([
+      router.prefetch("/items/7"),
+      router.prefetch("/items/7"),
+      router.prefetch("/items/7"),
+    ])
+
+    expect(loader).toHaveBeenCalledTimes(1)
+  })
+
+  it("aborts a consumed in-flight prefetch when a later navigation supersedes it", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppConsumed extends HTMLElement {}
+    if (!customElements.get("app-consumed")) customElements.define("app-consumed", AppConsumed)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    let loaderSignal: AbortSignal | null = null
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        {
+          path: "/slow-data",
+          tag: "app-consumed",
+          loader({ navigation }) {
+            loaderSignal = navigation.signal
+            return new Promise((_resolve, reject) => {
+              navigation.signal.addEventListener(
+                "abort",
+                () => reject(new Error("Prefetch aborted.")),
+                { once: true },
+              )
+            })
+          },
+        },
+        { path: "/", tag: "app-consumed" },
+      ] as const),
+    })
+
+    const prefetching = router.prefetch("/slow-data").catch(() => {})
+    await waitForRouterWork()
+    expect(loaderSignal).not.toBeNull()
+
+    // Consume the in-flight prefetch, then navigate away before it settles.
+    const consuming = router.navigate("/slow-data")
+    await waitForRouterWork()
+    expect(loaderSignal!.aborted).toBe(false)
+
+    await router.navigate("/")
+    expect(loaderSignal!.aborted).toBe(true)
+    await expect(consuming).resolves.toBeNull()
+    await prefetching
+  })
+
+  it("starts prefetch from hover and focus triggers without committing UI", async () => {
+    document.body.innerHTML = `
+      <section data-root>
+        <a href="/items/1" data-naos-prefetch="hover" data-hover>Hover</a>
+        <a href="/items/2" data-naos-prefetch="focus" data-focus>Focus</a>
+        <main data-outlet></main>
+      </section>
+    `
+    class AppTriggered extends HTMLElement {}
+    if (!customElements.get("app-triggered")) customElements.define("app-triggered", AppTriggered)
+
+    const outlet = document.querySelector("[data-outlet]")
+    const linkRoot = document.querySelector("[data-root]")
+    const hoverAnchor = document.querySelector("[data-hover]")
+    const focusAnchor = document.querySelector("[data-focus]")
+    if (!outlet || !linkRoot || !hoverAnchor || !focusAnchor)
+      throw new Error("Missing prefetch setup.")
+
+    const loader = vi.fn(({ params }: { params: { id?: string } }) => ({ id: params.id }))
+    const router = createRouter({
+      linkRoot,
+      outlet,
+      routes: defineRoutes([{ path: "/items/:id", tag: "app-triggered", loader }] as const),
+    })
+    router.start()
+    await waitForRouterWork()
+    const mountedBefore = outlet.firstElementChild
+
+    hoverAnchor.dispatchEvent(new Event("pointerover", { bubbles: true }))
+    await waitForRouterWork()
+    focusAnchor.dispatchEvent(new Event("focusin", { bubbles: true }))
+    await waitForRouterWork()
+
+    expect(loader).toHaveBeenCalledTimes(2)
+    expect(
+      loader.mock.calls.map(([args]) => (args as { params: { id?: string } }).params.id),
+    ).toEqual(["1", "2"])
+    expect(outlet.firstElementChild).toBe(mountedBefore)
+
+    router.stop()
+  })
+
+  it("starts prefetch when viewport-mode links become visible", async () => {
+    const observed: Element[] = []
+    let intersect: (targets: Element[]) => void = () => {}
+    class FakeIntersectionObserver {
+      #callback: IntersectionObserverCallback
+      constructor(callback: IntersectionObserverCallback) {
+        this.#callback = callback
+        intersect = (targets) => {
+          this.#callback(
+            targets.map(
+              (target) => ({ isIntersecting: true, target }) as IntersectionObserverEntry,
+            ),
+            this as unknown as IntersectionObserver,
+          )
+        }
+      }
+      observe(target: Element) {
+        observed.push(target)
+      }
+      unobserve() {}
+      disconnect() {}
+    }
+    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver)
+
+    try {
+      document.body.innerHTML = `
+        <section data-root>
+          <a href="/items/9" data-naos-prefetch="viewport" data-viewport>Viewport</a>
+          <main data-outlet></main>
+        </section>
+      `
+      class AppViewport extends HTMLElement {}
+      if (!customElements.get("app-viewport")) customElements.define("app-viewport", AppViewport)
+
+      const outlet = document.querySelector("[data-outlet]")
+      const linkRoot = document.querySelector("[data-root]")
+      const anchor = document.querySelector("[data-viewport]")
+      if (!outlet || !linkRoot || !anchor) throw new Error("Missing viewport setup.")
+
+      const loader = vi.fn(() => ({ ready: true }))
+      const router = createRouter({
+        linkRoot,
+        outlet,
+        routes: defineRoutes([{ path: "/items/:id", tag: "app-viewport", loader }] as const),
+      })
+      router.start()
+      await waitForRouterWork()
+
+      expect(observed).toContain(anchor)
+      intersect([anchor])
+      await waitForRouterWork()
+
+      expect(loader).toHaveBeenCalledTimes(1)
+      router.stop()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})
+
+describe("error-view URL semantics", () => {
+  function setupErrorRouter(initialUrl = "https://naos.test/") {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppErrorPage extends HTMLElement {}
+    class AppErrorView extends HTMLElement {}
+    if (!customElements.get("app-error-page")) customElements.define("app-error-page", AppErrorPage)
+    if (!customElements.get("app-error-view")) customElements.define("app-error-view", AppErrorView)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const platform = setupPlatform(initialUrl)
+    const router = createRouter({
+      error: { tag: "app-error-view" },
+      outlet,
+      routes: defineRoutes([
+        { path: "/", tag: "app-error-page" },
+        {
+          path: "/broken",
+          tag: "app-error-page",
+          loader() {
+            throw new Error("loader failed")
+          },
+          action() {
+            throw new Error("action failed")
+          },
+        },
+      ] as const),
+      ...({ platform: platform.routerPlatform } as { platform: unknown }),
+    })
+    return { outlet, platform, router }
+  }
+
+  it("advances the URL when a loader failure commits the error view", async () => {
+    const { outlet, platform, router } = setupErrorRouter()
+
+    const match = await router.navigate("/broken")
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-error-view")
+    expect(match?.url.pathname).toBe("/broken")
+    expect(new URL(platform.location.href).pathname).toBe("/broken")
+
+    platform.history.back()
+    await waitForRouterWork()
+    expect(new URL(platform.location.href).pathname).toBe("/")
+  })
+
+  it("advances the URL when a failed action commits the error view", async () => {
+    const { outlet, platform, router } = setupErrorRouter()
+
+    await router.submit("/broken", { formData: {}, method: "post" })
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-error-view")
+    expect(new URL(platform.location.href).pathname).toBe("/broken")
+  })
+
+  it("yields to a navigation started by a navigationerror listener", async () => {
+    const { outlet, platform, router } = setupErrorRouter()
+    let recovery: Promise<unknown> = Promise.resolve()
+    router.addEventListener(
+      "naos:navigationerror",
+      () => {
+        recovery = router.navigate("/")
+      },
+      { once: true },
+    )
+
+    const errored = await router.navigate("/broken")
+    await recovery
+
+    expect(errored).toBeNull()
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-error-page")
+    expect(new URL(platform.location.href).pathname).toBe("/")
+  })
+})
+
+describe("view transitions", () => {
+  type TransitionDocument = Omit<Document, "startViewTransition"> & {
+    startViewTransition?: (callback: () => void) => { finished?: Promise<unknown> }
+  }
+
+  function setupTransitionRouter() {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppTransition extends HTMLElement {}
+    if (!customElements.get("app-transition"))
+      customElements.define("app-transition", AppTransition)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        { path: "/", tag: "app-transition" },
+        { path: "/next", tag: "app-transition" },
+      ] as const),
+    })
+    return { outlet, router }
+  }
+
+  it("navigates normally when the View Transition API is unavailable", async () => {
+    const { outlet, router } = setupTransitionRouter()
+    const transitionEvents: string[] = []
+    router.addEventListener("naos:viewtransitionstart", () => transitionEvents.push("start"))
+    router.addEventListener("naos:viewtransitionend", () => transitionEvents.push("end"))
+
+    const match = await router.navigate("/next", { viewTransition: true })
+
+    expect(match?.url.pathname).toBe("/next")
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-transition")
+    expect(transitionEvents).toEqual([])
+    expect(router.activeViewTransition).toBeNull()
+  })
+
+  it("exposes transition state and events while a view transition runs", async () => {
+    const { router } = setupTransitionRouter()
+    const transitionDocument = document as unknown as TransitionDocument
+    const startViewTransition = vi.fn((callback: () => void) => {
+      callback()
+      return { finished: Promise.resolve() }
+    })
+    transitionDocument.startViewTransition = startViewTransition
+
+    try {
+      const observedUrls: Array<string | null> = []
+      router.addEventListener("naos:viewtransitionstart", () => {
+        observedUrls.push(router.activeViewTransition?.url.pathname ?? null)
+      })
+      const ends: string[] = []
+      router.addEventListener("naos:viewtransitionend", (event) => {
+        ends.push((event as CustomEvent<{ url: URL }>).detail.url.pathname)
+      })
+
+      await router.navigate("/next", { viewTransition: true })
+
+      expect(startViewTransition).toHaveBeenCalledTimes(1)
+      expect(observedUrls).toEqual(["/next"])
+      expect(ends).toEqual(["/next"])
+      expect(router.activeViewTransition).toBeNull()
+    } finally {
+      delete transitionDocument.startViewTransition
+    }
+  })
+
+  it("skips the view transition when reduced motion is preferred", async () => {
+    const { outlet, router } = setupTransitionRouter()
+    const transitionDocument = document as unknown as TransitionDocument
+    const startViewTransition = vi.fn((callback: () => void) => {
+      callback()
+      return { finished: Promise.resolve() }
+    })
+    transitionDocument.startViewTransition = startViewTransition
+    const matchMedia = vi
+      .spyOn(window, "matchMedia")
+      .mockReturnValue({ matches: true } as MediaQueryList)
+
+    try {
+      await router.navigate("/next", { viewTransition: true })
+
+      expect(startViewTransition).not.toHaveBeenCalled()
+      expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-transition")
+    } finally {
+      matchMedia.mockRestore()
+      delete transitionDocument.startViewTransition
+    }
+  })
+})
+
+describe("nested routes and metadata", () => {
+  function setupNestedRouter() {
+    document.body.innerHTML = `<main data-outlet></main>`
+
+    class AppShellLayout extends HTMLElement {
+      connectedCallback() {
+        if (!this.querySelector("[data-naos-router-outlet]")) {
+          this.innerHTML = `<h2>Shell</h2><section data-naos-router-outlet></section>`
+        }
+      }
+    }
+    class AppOverview extends HTMLElement {}
+    class AppProfile extends HTMLElement {}
+    class AppNestedError extends HTMLElement {}
+    if (!customElements.get("app-shell-layout"))
+      customElements.define("app-shell-layout", AppShellLayout)
+    if (!customElements.get("app-overview")) customElements.define("app-overview", AppOverview)
+    if (!customElements.get("app-profile")) customElements.define("app-profile", AppProfile)
+    if (!customElements.get("app-nested-error"))
+      customElements.define("app-nested-error", AppNestedError)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      error: { tag: "app-nested-error" },
+      outlet,
+      routes: [
+        {
+          path: "/settings",
+          tag: "app-shell-layout",
+          meta: { description: "Settings area", title: "Settings" },
+          children: [
+            { path: "/", tag: "app-overview" },
+            {
+              path: "/profile/:user",
+              tag: "app-profile",
+              meta: ({ params }) => ({
+                canonical: `https://naos.test/settings/profile/${String(params.user)}`,
+                tags: [{ content: "profile", name: "section" }],
+                title: `Profile ${String(params.user)}`,
+              }),
+            },
+          ],
+        },
+        { path: "/", tag: "app-overview" },
+      ],
+    })
+    return { outlet, router }
+  }
+
+  it("matches nested children with joined paths and merged params", () => {
+    const { router } = setupNestedRouter()
+
+    expect(router.match("/settings/profile/ada")?.params).toEqual({ user: "ada" })
+    expect(router.match("/settings")?.route.tag).toBe("app-overview")
+    expect(router.match("/settings/profile/ada")?.route.tag).toBe("app-profile")
+  })
+
+  it("mounts children into the parent outlet and keeps the layout mounted", async () => {
+    const { outlet, router } = setupNestedRouter()
+
+    await router.navigate("/settings")
+    const layout = outlet.firstElementChild
+    expect(layout?.tagName.toLowerCase()).toBe("app-shell-layout")
+    const nestedOutlet = layout?.querySelector("[data-naos-router-outlet]")
+    expect(nestedOutlet?.firstElementChild?.tagName.toLowerCase()).toBe("app-overview")
+
+    await router.navigate("/settings/profile/ada")
+    expect(outlet.firstElementChild).toBe(layout)
+    expect(nestedOutlet?.firstElementChild?.tagName.toLowerCase()).toBe("app-profile")
+
+    await router.navigate("/settings/profile/grace")
+    expect(outlet.firstElementChild).toBe(layout)
+    expect(
+      (nestedOutlet?.firstElementChild as HTMLElement & { naosRoute?: { params: unknown } })
+        ?.naosRoute?.params,
+    ).toEqual({ user: "grace" })
+
+    await router.navigate("/settings")
+    expect(outlet.firstElementChild).toBe(layout)
+    expect(nestedOutlet?.firstElementChild?.tagName.toLowerCase()).toBe("app-overview")
+  })
+
+  it("supports an explicit outlet() resolver on the parent route", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppExplicitLayout extends HTMLElement {
+      connectedCallback() {
+        if (!this.querySelector("[data-slot]")) {
+          this.innerHTML = `<div data-slot></div>`
+        }
+      }
+    }
+    class AppExplicitChild extends HTMLElement {}
+    if (!customElements.get("app-explicit-layout"))
+      customElements.define("app-explicit-layout", AppExplicitLayout)
+    if (!customElements.get("app-explicit-child"))
+      customElements.define("app-explicit-child", AppExplicitChild)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: [
+        {
+          path: "/area",
+          tag: "app-explicit-layout",
+          outlet: (element) => element.querySelector("[data-slot]"),
+          children: [{ path: "child", tag: "app-explicit-child" }],
+        },
+      ],
+    })
+
+    await router.navigate("/area/child")
+    expect(outlet.querySelector("[data-slot]")?.firstElementChild?.tagName.toLowerCase()).toBe(
+      "app-explicit-child",
+    )
+  })
+
+  it("commits the error route when a parent exposes no child outlet", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppNoOutletLayout extends HTMLElement {}
+    class AppMissingChild extends HTMLElement {}
+    class AppOutletError extends HTMLElement {}
+    if (!customElements.get("app-no-outlet-layout"))
+      customElements.define("app-no-outlet-layout", AppNoOutletLayout)
+    if (!customElements.get("app-missing-child"))
+      customElements.define("app-missing-child", AppMissingChild)
+    if (!customElements.get("app-outlet-error"))
+      customElements.define("app-outlet-error", AppOutletError)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const errors: unknown[] = []
+    const router = createRouter({
+      error: { tag: "app-outlet-error" },
+      outlet,
+      routes: [
+        {
+          path: "/bare",
+          tag: "app-no-outlet-layout",
+          children: [{ path: "child", tag: "app-missing-child" }],
+        },
+      ],
+    })
+    router.addEventListener("naos:navigationerror", (event) => {
+      errors.push((event as CustomEvent<{ error: unknown }>).detail.error)
+    })
+
+    await router.navigate("/bare/child")
+
+    expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-outlet-error")
+    expect(String(errors[0])).toContain("no child outlet")
+  })
+
+  it("applies merged route metadata and replaces managed head tags", async () => {
+    const { router } = setupNestedRouter()
+
+    await router.navigate("/settings/profile/ada")
+
+    expect(document.title).toBe("Profile ada")
+    expect(document.head.querySelector("meta[name='description']")?.getAttribute("content")).toBe(
+      "Settings area",
+    )
+    expect(document.head.querySelector("link[rel='canonical']")?.getAttribute("href")).toBe(
+      "https://naos.test/settings/profile/ada",
+    )
+    expect(document.head.querySelector("meta[name='section']")?.getAttribute("content")).toBe(
+      "profile",
+    )
+
+    await router.navigate("/settings")
+    expect(document.title).toBe("Settings")
+    expect(document.head.querySelector("link[rel='canonical']")).toBeNull()
+    expect(document.head.querySelector("meta[name='section']")).toBeNull()
+    expect(document.head.querySelector("meta[name='description']")?.getAttribute("content")).toBe(
+      "Settings area",
+    )
+
+    await router.navigate("/")
+    expect(document.head.querySelectorAll("[data-naos-router-meta]")).toHaveLength(0)
+  })
+
+  it("scopes wildcard children to their parent prefix", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppFilesLayout extends HTMLElement {
+      connectedCallback() {
+        if (!this.querySelector("[data-naos-router-outlet]")) {
+          this.innerHTML = `<div data-naos-router-outlet></div>`
+        }
+      }
+    }
+    class AppFilesFallback extends HTMLElement {}
+    class AppOther extends HTMLElement {}
+    if (!customElements.get("app-files-layout"))
+      customElements.define("app-files-layout", AppFilesLayout)
+    if (!customElements.get("app-files-fallback"))
+      customElements.define("app-files-fallback", AppFilesFallback)
+    if (!customElements.get("app-other")) customElements.define("app-other", AppOther)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: [
+        {
+          path: "/files",
+          tag: "app-files-layout",
+          children: [{ path: "*", tag: "app-files-fallback" }],
+        },
+        { path: "/other", tag: "app-other" },
+      ],
+    })
+
+    expect(router.match("/other")?.route.tag).toBe("app-other")
+    expect(router.match("/files/deep/nested")?.route.tag).toBe("app-files-fallback")
+
+    await router.navigate("/files/deep/nested")
+    expect(
+      outlet.querySelector("[data-naos-router-outlet]")?.firstElementChild?.tagName.toLowerCase(),
+    ).toBe("app-files-fallback")
+  })
+
+  it("restores the pre-router title when a route has no title source", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppMetaTitled extends HTMLElement {}
+    class AppUntitled extends HTMLElement {}
+    if (!customElements.get("app-meta-titled"))
+      customElements.define("app-meta-titled", AppMetaTitled)
+    if (!customElements.get("app-untitled")) customElements.define("app-untitled", AppUntitled)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    document.title = "Base title"
+    const router = createRouter({
+      outlet,
+      routes: [
+        { path: "/titled", tag: "app-meta-titled", meta: { title: "Meta title" } },
+        { path: "/plain", tag: "app-untitled" },
+      ],
+    })
+
+    await router.navigate("/titled")
+    expect(document.title).toBe("Meta title")
+
+    await router.navigate("/plain")
+    expect(document.title).toBe("Base title")
+  })
+
+  it("keeps the leaf title field authoritative over meta titles", async () => {
+    document.body.innerHTML = `<main data-outlet></main>`
+    class AppTitled extends HTMLElement {}
+    if (!customElements.get("app-titled")) customElements.define("app-titled", AppTitled)
+
+    const outlet = document.querySelector("[data-outlet]")
+    if (!outlet) throw new Error("Missing test outlet.")
+
+    const router = createRouter({
+      outlet,
+      routes: [
+        {
+          path: "/titled",
+          tag: "app-titled",
+          meta: { title: "From meta" },
+          title: "From title",
+        },
+      ],
+    })
+
+    await router.navigate("/titled")
+    expect(document.title).toBe("From title")
+  })
+})
+
+describe("typed route params", () => {
+  it("threads typed path params through loaders, actions, and matches", () => {
+    const routes = defineRoutes([
+      {
+        path: "/products/:id",
+        tag: "app-product",
+        loader({ params }) {
+          const id: string = params.id
+          // @ts-expect-error - "slug" is not a param of "/products/:id"
+          void params.slug
+          return id
+        },
+        action({ params }) {
+          const id: string = params.id
+          return id
+        },
+        props({ params }) {
+          return { productId: params.id }
+        },
+      },
+      {
+        path: "/files/:section/:name?",
+        tag: "app-files",
+        loader({ params }) {
+          const section: string = params.section
+          const name: string | undefined = params.name
+          return [section, name]
+        },
+      },
+      {
+        path: "/docs/:rest*",
+        tag: "app-docs",
+        loader({ params }) {
+          const rest: string | undefined = params.rest
+          return rest
+        },
+      },
+    ])
+
+    expect(routes[0].path).toBe("/products/:id")
+    expect(routes[1].path).toBe("/files/:section/:name?")
+    expect(routes[2].path).toBe("/docs/:rest*")
+  })
+
+  it("omits an absent wildcard param at runtime", () => {
+    const platform = setupPlatform("https://naos.test/docs")
+    const outlet = document.createElement("div")
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([{ path: "/docs/:rest*", tag: "app-docs" }]),
+      ...({ platform: platform.routerPlatform } as { platform: unknown }),
+    })
+
+    const match = router.match("/docs")
+    expect(match?.params).toEqual({})
   })
 })

@@ -65,14 +65,12 @@ export function createNaosZagCheckboxService({
 }
 
 export function getNaosZagCheckboxApi(
-  service: NaosZagCheckboxService | null
+  service: NaosZagCheckboxService | null,
 ): ZagCheckboxApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagCheckboxService(
-  service: NaosZagCheckboxService | null
-) {
+export function stopNaosZagCheckboxService(service: NaosZagCheckboxService | null) {
   service?.stop()
 }

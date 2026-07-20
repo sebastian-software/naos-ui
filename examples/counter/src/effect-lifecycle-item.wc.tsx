@@ -4,9 +4,7 @@ export type EffectLifecycleItemProps = {
   lifecycleId?: string
 }
 
-export function EffectLifecycleItem({
-  lifecycleId = "unknown",
-}: EffectLifecycleItemProps = {}) {
+export function EffectLifecycleItem({ lifecycleId = "unknown" }: EffectLifecycleItemProps = {}) {
   effect(() => {
     const incrementAttribute = (name: string) => {
       const current = Number(document.body.getAttribute(name) ?? "0")

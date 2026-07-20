@@ -44,6 +44,7 @@ than chronological trivia.
 * [ADR 0008: Primitive Contracts With Parts, Slots, And Data State](0008-primitive-contracts-parts-slots-data-state.md)
 * [ADR 0014: Minimal CLI Scope](0014-minimal-cli-scope.md)
 * [ADR 0024: Public API Naming And Lifecycle Ownership](0024-public-api-naming-and-lifecycle-ownership.md)
+* [ADR 0025: WASM Compiler Build As Fallback Tier And Playground Engine](0025-wasm-compiler-build.md)
 
 ## ADR Template
 

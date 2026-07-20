@@ -1,0 +1,13 @@
+[part~="badge"] {
+  border-radius: 999px;
+  border: 1px solid var(--tasks-badge-border, #c7cdd8);
+  font-size: 0.75rem;
+  padding: 0.1rem 0.55rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+[part~="badge"][data-status="done"] {
+  background: var(--tasks-badge-done-bg, #e0f2e9);
+  border-color: var(--tasks-badge-done-border, #7cc39b);
+}

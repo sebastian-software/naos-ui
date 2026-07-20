@@ -12,7 +12,7 @@ export function nextCheckboxState(state: CheckboxState): CheckboxState {
 
 export function checkboxFormValue(
   checked: boolean,
-  value: FormDataEntryValue
+  value: FormDataEntryValue,
 ): FormDataEntryValue | null {
   return checked ? value : null
 }

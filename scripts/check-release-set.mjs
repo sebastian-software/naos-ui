@@ -12,35 +12,49 @@ const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const documentationStart = "<!-- release-set:start -->"
 const documentationEnd = "<!-- release-set:end -->"
 
-export function validateReleaseSet({ rootDir: validationRoot = rootDir, readText = readFile } = {}) {
+export function validateReleaseSet({
+  rootDir: validationRoot = rootDir,
+  readText = readFile,
+} = {}) {
   const errors = []
   const read = (path) => readText(join(validationRoot, path))
   const readJson = (path) => JSON.parse(read(path))
   const packageJsonByPath = new Map(
-    publicPackagePaths.map((packagePath) => [packagePath, readJson(join(packagePath, "package.json"))])
+    publicPackagePaths.map((packagePath) => [
+      packagePath,
+      readJson(join(packagePath, "package.json")),
+    ]),
   )
   const expectedVersion = packageJsonByPath.get("packages/core")?.version
 
   for (const packagePath of publicPackagePaths) {
     const packageJson = packageJsonByPath.get(packagePath)
-    check(packageJson?.version === expectedVersion, `${packagePath} version must be ${expectedVersion}`, errors)
+    check(
+      packageJson?.version === expectedVersion,
+      `${packagePath} version must be ${expectedVersion}`,
+      errors,
+    )
     check(packageJson?.license === "Apache-2.0", `${packagePath} must use Apache-2.0`, errors)
     check(packageJson?.engines?.node === ">=22.0.0", `${packagePath} must require Node 22+`, errors)
-    check(packageJson?.publishConfig?.access === "public", `${packagePath} must publish publicly`, errors)
+    check(
+      packageJson?.publishConfig?.access === "public",
+      `${packagePath} must publish publicly`,
+      errors,
+    )
     check(
       packageJson?.repository?.url === "git+https://github.com/sebastian-software/naos-ui.git",
       `${packagePath} repository must point at the GitHub repository`,
-      errors
+      errors,
     )
     check(
       packageJson?.repository?.directory === packagePath,
       `${packagePath} repository directory must match`,
-      errors
+      errors,
     )
     check(
       packageJson?.bugs === "https://github.com/sebastian-software/naos-ui/issues",
       `${packagePath} bugs URL must match`,
-      errors
+      errors,
     )
   }
 
@@ -50,10 +64,25 @@ export function validateReleaseSet({ rootDir: validationRoot = rootDir, readText
       check(
         packageJson?.scripts?.build === "node scripts/build-primitives.mjs",
         `${packagePath} must build with the primitives compiler script`,
-        errors
+        errors,
+      )
+    } else if (packagePath === "packages/compiler-wasm") {
+      check(
+        packageJson?.scripts?.build === "node ../../scripts/build-wasm-binding.mjs && tsdown",
+        `${packagePath} must build the wasm binding before tsdown`,
+        errors,
+      )
+      check(
+        packageJson?.files?.includes("native/naos-compiler.wasm"),
+        `${packagePath} must publish the wasm binding`,
+        errors,
       )
     } else {
-      check(packageJson?.scripts?.build === "tsdown", `${packagePath} must build with tsdown`, errors)
+      check(
+        packageJson?.scripts?.build === "tsdown",
+        `${packagePath} must build with tsdown`,
+        errors,
+      )
     }
     check(packageJson?.files?.includes("dist/"), `${packagePath} must publish dist files`, errors)
     check(
@@ -61,7 +90,7 @@ export function validateReleaseSet({ rootDir: validationRoot = rootDir, readText
         packageJson.types.startsWith("./dist/") &&
         packageJson.types.endsWith(".d.mts"),
       `${packagePath} package-level types must point at dist .d.mts`,
-      errors
+      errors,
     )
     checkExportTypes(packageJson?.exports, packagePath, errors)
   }
@@ -71,25 +100,57 @@ export function validateReleaseSet({ rootDir: validationRoot = rootDir, readText
   check(
     arrayEquals(optionalDependencyNames, nativeTargets.map(({ name }) => name).sort()),
     "@naos-ui/compiler optionalDependencies must match native package matrix",
-    errors
+    errors,
   )
 
   for (const target of nativeTargets) {
     const packageJson = packageJsonByPath.get(target.path)
-    check(packageJson?.name === target.name, `${target.path} package name must be ${target.name}`, errors)
+    check(
+      packageJson?.name === target.name,
+      `${target.path} package name must be ${target.name}`,
+      errors,
+    )
     check(packageJson?.type === "commonjs", `${target.name} must be CommonJS`, errors)
-    check(packageJson?.main === "./naos-node.node", `${target.name} main must point at the .node artifact`, errors)
-    check(packageJson?.os?.[0] === target.os, `${target.name} os metadata must be ${target.os}`, errors)
-    check(packageJson?.cpu?.[0] === target.cpu, `${target.name} cpu metadata must be ${target.cpu}`, errors)
+    check(
+      packageJson?.main === "./naos-node.node",
+      `${target.name} main must point at the .node artifact`,
+      errors,
+    )
+    check(
+      packageJson?.os?.[0] === target.os,
+      `${target.name} os metadata must be ${target.os}`,
+      errors,
+    )
+    check(
+      packageJson?.cpu?.[0] === target.cpu,
+      `${target.name} cpu metadata must be ${target.cpu}`,
+      errors,
+    )
     if (target.libc) {
-      check(packageJson?.libc?.[0] === target.libc, `${target.name} libc metadata must be ${target.libc}`, errors)
+      check(
+        packageJson?.libc?.[0] === target.libc,
+        `${target.name} libc metadata must be ${target.libc}`,
+        errors,
+      )
     }
   }
 
   const cargoToml = read("Cargo.toml")
-  check(cargoToml.includes('version = "0.0.0"'), "workspace Cargo version must stay aligned", errors)
-  check(read("crates/naos-core/Cargo.toml").includes("publish = false"), "naos-core must remain unpublished", errors)
-  check(read("crates/naos-node/Cargo.toml").includes("publish = false"), "naos-node must remain unpublished", errors)
+  check(
+    cargoToml.includes('version = "0.0.0"'),
+    "workspace Cargo version must stay aligned",
+    errors,
+  )
+  check(
+    read("crates/naos-core/Cargo.toml").includes("publish = false"),
+    "naos-core must remain unpublished",
+    errors,
+  )
+  check(
+    read("crates/naos-node/Cargo.toml").includes("publish = false"),
+    "naos-node must remain unpublished",
+    errors,
+  )
   check(read(".npmrc").includes("provenance=true"), ".npmrc must enable npm provenance", errors)
 
   const releasePlease = readJson("release-please-config.json")
@@ -97,45 +158,61 @@ export function validateReleaseSet({ rootDir: validationRoot = rootDir, readText
   check(
     arrayEquals(releasePleasePackages, [...publicPackagePaths].sort()),
     "release-please packages must match the public release set",
-    errors
+    errors,
   )
 
   const releaseWorkflow = read(".github/workflows/release.yml")
-  check(releaseWorkflow.includes("node-version: 22.18.0"), "release workflow must use Node 22.18.0", errors)
-  check(releaseWorkflow.includes("package-manager-cache: false"), "release workflow must disable package-manager cache", errors)
+  check(
+    releaseWorkflow.includes("node-version: 22.18.0"),
+    "release workflow must use Node 22.18.0",
+    errors,
+  )
+  check(
+    releaseWorkflow.includes("package-manager-cache: false"),
+    "release workflow must disable package-manager cache",
+    errors,
+  )
   check(releaseWorkflow.includes("id-token: write"), "release workflow must allow npm OIDC", errors)
-  check(releaseWorkflow.includes("release-set:"), "release workflow must resolve the release inventory", errors)
+  check(
+    releaseWorkflow.includes("release-set:"),
+    "release workflow must resolve the release inventory",
+    errors,
+  )
   check(
     releaseWorkflow.includes("node scripts/release-set.mjs --github-output"),
     "release workflow must derive its native matrix from the release inventory",
-    errors
+    errors,
   )
   check(
     releaseWorkflow.includes("fromJSON(needs.release-set.outputs.native_matrix)"),
     "release workflow must consume the generated native matrix",
-    errors
+    errors,
   )
   check(
     releaseWorkflow.includes("node scripts/release-set.mjs --js-paths"),
     "release workflow JavaScript publish loop must consume the release inventory",
-    errors
+    errors,
   )
   check(
     !releaseWorkflow.includes("packages=("),
     "release workflow must not keep a hand-written JavaScript package list",
-    errors
+    errors,
   )
 
   const runbook = read("docs/npm-publishing.md")
   check(
     extractMarkedBlock(runbook, documentationStart, documentationEnd) === formatPackageTable(),
     "npm publishing runbook generated package table must match the public release set",
-    errors
+    errors,
   )
 
   const manifest = readJson(".release-please-manifest.json")
   for (const packagePath of publicPackagePaths) {
-    check(manifest[packagePath] === expectedVersion, `${packagePath} release manifest version must be ${expectedVersion}`, errors)
+    check(
+      manifest[packagePath] === expectedVersion,
+      `${packagePath} release manifest version must be ${expectedVersion}`,
+      errors,
+    )
   }
 
   return errors
@@ -171,7 +248,7 @@ function checkExportTypes(exports, packagePath, errors) {
     check(
       typeof types === "string" && types.startsWith("./dist/") && types.endsWith(".d.mts"),
       `${packagePath} export ${exportName} types must point at dist .d.mts`,
-      errors
+      errors,
     )
   }
 }

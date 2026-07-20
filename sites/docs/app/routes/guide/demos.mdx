@@ -23,3 +23,14 @@ surface is built as a separate Vite site and linked from Ardo.
 The demos consume generated elements and router-mounted custom elements from
 regular HTML. There is no React, Vue, Angular, Solid, or Remix host adapter in
 the v0.1 launch proof.
+
+## How It Fits Together
+
+The `examples/tasks` app in the repository is the composition path: a route
+loader resolves an `@naos-ui/data` resource, components subscribe to shared
+resources for their connected lifetime, typed route params flow into element
+props, and `@naos-ui/motion` animates list filtering and detail presence.
+Its unit tests mount compiled components through `@naos-ui/testing`, and the
+Playwright suite drives the full loader-to-render flow in CI.
+
+See [`examples/tasks`](https://github.com/sebastian-software/naos-ui/tree/main/examples/tasks).

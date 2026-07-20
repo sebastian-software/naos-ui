@@ -16,14 +16,14 @@ pub use codegen::{
     render_declarative_shadow_dom_module, render_declarative_shadow_dom_module_with_inline_styles,
     transform_component_module,
 };
-pub use error::{CompilerError, CompilerResult};
+pub use error::{CompilerError, CompilerResult, location_for_span};
 pub use model::{
     AttributeValue, CompilerDiagnostic, ComponentImport, ComponentModule, ComponentOptions,
-    ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticSeverity, DiagnosticSpan,
-    EffectDefinition, EventDefinition, KeyedSelectorDefinition, PackageContext, PropAccess,
-    PropDefinition, PropKind, SourceMap, StateDefinition, StateKind, StyleImport,
-    TemplateAttribute, TemplateChild, TemplateElement, TemplateEventHandler, TemplateList,
-    TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
+    ComputedDefinition, DeclarativeShadowDomRenderResult, DiagnosticLocation, DiagnosticSeverity,
+    DiagnosticSpan, EffectDefinition, EventDefinition, InspectDefinition, KeyedSelectorDefinition,
+    PackageContext, PropAccess, PropDefinition, PropKind, SourceMap, StateDefinition, StateKind,
+    StyleImport, TemplateAttribute, TemplateChild, TemplateElement, TemplateEventHandler,
+    TemplateList, TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
 };
 pub use parse::analyze_component_module;
 
@@ -37,8 +37,9 @@ pub fn core_version() -> &'static str {
 mod tests {
     use super::{
         AttributeValue, CompilerResult, ComponentModule, DeclarativeShadowDomRenderResult,
-        DiagnosticSeverity, PackageContext, StateKind, TemplateAttribute, TemplateChild,
-        TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult, core_version,
+        DiagnosticSeverity, DiagnosticSpan, PackageContext, PropKind, StateKind, TemplateAttribute,
+        TemplateChild, TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
+        core_version, location_for_span,
     };
     use super::{
         analyze_component_module as analyze_component_module_with_package,
@@ -48,8 +49,8 @@ mod tests {
     };
     use crate::error::{
         DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED, DIAGNOSTIC_CODE_DSD_INPUT,
-        DIAGNOSTIC_CODE_REMOVED_AUTHORING_API, DIAGNOSTIC_CODE_TEMPLATE_PARSE,
-        DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
+        DIAGNOSTIC_CODE_PROP_TYPE_MISMATCH, DIAGNOSTIC_CODE_REMOVED_AUTHORING_API,
+        DIAGNOSTIC_CODE_TEMPLATE_PARSE, DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
         DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
         DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER,
         DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER, DIAGNOSTIC_CODE_UNSUPPORTED_FUNCTION_PROPS,
@@ -672,6 +673,231 @@ mod tests {
         assert_eq!(module.computed[0].local_name, "doubled");
         assert_eq!(module.effects.len(), 1);
         assert_eq!(module.options.styles, vec!["\":host { display: block; }\""]);
+    }
+
+    #[test]
+    fn analyze_component_module_should_derive_prop_kinds_from_type_annotations() {
+        let source = r#"
+            type CardProps = {
+              readonly disabled?: boolean;
+              count?: number;
+              title?: string;
+              items?: string[];
+              config?: { deep: boolean };
+              tone?: "info" | "warn";
+            };
+
+            export function Card({ disabled, count, title = "Card", items = [], config, tone }: CardProps = {}) {
+              return <section>{title}</section>;
+            }
+        "#;
+
+        let module = match analyze_component_module(source, "card.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+
+        let kinds: Vec<(&str, PropKind)> = module
+            .props
+            .iter()
+            .map(|prop| (prop.prop_name.as_str(), prop.kind))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                ("disabled", PropKind::Boolean),
+                ("count", PropKind::Number),
+                ("title", PropKind::String),
+                ("items", PropKind::Rich),
+                ("config", PropKind::Rich),
+                ("tone", PropKind::String),
+            ]
+        );
+        assert_eq!(module.props[0].default_value, "false");
+        assert_eq!(module.props[1].default_value, "0");
+        assert_eq!(module.props[4].default_value, "undefined");
+    }
+
+    #[test]
+    fn analyze_component_module_should_derive_prop_kinds_from_inline_and_interface_types() {
+        let inline = r#"
+            export function Flag({ active }: { active?: boolean } = {}) {
+              return <span>{active}</span>;
+            }
+        "#;
+        let module = match analyze_component_module(inline, "flag.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+        assert_eq!(module.props[0].kind, PropKind::Boolean);
+
+        let interface = r#"
+            interface PanelProps {
+              rows?: number[];
+              open?: boolean;
+            }
+
+            export function Panel({ rows, open }: PanelProps = {}) {
+              return <span>{open}</span>;
+            }
+        "#;
+        let module = match analyze_component_module(interface, "panel.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+        assert_eq!(module.props[0].kind, PropKind::Rich);
+        assert_eq!(module.props[1].kind, PropKind::Boolean);
+    }
+
+    #[test]
+    fn analyze_component_module_should_resolve_annotations_at_word_boundaries() {
+        // `typeWidgetProps` and `WidgetPropsExtra` are identifier decoys; the
+        // real declaration follows both. `readonly_value` keeps its full name,
+        // and inline comments must not corrupt member types.
+        let source = r#"
+            const typeWidgetProps = { count: 5 };
+
+            type WidgetPropsExtra = {
+              other?: number;
+            };
+
+            type WidgetProps = {
+              readonly_value?: boolean;
+              readonly tone?: string; // trailing comment
+              /* block */ level?: number;
+            };
+
+            export function Widget({ readonly_value, tone, level }: WidgetProps = {}) {
+              return <span data-tone={tone}>{level}</span>;
+            }
+        "#;
+
+        let module = match analyze_component_module(source, "widget.wc.tsx") {
+            Ok(module) => module,
+            Err(error) => panic!("analysis failed: {error}"),
+        };
+
+        let kinds: Vec<(&str, PropKind)> = module
+            .props
+            .iter()
+            .map(|prop| (prop.prop_name.as_str(), prop.kind))
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                ("readonly_value", PropKind::Boolean),
+                ("tone", PropKind::String),
+                ("level", PropKind::Number),
+            ]
+        );
+    }
+
+    #[test]
+    fn analyze_component_module_should_reject_prop_type_default_conflicts() {
+        let source = r#"
+            export function Broken({ count = "many" }: { count?: number } = {}) {
+              return <span>{count}</span>;
+            }
+        "#;
+
+        let error = analyze_component_module(source, "broken.wc.tsx")
+            .expect_err("conflicting prop type and default should not compile");
+        let diagnostics = error.diagnostics_with_source("broken.wc.tsx", Some(source));
+        assert_eq!(diagnostics[0].code, DIAGNOSTIC_CODE_PROP_TYPE_MISMATCH);
+        assert!(diagnostics[0].message.contains("count"));
+    }
+
+    #[test]
+    fn generated_rich_props_should_stay_property_only() {
+        let source = r#"
+            type ListProps = {
+              items?: string[];
+              dense?: boolean;
+            };
+
+            export function List({ items = [], dense }: ListProps = {}) {
+              return <ul data-dense={dense}>{items.length}</ul>;
+            }
+        "#;
+
+        let result = match transform_component_module(source, "list.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert_contains(&result.code, "return [\"dense\"];");
+        assert!(!result.code.contains("case \"items\":"));
+        assert_contains(&result.code, "set items(value) {");
+        assert!(!result.code.contains("setAttribute(\"items\""));
+        assert_contains(&result.code, "case \"dense\":");
+        assert_contains(&result.code, "newValue !== null");
+
+        let props: Vec<(&str, PropKind)> = result
+            .props
+            .iter()
+            .map(|prop| (prop.prop_name.as_str(), prop.kind))
+            .collect();
+        assert_eq!(
+            props,
+            vec![("items", PropKind::Rich), ("dense", PropKind::Boolean)]
+        );
+        assert!(result.events.is_empty());
+    }
+
+    #[test]
+    fn transform_component_module_should_lower_braced_form_actions() {
+        let source = r#"
+            import { saveNote } from "./note-actions.js";
+
+            export function NoteForm() {
+              return (
+                <form action={saveNote}>
+                  <input name="note" required />
+                  <button>Save</button>
+                </form>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "note-form.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert_contains(
+            &result.code,
+            "import { saveNote } from \"./note-actions.js\";",
+        );
+        assert_contains(&result.code, "FormAction = (saveNote);");
+        assert_contains(&result.code, "typeof node0FormAction === \"string\"");
+        assert_contains(
+            &result.code,
+            "node0FormAction[Symbol.for(\"naos.form.action\")] === true",
+        );
+        assert_contains(&result.code, "node0FormAction.enhance(node0);");
+        assert_contains(
+            &result.code,
+            "requires a string URL or a Naos form action object",
+        );
+
+        let static_source = r#"
+            export function PlainForm() {
+              return (
+                <form action="/api/save" method="post">
+                  <button>Save</button>
+                </form>
+              );
+            }
+        "#;
+        let static_result = match transform_component_module(static_source, "plain-form.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+        assert_contains(
+            &static_result.code,
+            "setAttribute(\"action\", \"/api/save\")",
+        );
+        assert!(!static_result.code.contains("naos.form.action"));
     }
 
     #[test]
@@ -2281,6 +2507,207 @@ mod tests {
     }
 
     #[test]
+    fn transform_component_module_should_lower_inspect_to_dev_tracing() {
+        let source = r#"
+            import { computed, inspect, state } from "@naos-ui/core";
+
+            export function Probe() {
+              const count = state(0);
+              const doubled = computed(() => count() * 2);
+
+              inspect(count(), doubled());
+
+              return (
+                <button onClick={() => count.set(count() + 1)}>{count()}</button>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "probe.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains(
+            "if (this.#isDevelopment()) console.debug(\"[naos] <\" + this.localName + \"> inspect(count(), doubled())\", count(), doubled());"
+        ));
+        // The tracing step rides the dependency-gated update path.
+        let inspect_index = result
+            .code
+            .find("> inspect(count(), doubled())")
+            .expect("inspect step should be generated");
+        let gate_index = result.code[..inspect_index]
+            .rfind("this.#shouldUpdate(")
+            .expect("inspect step should be dependency gated");
+        assert!(result.code[gate_index..inspect_index].contains("\"count\""));
+    }
+
+    #[test]
+    fn transform_component_module_should_reject_empty_inspect() {
+        let source = r#"
+            import { inspect, state } from "@naos-ui/core";
+
+            export function Probe() {
+              const count = state(0);
+
+              inspect();
+
+              return <span>{count()}</span>;
+            }
+        "#;
+
+        let error = transform_component_module(source, "probe.wc.tsx")
+            .expect_err("empty inspect should be rejected");
+        assert!(
+            error
+                .to_string()
+                .contains("inspect() requires at least one value expression.")
+        );
+    }
+
+    #[test]
+    fn transform_component_module_should_expose_clx_class_helper() {
+        let source = r#"
+            import { clx, state } from "@naos-ui/core";
+
+            export function Chip() {
+              const active = state(false);
+
+              return (
+                <span
+                  class={clx("chip", active() && "chip--active", { "chip--idle": !active() })}
+                  onClick={() => active.set(!active())}
+                >
+                  Chip
+                </span>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "chip.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("function __naosClx(...inputs) {"));
+        assert!(result.code.contains("const clx = __naosClx;"));
+        assert!(
+            result
+                .code
+                .contains("const { active, clx } = this.#createBindings();")
+        );
+        assert!(result.code.contains(
+            "clx(\"chip\", active() && \"chip--active\", { \"chip--idle\": !active() })"
+        ));
+        assert!(!result.code.contains("import { clx"));
+    }
+
+    #[test]
+    fn transform_component_module_should_respect_clx_import_alias() {
+        let source = r#"
+            import { clx as classNames, state } from "@naos-ui/core";
+
+            export function Tag() {
+              const active = state(false);
+
+              return (
+                <span
+                  class={classNames({ active: active() })}
+                  onClick={() => active.set(!active())}
+                >
+                  Tag
+                </span>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "tag.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(result.code.contains("const classNames = __naosClx;"));
+        assert!(
+            result
+                .code
+                .contains("const { active, classNames } = this.#createBindings();")
+        );
+    }
+
+    #[test]
+    fn transform_component_module_should_apply_style_objects_with_custom_properties() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+
+            export function Meter() {
+              const level = state(0);
+
+              return (
+                <div style={{ "--meter-level": String(level()), opacity: level() > 0 ? "1" : false }}>
+                  <button onClick={() => level.set(level() + 1)}>Raise</button>
+                </div>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "meter.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            result
+                .code
+                .contains("#node0StyleCache = { styles: new Set(), raw: false };")
+        );
+        assert!(result.code.contains(
+            "this.#applyStyleValue(this.#node0, this.#node0StyleCache, ({ \"--meter-level\": String(level()), opacity: level() > 0 ? \"1\" : false }));"
+        ));
+        assert!(
+            result
+                .code
+                .contains("target.style.setProperty(property, value)")
+        );
+        assert!(
+            result
+                .code
+                .contains("target.style.removeProperty(property)")
+        );
+        // Style objects alone must not drag in the full spread machinery.
+        assert!(!result.code.contains("#applySpreadAttributes"));
+    }
+
+    #[test]
+    fn transform_component_module_should_keep_static_style_strings_as_attributes() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+
+            export function Banner() {
+              const open = state(false);
+
+              return (
+                <div style="color: red" data-open={open() ? "yes" : "no"}>
+                  <button onClick={() => open.set(!open())}>Toggle</button>
+                </div>
+              );
+            }
+        "#;
+
+        let result = match transform_component_module(source, "banner.wc.tsx") {
+            Ok(result) => result,
+            Err(error) => panic!("transform failed: {error}"),
+        };
+
+        assert!(
+            result
+                .code
+                .contains("node0.setAttribute(\"style\", \"color: red\");")
+        );
+        assert!(!result.code.contains("#applyStyleValue"));
+        assert!(!result.code.contains("__naosClx"));
+    }
+
+    #[test]
     fn transform_component_module_should_reject_jsx_spread_on_pascal_components() {
         let source = r#"
             import { computed } from "@naos-ui/core";
@@ -2333,8 +2760,17 @@ mod tests {
                 .code
                 .contains("import css from \"./button.css?inline\";")
         );
-        assert!(result.code.contains("style.textContent"));
-        assert!(result.code.contains("[css].join(\"\\n\")"));
+        assert!(result.code.contains("new CSSStyleSheet()"));
+        assert!(
+            result
+                .code
+                .contains("__naosComponentStyleSheet.replaceSync([css].join(\"\\n\"))")
+        );
+        assert!(
+            result
+                .code
+                .contains("this.#root.adoptedStyleSheets = [__naosComponentStyles()]")
+        );
         assert!(result.code.contains("document.createElement(\"slot\")"));
         assert!(result.code.contains("setAttribute(\"name\", \"icon\")"));
         assert!(result.code.contains("setAttribute(\"part\", \"button\")"));
@@ -2613,7 +3049,14 @@ mod tests {
             &result.code,
             "bubbles: true, composed: true, cancelable: false",
         );
-        assert_contains(&result.code, "style.textContent = [css].join(\"\\n\");");
+        assert_contains(
+            &result.code,
+            "__naosComponentStyleSheet.replaceSync([css].join(\"\\n\"));",
+        );
+        assert_contains(
+            &result.code,
+            "this.#root.adoptedStyleSheets = [__naosComponentStyles()];",
+        );
     }
 
     #[test]
@@ -2695,5 +3138,47 @@ mod tests {
             .split_once(end)
             .unwrap_or_else(|| panic!("expected generated output to contain section end `{end}`"))
             .0
+    }
+
+    #[test]
+    fn location_for_span_should_resolve_one_based_lines_and_columns() {
+        let source = "const a = 1\nconst bug = 2\n";
+        let loc = location_for_span(source, DiagnosticSpan { start: 18, end: 21 })
+            .expect("span should resolve");
+        assert_eq!((loc.start_line, loc.start_column), (2, 7));
+        assert_eq!((loc.end_line, loc.end_column), (2, 10));
+    }
+
+    #[test]
+    fn location_for_span_should_count_columns_in_characters() {
+        let source = "const \u{fc} = 1\n";
+        let one_offset = source.find('1').expect("literal");
+        let loc = location_for_span(
+            source,
+            DiagnosticSpan {
+                start: one_offset,
+                end: one_offset + 1,
+            },
+        )
+        .expect("span should resolve");
+        assert_eq!((loc.start_line, loc.start_column), (1, 11));
+    }
+
+    #[test]
+    fn location_for_span_should_reject_out_of_bounds_spans() {
+        assert!(location_for_span("short", DiagnosticSpan { start: 3, end: 99 }).is_none());
+    }
+
+    #[test]
+    fn transform_diagnostics_should_resolve_line_and_column_from_source() {
+        let source = "import { state } from \"@naos-ui/core\"\n\nexport function Probe() {\n  const ready = state(false)\n  return (\n    <section>\n      {ready() ? <b>Y</b> : <b>N</b>}\n    </section>\n  )\n}\n";
+        let error =
+            transform_component_module_with_package(source, "probe.wc.tsx", &test_package())
+                .expect_err("conditional JSX should be rejected");
+        let diagnostic = &error.diagnostics_with_source("probe.wc.tsx", Some(source))[0];
+        let loc = diagnostic
+            .loc
+            .expect("diagnostic should resolve a location");
+        assert_eq!((loc.start_line, loc.start_column), (6, 5));
     }
 }

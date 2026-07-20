@@ -1,15 +1,8 @@
 import { describe, expect, it } from "vitest"
 
 import { nextCheckboxState } from "./checkbox.js"
-import {
-  consumeNaosContext,
-  createNaosContext,
-  provideNaosContext,
-} from "./context.js"
-import {
-  nextDisclosureOpen,
-  shouldCloseDisclosureForKey,
-} from "./disclosure.js"
+import { consumeNaosContext, createNaosContext, provideNaosContext } from "./context.js"
+import { nextDisclosureOpen, shouldCloseDisclosureForKey } from "./disclosure.js"
 import {
   createNaosOverlayLayerStack,
   getNaosOverlayGeometryStyle,
@@ -50,7 +43,7 @@ class TestEventTarget implements EventTarget {
   addEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | null,
-    _options?: AddEventListenerOptions | boolean
+    _options?: AddEventListenerOptions | boolean,
   ) {
     if (listener == null) return
     let listeners = this.listeners.get(type)
@@ -75,7 +68,7 @@ class TestEventTarget implements EventTarget {
   removeEventListener(
     type: string,
     listener: EventListenerOrEventListenerObject | null,
-    _options?: EventListenerOptions | boolean
+    _options?: EventListenerOptions | boolean,
   ) {
     if (listener == null) return
     this.listeners.get(type)?.delete(listener)
@@ -152,7 +145,7 @@ describe("primitive behavior kernels", () => {
         modal: true,
         open: true,
         side: "bottom",
-      })
+      }),
     ).toEqual({
       "data-align": "start",
       "data-anchor-hidden": "",
@@ -171,7 +164,7 @@ describe("primitive behavior kernels", () => {
         anchorWidth: "var(--trigger-width)",
         availableHeight: 240,
         transformOrigin: "top left",
-      })
+      }),
     ).toEqual({
       "--naos-anchor-height": "32px",
       "--naos-anchor-width": "var(--trigger-width)",
@@ -210,13 +203,10 @@ describe("primitive behavior kernels", () => {
     const outside = new EventTarget()
 
     expect(shouldCloseNaosOverlayForKey({ key: "Escape" })).toBe(true)
-    expect(
-      shouldCloseNaosOverlayForKey({ defaultPrevented: true, key: "Escape" })
-    ).toBe(false)
+    expect(shouldCloseNaosOverlayForKey({ defaultPrevented: true, key: "Escape" })).toBe(false)
     expect(shouldCloseNaosOverlayForKey({ key: "Enter" })).toBe(false)
     expect(isNaosOverlayOutsideEventPath([outside], [content, trigger])).toBe(true)
-    expect(isNaosOverlayOutsideEventPath([content, outside], [content, trigger]))
-      .toBe(false)
+    expect(isNaosOverlayOutsideEventPath([content, outside], [content, trigger])).toBe(false)
   })
 
   it("maps presence lifecycle phases for transient UI", () => {
@@ -270,10 +260,12 @@ describe("primitive behavior kernels", () => {
         resolveFinished = resolve
       })
       const element = {
-        getAnimations: () => [{
-          finished,
-          playState: "running",
-        }],
+        getAnimations: () => [
+          {
+            finished,
+            playState: "running",
+          },
+        ],
       } as unknown as Element
       const calls: string[] = []
 
@@ -378,7 +370,7 @@ describe("primitive behavior kernels", () => {
         id: "item",
         onClick: () => undefined,
         tabIndex: 0,
-      })
+      }),
     ).toEqual({
       "aria-selected": true,
       "data-selected": false,
@@ -399,7 +391,7 @@ describe("primitive behavior kernels", () => {
         id: "pin-input",
         onChange,
         onInput: undefined,
-      })
+      }),
     ).toEqual({
       id: "pin-input",
       onInput: onChange,

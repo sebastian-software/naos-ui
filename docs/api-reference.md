@@ -28,11 +28,28 @@ for v0.1 and are not published to crates.io.
 | `springMotionTokenClassName(options)` | Experimental | Generate only the deterministic class name for build/runtime coordination. |
 | `springMotionTokenCss(options)` | Experimental | Generate only the CSS rule for compiler or package-build output. |
 | `flipMovedElements(firstRects, options?)` | Experimental | Play transform-only FLIP move animations for preserved keyed elements. |
+| `autoLayout(container, options?)` | Experimental | Animate direct-child layout changes of one container on child-list mutations: persisted children FLIP, added children can opt into an enter animation. Returns a dispose function and accepts an `AbortSignal`. |
 | `waitForAnimations(element, options?)` | Experimental | Wait for pending Web Animations API animations, with reduced-motion and timeout guards. |
 
 Motion token classes are intended for compiler or package-build CSS output. For
 example, primitives can share `--naos-presence-motion-*` variables through a
 stable class without injecting inline `style` strings at render time.
+
+`autoLayout()` targets a deliberately small container and its direct children
+only. Layout moves are the primary use case: positions are snapshotted per
+mutation pass, running layout animations are canceled before each new pass,
+and reduced-motion users get the same DOM update without animation. Exit
+animations, resize tracking, and compiler-assisted integration are
+intentionally out of scope for this first iteration (#137 phase 2). Applying
+unrelated `transform` animations to the same element can conflict with the
+FLIP transform until a composition strategy is finalized.
+
+```ts
+import { autoLayout } from "@naos-ui/motion"
+
+const dispose = autoLayout(list, { layout: "snappy", enter: "fade" })
+// later: dispose()
+```
 
 ## `@naos-ui/core`
 
@@ -41,6 +58,7 @@ stable class without injecting inline `style` strings at render time.
 | `state(initialValue)` | Public | Writable local component state. |
 | `computed(() => value)` | Public | Read-only derived value. |
 | `effect(() => cleanup?)` | Public | Lifecycle-aware side effect with optional cleanup. |
+| `inspect(...values)` | Experimental | Dev-only reactive tracing: logs the values on mount and whenever one of their sources changes; skipped when `import.meta.env.DEV` is `false`. |
 | `event<Detail>(name)` | Public | Typed `CustomEvent` dispatcher. |
 | `on(handler, options?)` | Public | Optional listener-options and invocation-scoped abort-signal marker. Normal JSX listeners use bare handlers. |
 | `host()` | Public | Current element, root, props, lifecycle signals, and update/task handle. |
@@ -104,7 +122,15 @@ type TransformComponentResult = {
   code: string
   hasChanged: boolean
   map?: SourceMap
+  styleImports: Array<{ localName: string; source: string }>
 }
+```
+
+`hasChanged` is `true` when the generated code differs from the input module
+source. `styleImports` lists the `?inline` CSS imports the compiler saw, so
+build integrations can resolve and watch them without re-parsing the source.
+
+```ts
 
 type RenderDeclarativeShadowDomRequest = {
   filename: string

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Naos task board example: router loaders, data resources, and motion working together."
+    />
+    <title>Task board</title>
+  </head>
+  <body>
+    <header class="site-header">
+      <p class="eyebrow">Naos example</p>
+      <h1>Task board</h1>
+      <p>
+        Route loaders resolve <code>@naos-ui/data</code> resources, components
+        bind them to their lifecycle, and <code>@naos-ui/motion</code> animates
+        list changes and detail presence.
+      </p>
+    </header>
+    <main data-app-outlet></main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

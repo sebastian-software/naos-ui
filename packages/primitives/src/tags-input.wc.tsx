@@ -49,9 +49,7 @@ export function NaosTagsInput({
   const tagsInputApi = computed(() => getNaosZagTagsInputApi(tagsInputService()))
   const changed = event<{ value: string[]; valueAsString: string }>("naos-change")
   const inputChanged = event<{ inputValue: string }>("naos-input")
-  const highlightedChanged = event<{ highlightedValue: string | null }>(
-    "naos-highlight-change"
-  )
+  const highlightedChanged = event<{ highlightedValue: string | null }>("naos-highlight-change")
   const invalid = event<{ reason: string }>("naos-invalid")
   const form = formControl({
     value: () => tagsInputFormValue(current()),
@@ -68,38 +66,40 @@ export function NaosTagsInput({
   void name
 
   onConnected(() => {
-    tagsInputService.set(createNaosZagTagsInputService({
-      allowDuplicates,
-      delimiter,
-      disabled,
-      host: host().element,
-      id: "naos-tags-input",
-      max,
-      name,
-      onHighlightChange(details) {
-        highlightedChanged.emit(details)
-      },
-      onInputValueChange(details) {
-        inputChanged.emit(details)
-        queueMicrotask(() => {
-          input.set(details.inputValue)
-        })
-      },
-      onValueChange(details) {
-        const nextValueAsString = tagsInputFormValue(details.value)
+    tagsInputService.set(
+      createNaosZagTagsInputService({
+        allowDuplicates,
+        delimiter,
+        disabled,
+        host: host().element,
+        id: "naos-tags-input",
+        max,
+        name,
+        onHighlightChange(details) {
+          highlightedChanged.emit(details)
+        },
+        onInputValueChange(details) {
+          inputChanged.emit(details)
+          queueMicrotask(() => {
+            input.set(details.inputValue)
+          })
+        },
+        onValueChange(details) {
+          const nextValueAsString = tagsInputFormValue(details.value)
 
-        changed.emit({ value: details.value, valueAsString: nextValueAsString })
-        queueMicrotask(() => {
-          current.set(details.value)
-        })
-      },
-      onValueInvalid(details) {
-        invalid.emit(details)
-      },
-      placeholder,
-      root: host().root,
-      value: tagsInputValueArray(value, delimiter),
-    }))
+          changed.emit({ value: details.value, valueAsString: nextValueAsString })
+          queueMicrotask(() => {
+            current.set(details.value)
+          })
+        },
+        onValueInvalid(details) {
+          invalid.emit(details)
+        },
+        placeholder,
+        root: host().root,
+        value: tagsInputValueArray(value, delimiter),
+      }),
+    )
   })
   onDisconnected(() => {
     stopNaosZagTagsInputService(tagsInputService())

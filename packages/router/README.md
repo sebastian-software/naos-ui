@@ -8,6 +8,9 @@ ordinary same-origin anchors and explicit action forms, updates active link
 state, restores scroll and focus after route commits, emits route events, and
 cancels stale async navigations.
 
+**Stability: preview.** Pre-1.0; the route contract may change between minor
+versions.
+
 ```ts
 import { createRouter, defineRoutes, redirect } from "@naos-ui/router"
 
@@ -46,6 +49,14 @@ createRouter({
 }).start()
 ```
 
+Routes defined through `defineRoutes()` derive typed path params from their
+path template: in the `/products/:id` loader above, `params` is
+`Readonly<{ id: string }>`, so `params.id` is a `string` and a misspelled name
+like `params.slug` is a compile error. Optional (`:name?`) and wildcard
+(`:name*`) segments type as `string | undefined`. The same typing applies to
+`action`, `props`, `attrs`, `canEnter`, `createElement`, and every
+`NaosRouteMatch` the router returns.
+
 Route elements receive `element.naosRoute`, including `params`, `search`,
 `data`, `actionData`, the current `URL`, and the navigation `AbortSignal`.
 Native forms opt into action handling with `data-naos-action`.
@@ -61,7 +72,97 @@ native fragment navigation.
 Route events are dispatched from the router and the outlet:
 `naos:navigationstart`, `naos:navigationcommit`, `naos:navigationabort`,
 `naos:navigationerror`, `naos:routechange`, `naos:actionstart`,
-`naos:actioncommit`, and `naos:actionerror`.
+`naos:actioncommit`, `naos:actionerror`, `naos:viewtransitionstart`, and
+`naos:viewtransitionend`.
+
+## Prefetch
+
+`router.prefetch(to)` warms both the route module (`load`) and the loader
+data. Loader results are cached per URL for `prefetchTtl` milliseconds
+(default 30 seconds; `0` restricts prefetch to module warming) and the next
+navigation to that URL consumes the cached result instead of re-running the
+loader. Prefetching never commits UI, an in-flight prefetch is aborted through
+its loader `AbortSignal` when a navigation to a different URL supersedes it,
+and a failed prefetch is dropped so the real navigation retries cleanly.
+
+Anchors opt into declarative prefetch with `data-naos-prefetch`:
+
+```html
+<a href="/products/42" data-naos-prefetch="hover">Product</a>
+<a href="/settings" data-naos-prefetch="focus">Settings</a>
+<a href="/reports" data-naos-prefetch="viewport">Reports</a>
+```
+
+`hover` prefetches on pointer hover, `focus` on keyboard focus, and
+`viewport` when the link scrolls into view (via `IntersectionObserver`;
+environments without the API skip viewport prefetch).
+
+## View Transitions
+
+`router.navigate(to, { viewTransition: true })` — or an anchor with
+`data-naos-view-transition` — wraps the route commit in
+`document.startViewTransition()`. While a transition runs,
+`router.activeViewTransition` exposes `{ navigation, url }` and the router
+dispatches `naos:viewtransitionstart` / `naos:viewtransitionend`. Browsers
+without the View Transition API and users preferring reduced motion
+(`prefers-reduced-motion: reduce`) navigate normally without animation.
+
+## Nested Routes and Layouts
+
+Routes accept `children` with paths relative to the parent (a child path of
+`"/"` is the index child and matches the parent path exactly). Deeper matches
+win over parent params/wildcards, and flat routes behave exactly as before.
+
+```ts
+{
+  path: "/settings",
+  tag: "app-settings-layout",
+  children: [
+    { path: "/", tag: "app-settings-overview" },
+    { path: "profile/:user", tag: "app-settings-profile" },
+  ],
+}
+```
+
+The parent mounts first; the matched child mounts into the parent element's
+child outlet. The outlet contract is explicit: the router looks for
+`[data-naos-router-outlet]` in the parent route element's light DOM, then in
+its open shadow root, or calls the route's `outlet(element, match)` resolver
+when defined. A matched child without a resolvable outlet is a navigation
+error (the configured `error` route commits).
+
+Parent layout elements stay mounted while navigating between their children —
+only levels whose route or own path params changed are re-created; the leaf
+element always remounts. Shadow DOM implication: placing the outlet inside a
+closed shadow root (or one the router must not reach into) requires the
+explicit `outlet()` resolver, since the router only searches light DOM and
+*open* shadow roots.
+
+## Route Metadata
+
+Routes accept `meta` — an object or a `(match) => NaosRouteMeta` callback —
+with `title`, `description`, `canonical`, and custom `tags` records. Metadata
+merges from the outermost parent to the leaf (leaf wins per field; `tags`
+concatenate), and the router owns the emitted head elements: managed tags are
+marked `data-naos-router-meta` and replaced on every commit. The leaf route's
+`title` field stays authoritative over `meta.title` when both are set.
+
+```ts
+meta: ({ params }) => ({
+  canonical: `https://example.com/products/${params.id}`,
+  description: "Product detail",
+  tags: [{ name: "og:type", content: "product" }],
+  title: `Product ${params.id}`,
+})
+```
+
+## Error Views and URLs
+
+When a loader or action throws and an `error` fallback route is configured,
+the URL advances with the same push/replace rules as a successful navigation
+before the error view commits. The address bar always reflects the URL whose
+load failed, so reloading reproduces the error state and back/forward stays
+consistent with what is on screen.
 
 The package is optional. It is not a dependency of generated Naos components,
 `@naos-ui/runtime`, or `@naos-ui/primitives`, and it does not depend on React,

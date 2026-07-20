@@ -9,10 +9,24 @@ host pages can use generated elements without a framework adapter.
 The following generated behavior is user-facing for v0.1:
 
 * exported PascalCase components infer stable custom-element tag names;
-* destructured props become JavaScript properties and observed attributes;
-* boolean props reflect as present or absent attributes;
+* destructured props become JavaScript properties, with prop kinds derived
+  from the TypeScript annotation first (`boolean`, `number`, `string`, and
+  literal unions of one primitive) and from the default literal when no
+  annotation resolves;
+* string, boolean, and number props observe and reflect attributes: boolean
+  props reflect as present or absent attributes (including annotation-typed
+  booleans without a default literal), and string/number props reflect their
+  stringified value;
+* props with any other type (arrays, objects, mixed unions, references the
+  compiler cannot resolve to a primitive) are rich props: property-only,
+  never observed, never reflected, and set uncoerced so complex data
+  round-trips through the property without stringification;
+* a prop whose annotation and default literal disagree fails compilation
+  with `NAOS_PROP_TYPE_MISMATCH`;
 * generated elements render into open Shadow DOM by default;
-* `styles` entries become Shadow DOM `<style>` text;
+* `styles` entries become one shared constructable stylesheet adopted by
+  every client-mounted instance, with inline `<style>` text as the
+  Declarative Shadow DOM fallback;
 * `part`, `slot`, `data-*`, `aria-*`, and common DOM attributes are emitted as
   platform attributes;
 * dynamic `aria-*` values preserve `false` as `"false"`;
@@ -21,7 +35,14 @@ The following generated behavior is user-facing for v0.1:
 * explicit Declarative Shadow DOM prerendering emits host HTML with
   `<template shadowrootmode="open">`;
 * generated client classes reuse an existing declarative shadow root before
-  falling back to imperative `attachShadow()`.
+  falling back to imperative `attachShadow()`;
+* compiled components carry their prop and event metadata in the transform
+  result, and `renderNaosElementDeclaration()` turns it into a standalone
+  `.d.ts` module: the element class with typed properties (rich props surface
+  as `unknown`), typed `addEventListener`/`removeEventListener` overloads for
+  `event()` declarations, and a global `HTMLElementTagNameMap` entry so
+  `document.createElement`/`querySelector` return the typed element.
+  `@naos-ui/primitives` ships these generated typings for every primitive.
 
 ## Internal Details
 

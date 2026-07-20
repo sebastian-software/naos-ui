@@ -24,23 +24,17 @@ declare global {
   }
 }
 
-async function expectPrimitiveEvent(
-  page: Page,
-  type: string,
-  detail: unknown
-) {
+async function expectPrimitiveEvent(page: Page, type: string, detail: unknown) {
   const expectedDetail = JSON.stringify(detail)
   await expect
     .poll(async () =>
       page.evaluate(
         ({ expectedDetail, type }) =>
           window.__naosPrimitiveEvents?.some(
-            (event) =>
-              event.type === type &&
-              JSON.stringify(event.detail) === expectedDetail
+            (event) => event.type === type && JSON.stringify(event.detail) === expectedDetail,
           ) ?? false,
-        { expectedDetail, type }
-      )
+        { expectedDetail, type },
+      ),
     )
     .toBe(true)
 }
@@ -49,11 +43,9 @@ async function expectPrimitiveEventType(page: Page, type: string) {
   await expect
     .poll(async () =>
       page.evaluate(
-        (type) =>
-          window.__naosPrimitiveEvents?.some((event) => event.type === type) ??
-          false,
-        type
-      )
+        (type) => window.__naosPrimitiveEvents?.some((event) => event.type === type) ?? false,
+        type,
+      ),
     )
     .toBe(true)
 }
@@ -67,31 +59,24 @@ async function expectShadowFocused(locator: ReturnType<Page["locator"]>) {
           return root.activeElement === element
         }
         return document.activeElement === element
-      })
+      }),
     )
     .toBe(true)
 }
 
-async function activeForRowAnimationCount(
-  locator: ReturnType<Page["locator"]>
-) {
+async function activeForRowAnimationCount(locator: ReturnType<Page["locator"]>) {
   return locator.evaluate((element) => {
     const root = element.shadowRoot ?? element
     return Array.from(root.querySelectorAll("[data-probe-for-row]")).reduce(
       (count, row) =>
         count +
-        row
-          .getAnimations()
-          .filter((animation) => animation.playState !== "finished").length,
-      0
+        row.getAnimations().filter((animation) => animation.playState !== "finished").length,
+      0,
     )
   })
 }
 
-async function observePresenceAttributes(
-  locator: ReturnType<Page["locator"]>,
-  key: string
-) {
+async function observePresenceAttributes(locator: ReturnType<Page["locator"]>, key: string) {
   await locator.evaluate((element, key) => {
     window.__naosPresenceObservers ??= {}
     window.__naosPresenceRecords ??= {}
@@ -117,10 +102,7 @@ async function observePresenceAttributes(
 }
 
 async function expectObservedClosingPresence(page: Page, key: string) {
-  const records = await page.evaluate(
-    (key) => window.__naosPresenceRecords?.[key] ?? [],
-    key
-  )
+  const records = await page.evaluate((key) => window.__naosPresenceRecords?.[key] ?? [], key)
   expect(records.some((record) => record.phase === "closing")).toBe(true)
   expect(records.some((record) => record.endingStyle)).toBe(true)
 }
@@ -140,23 +122,111 @@ test("compiled counter renders, updates, and emits detail", async ({ page }) => 
   await expect(page.locator("#counter-event")).toHaveText("Last counter event: 1")
 })
 
-test("duplicate package versions warn and keep the first registration", async ({
-  page,
-}) => {
+test("compiled clx classes and style objects update native elements", async ({ page }) => {
+  await page.goto("/")
+
+  const probe = page.locator("#style-probe-case demo-style-probe")
+  const chip = probe.locator("[data-style-probe-chip]")
+  const meter = probe.locator("[data-style-probe-meter]")
+  const readMeterStyle = () =>
+    meter.evaluate((element) => ({
+      level: element.style.getPropertyValue("--probe-level"),
+      opacity: element.style.opacity,
+    }))
+
+  await expect(chip).toHaveClass("chip chip--idle")
+  await expect.poll(readMeterStyle).toEqual({ level: "0", opacity: "" })
+
+  await probe.locator("[data-style-probe-toggle]").click()
+  await expect(chip).toHaveClass("chip chip--active")
+  await expect.poll(readMeterStyle).toEqual({ level: "0", opacity: "0.5" })
+
+  await probe.locator("[data-style-probe-raise]").click()
+  await expect.poll(readMeterStyle).toEqual({ level: "1", opacity: "0.5" })
+
+  await probe.locator("[data-style-probe-toggle]").click()
+  await expect(chip).toHaveClass("chip chip--idle")
+  await expect.poll(readMeterStyle).toEqual({ level: "1", opacity: "" })
+})
+
+test("inspect traces reactive values with dev-only console output", async ({ page }) => {
+  const inspectLogs: string[] = []
+  page.on("console", (message) => {
+    if (message.text().includes("<demo-reactivity-probe> inspect(primary(), secondary())")) {
+      inspectLogs.push(message.text())
+    }
+  })
+
+  await page.goto("/")
+  await expect.poll(() => inspectLogs.length).toBeGreaterThan(0)
+
+  const mountLogCount = inspectLogs.length
+  await page.locator("#reactivity-probe-case [data-probe-primary-button]").click()
+  await expect.poll(() => inspectLogs.length).toBeGreaterThan(mountLogCount)
+
+  // Setting the same value again must not re-fire the trace. A follow-up
+  // real change provides an ordered signal: console messages arrive in
+  // order, so once the "2 0" log is here, any spurious log from the
+  // identical-value set would already have been recorded before it.
+  const settledLogCount = inspectLogs.length
+  await page.locator("#reactivity-probe-case [data-probe-equal-button]").click()
+  await page.locator("#reactivity-probe-case [data-probe-primary-button]").click()
+  await expect.poll(() => inspectLogs.some((log) => log.endsWith(" 2 0"))).toBe(true)
+  expect(inspectLogs.length).toBe(settledLogCount + 1)
+})
+
+test("autoLayout animates reordered and added list children", async ({ page }) => {
+  await page.goto("/")
+
+  const items = page.locator("#auto-layout-list li")
+  await expect(items.first()).toHaveText("Alpha")
+
+  const moveAnimationCount = await page.evaluate(async () => {
+    document.querySelector<HTMLButtonElement>("#auto-layout-rotate")?.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const list = document.querySelector("#auto-layout-list")
+    return list?.getAnimations({ subtree: true }).length ?? 0
+  })
+  expect(moveAnimationCount).toBeGreaterThan(0)
+  await expect(items.first()).toHaveText("Beta")
+  await expect(items.last()).toHaveText("Alpha")
+
+  const enterAnimationCount = await page.evaluate(async () => {
+    document.querySelector<HTMLButtonElement>("#auto-layout-add")?.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const listItems = document.querySelectorAll("#auto-layout-list li")
+    return listItems[listItems.length - 1]?.getAnimations().length ?? 0
+  })
+  expect(enterAnimationCount).toBeGreaterThan(0)
+  await expect(items.last()).toHaveText("Item 4")
+})
+
+test("autoLayout keeps DOM updates without animation under reduced motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.goto("/")
+
+  const animationCount = await page.evaluate(async () => {
+    document.querySelector<HTMLButtonElement>("#auto-layout-rotate")?.click()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    const list = document.querySelector("#auto-layout-list")
+    return list?.getAnimations({ subtree: true }).length ?? 0
+  })
+  expect(animationCount).toBe(0)
+  await expect(page.locator("#auto-layout-list li").first()).toHaveText("Beta")
+})
+
+test("duplicate package versions warn and keep the first registration", async ({ page }) => {
   const warnings: string[] = []
   page.on("console", (message) => {
     if (message.type() === "warning") warnings.push(message.text())
   })
 
   await page.goto("/")
-  const firstRegistrationWon = await page.evaluate(
-    async (conflictUrl) => {
-      const registered = customElements.get("demo-counter")
-      await import(conflictUrl)
-      return customElements.get("demo-counter") === registered
-    },
-    "/fixtures/version-conflict/counter.wc.tsx"
-  )
+  const firstRegistrationWon = await page.evaluate(async (conflictUrl) => {
+    const registered = customElements.get("demo-counter")
+    await import(conflictUrl)
+    return customElements.get("demo-counter") === registered
+  }, "/fixtures/version-conflict/counter.wc.tsx")
 
   expect(firstRegistrationWon).toBe(true)
   await expect
@@ -166,15 +236,13 @@ test("duplicate package versions warn and keep the first registration", async ({
           warning.includes("<demo-counter>") &&
           warning.includes("@naos-ui/example-counter@0.0.0") &&
           warning.includes("attempted: @naos-ui/example-counter@999.0.0") &&
-          warning.includes("the first registration wins")
-      )
+          warning.includes("the first registration wins"),
+      ),
     )
     .toBe(true)
 })
 
-test("compiled reactive output batches and gates DOM updates", async ({
-  page,
-}) => {
+test("compiled reactive output batches and gates DOM updates", async ({ page }) => {
   await page.goto("/")
 
   const probe = page.locator("#reactivity-probe-case demo-reactivity-probe")
@@ -217,16 +285,14 @@ test("compiled reactive output batches and gates DOM updates", async ({
   await expect(secondary).toHaveText("1")
   await expect(body).toHaveAttribute("data-probe-effect-runs", "1")
   const secondaryMutationsAfterSecondaryClick = await page.evaluate(
-    () => window.__naosProbeSecondaryMutationCount?.() ?? -1
+    () => window.__naosProbeSecondaryMutationCount?.() ?? -1,
   )
 
   await primaryButton.click()
   await expect(primary).toHaveText("1")
   await expect(body).toHaveAttribute("data-probe-effect-runs", "2")
   await expect
-    .poll(() =>
-      page.evaluate(() => window.__naosProbeSecondaryMutationCount?.() ?? -1)
-    )
+    .poll(() => page.evaluate(() => window.__naosProbeSecondaryMutationCount?.() ?? -1))
     .toBe(secondaryMutationsAfterSecondaryClick)
 
   await batchButton.click()
@@ -240,14 +306,10 @@ test("compiled reactive output batches and gates DOM updates", async ({
   await expect(body).toHaveAttribute("data-probe-effect-runs", "4")
 })
 
-test("compiled effects restart after re-append and keyed-list moves", async ({
-  page,
-}) => {
+test("compiled effects restart after re-append and keyed-list moves", async ({ page }) => {
   await page.goto("/")
 
-  const host = page.locator(
-    "#effect-lifecycle-case demo-effect-lifecycle-list"
-  )
+  const host = page.locator("#effect-lifecycle-case demo-effect-lifecycle-list")
   const items = host.locator("demo-effect-lifecycle-item")
   const body = page.locator("body")
 
@@ -283,26 +345,19 @@ test("compiled effects restart after re-append and keyed-list moves", async ({
   }))
   await host.locator("[data-lifecycle-reorder]").click()
   await expect(items).toHaveText(["b", "a"])
-  expect(
-    await items.nth(1).evaluate((element, previous) => element === previous, firstA)
-  ).toBe(true)
-  expect(
-    await items.nth(0).evaluate((element, previous) => element === previous, firstB)
-  ).toBe(true)
+  expect(await items.nth(1).evaluate((element, previous) => element === previous, firstA)).toBe(
+    true,
+  )
+  expect(await items.nth(0).evaluate((element, previous) => element === previous, firstB)).toBe(
+    true,
+  )
   await expect
     .poll(() =>
-      page.evaluate(
-        (previous) => {
-          const a = Number(
-            document.body.getAttribute("data-lifecycle-runs-a")
-          )
-          const b = Number(
-            document.body.getAttribute("data-lifecycle-runs-b")
-          )
-          return a > previous.a || b > previous.b
-        },
-        runsBeforeReorder
-      )
+      page.evaluate((previous) => {
+        const a = Number(document.body.getAttribute("data-lifecycle-runs-a"))
+        const b = Number(document.body.getAttribute("data-lifecycle-runs-b"))
+        return a > previous.a || b > previous.b
+      }, runsBeforeReorder),
     )
     .toBe(true)
 
@@ -331,9 +386,7 @@ test("compiled async lifecycle signals abort stale work", async ({ page }) => {
   await eventSignalButton.click()
   await expect(body).toHaveAttribute("data-probe-event-abort-count", "1")
   await expect
-    .poll(() =>
-      page.evaluate(() => document.body.dataset.probeEventCompletedRun)
-    )
+    .poll(() => page.evaluate(() => document.body.dataset.probeEventCompletedRun))
     .toBe("2")
   await expect(body).toHaveAttribute("data-probe-event-signal-aborted", "false")
 
@@ -354,12 +407,8 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
     Object.defineProperty(globalThis, "reportError", {
       configurable: true,
       value: (error: unknown) => {
-        window.__naosReportedErrors?.push(
-          error instanceof Error ? error.message : String(error)
-        )
-        window.__naosReportedStacks?.push(
-          error instanceof Error ? (error.stack ?? "") : ""
-        )
+        window.__naosReportedErrors?.push(error instanceof Error ? error.message : String(error))
+        window.__naosReportedStacks?.push(error instanceof Error ? (error.stack ?? "") : "")
       },
     })
   })
@@ -371,8 +420,7 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
   await probe.evaluate((element) => {
     element.addEventListener("naos-error", (event) => {
       const error = (event as CustomEvent<{ error: unknown }>).detail.error
-      document.body.dataset.probeErrorEvent =
-        error instanceof Error ? error.message : String(error)
+      document.body.dataset.probeErrorEvent = error instanceof Error ? error.message : String(error)
     })
   })
 
@@ -381,7 +429,7 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
   await expect(body).toHaveAttribute("data-probe-error-queued-task", "true")
   await expect(body).toHaveAttribute(
     "data-probe-error-event",
-    "intentional lifecycle probe failure"
+    "intentional lifecycle probe failure",
   )
   await expect
     .poll(() => page.evaluate(() => window.__naosReportedErrors ?? []))
@@ -392,13 +440,10 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
     if (!frame) throw new Error(`Missing generated probe frame: ${stack}`)
     const generatedLine = Number(frame[1]) - 1
     const generatedColumn = Number(frame[2]) - 1
-    const transformed = await fetch("/src/reactivity-probe.wc.tsx").then(
-      (response) => response.text()
+    const transformed = await fetch("/src/reactivity-probe.wc.tsx").then((response) =>
+      response.text(),
     )
-    const inlineMap =
-      /sourceMappingURL=data:application\/json;base64,([^\s]+)/.exec(
-        transformed
-      )
+    const inlineMap = /sourceMappingURL=data:application\/json;base64,([^\s]+)/.exec(transformed)
     if (!inlineMap) throw new Error("Missing inline source map from Vite.")
     const encodedMap = inlineMap[1]
     if (!encodedMap) throw new Error("Missing inline source map payload.")
@@ -412,10 +457,9 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
       let value = 0
       let shift = 0
       for (const character of segment) {
-        const digit =
-          "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".indexOf(
-            character
-          )
+        const digit = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".indexOf(
+          character,
+        )
         value |= (digit & 31) << shift
         if ((digit & 32) !== 0) {
           shift += 5
@@ -437,10 +481,7 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
         originalSource += values[1] ?? 0
         originalLine += values[2] ?? 0
         originalColumn += values[3] ?? 0
-        if (
-          line === generatedLine &&
-          mappedGeneratedColumn <= generatedColumn
-        ) {
+        if (line === generatedLine && mappedGeneratedColumn <= generatedColumn) {
           mappedLine = originalLine + 1
         }
       }
@@ -448,7 +489,7 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
     }
     return { mappedLine, originalColumn, originalSource }
   })
-  expect(mappedErrorLine.mappedLine).toBe(16)
+  expect(mappedErrorLine.mappedLine).toBe(18)
 
   await probe.locator("[data-probe-recover-button]").click()
   await expect(primary).toHaveText("1")
@@ -457,31 +498,18 @@ test("compiled update errors settle awaiters and recover", async ({ page }) => {
 test("compiled event helpers preserve native listener options", async ({ page }) => {
   await page.goto("/")
 
-  const button = page.locator(
-    "#reactivity-probe-case [data-probe-event-options-button]"
-  )
+  const button = page.locator("#reactivity-probe-case [data-probe-event-options-button]")
   const body = page.locator("body")
 
   await button.click()
-  await expect(body).toHaveAttribute(
-    "data-probe-event-options-order",
-    "capture,bubble"
-  )
-  await expect(body).toHaveAttribute(
-    "data-probe-passive-default-prevented",
-    "false"
-  )
+  await expect(body).toHaveAttribute("data-probe-event-options-order", "capture,bubble")
+  await expect(body).toHaveAttribute("data-probe-passive-default-prevented", "false")
 
   await button.click()
-  await expect(body).toHaveAttribute(
-    "data-probe-event-options-order",
-    "capture,bubble,bubble"
-  )
+  await expect(body).toHaveAttribute("data-probe-event-options-order", "capture,bubble,bubble")
 })
 
-test("compiled list reconcilers preserve keyed and indexed row nodes", async ({
-  page,
-}) => {
+test("compiled list reconcilers preserve keyed and indexed row nodes", async ({ page }) => {
   await page.goto("/")
 
   const probe = page.locator("#list-reconciler-probe-case demo-list-reconciler-probe")
@@ -498,16 +526,11 @@ test("compiled list reconcilers preserve keyed and indexed row nodes", async ({
   expect(await activeForRowAnimationCount(probe)).toBeGreaterThan(0)
   await expect(forRows).toHaveText(["Beta", "Alpha", "Gamma"])
   await expect(forRows.nth(1)).toHaveAttribute("data-index", "1")
-  expect(
-    await forRows
-      .nth(1)
-      .evaluate((element, previous) => element === previous, alphaRow)
-  ).toBe(true)
-  await forRows.nth(1).click()
-  await expect(page.locator("body")).toHaveAttribute(
-    "data-probe-for-clicked",
-    "a"
+  expect(await forRows.nth(1).evaluate((element, previous) => element === previous, alphaRow)).toBe(
+    true,
   )
+  await forRows.nth(1).click()
+  await expect(page.locator("body")).toHaveAttribute("data-probe-for-clicked", "a")
 
   await probe.evaluate((element) => {
     const root = element.shadowRoot ?? element
@@ -539,12 +562,9 @@ test("compiled list reconcilers preserve keyed and indexed row nodes", async ({
   await forRows.nth(2).click()
   await expect(forRows.nth(1)).toHaveAttribute("data-selected", "no")
   await expect(forRows.nth(2)).toHaveAttribute("data-selected", "yes")
-  await expect(page.locator("body")).toHaveAttribute(
-    "data-probe-for-clicked",
-    "c"
-  )
+  await expect(page.locator("body")).toHaveAttribute("data-probe-for-clicked", "c")
   const selectorMutationCounts = await page.evaluate(
-    () => window.__naosSelectorMutationCounts ?? {}
+    () => window.__naosSelectorMutationCounts ?? {},
   )
   expect(selectorMutationCounts.a).toBeGreaterThan(0)
   expect(selectorMutationCounts.b).toBe(0)
@@ -561,17 +581,13 @@ test("compiled list reconcilers preserve keyed and indexed row nodes", async ({
   await expectShadowFocused(indexRows.nth(0))
   await expect(indexRows.nth(0)).toHaveValue("Alpine")
   expect(
-    await indexRows
-      .nth(0)
-      .evaluate((element, previous) => element === previous, firstInput)
+    await indexRows.nth(0).evaluate((element, previous) => element === previous, firstInput),
   ).toBe(true)
 
   await probe.locator("[data-probe-index-replace]").click()
   await expect(indexRows.nth(0)).toHaveValue("Gamma")
   expect(
-    await indexRows
-      .nth(0)
-      .evaluate((element, previous) => element === previous, firstInput)
+    await indexRows.nth(0).evaluate((element, previous) => element === previous, firstInput),
   ).toBe(true)
   await firstInput.dispose()
 })
@@ -605,11 +621,7 @@ test("compiled toggle renders primitive contracts and control flow", async ({ pa
 
   await expect(button).toHaveAttribute("data-state", "on")
   await expect(button).toHaveAttribute("aria-pressed", "true")
-  await expect(button.locator("[part~='indicator']")).toContainText([
-    "On",
-    "Pressed",
-    "Active",
-  ])
+  await expect(button.locator("[part~='indicator']")).toContainText(["On", "Pressed", "Active"])
   await expect(page.locator("body")).toHaveAttribute("data-last-toggle", "true")
   await expect(page.locator("#toggle-event")).toHaveText("Last toggle event: true")
 })
@@ -622,9 +634,7 @@ test("compiled toolbar composes nested PascalCase components", async ({ page }) 
   const toggleButton = toolbar.locator("demo-toggle button")
 
   await expect(toolbar).toHaveJSProperty("label", "Composed controls")
-  await expect(toolbar.locator("[part~='label']").first()).toHaveText(
-    "Composed controls"
-  )
+  await expect(toolbar.locator("[part~='label']").first()).toHaveText("Composed controls")
   await expect(counterButton).toHaveText("Nested count: 0")
   await expect(toggleButton).toHaveAttribute("data-state", "off")
 
@@ -637,9 +647,7 @@ test("compiled toolbar composes nested PascalCase components", async ({ page }) 
   await expect(page.locator("body")).toHaveAttribute("data-last-toggle", "true")
 })
 
-test("compiled elements accept host-provided css custom properties", async ({
-  page,
-}) => {
+test("compiled elements accept host-provided css custom properties", async ({ page }) => {
   await page.goto("/")
 
   const counter = page.locator("#theme-case demo-counter")
@@ -652,9 +660,42 @@ test("compiled elements accept host-provided css custom properties", async ({
   await expect(toggle.locator("button")).toHaveCSS("background-color", "rgb(204, 251, 241)")
 })
 
-test("router package mounts Custom Element routes from normal anchors", async ({
+test("compiled instances share one constructable stylesheet without per-instance style nodes", async ({
   page,
 }) => {
+  // The index page is client-side mounted. DSD-hydrated instances keep the
+  // template <style> fallback instead of adopting the shared sheet, so the
+  // existingSharesSheet assertion must not move to a prerendered page.
+  await page.goto("/")
+
+  const probe = await page.evaluate(() => {
+    const first = document.createElement("demo-counter")
+    const second = document.createElement("demo-counter")
+    document.body.append(first, second)
+    const firstSheets = first.shadowRoot?.adoptedStyleSheets ?? []
+    const secondSheets = second.shadowRoot?.adoptedStyleSheets ?? []
+    const existing = document.querySelector("#counter-case demo-counter")
+    const result = {
+      existingSharesSheet: existing?.shadowRoot?.adoptedStyleSheets[0] === firstSheets[0],
+      sheetCounts: [firstSheets.length, secondSheets.length],
+      sheetsShared: firstSheets[0] !== undefined && firstSheets[0] === secondSheets[0],
+      styleNodeCounts: [
+        first.shadowRoot?.querySelectorAll("style").length,
+        second.shadowRoot?.querySelectorAll("style").length,
+      ],
+    }
+    first.remove()
+    second.remove()
+    return result
+  })
+
+  expect(probe.sheetsShared).toBe(true)
+  expect(probe.existingSharesSheet).toBe(true)
+  expect(probe.sheetCounts).toEqual([1, 1])
+  expect(probe.styleNodeCounts).toEqual([0, 0])
+})
+
+test("router package mounts Custom Element routes from normal anchors", async ({ page }) => {
   await page.goto("/")
 
   const section = page.locator("#router-case")
@@ -678,44 +719,33 @@ test("router package mounts Custom Element routes from normal anchors", async ({
   await expect(productView).toContainText("Product 42")
   await expect(productView).toContainText("Search tab: details")
   await expect(productView).toContainText("Loader data: 18 units ready")
-  await expect(productView.locator("[data-router-action-result]")).toHaveText(
-    "Action result: none"
-  )
+  await expect(productView.locator("[data-router-action-result]")).toHaveText("Action result: none")
   await expect(productLink).toHaveAttribute("data-active", "")
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-router-route",
-    "/products/42?tab=details"
+    "/products/42?tab=details",
   )
-  await expect(eventOutput).toHaveText(
-    "Last router route: /products/42?tab=details"
-  )
+  await expect(eventOutput).toHaveText("Last router route: /products/42?tab=details")
 
   await productView.locator("input[name='note']").fill("Ship faster")
   await productView.getByRole("button", { name: "Save note" }).click()
 
   await expect(productView.locator("[data-router-action-result]")).toHaveText(
-    "Action result: saved Ship faster"
+    "Action result: saved Ship faster",
   )
-  await expect(page.locator("body")).toHaveAttribute(
-    "data-last-router-action",
-    "Ship faster"
-  )
+  await expect(page.locator("body")).toHaveAttribute("data-last-router-action", "Ship faster")
   await expect(eventOutput).toHaveText("Last router action: Ship faster")
 
   await settingsLink.click()
 
   await expect(page).toHaveURL(/\/settings$/u)
-  await expect(outlet.locator("router-settings-view")).toContainText(
-    "Router settings"
-  )
+  await expect(outlet.locator("router-settings-view")).toContainText("Router settings")
   await expect(settingsLink).toHaveAttribute("data-active", "")
 
   await missingLink.click()
 
   await expect(page).toHaveURL(/\/missing$/u)
-  await expect(outlet.locator("router-not-found-view")).toContainText(
-    "Route not found"
-  )
+  await expect(outlet.locator("router-not-found-view")).toContainText("Route not found")
   await expect(missingLink).toHaveAttribute("data-active", "")
 
   await homeLink.click()
@@ -724,9 +754,110 @@ test("router package mounts Custom Element routes from normal anchors", async ({
   await expect(outlet.locator("router-home-view")).toContainText("Router home")
 })
 
-test("compiled design-system primitives expose native contracts", async ({
+test("router hover prefetch warms loader data without committing UI", async ({ page }) => {
+  await page.goto("/")
+
+  const section = page.locator("#router-case")
+  const outlet = section.locator("#router-outlet")
+  const productLink = section.locator("[data-router-to='/products/:id']")
+  const settingsLink = section.locator("[data-router-to='/settings']")
+
+  await expect(outlet.locator("router-home-view")).toContainText("Router home")
+
+  await productLink.hover()
+  await expect(page.locator("body")).toHaveAttribute("data-router-loader-runs", "1")
+  await expect(outlet.locator("router-home-view")).toContainText("Router home")
+  await expect(page).toHaveURL(/\/$/u)
+
+  await productLink.click()
+  await expect(outlet.locator("router-product-view")).toContainText("Loader data: 18 units ready")
+  await expect(page.locator("body")).toHaveAttribute("data-router-loader-runs", "1")
+
+  // The settings anchor opts into View Transitions; browsers without the API
+  // (or with reduced motion) must still navigate normally.
+  await settingsLink.click()
+  await expect(page).toHaveURL(/\/settings$/u)
+  await expect(outlet.locator("router-settings-view")).toContainText("Router settings")
+})
+
+test("form actions enhance native forms with pending, error, and validation fallback", async ({
   page,
 }) => {
+  await page.goto("/")
+
+  const form = page.locator("#actions-case demo-note-form form")
+  const input = form.locator("input[name='note']")
+  const saveButton = form.locator("button")
+  const noteCount = form.locator("[data-note-count]")
+
+  await expect(noteCount).toHaveText("0")
+
+  // Empty required input: native constraint validation blocks the submit and
+  // the reducer never runs.
+  await saveButton.click()
+  await expect(noteCount).toHaveText("0")
+  await expect(page).toHaveURL(/\/$/u)
+
+  await input.fill("first note")
+  await saveButton.click()
+  await expect(form).toHaveAttribute("data-pending", "true")
+  await expect(noteCount).toHaveText("1")
+  await expect(form).toHaveAttribute("data-pending", "false")
+  await expect(form).toHaveAttribute("data-failed", "false")
+  await expect(page).toHaveURL(/\/$/u)
+
+  // A rejected reducer reports through error() and keeps the committed state.
+  await input.fill("boom")
+  await saveButton.click()
+  await expect(form).toHaveAttribute("data-failed", "true")
+  await expect(noteCount).toHaveText("1")
+
+  await input.fill("second note")
+  await saveButton.click()
+  await expect(noteCount).toHaveText("2")
+  await expect(form).toHaveAttribute("data-failed", "false")
+})
+
+test("router nested routes reuse the parent layout and apply route metadata", async ({ page }) => {
+  await page.goto("/")
+
+  const section = page.locator("#router-case")
+  const outlet = section.locator("#router-outlet")
+  const settingsLink = section.locator("[data-router-to='/settings']")
+  const appearanceLink = section.locator("[data-router-child-to='/settings/appearance']")
+
+  await settingsLink.click()
+  await expect(page).toHaveURL(/\/settings$/u)
+  const layout = outlet.locator("router-settings-view")
+  await expect(layout).toContainText("Router settings")
+  await expect(layout.locator("[data-settings-child='home']")).toBeVisible()
+
+  // Tag the layout element so we can prove it survives the child navigation.
+  await layout.evaluate((element) => {
+    element.setAttribute("data-layout-probe", "kept")
+  })
+
+  await appearanceLink.click()
+  await expect(page).toHaveURL(/\/settings\/appearance$/u)
+  await expect(layout).toHaveAttribute("data-layout-probe", "kept")
+  await expect(layout.locator("[data-settings-child='appearance']")).toBeVisible()
+  await expect(layout.locator("[data-settings-child='home']")).toHaveCount(0)
+  await expect(page).toHaveTitle("Appearance - Naos demos")
+  await expect(
+    page.locator("head meta[name='description'][data-naos-router-meta]"),
+  ).toHaveAttribute("content", "Naos router demo settings")
+  await expect(
+    page.locator("head meta[name='naos-demo-section'][data-naos-router-meta]"),
+  ).toHaveAttribute("content", "appearance")
+
+  await settingsLink.click()
+  await expect(page).toHaveURL(/\/settings$/u)
+  await expect(layout).toHaveAttribute("data-layout-probe", "kept")
+  await expect(layout.locator("[data-settings-child='home']")).toBeVisible()
+  await expect(page.locator("head meta[name='naos-demo-section']")).toHaveCount(0)
+})
+
+test("compiled design-system primitives expose native contracts", async ({ page }) => {
   await page.goto("/")
 
   const disclosure = page.locator("#primitive-suite-case demo-disclosure")
@@ -745,13 +876,9 @@ test("compiled design-system primitives expose native contracts", async ({
   await expect(disclosureRoot).toHaveAttribute("data-state", "open")
   await expect(disclosureButton).toHaveAttribute("aria-expanded", "true")
   await expect(disclosure.locator("[part~='panel']")).toBeVisible()
-  await expect(disclosure).toContainText(
-    "Publish native Custom Elements"
-  )
+  await expect(disclosure).toContainText("Publish native Custom Elements")
   await expect(page.locator("body")).toHaveAttribute("data-last-disclosure", "true")
-  await expect(page.locator("#disclosure-event")).toHaveText(
-    "Last disclosure event: true"
-  )
+  await expect(page.locator("#disclosure-event")).toHaveText("Last disclosure event: true")
 
   const field = page.locator("#primitive-suite-case demo-field")
   const fieldRoot = field.locator("label")
@@ -762,9 +889,7 @@ test("compiled design-system primitives expose native contracts", async ({
   await expect(fieldRoot).toHaveAttribute("data-state", "valid")
   await expect(field.locator("[part~='label']")).toHaveText("Package scope")
   await expect(field.locator("[part~='hint']")).toBeVisible()
-  await expect(field).toContainText(
-    "Used by generated package names"
-  )
+  await expect(field).toContainText("Used by generated package names")
   await expect(field.locator("[part~='status']")).toHaveText("Ready: @naos-ui")
   await expect(input).toHaveAttribute("aria-invalid", "false")
   await expect(input).toHaveValue("@naos-ui")
@@ -776,9 +901,7 @@ test("compiled design-system primitives expose native contracts", async ({
   await expect(field.locator("[part~='status']")).toHaveText("Ready: @naos-ui/labs")
   await expect(input).toHaveValue("@naos-ui/labs")
   await expect(page.locator("body")).toHaveAttribute("data-last-field", "@naos-ui/labs")
-  await expect(page.locator("#field-event")).toHaveText(
-    "Last field event: @naos-ui/labs"
-  )
+  await expect(page.locator("#field-event")).toHaveText("Last field event: @naos-ui/labs")
 })
 
 test("packaged primitives render and dispatch package events", async ({ page }) => {
@@ -921,35 +1044,26 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   const dropdown = section.locator("naos-dropdown")
   const form = section.locator("#primitive-form")
 
-  await expect(primaryButton.locator("button")).toHaveAttribute(
-    "part",
-    "root control"
-  )
+  await expect(primaryButton.locator("button")).toHaveAttribute("part", "root control")
   await expect(checkboxButton).toHaveAttribute("role", "checkbox")
   await expect(checkboxButton).toHaveAttribute("data-state", "unchecked")
   await expect(toggleButton).toHaveAttribute("data-state", "off")
   await expect(switchTrack).toHaveAttribute("role", "switch")
   await expect(switchTrack).toHaveAttribute("data-state", "checked")
   await expect(switchTrack).toHaveAttribute("aria-checked", "true")
-  await expect(radioGroup.locator("[role='radiogroup']")).toHaveAttribute(
-    "data-state",
-    "none"
-  )
+  await expect(radioGroup.locator("[role='radiogroup']")).toHaveAttribute("data-state", "none")
   await expect(radios).toHaveCount(3)
   await expect(radios.nth(0)).toHaveAttribute("role", "radio")
   await expect(radios.nth(0)).toHaveAttribute("data-state", "unchecked")
   await expect(radios.nth(2)).toHaveAttribute("aria-disabled", "true")
-  await expect(toggleGroup.locator("[role='group']")).toHaveAttribute(
-    "data-state",
-    "web"
-  )
+  await expect(toggleGroup.locator("[role='group']")).toHaveAttribute("data-state", "web")
   await expect(toggleItems).toHaveCount(3)
   await expect(toggleItems.nth(0)).toHaveAttribute("role", "button")
   await expect(toggleItems.nth(0)).toHaveAttribute("aria-pressed", "true")
   await expect(toggleItems.nth(2)).toHaveAttribute("aria-disabled", "true")
   await expect(segmentedControl.locator("[role='radiogroup']")).toHaveAttribute(
     "data-state",
-    "weekly"
+    "weekly",
   )
   await expect(segments).toHaveCount(4)
   await expect(segments.nth(1)).toHaveAttribute("role", "radio")
@@ -1037,15 +1151,12 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(collapsibleTrigger).toHaveAttribute("aria-expanded", "false")
   await expect(collapsibleTrigger).toHaveAttribute("data-state", "closed")
   await expect(collapsibleContent).toBeHidden()
-  await expect(accordionRoot).toHaveAttribute(
-    "data-state",
-    "quality"
-  )
+  await expect(accordionRoot).toHaveAttribute("data-state", "quality")
   await expect(accordionItems).toHaveCount(3)
   await expect(accordionItems.nth(0)).toHaveAttribute("data-state", "open")
   await expect(accordionItems.nth(0).locator("[part~='trigger']")).toHaveAttribute(
     "aria-expanded",
-    "true"
+    "true",
   )
   await expect(accordionItems.nth(0).locator("[part~='content']")).toBeVisible()
   await expect(accordionItems.nth(1).locator("[part~='content']")).toBeHidden()
@@ -1090,9 +1201,7 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(behaviorPanel).toBeHidden()
 
   await primaryButton.locator("button").click()
-  await expect(page.locator("#primitive-event")).toContainText(
-    '"variant":"primary"'
-  )
+  await expect(page.locator("#primitive-event")).toContainText('"variant":"primary"')
 
   await checkboxButton.click()
   await expect(checkboxButton).toHaveAttribute("data-state", "checked")
@@ -1121,17 +1230,13 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
 
   await toggleItems.nth(1).click()
   await expect(toggleItems.nth(1)).toHaveAttribute("data-state", "on")
-  await expect(page.locator("#primitive-event")).toContainText(
-    '"value":["web","docs"]'
-  )
+  await expect(page.locator("#primitive-event")).toContainText('"value":["web","docs"]')
   await expect(toggleItems.nth(1)).toBeFocused()
   await toggleItems.nth(1).press("ArrowLeft")
   await expect(toggleItems.nth(0)).toBeFocused()
   await toggleItems.nth(0).press("Space")
   await expect(toggleItems.nth(0)).toHaveAttribute("data-state", "off")
-  await expect(page.locator("#primitive-event")).toContainText(
-    '"value":["docs"]'
-  )
+  await expect(page.locator("#primitive-event")).toContainText('"value":["docs"]')
 
   await segments.nth(2).click()
   await expect(segments.nth(2)).toHaveAttribute("data-state", "selected")
@@ -1187,9 +1292,7 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await tagsInputField.press("Enter")
   await expect(tagsInputRoot).toHaveAttribute("data-value", "docs,preview,qa")
   await expect(tagItems).toHaveCount(3)
-  await expect(page.locator("#primitive-event")).toContainText(
-    '"valueAsString":"docs,preview,qa"'
-  )
+  await expect(page.locator("#primitive-event")).toContainText('"valueAsString":"docs,preview,qa"')
   await tagDeleteTriggers.nth(1).click()
   await expect(tagsInputRoot).toHaveAttribute("data-value", "docs,qa")
   await expect(tagItems).toHaveCount(2)
@@ -1203,9 +1306,7 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(fileUploadRoot).toHaveAttribute("data-value", "release.txt")
   await expect(fileUploadItems).toHaveCount(1)
   await expect(fileUploadItems.nth(0)).toContainText("release.txt")
-  await expect(page.locator("#primitive-event")).toContainText(
-    '"files":["release.txt"]'
-  )
+  await expect(page.locator("#primitive-event")).toContainText('"files":["release.txt"]')
 
   await datePickerTrigger.click()
   await expect(datePickerRoot).toHaveAttribute("data-state", "open")
@@ -1249,7 +1350,7 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
         cancelable: true,
         composed: true,
         key: "ArrowRight",
-      })
+      }),
     )
   })
   await expect(sliderThumb).toHaveAttribute("aria-valuenow", "50")
@@ -1267,10 +1368,10 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await form.locator("button[type='submit']").click()
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-note:Launch approved, release-rating:3, confidence:80"
+    "docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-note:Launch approved, release-rating:3, confidence:80",
   )
   await expect(page.locator("#primitive-form-event")).toHaveText(
-    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-note:Launch approved, release-rating:3, confidence:80"
+    "Last primitive form data: docs:reviewed, preview:enabled, notify:enabled, audience:stable, channels:docs, cadence:monthly, region:apac, lane:audit, owner:docs, approvals:3, release-code:1234, release-tags:docs,qa, release-file:release.txt, release-date:2026-06-20, release-note:Launch approved, release-rating:3, confidence:80",
   )
 
   await form.locator("button[type='reset']").click()
@@ -1305,7 +1406,7 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(sliderThumb).toHaveAttribute("aria-valuenow", "40")
   await expect(page.locator("body")).toHaveAttribute(
     "data-last-primitive-form",
-    "notify:enabled, channels:web, cadence:weekly, region:eu, lane:review, owner:ops, approvals:2, release-code:123, release-tags:docs,preview, release-date:2026-06-18, release-note:Launch checklist, release-rating:3, confidence:40"
+    "notify:enabled, channels:web, cadence:weekly, region:eu, lane:review, owner:ops, approvals:2, release-code:123, release-tags:docs,preview, release-date:2026-06-18, release-note:Launch checklist, release-rating:3, confidence:40",
   )
 
   await fileUploadInput.setInputFiles({
@@ -1368,25 +1469,14 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await tabItems.nth(1).click()
   await expect(contractPanel).toBeHidden()
   await expect(behaviorPanel).toBeVisible()
-  await expect(tabItems.nth(1)).toHaveAttribute(
-    "data-state",
-    "selected"
-  )
-  await expect(page.locator("#primitive-event")).toContainText(
-    '"value":"behavior"'
-  )
+  await expect(tabItems.nth(1)).toHaveAttribute("data-state", "selected")
+  await expect(page.locator("#primitive-event")).toContainText('"value":"behavior"')
 
   await tabItems.nth(1).press("ArrowRight")
-  await expect(tabItems.nth(2)).toHaveAttribute(
-    "data-state",
-    "selected"
-  )
+  await expect(tabItems.nth(2)).toHaveAttribute("data-state", "selected")
   await expect(tabItems.nth(2)).toBeFocused()
   await tabItems.nth(2).press("Home")
-  await expect(tabItems.nth(0)).toHaveAttribute(
-    "data-state",
-    "selected"
-  )
+  await expect(tabItems.nth(0)).toHaveAttribute("data-state", "selected")
   await expect(tabItems.nth(0)).toBeFocused()
 
   await tabs.evaluate((element) => {
@@ -1509,9 +1599,7 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(accordionItems.nth(0)).toHaveAttribute("data-state", "closed")
   await expect(accordionItems.nth(1)).toHaveAttribute("data-state", "open")
   await expect(accordionItems.nth(1).locator("[part~='content']")).toBeVisible()
-  await expect(page.locator("#primitive-event")).toContainText(
-    '"value":["handoff"]'
-  )
+  await expect(page.locator("#primitive-event")).toContainText('"value":["handoff"]')
   await accordionItems.nth(1).locator("[part~='trigger']").press("ArrowUp")
   await expect(accordionItems.nth(0).locator("[part~='trigger']")).toBeFocused()
 
@@ -1574,20 +1662,19 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(dialogTrigger).toBeFocused()
 
   await tooltipTrigger.evaluate((trigger) => {
-    trigger.dispatchEvent(new PointerEvent("pointermove", {
-      bubbles: true,
-      pointerType: "mouse",
-    }))
+    trigger.dispatchEvent(
+      new PointerEvent("pointermove", {
+        bubbles: true,
+        pointerType: "mouse",
+      }),
+    )
   })
   await expect(tooltipTrigger).toHaveAttribute("data-state", "open")
   await expect(tooltipTrigger).toHaveAttribute("aria-describedby", /.+/)
   await expect(tooltipContent).toBeVisible()
   await expect(tooltipContent).toHaveAttribute("data-naos-presence", "open")
   await tooltipContent.evaluate((content) => {
-    (content as HTMLElement).style.setProperty(
-      "--naos-tooltip-motion-duration",
-      "250ms"
-    )
+    ;(content as HTMLElement).style.setProperty("--naos-tooltip-motion-duration", "250ms")
   })
   await expect(page.locator("#primitive-event")).toContainText('"open":true')
   await observePresenceAttributes(tooltipContent, "tooltip")
@@ -1598,36 +1685,39 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(page.locator("#primitive-event")).toContainText('"open":false')
 
   await tooltipTrigger.evaluate((trigger) => {
-    trigger.dispatchEvent(new PointerEvent("pointermove", {
-      bubbles: true,
-      pointerType: "mouse",
-    }))
+    trigger.dispatchEvent(
+      new PointerEvent("pointermove", {
+        bubbles: true,
+        pointerType: "mouse",
+      }),
+    )
   })
   await expect(tooltipContent).toBeVisible()
   await expect(tooltipContent).toHaveAttribute("data-naos-presence", "open")
   await tooltipTrigger.evaluate((trigger) => {
-    trigger.dispatchEvent(new PointerEvent("pointerleave", {
-      bubbles: true,
-      pointerType: "mouse",
-    }))
+    trigger.dispatchEvent(
+      new PointerEvent("pointerleave", {
+        bubbles: true,
+        pointerType: "mouse",
+      }),
+    )
   })
   await expect(tooltipContent).toBeHidden()
   await expect(tooltipContent).toHaveAttribute("data-naos-presence", "closed")
 
   await hoverCardTrigger.evaluate((trigger) => {
-    trigger.dispatchEvent(new PointerEvent("pointermove", {
-      bubbles: true,
-      pointerType: "mouse",
-    }))
+    trigger.dispatchEvent(
+      new PointerEvent("pointermove", {
+        bubbles: true,
+        pointerType: "mouse",
+      }),
+    )
   })
   await expect(hoverCardTrigger).toHaveAttribute("data-state", "open")
   await expect(hoverCardContent).toBeVisible()
   await expect(hoverCardContent).toHaveAttribute("data-naos-presence", "open")
   await hoverCardContent.evaluate((content) => {
-    (content as HTMLElement).style.setProperty(
-      "--naos-hover-card-motion-duration",
-      "250ms"
-    )
+    ;(content as HTMLElement).style.setProperty("--naos-hover-card-motion-duration", "250ms")
   })
   await expect(page.locator("#primitive-event")).toContainText('"open":true')
   await observePresenceAttributes(hoverCardContent, "hover-card")
@@ -1638,18 +1728,22 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(page.locator("#primitive-event")).toContainText('"open":false')
 
   await hoverCardTrigger.evaluate((trigger) => {
-    trigger.dispatchEvent(new PointerEvent("pointermove", {
-      bubbles: true,
-      pointerType: "mouse",
-    }))
+    trigger.dispatchEvent(
+      new PointerEvent("pointermove", {
+        bubbles: true,
+        pointerType: "mouse",
+      }),
+    )
   })
   await expect(hoverCardContent).toBeVisible()
   await expect(hoverCardContent).toHaveAttribute("data-naos-presence", "open")
   await hoverCardContent.evaluate((content) => {
-    content.dispatchEvent(new PointerEvent("pointerleave", {
-      bubbles: true,
-      pointerType: "mouse",
-    }))
+    content.dispatchEvent(
+      new PointerEvent("pointerleave", {
+        bubbles: true,
+        pointerType: "mouse",
+      }),
+    )
   })
   await expect(hoverCardContent).toBeHidden()
   await expect(hoverCardContent).toHaveAttribute("data-naos-presence", "closed")
@@ -1659,19 +1753,15 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(toastRegion).toHaveAttribute("data-count", "1")
   await expect(toastItems).toHaveCount(1)
   await expect(toastItems.nth(0)).toHaveAttribute("data-type", "success")
-  await expect(toastItems.nth(0).locator("[part~='title']")).toHaveText(
-    "Release queued"
-  )
+  await expect(toastItems.nth(0).locator("[part~='title']")).toHaveText("Release queued")
   await expect(toastItems.nth(0).locator("[part~='description']")).toContainText(
-    "managed by the Zag toast store"
+    "managed by the Zag toast store",
   )
   await toastItems.nth(0).locator("[part~='close']").click()
   await expect(toastRegion).toHaveAttribute("data-count", "0")
 })
 
-test("form-associated primitive controls receive disabled fieldset state", async ({
-  page,
-}) => {
+test("form-associated primitive controls receive disabled fieldset state", async ({ page }) => {
   await page.goto("/")
 
   await page.evaluate(() => {
@@ -1763,31 +1853,29 @@ test("form-associated primitive controls receive disabled fieldset state", async
   await expect(listboxItem).toHaveAttribute("aria-disabled", "true")
   await expect(comboboxItem).toHaveAttribute("aria-disabled", "true")
   await checkboxButton.evaluate((button) =>
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true })),
   )
   await toggleButton.evaluate((button) =>
-    button.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true })),
   )
-  await radio.evaluate((item) =>
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
-  )
+  await radio.evaluate((item) => item.dispatchEvent(new MouseEvent("click", { bubbles: true })))
   await toggleItem.evaluate((item) =>
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true })),
   )
   await segmentedItem.evaluate((item) =>
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true })),
   )
   await selectItem.evaluate((item) =>
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true })),
   )
   await listboxItem.evaluate((item) =>
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true })),
   )
   await comboboxItem.evaluate((item) =>
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true })),
   )
   await ratingItem.evaluate((item) =>
-    item.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    item.dispatchEvent(new MouseEvent("click", { bubbles: true })),
   )
   await expect(checkboxButton).toHaveAttribute("data-state", "unchecked")
   await expect(toggleButton).toHaveAttribute("data-state", "off")
@@ -1818,8 +1906,8 @@ test("declarative shadow dom renders useful DOM before upgrade and hydrates afte
     counter.evaluate(
       (element) =>
         Boolean(element.shadowRoot?.querySelector("[data-naos-root]")) &&
-        Boolean(element.shadowRoot?.querySelector("[data-naos-text='text0']"))
-    )
+        Boolean(element.shadowRoot?.querySelector("[data-naos-text='text0']")),
+    ),
   ).resolves.toBe(true)
 
   const toggle = page.locator("#dsd-toggle-case demo-toggle")
@@ -1835,7 +1923,7 @@ test("declarative shadow dom renders useful DOM before upgrade and hydrates afte
       window as unknown as Window & {
         __naosUpgrade(): Promise<unknown>
       }
-    ).__naosUpgrade()
+    ).__naosUpgrade(),
   )
   await expect
     .poll(() => page.evaluate(() => customElements.get("demo-counter") !== undefined))
@@ -1855,9 +1943,7 @@ test("declarative shadow dom renders useful DOM before upgrade and hydrates afte
   await expect(page.locator("body")).toHaveAttribute("data-last-toggle", "true")
 })
 
-test("declarative shadow dom reports development hydration mismatches", async ({
-  page,
-}) => {
+test("declarative shadow dom reports development hydration mismatches", async ({ page }) => {
   const pageErrors: string[] = []
   page.on("pageerror", (error) => {
     pageErrors.push(error.message)
@@ -1865,9 +1951,7 @@ test("declarative shadow dom reports development hydration mismatches", async ({
 
   await page.goto("/dsd.html?delayUpgrade=1")
   await page.locator("#dsd-counter-case demo-counter").evaluate((element) => {
-    element.shadowRoot
-      ?.querySelector("[data-naos-node='node0']")
-      ?.removeAttribute("data-naos-node")
+    element.shadowRoot?.querySelector("[data-naos-node='node0']")?.removeAttribute("data-naos-node")
   })
 
   await page.evaluate(() =>
@@ -1877,7 +1961,7 @@ test("declarative shadow dom reports development hydration mismatches", async ({
       }
     )
       .__naosUpgrade()
-      .catch(() => undefined)
+      .catch(() => undefined),
   )
 
   await expect
@@ -1885,9 +1969,7 @@ test("declarative shadow dom reports development hydration mismatches", async ({
     .toBe(true)
 })
 
-test("declarative shadow dom remounts on production hydration mismatches", async ({
-  page,
-}) => {
+test("declarative shadow dom remounts on production hydration mismatches", async ({ page }) => {
   const pageErrors: string[] = []
   page.on("pageerror", (error) => {
     pageErrors.push(error.message)
@@ -1896,9 +1978,7 @@ test("declarative shadow dom remounts on production hydration mismatches", async
   await page.goto("/dsd.html?delayUpgrade=1")
   const counter = page.locator("#dsd-counter-case demo-counter")
   await counter.evaluate((element) => {
-    element.shadowRoot
-      ?.querySelector("[data-naos-node='node0']")
-      ?.removeAttribute("data-naos-node")
+    element.shadowRoot?.querySelector("[data-naos-node='node0']")?.removeAttribute("data-naos-node")
   })
 
   await page.evaluate(async () => {
@@ -1907,12 +1987,12 @@ test("declarative shadow dom remounts on production hydration mismatches", async
     code = code.replace("return import.meta.env?.DEV ?? true;", "return false;")
     code = code.replaceAll(
       "/src/counter.wc.css?inline",
-      "data:text/javascript,export default %22%22"
+      "data:text/javascript,export default %22%22",
     )
     code = code.replace(
       /from "([^"]*packages\/runtime\/dist\/runtime\.mjs)";/,
       (_match, specifier: string) =>
-        `from ${JSON.stringify(new URL(specifier, window.location.href).href)};`
+        `from ${JSON.stringify(new URL(specifier, window.location.href).href)};`,
     )
     const url = URL.createObjectURL(new Blob([code], { type: "text/javascript" }))
     try {
@@ -1927,9 +2007,7 @@ test("declarative shadow dom remounts on production hydration mismatches", async
   const counterButton = counter.locator("button")
   await expect(counterButton).toHaveText("Count: 0")
   await expect(
-    counter.evaluate((element) =>
-      Boolean(element.shadowRoot?.querySelector("[data-naos-root]"))
-    )
+    counter.evaluate((element) => Boolean(element.shadowRoot?.querySelector("[data-naos-root]"))),
   ).resolves.toBe(false)
 
   await counterButton.click()

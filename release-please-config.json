@@ -37,9 +37,19 @@
       "package-name": "@naos-ui/router",
       "release-type": "node"
     },
+    "packages/testing": {
+      "component": "testing",
+      "package-name": "@naos-ui/testing",
+      "release-type": "node"
+    },
     "packages/compiler": {
       "component": "compiler",
       "package-name": "@naos-ui/compiler",
+      "release-type": "node"
+    },
+    "packages/compiler-wasm": {
+      "component": "compiler-wasm",
+      "package-name": "@naos-ui/compiler-wasm",
       "release-type": "node"
     },
     "packages/vite": {
@@ -90,6 +100,21 @@
     "packages/compiler-win32-x64-msvc": {
       "component": "compiler-win32-x64-msvc",
       "package-name": "@naos-ui/compiler-win32-x64-msvc",
+      "release-type": "node"
+    },
+    "packages/actions": {
+      "component": "actions",
+      "package-name": "@naos-ui/actions",
+      "release-type": "node"
+    },
+    "packages/create-naos": {
+      "component": "create-naos",
+      "package-name": "create-naos",
+      "release-type": "node"
+    },
+    "packages/unplugin": {
+      "component": "unplugin",
+      "package-name": "@naos-ui/unplugin",
       "release-type": "node"
     }
   }

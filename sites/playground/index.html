@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Naos Playground</title>
+    <meta
+      name="description"
+      content="Compile Naos TSX components to native Custom Elements directly in the browser."
+    />
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="wordmark" href="../">Naos</a>
+      <span class="topbar-title">Playground</span>
+      <label class="example-picker">
+        <span>Example</span>
+        <select id="example-select" aria-label="Choose an example"></select>
+      </label>
+      <p id="example-description" class="example-description"></p>
+      <span id="status-chip" class="status-chip" data-state="loading">Loading compiler...</span>
+      <a class="topbar-link" href="../guide/getting-started">Docs</a>
+    </header>
+
+    <main class="workbench">
+      <section class="pane pane-editor" aria-label="Component source">
+        <div class="pane-header">
+          <h2>Source</h2>
+          <div class="pane-tools">
+            <kbd>Cmd/Ctrl + Enter</kbd>
+            <button id="run-button" type="button" disabled>Run</button>
+          </div>
+        </div>
+        <div id="editor" class="editor-host"></div>
+      </section>
+
+      <section class="pane pane-output" aria-label="Compiler output">
+        <div class="pane-header">
+          <h2>Preview</h2>
+          <code id="tag-chip" class="tag-chip" hidden></code>
+        </div>
+        <div class="stage">
+          <div id="preview"></div>
+        </div>
+        <p id="preview-error" class="notice" role="alert" hidden></p>
+        <div id="diagnostics" class="diagnostics" role="alert" hidden>
+          <h3>Diagnostics</h3>
+          <ul id="diagnostics-list"></ul>
+        </div>
+        <div class="pane-header pane-header-code">
+          <h2>Generated module</h2>
+          <span id="core-chip" class="core-chip"></span>
+        </div>
+        <div id="generated" class="generated"></div>
+      </section>
+    </main>
+
+    <p id="unavailable" class="notice notice-page" role="alert" hidden></p>
+
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>

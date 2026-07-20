@@ -61,8 +61,7 @@ type NaosRadioGroupContextUpdate = {
 const documentPositionPreceding = 2
 const documentPositionFollowing = 4
 
-export const NAOS_RADIO_GROUP_CONTEXT =
-  createNaosContext<NaosRadioGroupContext>("naos-radio-group")
+export const NAOS_RADIO_GROUP_CONTEXT = createNaosContext<NaosRadioGroupContext>("naos-radio-group")
 
 export function createNaosZagRadioGroupService({
   disabled,
@@ -95,15 +94,13 @@ export function createNaosZagRadioGroupService({
 }
 
 export function getNaosZagRadioGroupApi(
-  service: NaosZagRadioGroupService | null
+  service: NaosZagRadioGroupService | null,
 ): ZagRadioGroupApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagRadioGroupService(
-  service: NaosZagRadioGroupService | null
-) {
+export function stopNaosZagRadioGroupService(service: NaosZagRadioGroupService | null) {
   service?.stop()
 }
 
@@ -164,12 +161,11 @@ export function createNaosRadioGroupContextController({
       }
     },
   }
-  const provider: NaosContextProvider<NaosRadioGroupContext> =
-    provideNaosContext({
-      context: NAOS_RADIO_GROUP_CONTEXT,
-      host,
-      value: context,
-    })
+  const provider: NaosContextProvider<NaosRadioGroupContext> = provideNaosContext({
+    context: NAOS_RADIO_GROUP_CONTEXT,
+    host,
+    value: context,
+  })
 
   const currentItems = (active: NaosRadioGroupContextUpdate | null = current) => {
     const items = Array.from(radios.values())
@@ -223,8 +219,7 @@ function syncRadioItem({
   const state = api.getItemState({ disabled, value })
   const isTabStop =
     !disabled &&
-    (state.checked ||
-      (api.value == null && firstEnabledItem(items)?.element === element))
+    (state.checked || (api.value == null && firstEnabledItem(items)?.element === element))
 
   setStringAttribute(element, "role", "radio")
   setStringAttribute(element, "aria-checked", state.checked ? "true" : "false")
@@ -282,11 +277,7 @@ function nextRadioItemForKey({
   return null
 }
 
-function setStringAttribute(
-  element: HTMLElement,
-  name: string,
-  value: string | null
-) {
+function setStringAttribute(element: HTMLElement, name: string, value: string | null) {
   if (value == null) {
     if (!element.hasAttribute(name)) return
     element.removeAttribute(name)

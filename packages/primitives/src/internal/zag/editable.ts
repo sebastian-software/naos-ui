@@ -88,14 +88,12 @@ export function createNaosZagEditableService({
 }
 
 export function getNaosZagEditableApi(
-  service: NaosZagEditableService | null
+  service: NaosZagEditableService | null,
 ): ZagEditableApi | null {
   if (service == null) return null
   return connect(service as never, normalizeZagProps as never)
 }
 
-export function stopNaosZagEditableService(
-  service: NaosZagEditableService | null
-) {
+export function stopNaosZagEditableService(service: NaosZagEditableService | null) {
   service?.stop()
 }

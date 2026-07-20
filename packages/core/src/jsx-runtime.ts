@@ -18,10 +18,26 @@ export type ElementRef<ElementType extends Element = HTMLElement> =
   | undefined
   | ((element: ElementType) => void)
 
+/**
+ * Structural shape of a Naos form action (`@naos-ui/actions`). Declared
+ * structurally so `@naos-ui/core` stays dependency-free.
+ */
+export type FormActionLike = {
+  enhance(form: HTMLFormElement): () => void
+}
+
+/**
+ * Per-property style object for braced `style` values. Keys are camelCase
+ * standard properties or literal `--custom-property` names; nullish and
+ * `false` values remove the property.
+ */
+export type NaosStyleValue = Readonly<Record<string, string | number | null | undefined | false>>
+
 export type IntrinsicElementAttributes = {
   [attribute: `aria-${string}`]: AttributeValue
   [attribute: `data-${string}`]: AttributeValue
   [attribute: `on${string}`]: EventHandler | undefined
+  action?: string | FormActionLike
   children?: JsxChild
   class?: string
   disabled?: boolean
@@ -79,9 +95,11 @@ export type IntrinsicElementAttributes = {
   onTransitionRun?: EventHandler<TransitionEvent>
   onTransitionStart?: EventHandler<TransitionEvent>
   part?: string
+  required?: boolean
   ref?: ElementRef
   role?: string
   slot?: string
+  style?: string | NaosStyleValue | null
   tabindex?: number
   type?: string
   value?: string | number | readonly string[]
@@ -117,7 +135,5 @@ export function Fragment(): never {
 }
 
 function jsxRuntimeError(): never {
-  throw new Error(
-    "Naos JSX can only be used in source files transformed by the Naos compiler."
-  )
+  throw new Error("Naos JSX can only be used in source files transformed by the Naos compiler.")
 }

@@ -1,0 +1,11 @@
+[part~="root"] {
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+
+@media (max-width: 720px) {
+  [part~="root"] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

@@ -245,6 +245,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "naos-wasm"
+version = "0.0.0"
+dependencies = [
+ "naos-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "napi"
 version = "3.9.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

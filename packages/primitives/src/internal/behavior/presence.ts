@@ -1,14 +1,6 @@
-import {
-  springMotionTokenClassName,
-  waitForAnimations,
-} from "@naos-ui/motion"
+import { springMotionTokenClassName, waitForAnimations } from "@naos-ui/motion"
 
-export type NaosPresencePhase =
-  | "closed"
-  | "closing"
-  | "entering"
-  | "open"
-  | "unmounted"
+export type NaosPresencePhase = "closed" | "closing" | "entering" | "open" | "unmounted"
 
 export type NaosPresenceSnapshot = {
   phase: NaosPresencePhase
@@ -33,7 +25,7 @@ export function createNaosPresenceSnapshot(open: boolean): NaosPresenceSnapshot 
 
 export function nextNaosPresenceSnapshot(
   current: NaosPresenceSnapshot,
-  open: boolean
+  open: boolean,
 ): NaosPresenceSnapshot {
   if (open) {
     if (current.phase === "entering" || current.phase === "open") return current
@@ -46,7 +38,7 @@ export function nextNaosPresenceSnapshot(
 
 export function settleNaosPresenceSnapshot(
   current: NaosPresenceSnapshot,
-  open: boolean
+  open: boolean,
 ): NaosPresenceSnapshot {
   if (open && current.phase === "entering") return { phase: "open" }
   if (!open && current.phase === "closing") return { phase: "closed" }
@@ -84,10 +76,7 @@ export function scheduleNaosPresenceFrame(callback: () => void) {
   return () => globalThis.clearTimeout(timeout)
 }
 
-export function waitForNaosPresenceExit(
-  element: Element | null | undefined,
-  callback: () => void
-) {
+export function waitForNaosPresenceExit(element: Element | null | undefined, callback: () => void) {
   let cancelled = false
   const abort = new AbortController()
   const finish = () => {
@@ -100,8 +89,7 @@ export function waitForNaosPresenceExit(
       reducedMotion: "media",
       signal: abort.signal,
       subtree: true,
-    })
-      .then(finish)
+    }).then(finish)
   })
 
   return () => {

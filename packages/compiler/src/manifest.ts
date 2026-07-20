@@ -29,9 +29,7 @@ export type NaosManifestComponentInput = Omit<NaosManifestComponent, "importPath
   package: NaosPackageContext
 }
 
-export function createNaosManifest(
-  entries: readonly NaosManifestComponentInput[]
-): NaosManifest {
+export function createNaosManifest(entries: readonly NaosManifestComponentInput[]): NaosManifest {
   const first = entries[0]
   if (!first) throw new Error("Cannot create an Naos manifest without components.")
   const packageRoot = dirname(first.package.packageJsonPath)
@@ -47,7 +45,7 @@ export function createNaosManifest(
         "NAOS_MANIFEST_MIXED_PACKAGE_CONTEXT",
         context.packageJsonPath,
         `Cannot mix package contexts in one Naos manifest: ${first.package.packageJsonPath} and ${context.packageJsonPath}.`,
-        "Emit one manifest per package root."
+        "Emit one manifest per package root.",
       )
     }
     const importPath = normalizePath(relative(packageRoot, filename))
@@ -57,7 +55,7 @@ export function createNaosManifest(
         "NAOS_MANIFEST_DUPLICATE_TAG",
         filename,
         `Duplicate Naos tag <${component.tagName}> in ${previous} and ${importPath}.`,
-        "Rename one component or choose a package prefix that produces unique tags."
+        "Rename one component or choose a package prefix that produces unique tags.",
       )
     }
     seen.set(component.tagName, importPath)
@@ -72,7 +70,7 @@ export function createNaosManifest(
   })
   components.sort(
     (left, right) =>
-      left.tagName.localeCompare(right.tagName) || left.importPath.localeCompare(right.importPath)
+      left.tagName.localeCompare(right.tagName) || left.importPath.localeCompare(right.importPath),
   )
   return {
     schemaVersion: 1,
@@ -97,9 +95,7 @@ function manifestDiagnostic(
   code: string,
   filename: string,
   message: string,
-  hint: string
+  hint: string,
 ): NaosCompilerError {
-  return new NaosCompilerError(message, [
-    { code, filename, hint, message, severity: "error" },
-  ])
+  return new NaosCompilerError(message, [{ code, filename, hint, message, severity: "error" }])
 }
