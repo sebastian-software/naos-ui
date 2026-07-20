@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import {
   K,
@@ -17,6 +17,7 @@ import {
   registerKeyedBinding,
   reconcileKeyed,
   reportError,
+  resetRegistrationWarningForTesting,
   runEffect,
   setAttr,
   shouldUpdate,
@@ -63,6 +64,10 @@ function kernel(spec: Parameters<typeof createKernel>[1] = {}): Kernel {
 }
 
 describe("shared runtime kernel", () => {
+  beforeEach(() => {
+    resetRegistrationWarningForTesting()
+  })
+
   it("gates updates by full and dirty passes", () => {
     const dirty = new Set(["count"])
 
@@ -132,6 +137,22 @@ describe("shared runtime kernel", () => {
 
     expect(element.getAttribute("data-effect")).toBeNull()
     expect(instanceKernel.effectCleanups).toEqual([undefined])
+  })
+
+  it("cancels a queued flush when disconnecting", async () => {
+    const update = vi.fn()
+    const instanceKernel = kernel({ update })
+    instanceKernel.mounted = true
+    instanceKernel.state.count = 0
+
+    stateAccessor<number>(instanceKernel, "count").set(1)
+    expect(instanceKernel.flushScheduled).toBe(true)
+
+    disconnect(instanceKernel)
+    await Promise.resolve()
+
+    expect(instanceKernel.flushScheduled).toBe(false)
+    expect(update).not.toHaveBeenCalled()
   })
 
   it("batches state updates and invalidates computed values", () => {
