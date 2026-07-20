@@ -83,6 +83,70 @@
   color: #475569;
 }
 
+.naos-compare {
+  display: grid;
+  gap: 1.1rem;
+  padding: 1rem 0 3rem;
+}
+
+.naos-compare h2 {
+  max-width: 760px;
+  margin: 0;
+  color: #111827;
+  font-size: 2rem;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+.naos-compare-lead {
+  max-width: 760px;
+  margin: 0;
+  color: #475569;
+  font-size: 1.05rem;
+}
+
+.naos-compare-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.naos-compare-row {
+  display: grid;
+  grid-template-columns: 10rem 1fr;
+  gap: 1rem;
+  align-items: baseline;
+  border: 1px solid #d7dde5;
+  border-radius: 0.5rem;
+  padding: 0.9rem 1rem;
+  background: #ffffff;
+  color: inherit;
+  text-decoration: none;
+}
+
+.naos-compare-row:hover,
+.naos-compare-row:focus-visible {
+  border-color: #0f766e;
+}
+
+.naos-compare-name {
+  color: #0f766e;
+  font-weight: 800;
+}
+
+.naos-compare-line {
+  color: #475569;
+}
+
+.naos-compare-kicker {
+  max-width: 760px;
+  margin: 0.25rem 0 0;
+  color: #111827;
+  font-weight: 600;
+}
+
 @media (max-width: 780px) {
   .naos-hero {
     padding-top: 2rem;
@@ -94,5 +158,10 @@
 
   .naos-grid {
     grid-template-columns: 1fr;
+  }
+
+  .naos-compare-row {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
   }
 }
