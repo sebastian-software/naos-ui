@@ -8,14 +8,14 @@ hydration/DSD paths, so absolute sizes are indicative rather than final.
 
 ## Files
 
-* `runtime-class.js` — variant A: abstract `NaosElement` base class.
-* `runtime-fn.js` — variant B: free functions over a per-instance kernel
+- `runtime-class.js` — variant A: abstract `NaosElement` base class.
+- `runtime-fn.js` — variant B: free functions over a per-instance kernel
   record.
-* `gen-toggle-class.js` / `gen-toggle-fn.js` — hand-translated compiler output
+- `gen-toggle-class.js` / `gen-toggle-fn.js` — hand-translated compiler output
   for `examples/counter/src/toggle.wc.tsx` under each variant.
-* `gen-board-class.js` / `gen-board-fn.js` — same for the static
+- `gen-board-class.js` / `gen-board-fn.js` — same for the static
   `examples/tasks/src/board.wc.tsx`.
-* `bench.mjs` — dispatch/memory micro-benchmark mirroring the flush pipeline
+- `bench.mjs` — dispatch/memory micro-benchmark mirroring the flush pipeline
   without DOM.
 
 ## Reproducing the size numbers

@@ -1,56 +1,56 @@
-# ADR 0013: Tiny Runtime Boundary
+# ADR 0013: Shared Runtime Kernel Boundary
 
-Status: Accepted
+Status: Accepted (revised by RFC 0009)
 
 Weight: P1
 
 ## Context
 
 Naos's core promise is native Custom Element output without React, Vue, a
-virtual DOM, or a framework runtime. At the same time, generated components
-should not duplicate identical low-level helpers in every output module.
+virtual DOM, or a framework runtime. Identical lifecycle, dirty-tracking,
+effect-cleanup, prop/attribute, and browser-platform mechanics in every
+generated module nevertheless create avoidable parse and memory work.
 
-The existing `@naos-ui/runtime` package is very small and currently contains
-platform helper behavior rather than a component runtime.
+RFC 0009 changes the earlier narrow reading of this ADR. The runtime may own
+invariant execution mechanics through an explicit per-instance kernel record;
+the compiler continues to own the component's DOM, bindings, control flow, and
+semantic update callbacks.
 
 ## Decision
 
-Keep `@naos-ui/runtime` as a tiny public platform-helper runtime for v0.1.
+Keep `@naos-ui/runtime` small and split its surface deliberately:
 
-Allowed runtime responsibilities:
+- the package root contains the supported public platform helpers;
+- `@naos-ui/runtime/internal` is the compiler-facing, named-helper kernel
+  contract used by generated modules.
 
-* `CustomEvent` helper behavior;
-* scheduling helpers used by generated output;
-* hydration helpers used by generated output;
-* small DOM/platform utilities that reduce generated-code duplication.
+The internal kernel may provide lifecycle sequencing, prop/attribute plumbing,
+dirty tracking, scheduling, computed-cache invalidation, effect cleanup,
+listener abort handling, host scopes, constructable-sheet adoption, keyed
+record reconciliation, and registration diagnostics. Generated components stay
+plain `HTMLElement` subclasses with no Naos base class. They import only the
+helpers they use and provide the DOM-specific callbacks and metadata tables.
 
-Disallowed runtime responsibilities:
-
-* virtual DOM;
-* reconciler;
-* component lifecycle runtime;
-* hook runtime;
-* framework compatibility layer;
-* cross-framework adapter model.
-
-Generated components may import `@naos-ui/runtime` only for these small platform
-helpers. Public docs must describe it as a helper runtime, not as the place
-where component semantics live.
+The runtime must not grow into a framework runtime. It must not add a virtual
+DOM, hooks or signals for authors, application services, component loading, or
+framework compatibility layers.
 
 ## Alternatives
 
-* Inline all helpers into every generated component.
-* Make `@naos-ui/runtime` internal and unpublished.
-* Grow `@naos-ui/runtime` into a component runtime.
+- Inline all helpers into every generated component.
+- Keep only platform helpers and retain the duplicated execution machinery.
+- Publish a base class or a general component framework.
 
 ## Consequences
 
-* Generated output can stay smaller and more consistent.
-* The runtime package becomes part of the public release set.
-* Runtime review must reject features that would move component semantics out
-  of the compiler.
-* ADR 0004 remains intact: this is not a framework runtime.
+- Generated output is smaller and less repetitive while retaining native
+  Custom Element interoperability.
+- The compiler/runtime `./internal` contract receives focused unit and
+  compiler-output coverage.
+- Runtime review must distinguish shared invariant mechanics from
+  component-specific rendering semantics.
+- ADR 0004 remains intact: this is not a framework runtime.
 
 ## Related Milestones
 
-v0.1 M4, M7
+v0.1 M4, M7; RFC 0009

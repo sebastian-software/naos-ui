@@ -826,11 +826,13 @@ mod tests {
         };
 
         assert_contains(&result.code, "return [\"dense\"];");
-        assert!(!result.code.contains("case \"items\":"));
-        assert_contains(&result.code, "set items(value) {");
+        assert!(!result.code.contains("\"items\": { prop:"));
+        assert_contains(&result.code, "items: { source: \"items\"");
         assert!(!result.code.contains("setAttribute(\"items\""));
-        assert_contains(&result.code, "case \"dense\":");
-        assert_contains(&result.code, "newValue !== null");
+        assert_contains(
+            &result.code,
+            "\"dense\": { prop: \"dense\", parse: (value) => value !== null }",
+        );
 
         let props: Vec<(&str, PropKind)> = result
             .props
@@ -1099,26 +1101,24 @@ mod tests {
                 .code
                 .contains("class CounterElement extends HTMLElement")
         );
-        assert!(
-            result
-                .code
-                .contains("customElements.define(\"x-counter\", CounterElement)")
-        );
-        assert!(
-            result
-                .code
-                .contains("Symbol.for(\"naos.component.metadata\")")
-        );
         assert!(result.code.contains(
-            "Object.freeze({ packageName: \"@naos-ui/test\", packageVersion: \"1.0.0\", tagName: \"x-counter\" })"
+            "__naosDefineComponent(\"x-counter\", CounterElement, __naosComponentMetadata)"
         ));
         assert!(
             result
                 .code
-                .contains("if (registered === CounterElement) return;")
+                .contains("defineComponent as __naosDefineComponent")
         );
-        assert!(result.code.contains("the first registration wins"));
-        assert!(result.code.contains("new CustomEvent(\"change\""));
+        assert!(result.code.contains(
+            "Object.freeze({ packageName: \"@naos-ui/test\", packageVersion: \"1.0.0\", tagName: \"x-counter\" })"
+        ));
+        assert!(result.code.contains("__naosCreateKernel(this, {"));
+        assert!(result.code.contains("__naosConnect(this[__naosKernel]);"));
+        assert!(
+            result
+                .code
+                .contains("__naosEmitter(this[__naosKernel], \"change\")")
+        );
         assert!(result.code.contains("this.#text0.data"));
     }
 
@@ -1192,11 +1192,9 @@ mod tests {
                 .code
                 .contains("class CounterElement extends HTMLElement")
         );
-        assert!(
-            result
-                .code
-                .contains("customElements.define(\"x-counter\", CounterElement)")
-        );
+        assert!(result.code.contains(
+            "__naosDefineComponent(\"x-counter\", CounterElement, __naosComponentMetadata)"
+        ));
         assert!(result.code.contains("const label = this.#props.label;"));
         assert!(
             result
@@ -1242,41 +1240,49 @@ mod tests {
         };
 
         assert!(result.code.contains("#effectCleanups = [];"));
-        assert!(result.code.contains("#effectsConnected = false;"));
         assert!(result.code.contains("#computedCache = new Map();"));
-        assert!(result.code.contains("const doubled = () => {"));
         assert!(
             result
                 .code
-                .contains("this.#computedCache.set(\"doubled\", (count() * 2));")
+                .contains("const doubled = __naosComputedAccessor")
         );
+        assert!(result.code.contains(
+            "__naosComputedAccessor(this[__naosKernel], \"doubled\", () => (count() * 2))"
+        ));
         assert!(result.code.contains("#runEffects(dirtySources)"));
-        assert!(result.code.contains("if (!this.#effectsConnected) return;"));
-        assert!(result.code.contains("this.#effectsConnected = true;"));
-        assert!(result.code.contains("this.#effectsConnected = false;"));
         assert!(
             result
                 .code
-                .contains("} else {\n      this.#markAllDirty();")
+                .contains("effects: (_kernel, dirtySources) => this.#runEffects(dirtySources)")
+        );
+        assert!(result.code.contains("__naosConnect(this[__naosKernel]);"));
+        assert!(
+            result
+                .code
+                .contains("const count = __naosStateAccessor(this[__naosKernel], \"count\");")
         );
         assert!(
-            result.code.contains(
-                "count.set = (value) => { if (Object.is(this.#state.count, value)) return;"
-            )
+            result
+                .code
+                .contains("__naosMarkDirty(this[__naosKernel], source);")
         );
-        assert!(result.code.contains("this.#markDirty(\"count\");"));
-        assert!(result.code.contains("this.#scheduleFlush();"));
+        assert!(
+            result
+                .code
+                .contains("__naosScheduleFlush(this[__naosKernel]);")
+        );
         assert!(
             result
                 .code
                 .contains("if (this.#shouldUpdate([\"count\"], dirtySources))")
         );
         assert!(result.code.contains("document.body.dataset.lastEffect"));
-        assert!(result.code.contains("this.#flushSync();"));
-        assert!(result.code.contains("new CustomEvent(\"change\""));
-        assert!(result.code.contains("bubbles: true"));
-        assert!(result.code.contains("composed: true"));
-        assert!(result.code.contains("cancelable: false"));
+        assert!(result.code.contains("__naosFlushSync(this[__naosKernel]);"));
+        assert!(
+            result
+                .code
+                .contains("__naosEmitter(this[__naosKernel], \"change\")")
+        );
     }
 
     #[test]
@@ -1621,12 +1627,10 @@ mod tests {
         assert!(result.code.contains("this.#state.count = step;"));
         assert!(!result.code.contains("#state = {\n    selected: checked"));
 
-        // This fixture intentionally does not use formControl(), which has its
-        // own valid initialization call from generated form reset handling.
         assert_eq!(
-            occurrence_count(&result.code, "this.#initializeState();"),
+            occurrence_count(&result.code, "initState: () => this.#initializeState(),"),
             1,
-            "state setup should run only from the first connectedCallback mount path"
+            "state setup should be owned by the kernel mount path"
         );
 
         let connected_callback = section_between(
@@ -1634,47 +1638,33 @@ mod tests {
             "  connectedCallback() {",
             "\n  attributeChangedCallback",
         );
-        assert_contains(connected_callback, "if (!this.#mounted) {");
-        assert_contains(connected_callback, "this.#initializeState();");
-        assert_contains(connected_callback, "this.#mounted = true;");
+        assert_contains(connected_callback, "__naosConnect(this[__naosKernel]);");
 
         let attribute_changed = section_between(
             &result.code,
             "  attributeChangedCallback",
-            "\n  get checked()",
+            "\n  #initializeState()",
         );
         assert_not_contains(attribute_changed, "#initializeState");
         assert_contains(
             attribute_changed,
-            "this.#props.checked = newValue !== null;",
+            "__naosAttrChanged(this[__naosKernel], name, oldValue, newValue);",
         );
-        assert_contains(attribute_changed, "this.#markDirty(\"checked\");");
         assert_contains(
-            attribute_changed,
-            "this.#props.label = newValue ?? \"Ready\";",
+            &result.code,
+            "checked: { source: \"checked\", attribute: \"checked\", coerce: (value) => Boolean(value), reflect: true },",
         );
-        assert_contains(attribute_changed, "this.#markDirty(\"label\");");
         assert_contains(
-            attribute_changed,
-            "this.#props.step = Number.isFinite(Number(newValue)) ? Number(newValue) : 1;",
+            &result.code,
+            "\"step\": { prop: \"step\", parse: (value) => Number.isFinite(Number(value)) ? Number(value) : 1 },",
         );
-        assert_contains(attribute_changed, "this.#markDirty(\"step\");");
-        assert_contains(attribute_changed, "this.#flushSync();");
-
-        let step_setter =
-            section_between(&result.code, "  set step(value) {", "\n  #initializeState");
-        assert_not_contains(step_setter, "#initializeState");
-        assert_contains(
-            step_setter,
-            "const nextValue = Number.isFinite(Number(value)) ? Number(value) : 1;",
-        );
-        assert_contains(step_setter, "this.#props.step = nextValue;");
-        assert_contains(step_setter, "this.#markDirty(\"step\");");
-        assert_contains(step_setter, "this.#flushSync();");
 
         assert_contains(&result.code, "const label = this.#props.label;");
         assert_contains(&result.code, "const step = this.#props.step;");
-        assert_contains(&result.code, "const count = () => this.#state.count;");
+        assert_contains(
+            &result.code,
+            "const count = __naosStateAccessor(this[__naosKernel], \"count\");",
+        );
         assert_contains(
             &result.code,
             "return { checked, label, step, selected, text, count };",
@@ -1918,36 +1908,19 @@ mod tests {
         assert!(result.code.contains(".replaceChildren("));
         assert!(result.code.contains("addEventListener(\"click\""));
         assert!(!result.code.contains("on(\"click\""));
+        assert!(result.code.contains("__naosCreateKernel(this, {"));
         assert!(
             result
                 .code
-                .contains("#abortController = new AbortController();")
+                .contains("const host = __naosHostApi(this[__naosKernel]);")
         );
-        assert!(result.code.contains("const host = () => ({"));
-        assert!(result.code.contains("id: this.#hostId,"));
-        assert!(result.code.contains("props: this.#props,"));
+        assert!(result.code.contains("__naosConnect(this[__naosKernel]);"));
         assert!(
             result
                 .code
-                .contains("update: () => new Promise((resolve) => { this.#pendingUpdateResolvers.push(resolve); this.#markAllDirty(); this.#scheduleFlush(); }),")
+                .contains("__naosDisconnect(this[__naosKernel]);")
         );
-        assert!(result.code.contains(
-            "queueTask: (task) => { this.#queuedHostTasks.push(task); this.#scheduleFlush(); },"
-        ));
-        assert!(result.code.contains("flushSync: () => this.#flushSync(),"));
-        assert!(result.code.contains("this.#beginHostUpdateScope();"));
-        assert!(result.code.contains("this.#finishHostUpdateScope();"));
-        assert!(result.code.contains("} catch (error) {"));
-        assert!(result.code.contains("} finally {"));
-        assert!(
-            result
-                .code
-                .contains("if (didFail) this.#reportError(flushError);")
-        );
-        assert!(result.code.contains("new CustomEvent(\"naos-error\""));
-        assert!(result.code.contains("reporter.call(globalThis, error);"));
-        assert!(result.code.contains("this.#abortController.abort();"));
-        assert!(result.code.contains("this.#abortHostUpdateScope();"));
+        assert!(!result.code.contains("  #flush() {"));
         assert!(result.code.contains("#eventAbortControllers = new Set();"));
         assert!(result.code.contains("this.#eventAbortControllers.add("));
         assert!(
@@ -2760,17 +2733,8 @@ mod tests {
                 .code
                 .contains("import css from \"./button.css?inline\";")
         );
-        assert!(result.code.contains("new CSSStyleSheet()"));
-        assert!(
-            result
-                .code
-                .contains("__naosComponentStyleSheet.replaceSync([css].join(\"\\n\"))")
-        );
-        assert!(
-            result
-                .code
-                .contains("this.#root.adoptedStyleSheets = [__naosComponentStyles()]")
-        );
+        assert!(result.code.contains("__naosLazySheet([css])"));
+        assert!(result.code.contains("styles: __naosComponentStyles"));
         assert!(result.code.contains("document.createElement(\"slot\")"));
         assert!(result.code.contains("setAttribute(\"name\", \"icon\")"));
         assert!(result.code.contains("setAttribute(\"part\", \"button\")"));
@@ -3031,32 +2995,30 @@ mod tests {
         assert_contains(&result.code, "class ToggleElement extends HTMLElement");
         assert_contains(
             &result.code,
-            "customElements.define(\"x-toggle\", ToggleElement)",
+            "__naosDefineComponent(\"x-toggle\", ToggleElement, __naosComponentMetadata)",
         );
         assert_contains(&result.code, "static get observedAttributes() {");
         assert_contains(&result.code, "return [\"label\", \"disabled\"];");
-        assert_contains(&result.code, "get label()");
-        assert_contains(&result.code, "set label(value)");
-        assert_contains(&result.code, "get disabled()");
-        assert_contains(&result.code, "set disabled(value)");
+        assert_contains(
+            &result.code,
+            "__naosDefineProps(ToggleElement, __naosComponentSpec);",
+        );
+        assert_contains(&result.code, "label: { source: \"label\"");
+        assert_contains(&result.code, "disabled: { source: \"disabled\"");
         assert_contains(&result.code, "setAttribute(\"part\", \"root control\")");
         assert_contains(&result.code, "setAttribute(\"data-state\",");
         assert_contains(&result.code, "setAttribute(\"aria-pressed\",");
-        assert_contains(&result.code, "setAttribute(\"disabled\", \"\")");
+        assert_contains(&result.code, "disabled: { source: \"disabled\"");
         assert_contains(&result.code, "document.createElement(\"slot\")");
-        assert_contains(&result.code, "new CustomEvent(\"toggle-change\"");
         assert_contains(
             &result.code,
-            "bubbles: true, composed: true, cancelable: false",
+            "__naosEmitter(this[__naosKernel], \"toggle-change\")",
         );
         assert_contains(
             &result.code,
-            "__naosComponentStyleSheet.replaceSync([css].join(\"\\n\"));",
+            "const __naosComponentStyles = __naosLazySheet([css]);",
         );
-        assert_contains(
-            &result.code,
-            "this.#root.adoptedStyleSheets = [__naosComponentStyles()];",
-        );
+        assert_contains(&result.code, "styles: __naosComponentStyles,");
     }
 
     #[test]

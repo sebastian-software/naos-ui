@@ -11,6 +11,7 @@ export default defineConfig({
     tsconfig: "./tsconfig.build.json",
   },
   entry: {
+    internal: "./src/internal.ts",
     runtime: "./src/runtime.ts",
   },
   failOnWarn: false,

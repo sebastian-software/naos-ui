@@ -1,3 +1,10 @@
+/**
+ * Public platform helpers.
+ *
+ * Generated components import the execution kernel from `@naos-ui/runtime/internal`.
+ * Application code should normally not need either entry point directly.
+ */
+
 export type EventInitOptions = {
   bubbles?: boolean
   cancelable?: boolean
