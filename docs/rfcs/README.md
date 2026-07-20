@@ -15,3 +15,4 @@ sets, and phased execution plans.
 * [RFC 0006: Naos Router Package](0006-naos-router-package.md)
 * [RFC 0007: Overlay Portal Kernel](0007-overlay-portal-kernel.md)
 * [RFC 0008: Presence Transition Lifecycle](0008-presence-transition-lifecycle.md)
+* [RFC 0009: Shared Runtime Kernel for Generated Components](0009-shared-runtime-kernel.md)
