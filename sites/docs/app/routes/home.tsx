@@ -109,18 +109,14 @@ export default function HomePage() {
         <p className="naos-eyebrow">Where Naos fits</p>
         <h2>Familiar words, a different core bet.</h2>
         <p className="naos-compare-lead">
-          Naos shares the "compiler-first, no virtual DOM" vocabulary of today's
-          tools — but it compiles to native Custom Elements, ships no framework
-          runtime, and updates with signals. Here is how that lands next to the
-          tools you already know.
+          Naos shares the "compiler-first, no virtual DOM" vocabulary of today's tools — but it
+          compiles to native Custom Elements, ships no framework runtime, and updates with signals.
+          Here is how that lands next to the tools you already know.
         </p>
         <ul className="naos-compare-list">
           {comparisons.map((item) => (
             <li key={item.slug}>
-              <a
-                className="naos-compare-row"
-                href={withBase(`comparisons/${item.slug}`)}
-              >
+              <a className="naos-compare-row" href={withBase(`comparisons/${item.slug}`)}>
                 <span className="naos-compare-name">{item.name}</span>
                 <span className="naos-compare-line">{item.line}</span>
               </a>
@@ -128,16 +124,12 @@ export default function HomePage() {
           ))}
         </ul>
         <p className="naos-compare-kicker">
-          If a component should outlive the framework that renders it, author it
-          once in Naos and ship it as a native element — instead of rebuilding it
-          for React, Vue, and Angular in turn.
+          If a component should outlive the framework that renders it, author it once in Naos and
+          ship it as a native element — instead of rebuilding it for React, Vue, and Angular in
+          turn.
         </p>
         <div className="naos-actions">
-          <a
-            className="naos-action"
-            data-primary="true"
-            href={withBase("comparisons/overview")}
-          >
+          <a className="naos-action" data-primary="true" href={withBase("comparisons/overview")}>
             See all comparisons
           </a>
         </div>
