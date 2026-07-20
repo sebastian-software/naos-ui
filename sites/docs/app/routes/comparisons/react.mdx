@@ -25,7 +25,7 @@ either/or.
 | | **Naos** | **React** |
 | --- | --- | --- |
 | Kind | Compiler → native Custom Elements | Runtime library → app rendered into a root |
-| Output ships to consumers | Generated element code; **no framework runtime** | The **React runtime** (react + react-dom) |
+| Output ships to consumers | Generated element code plus a small shared kernel; **no framework runtime** | The **React runtime** (react + react-dom) |
 | Virtual DOM | None | Yes |
 | Reactivity | Signals: `state()`, `computed()`, `effect()` | Hooks + re-render (`useState`, `useMemo`, `useEffect`) |
 | Update model | Direct DOM updates on changed bindings | Re-run component, diff virtual DOM, commit |
@@ -63,12 +63,13 @@ goal is not React compatibility."**
 
 ## Where they fundamentally differ
 
-### Runtime vs. no runtime
+### Framework runtime vs. a small shared kernel
 
 React ships **react + react-dom** to every app; components are functions the
 runtime re-invokes, producing a virtual DOM that is diffed and committed. Naos
 compiles components ahead of time to **direct custom-element code** — there is no
-virtual DOM and no framework runtime handed to the consumer.
+virtual DOM or framework runtime handed to the consumer. Generated elements share
+a small, tree-shakeable execution kernel for lifecycle and direct DOM mechanics.
 
 ### Reactivity: hooks vs. signals
 

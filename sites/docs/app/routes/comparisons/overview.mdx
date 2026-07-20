@@ -6,10 +6,10 @@ order: 1
 
 # Naos in Context
 
-Naos compiles typed TSX into native Custom Elements: no virtual DOM, no
-framework runtime, signals for reactivity, and an optional batteries layer
-(accessible primitives, router, data resources, motion) around a narrow
-Rust/OXC compiler core.
+Naos compiles typed TSX into native Custom Elements: no virtual DOM or framework
+runtime, a small shared execution kernel, signals for reactivity, and an optional
+batteries layer (accessible primitives, router, data resources, motion) around a
+narrow Rust/OXC compiler core.
 
 These pages compare Naos with adjacent tools. Each one is a July 2026 positioning
 snapshot written to explain where Naos fits — not to rank a v0.1 prerelease
@@ -21,10 +21,10 @@ their own docs.
 | Compared with | Category | The sharpest line |
 | --- | --- | --- |
 | [Stencil](./stencil) | Compile-to-Web-Components | Closest neighbor; Stencil uses a lightweight VDOM and generates framework wrappers, Naos has no VDOM and relies on native interop |
-| [Lit](./lit) | Web Components library | Lit is a runtime library (no build step) with tagged templates; Naos is a compiler (no template runtime) with JSX + signals |
+| [Lit](./lit) | Web Components library | Lit is a runtime library (no build step) with tagged templates; Naos is a compiler with a small shared kernel, not a template runtime |
 | [Solid](./solid) | Reactive UI library | Shared signal DNA; Solid renders an app into a root, Naos makes the Custom Element the primary output |
 | [Gea](./gea) | Compiler-first UI framework | Nearly identical vocabulary; Gea patches standard DOM as an app framework, Naos emits native Custom Elements |
-| [React](./react) | App runtime library | A different corner: React is a VDOM app runtime; Naos is complementary — build components in Naos, consume them in React |
+| [React](./react) | App runtime library | A different corner: React is a VDOM app runtime; Naos is complementary and ships a small shared kernel instead of a framework runtime |
 
 ## How to read them
 
@@ -41,7 +41,8 @@ Across every comparison, the Naos-specific lines are consistent:
 
 - **Native Custom Elements** as the primary output — Shadow DOM, slots, `part`,
   Declarative Shadow DOM prerender, and a form-associated MVP.
-- **No virtual DOM and no framework runtime** in the generated output.
+- **No virtual DOM or framework runtime**; generated elements share a small,
+  tree-shakeable execution kernel.
 - **Signals** (`state()`, `computed()`, `effect()`) instead of hooks, reactive
   properties, or proxy mutation.
 - A **Rust/OXC compiler core** behind a thin TypeScript surface.

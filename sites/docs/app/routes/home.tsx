@@ -202,7 +202,7 @@ const comparisons = [
   {
     slug: "lit",
     name: "vs. Lit",
-    line: "Same native-element output, without the template runtime: a compiler with JSX and signals instead of tagged templates and reactive properties.",
+    line: "Same native-element output, with a small shared kernel instead of a template runtime: JSX and signals instead of tagged templates and reactive properties.",
   },
   {
     slug: "solid",
@@ -217,7 +217,7 @@ const comparisons = [
   {
     slug: "react",
     name: "vs. React",
-    line: "Not a rival — a complement. Build components in Naos, consume them in React (and everything else), with no runtime shipped along.",
+    line: "Not a rival — a complement. Build components in Naos, consume them in React (and everything else), with a small shared kernel instead of a framework runtime.",
   },
 ]
 
