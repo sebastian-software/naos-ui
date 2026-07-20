@@ -1,3 +1,3 @@
 # Exact dependency guards intentionally frozen for the AST edge-case fixture.
-if (this.#shouldUpdate(["count", "label"], dirtySources)) {
-if (this.#shouldUpdate(["count"], dirtySources)) {
+if (__naosShouldUpdate(["count", "label"], dirtySources)) {
+if (__naosShouldUpdate(["count"], dirtySources)) {

@@ -1,6 +1,6 @@
 # RFC 0009: Shared Runtime Kernel for Generated Components
 
-Status: Implemented
+Status: Partially implemented (shared kernel migration)
 Date: 2026-07-20
 
 ## Summary
@@ -16,6 +16,20 @@ Generated Custom Elements stay thin `HTMLElement` shells. There is no base
 class and no inheritance surface. Each generated module imports only the
 helpers its component actually uses, so bundlers tree-shake the runtime per
 application.
+
+## Implementation Status
+
+The shared kernel is now the default compiler output. Lifecycle sequencing,
+dirty tracking, host update scopes, data-driven props/attributes, effects,
+listener abort scopes, keyed-selector registrations, and keyed DOM ordering
+are emitted through `@naos-ui/runtime/internal`. Compiler-output tests assert
+that those helpers are imported instead of re-emitting their implementation.
+
+The RFC remains partially implemented: hydration/DSD helpers are still
+component-local, the `--standalone` inline-output flag has not landed, and the
+40 % size target must be re-measured against the complete phase 1–5 migration.
+Those open items are intentionally retained here as acceptance work rather
+than being represented as complete.
 
 This RFC supersedes the strict reading of ADR 0013 that keeps all component
 machinery in generated output, and proposes the matching revisions to

@@ -1143,18 +1143,9 @@ mod tests {
             Err(error) => panic!("transform failed: {error}"),
         };
 
-        assert!(
-            result
-                .code
-                .contains("const existingRoot = this.shadowRoot;")
-        );
-        assert!(result.code.contains("this.#usesDeclarativeRoot = true;"));
-        assert!(
-            result
-                .code
-                .contains("this.#root = this.attachShadow({ mode: \"open\" });")
-        );
-        assert!(result.code.contains("this.#hydrate();"));
+        assert!(result.code.contains("this.#root = kernel.root;"));
+        assert!(result.code.contains("shadow: true,"));
+        assert!(result.code.contains("hydrate: () => this.#hydrate(),"));
         assert!(result.code.contains("#requiredHydrationElement(marker)"));
         assert!(result.code.contains("this.#remount();"));
     }
@@ -1239,7 +1230,7 @@ mod tests {
             Err(error) => panic!("transform failed: {error}"),
         };
 
-        assert!(result.code.contains("#effectCleanups = [];"));
+        assert!(result.code.contains("runEffect as __naosRunEffect"));
         assert!(result.code.contains("#computedCache = new Map();"));
         assert!(
             result
@@ -1264,20 +1255,10 @@ mod tests {
         assert!(
             result
                 .code
-                .contains("__naosMarkDirty(this[__naosKernel], source);")
-        );
-        assert!(
-            result
-                .code
-                .contains("__naosScheduleFlush(this[__naosKernel]);")
-        );
-        assert!(
-            result
-                .code
-                .contains("if (this.#shouldUpdate([\"count\"], dirtySources))")
+                .contains("__naosRunEffect(this[__naosKernel], 0, dirtySources, [")
         );
         assert!(result.code.contains("document.body.dataset.lastEffect"));
-        assert!(result.code.contains("__naosFlushSync(this[__naosKernel]);"));
+        assert!(!result.code.contains("#flushSync()"));
         assert!(
             result
                 .code
@@ -1309,12 +1290,12 @@ mod tests {
         assert!(
             result
                 .code
-                .contains("if (this.#shouldUpdate(null, dirtySources))")
+                .contains("__naosRunEffect(this[__naosKernel], 0, dirtySources, null, () => {")
         );
         assert!(
             result
                 .code
-                .contains("if (this.#shouldUpdate([\"count\"], dirtySources))")
+                .contains("if (__naosShouldUpdate([\"count\"], dirtySources))")
         );
     }
 
@@ -1346,12 +1327,12 @@ mod tests {
         assert!(
             !result
                 .code
-                .contains("this.#shouldUpdate(null, dirtySources)")
+                .contains("__naosShouldUpdate(null, dirtySources)")
         );
         assert!(
             result
                 .code
-                .contains("if (this.#shouldUpdate([\"count\"], dirtySources))")
+                .contains("__naosRunEffect(this[__naosKernel], 0, dirtySources, [")
         );
     }
 
@@ -1379,12 +1360,12 @@ mod tests {
         assert!(
             !result
                 .code
-                .contains("this.#shouldUpdate(null, dirtySources)")
+                .contains("__naosShouldUpdate(null, dirtySources)")
         );
         assert!(
-            result
-                .code
-                .contains("if (this.#shouldUpdate([\"count\"], dirtySources))")
+            result.code.contains(
+                "__naosRunEffect(this[__naosKernel], 0, dirtySources, [\"count\"], () => {"
+            )
         );
     }
 
@@ -1408,7 +1389,7 @@ mod tests {
         assert!(
             result
                 .code
-                .contains("if (this.#shouldUpdate([\"count\"], dirtySources))")
+                .contains("if (__naosShouldUpdate([\"count\"], dirtySources))")
         );
     }
 
@@ -1671,23 +1652,23 @@ mod tests {
         );
         assert_contains(
             &result.code,
-            "if (this.#shouldUpdate([\"label\"], dirtySources))",
+            "if (__naosShouldUpdate([\"label\"], dirtySources))",
         );
         assert_contains(
             &result.code,
-            "if (this.#shouldUpdate([\"step\"], dirtySources))",
+            "if (__naosShouldUpdate([\"step\"], dirtySources))",
         );
         assert_contains(
             &result.code,
-            "if (this.#shouldUpdate([\"count\"], dirtySources))",
+            "if (__naosShouldUpdate([\"count\"], dirtySources))",
         );
         assert_contains(
             &result.code,
-            "if (this.#shouldUpdate([\"selected\"], dirtySources))",
+            "if (__naosShouldUpdate([\"selected\"], dirtySources))",
         );
         assert_contains(
             &result.code,
-            "if (this.#shouldUpdate([\"text\"], dirtySources))",
+            "if (__naosShouldUpdate([\"text\"], dirtySources))",
         );
     }
 
@@ -1774,22 +1755,57 @@ mod tests {
             Err(error) => panic!("transform failed: {error}"),
         };
 
-        assert!(result.code.contains("addEventListener(\"keydown\""));
-        assert!(result.code.contains("addEventListener(\"pointerdown\""));
-        assert!(result.code.contains("addEventListener(\"pointermove\""));
-        assert!(result.code.contains("addEventListener(\"pointerover\""));
-        assert!(result.code.contains("addEventListener(\"pointerleave\""));
-        assert!(result.code.contains("addEventListener(\"pointercancel\""));
-        assert!(result.code.contains("addEventListener(\"contextmenu\""));
-        assert!(result.code.contains("addEventListener(\"beforeinput\""));
-        assert!(!result.code.contains("addEventListener(\"key-down\""));
-        assert!(!result.code.contains("addEventListener(\"pointer-down\""));
-        assert!(!result.code.contains("addEventListener(\"pointer-move\""));
-        assert!(!result.code.contains("addEventListener(\"pointer-over\""));
-        assert!(!result.code.contains("addEventListener(\"pointer-leave\""));
-        assert!(!result.code.contains("addEventListener(\"pointer-cancel\""));
-        assert!(!result.code.contains("addEventListener(\"context-menu\""));
-        assert!(!result.code.contains("addEventListener(\"before-input\""));
+        assert!(result.code.contains("listen as __naosListen"));
+        assert!(
+            result
+                .code
+                .contains("\"keydown\", (event, __naosEventSignal)")
+        );
+        assert!(
+            result
+                .code
+                .contains("\"pointerdown\", (event, __naosEventSignal)")
+        );
+        assert!(
+            result
+                .code
+                .contains("\"pointermove\", (event, __naosEventSignal)")
+        );
+        assert!(
+            result
+                .code
+                .contains("\"pointerover\", (event, __naosEventSignal)")
+        );
+        assert!(
+            result
+                .code
+                .contains("\"pointerleave\", (event, __naosEventSignal)")
+        );
+        assert!(
+            result
+                .code
+                .contains("\"pointercancel\", (event, __naosEventSignal)")
+        );
+        assert!(
+            result
+                .code
+                .contains("\"contextmenu\", (event, __naosEventSignal)")
+        );
+        assert!(
+            result
+                .code
+                .contains("\"beforeinput\", (event, __naosEventSignal)")
+        );
+        assert!(
+            !result
+                .code
+                .contains("\"key-down\", (event, __naosEventSignal)")
+        );
+        assert!(
+            !result
+                .code
+                .contains("\"pointer-down\", (event, __naosEventSignal)")
+        );
     }
 
     #[test]
@@ -1906,7 +1922,7 @@ mod tests {
         assert!(result.code.contains("data-naos-control\", \"show"));
         assert!(result.code.contains("data-naos-control\", \"for"));
         assert!(result.code.contains(".replaceChildren("));
-        assert!(result.code.contains("addEventListener(\"click\""));
+        assert!(result.code.contains("listen as __naosListen"));
         assert!(!result.code.contains("on(\"click\""));
         assert!(result.code.contains("__naosCreateKernel(this, {"));
         assert!(
@@ -1921,13 +1937,8 @@ mod tests {
                 .contains("__naosDisconnect(this[__naosKernel]);")
         );
         assert!(!result.code.contains("  #flush() {"));
-        assert!(result.code.contains("#eventAbortControllers = new Set();"));
-        assert!(result.code.contains("this.#eventAbortControllers.add("));
-        assert!(
-            result
-                .code
-                .contains("__naosEventSignal.addEventListener(\"abort\"")
-        );
+        assert!(!result.code.contains("#eventAbortControllers = new Set();"));
+        assert!(!result.code.contains("new AbortController()"));
     }
 
     #[test]
@@ -1989,7 +2000,7 @@ mod tests {
         assert!(
             result
                 .code
-                .contains("if (this.#shouldUpdate([\"status\"], dirtySources))")
+                .contains("if (__naosShouldUpdate([\"status\"], dirtySources))")
         );
     }
 
@@ -2045,55 +2056,34 @@ mod tests {
                 .contains("const name = () => node2Record.value;")
         );
         assert!(
-            result
-                .code
-                .contains("node2Record.for2Node0.value = String(for2Node0_value_value);")
-        );
-        assert!(
-            result
-                .code
-                .contains("__naosEventAbortControllers: new Set()")
-        );
-        assert!(
-            result
-                .code
-                .contains("for (const controller of Array.from(node1StaleRecord.__naosEventAbortControllers)) controller.abort();")
-        );
-        assert!(
             result.code.contains(
-                "const __naosEventSignal = node1Record.for1Node0ListenerclickAbort.signal;"
+                "__naosSetAttr(node2Record.for2Node0, \"value\", for2Node0_value_value);"
             )
         );
+        assert!(result.code.contains("ListenerclickDispose: null"));
         assert!(
             result
                 .code
-                .contains("node1Record.for1Node0ListenerclickOptions = { capture: true };")
+                .contains("node1StaleRecord.for1Node0ListenerclickDispose?.();")
         );
         assert!(result.code.contains(
-            "removeEventListener(\"click\", node1Record.for1Node0Listenerclick, node1Record.for1Node0ListenerclickOptions?.capture ?? false)"
+            "node1Record.for1Node0ListenerclickDispose = __naosListen(this[__naosKernel]"
         ));
-        assert!(result.code.contains(
-            "addEventListener(\"click\", node1Record.for1Node0Listenerclick, node1Record.for1Node0ListenerclickOptions)"
-        ));
+        assert!(result.code.contains("}, { capture: true });"));
         assert!(
             result
                 .code
-                .contains("let node1Cursor = this.#node1.firstChild;")
+                .contains("reconcileKeyed as __naosReconcileKeyed")
         );
         assert!(
             result
                 .code
-                .contains("this.#node1.insertBefore(node1OrderedNode, node1Cursor);")
+                .contains("__naosReconcileKeyed(this.#node1, node1Nodes);")
         );
         assert!(
             result
                 .code
-                .contains("let node2Cursor = this.#node2.firstChild;")
-        );
-        assert!(
-            result
-                .code
-                .contains("this.#node2.insertBefore(node2OrderedNode, node2Cursor);")
+                .contains("__naosReconcileKeyed(this.#node2, node2Nodes);")
         );
         assert!(!result.code.contains("this.#node1.replaceChildren("));
         assert!(!result.code.contains("this.#node2.replaceChildren("));
@@ -2139,7 +2129,7 @@ mod tests {
         assert!(
             result
                 .code
-                .contains("this.#node1.insertBefore(node1OrderedNode, node1Cursor);")
+                .contains("__naosReconcileKeyed(this.#node1, node1Nodes);")
         );
         assert!(
             result
@@ -2181,45 +2171,110 @@ mod tests {
             Err(error) => panic!("transform failed: {error}"),
         };
 
-        assert!(result.code.contains("#keyedBindingRegistry = new Map();"));
+        assert!(result.code.contains("keyedSelectors: {"));
+        assert!(result.code.contains("\"selected\": [\"isSelected\"],"));
         assert!(
             result
                 .code
                 .contains("const isSelected = (id) => selected() === id;")
         );
         assert!(
-            result
-                .code
-                .contains("this.#markKeyedSelectorDirty(\"isSelected\", previousValue, value);")
+            result.code.contains(
+                "const selected = __naosStateAccessor(this[__naosKernel], \"selected\");"
+            )
         );
-        assert!(result
-            .code
-            .contains("const previousValue = this.#state.selected;\n      if (Object.is(previousValue, value)) return;"));
-        assert!(result.code.contains("#runKeyedBindings(dirtySources);"));
         assert!(
             result
                 .code
-                .contains("this.#registerKeyedBinding(\"isSelected\", row.id,")
+                .contains("__naosRegisterKeyedBinding(this[__naosKernel], \"isSelected\", row.id,")
         );
         assert_eq!(
             result
                 .code
-                .matches("this.#registerKeyedBinding(\"isSelected\", row.id,")
+                .matches("__naosRegisterKeyedBinding(this[__naosKernel], \"isSelected\", row.id,")
                 .count(),
             2
         );
-        assert!(result.code.contains("bindings.set(bindingName, update);"));
+        assert!(
+            result
+                .code
+                .contains("__naosUnregisterKeyedBindings(this[__naosKernel], node1StaleRecord);")
+        );
         assert!(result.code.contains("const row = node1Record.value;"));
         assert!(
             result
                 .code
-                .contains("if (this.#shouldUpdate([\"rows\"], dirtySources))")
+                .contains("if (__naosShouldUpdate([\"rows\"], dirtySources))")
         );
         assert!(
             !result
                 .code
-                .contains("if (this.#shouldUpdate([\"rows\", \"selected\"], dirtySources))")
+                .contains("if (__naosShouldUpdate([\"rows\", \"selected\"], dirtySources))")
         );
+    }
+
+    #[test]
+    fn generated_output_should_delegate_shared_kernel_helpers_without_inline_copies() {
+        let source = r#"
+            import { effect, For, state } from "@naos-ui/core";
+
+            export function SharedKernelProbe() {
+              const rows = state([{ id: "a", label: "Alpha" }]);
+              const selected = state("a");
+              const isSelected = (id: string) => selected() === id;
+
+              effect(() => {
+                document.body.dataset.selected = selected();
+              });
+
+              return (
+                <section data-selected={selected()}>
+                  <button onClick={() => selected.set("a")}>Select</button>
+                  <For each={rows()}>
+                    {(row) => <button key={row.id} aria-selected={isSelected(row.id)}>{row.label}</button>}
+                  </For>
+                </section>
+              );
+            }
+        "#;
+
+        let result = transform_component_module(source, "shared-kernel-probe.wc.tsx")
+            .expect("shared-kernel probe should compile");
+
+        assert_contains(&result.code, "setAttr as __naosSetAttr");
+        assert_contains(&result.code, "listen as __naosListen");
+        assert_contains(&result.code, "runEffect as __naosRunEffect");
+        assert_contains(&result.code, "reconcileKeyed as __naosReconcileKeyed");
+        assert_contains(
+            &result.code,
+            "registerKeyedBinding as __naosRegisterKeyedBinding",
+        );
+        assert_not_contains(&result.code, "#effectCleanups");
+        assert_not_contains(&result.code, "#keyedBindingRegistry");
+        assert_not_contains(&result.code, "#runKeyedBindings");
+        assert_not_contains(&result.code, "new AbortController()");
+        assert_not_contains(&result.code, ".insertBefore(");
+    }
+
+    #[test]
+    fn generated_static_components_should_skip_empty_kernel_shell_members() {
+        let source = r#"
+            export function Board() {
+              return <section aria-label="Board" />;
+            }
+        "#;
+
+        let result = transform_component_module(source, "board.wc.tsx")
+            .expect("static board should compile");
+
+        assert_not_contains(&result.code, "#createBindings()");
+        assert_not_contains(&result.code, "#installEventListeners()");
+        assert_not_contains(&result.code, "#update(dirtySources)");
+        assert_not_contains(&result.code, "static get observedAttributes()");
+        assert_not_contains(&result.code, "#props = {");
+        assert_not_contains(&result.code, "#state = {};");
+        assert_not_contains(&result.code, "markDirty as __naosMarkDirty");
+        assert_not_contains(&result.code, "flushSync as __naosFlushSync");
     }
 
     #[test]
@@ -2385,7 +2440,11 @@ mod tests {
                 .contains("document.createElement(\"x-counter\")")
         );
         assert!(result.code.contains("initial-count"));
-        assert!(result.code.contains("addEventListener(\"value-change\""));
+        assert!(
+            result
+                .code
+                .contains("\"value-change\", (event, __naosEventSignal)")
+        );
     }
 
     #[test]
@@ -2475,7 +2534,7 @@ mod tests {
             .expect("explicit attribute after spread should be re-applied during update");
         assert!(explicit_after_index > 0);
         assert!(result.code[spread_index..].contains(
-            "if (this.#shouldUpdate(null, dirtySources)) {\n      const node0_data_state_value = active() ? \"on\" : \"off\";"
+            "if (__naosShouldUpdate(null, dirtySources)) {\n      const node0_data_state_value = active() ? \"on\" : \"off\";"
         ));
     }
 
@@ -2510,7 +2569,7 @@ mod tests {
             .find("> inspect(count(), doubled())")
             .expect("inspect step should be generated");
         let gate_index = result.code[..inspect_index]
-            .rfind("this.#shouldUpdate(")
+            .rfind("__naosShouldUpdate(")
             .expect("inspect step should be dependency gated");
         assert!(result.code[gate_index..inspect_index].contains("\"count\""));
     }
@@ -3006,8 +3065,9 @@ mod tests {
         assert_contains(&result.code, "label: { source: \"label\"");
         assert_contains(&result.code, "disabled: { source: \"disabled\"");
         assert_contains(&result.code, "setAttribute(\"part\", \"root control\")");
-        assert_contains(&result.code, "setAttribute(\"data-state\",");
-        assert_contains(&result.code, "setAttribute(\"aria-pressed\",");
+        assert_contains(&result.code, "setAttr as __naosSetAttr");
+        assert_contains(&result.code, "__naosSetAttr(this.#node0, \"data-state\",");
+        assert_contains(&result.code, "__naosSetAttr(this.#node0, \"aria-pressed\",");
         assert_contains(&result.code, "disabled: { source: \"disabled\"");
         assert_contains(&result.code, "document.createElement(\"slot\")");
         assert_contains(

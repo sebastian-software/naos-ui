@@ -7,12 +7,21 @@ import {
   computedAccessor,
   connect,
   createKernel,
+  defineComponent,
   defineProps,
+  disconnect,
   flushSync,
+  hostApi,
+  listen,
   markAllDirty,
+  registerKeyedBinding,
   reconcileKeyed,
+  reportError,
+  runEffect,
+  setAttr,
   shouldUpdate,
   stateAccessor,
+  unregisterKeyedBindings,
 } from "./internal.js"
 
 class FakeElement extends EventTarget {
@@ -110,6 +119,21 @@ describe("shared runtime kernel", () => {
     expect(hydrate).not.toHaveBeenCalled()
   })
 
+  it("aborts lifecycle work before running effect cleanups on disconnect", () => {
+    const element = new FakeElement()
+    const instanceKernel = kernel()
+    instanceKernel.element = element as unknown as HTMLElement
+    instanceKernel.lifecycleAbort.signal.addEventListener("abort", () => {
+      element.setAttribute("data-effect", "aborted")
+    })
+    instanceKernel.effectCleanups.push(() => element.removeAttribute("data-effect"))
+
+    disconnect(instanceKernel)
+
+    expect(element.getAttribute("data-effect")).toBeNull()
+    expect(instanceKernel.effectCleanups).toEqual([undefined])
+  })
+
   it("batches state updates and invalidates computed values", () => {
     const updates: Array<ReadonlySet<string> | null> = []
     const instanceKernel = kernel({
@@ -131,6 +155,138 @@ describe("shared runtime kernel", () => {
     markAllDirty(instanceKernel)
     flushSync(instanceKernel)
     expect(updates).toHaveLength(2)
+  })
+
+  it("uses the runtime keyed-binding registry for state-driven selector updates", () => {
+    const instanceKernel = kernel({
+      keyedSelectors: { selected: ["isSelected"] },
+    })
+    instanceKernel.mounted = true
+    instanceKernel.needsFullUpdate = false
+    instanceKernel.state.selected = "a"
+    const updates: string[] = []
+    const recordA = {}
+    const recordB = {}
+    registerKeyedBinding(instanceKernel, "isSelected", "a", recordA, "selected", () => {
+      updates.push("a")
+    })
+    registerKeyedBinding(instanceKernel, "isSelected", "b", recordB, "selected", () => {
+      updates.push("b")
+    })
+
+    stateAccessor<string>(instanceKernel, "selected").set("b")
+    flushSync(instanceKernel)
+
+    expect(updates).toEqual(["a", "b"])
+    unregisterKeyedBindings(instanceKernel, recordA)
+    unregisterKeyedBindings(instanceKernel, recordB)
+    expect(instanceKernel.keyedBindings).toHaveLength(0)
+  })
+
+  it("keeps host update scopes, queued tasks, and failures kernel-owned", async () => {
+    const instanceKernel = kernel()
+    instanceKernel.mounted = true
+    const reporter = vi.fn()
+    vi.stubGlobal("reportError", reporter)
+    const api = hostApi(instanceKernel)()
+    const update = api.update()
+    const task = vi.fn(() => {
+      throw new Error("queued failure")
+    })
+    api.queueTask(task)
+
+    flushSync(instanceKernel)
+
+    await expect(update).resolves.toBe(instanceKernel.updateAbort.signal)
+    expect(task).toHaveBeenCalledOnce()
+    expect(reporter).toHaveBeenCalledWith(expect.any(Error))
+    vi.unstubAllGlobals()
+  })
+
+  it("scopes listeners to their latest event run and removes them on disposal", () => {
+    const instanceKernel = kernel()
+    const target = new EventTarget()
+    const signals: AbortSignal[] = []
+    const dispose = listen(instanceKernel, target, "change", (_event, signal) => {
+      signals.push(signal)
+    })
+
+    target.dispatchEvent(new Event("change"))
+    target.dispatchEvent(new Event("change"))
+    expect(signals).toHaveLength(2)
+    expect(signals[0]?.aborted).toBe(true)
+
+    dispose()
+    expect(signals[1]?.aborted).toBe(true)
+    target.dispatchEvent(new Event("change"))
+    expect(signals).toHaveLength(2)
+  })
+
+  it("runs dependency-gated effects and replaces their cleanup", () => {
+    const instanceKernel = kernel()
+    const calls: string[] = []
+
+    runEffect(instanceKernel, 0, new Set(["count"]), ["count"], () => {
+      calls.push("first")
+      return () => calls.push("cleanup-first")
+    })
+    runEffect(instanceKernel, 0, new Set(["label"]), ["count"], () => {
+      calls.push("skipped")
+    })
+    runEffect(instanceKernel, 0, null, ["count"], () => {
+      calls.push("second")
+      return () => calls.push("cleanup-second")
+    })
+
+    expect(calls).toEqual(["first", "cleanup-first", "second"])
+    disconnect(instanceKernel)
+    expect(calls).toEqual(["first", "cleanup-first", "second", "cleanup-second"])
+  })
+
+  it("shares attribute and registration guards through the runtime contract", () => {
+    const element = new FakeElement()
+    setAttr(element as unknown as Element, "data-state", false)
+    expect(element.getAttribute("data-state")).toBeNull()
+    setAttr(element as unknown as Element, "aria-hidden", false, false)
+    expect(element.getAttribute("aria-hidden")).toBe("false")
+
+    const registry = new Map<string, CustomElementConstructor>()
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+    vi.stubGlobal("customElements", {
+      define: (name: string, constructor: CustomElementConstructor) =>
+        registry.set(name, constructor),
+      get: (name: string) => registry.get(name),
+    })
+    class First extends FakeElement {}
+    class SamePackage extends FakeElement {}
+    class Conflict extends FakeElement {}
+    const metadata = { packageName: "@test/kernel", packageVersion: "1.0.0", tagName: "x-kernel" }
+
+    defineComponent("x-kernel", First as unknown as CustomElementConstructor, metadata)
+    defineComponent("x-kernel", SamePackage as unknown as CustomElementConstructor, metadata)
+    defineComponent("x-kernel", Conflict as unknown as CustomElementConstructor, {
+      ...metadata,
+      packageVersion: "2.0.0",
+    })
+
+    expect(registry.get("x-kernel")).toBe(First)
+    expect(warn).toHaveBeenCalledOnce()
+    warn.mockRestore()
+    vi.unstubAllGlobals()
+  })
+
+  it("reports errors through both the component event and platform reporter", () => {
+    const instanceKernel = kernel()
+    const reported = vi.fn()
+    const events: unknown[] = []
+    vi.stubGlobal("reportError", reported)
+    instanceKernel.element.addEventListener("naos-error", (event) => events.push(event))
+
+    reportError(instanceKernel, new Error("broken"))
+
+    expect(events).toHaveLength(1)
+    expect(reported).toHaveBeenCalledWith(expect.any(Error))
+    vi.unstubAllGlobals()
   })
 
   it("reconciles records by key and disposes stale rows", () => {
