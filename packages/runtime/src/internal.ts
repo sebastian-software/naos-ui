@@ -35,6 +35,8 @@ export type KernelSpec = {
   defaults?: Record<string, unknown>
   props?: Record<string, PropSpec>
   attrs?: Record<string, { prop: string; parse(value: string | null): unknown }>
+  /** Maps a state source to the keyed selectors that depend on it. */
+  keyedSelectors?: Record<string, readonly string[]>
   styles?: LazyStyleSheet
   initState?(kernel: Kernel): void
   mount?(kernel: Kernel): void
@@ -69,6 +71,9 @@ export type Kernel = {
   eventAbortControllers: Set<AbortController>
   effectsConnected: boolean
   effectCleanups: Cleanup[]
+  stylesAdopted: boolean
+  /** Runtime-owned keyed row bindings, indexed by selector/key tokens. */
+  keyedBindings: KeyedRegistry
   internals?: ElementInternals
 }
 
@@ -117,6 +122,8 @@ export function createKernel(element: HTMLElement, spec: KernelSpec): Kernel {
     eventAbortControllers: new Set(),
     effectsConnected: false,
     effectCleanups: [],
+    stylesAdopted: false,
+    keyedBindings: new Map(),
   }
 }
 
@@ -170,7 +177,10 @@ export function attrChanged(
 
 /** Runs the generated mount/hydration callbacks and the first render. */
 export function connect(kernel: Kernel): void {
-  adoptStyles(kernel)
+  if (!kernel.stylesAdopted) {
+    adoptStyles(kernel)
+    kernel.stylesAdopted = true
+  }
 
   if (!kernel.mounted) {
     ensureHostId(kernel)
@@ -275,7 +285,7 @@ export function stateAccessor<Value>(kernel: Kernel, name: string): StateAccesso
     const previousValue = kernel.state[name]
     kernel.state[name] = value
     markDirty(kernel, name)
-    markKeyedSelectorDirty(kernel, name, previousValue, value)
+    markKeyedSelectorsDirty(kernel, name, previousValue, value)
     scheduleFlush(kernel)
   }
   read.update = (updater) => {
@@ -346,23 +356,29 @@ export function listen(
   type: string,
   handler: (event: Event, signal: AbortSignal) => void,
   options?: AddEventListenerOptions | boolean,
-): void {
+): () => void {
   let controller: AbortController | undefined
-  node.addEventListener(
-    type,
-    (event) => {
-      controller?.abort()
-      const nextController = new AbortController()
-      controller = nextController
-      kernel.eventAbortControllers.add(nextController)
-      const signal = nextController.signal
-      signal.addEventListener("abort", () => kernel.eventAbortControllers.delete(nextController), {
-        once: true,
-      })
-      handler(event, signal)
-    },
-    options,
-  )
+  const listener = (event: Event) => {
+    controller?.abort()
+    const nextController = new AbortController()
+    controller = nextController
+    kernel.eventAbortControllers.add(nextController)
+    const signal = nextController.signal
+    signal.addEventListener("abort", () => kernel.eventAbortControllers.delete(nextController), {
+      once: true,
+    })
+    handler(event, signal)
+  }
+  node.addEventListener(type, listener, options)
+
+  return () => {
+    controller?.abort()
+    node.removeEventListener(
+      type,
+      listener,
+      typeof options === "boolean" ? options : options?.capture,
+    )
+  }
 }
 
 /** Runs one generated effect with cleanup and dependency gating. */
@@ -381,9 +397,9 @@ export function runEffect(
   }
 }
 
-/** Writes or removes one native attribute using JSX's falsy-null semantics. */
-export function setAttr(element: Element, name: string, value: unknown): void {
-  if (value == null || value === false) {
+/** Writes or removes one native attribute using JSX's nullish/falsy semantics. */
+export function setAttr(element: Element, name: string, value: unknown, removeFalse = true): void {
+  if (value == null || (removeFalse && value === false)) {
     element.removeAttribute(name)
     return
   }
@@ -402,6 +418,8 @@ export function lazySheet(sources: readonly string[]): LazyStyleSheet {
   }
 }
 
+/** Reorders keyed DOM nodes in the compiler-provided order. */
+export function reconcileKeyed(container: Node, nodes: readonly Node[]): void
 /** Reconciles keyed records; record construction and patching remain generated. */
 export function reconcileKeyed<Item, Key, Record extends { node: Node }>(
   container: Node,
@@ -411,19 +429,45 @@ export function reconcileKeyed<Item, Key, Record extends { node: Node }>(
   build: (item: Item, index: number) => Record,
   patch: (record: Record, item: Item, index: number) => void,
   dispose?: (record: Record) => void,
-): Map<Key, Record> {
+): Map<Key, Record>
+export function reconcileKeyed<Item, Key, Record extends { node: Node }>(
+  container: Node,
+  recordsOrNodes: ReadonlyMap<Key, Record> | readonly Node[],
+  items?: readonly Item[],
+  keyOf?: (item: Item, index: number) => Key,
+  build?: (item: Item, index: number) => Record,
+  patch?: (record: Record, item: Item, index: number) => void,
+  dispose?: (record: Record) => void,
+): Map<Key, Record> | void {
+  if (Array.isArray(recordsOrNodes)) {
+    reconcileKeyedNodes(container, recordsOrNodes)
+    return
+  }
+
+  const records = recordsOrNodes as ReadonlyMap<Key, Record>
   const nextRecords = new Map<Key, Record>()
   const nodes: Node[] = []
 
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index]!
-    const key = keyOf(item, index)
-    const record = records.get(key) ?? build(item, index)
-    patch(record, item, index)
+  for (let index = 0; index < items!.length; index += 1) {
+    const item = items![index]!
+    const key = keyOf!(item, index)
+    const record = records.get(key) ?? build!(item, index)
+    patch!(record, item, index)
     nextRecords.set(key, record)
     nodes.push(record.node)
   }
 
+  reconcileKeyedNodes(container, nodes)
+
+  if (dispose) {
+    for (const [key, record] of records) {
+      if (!nextRecords.has(key)) dispose(record)
+    }
+  }
+  return nextRecords
+}
+
+function reconcileKeyedNodes(container: Node, nodes: readonly Node[]): void {
   let cursor = container.firstChild
   for (const node of nodes) {
     if (cursor === node) {
@@ -437,13 +481,6 @@ export function reconcileKeyed<Item, Key, Record extends { node: Node }>(
     container.removeChild(cursor)
     cursor = next
   }
-
-  if (dispose) {
-    for (const [key, record] of records) {
-      if (!nextRecords.has(key)) dispose(record)
-    }
-  }
-  return nextRecords
 }
 
 /** Registers an individual keyed-selector binding for a generated list row. */
@@ -562,6 +599,8 @@ function adoptStyles(kernel: Kernel): void {
   if ("adoptedStyleSheets" in root) {
     const styleRoot = root as Document | ShadowRoot
     if (!styleRoot.adoptedStyleSheets.includes(sheet)) {
+      // A light-DOM sheet belongs to the document/shadow root, not one element;
+      // retain it so reconnecting or unmounting one instance cannot affect peers.
       styleRoot.adoptedStyleSheets = [...styleRoot.adoptedStyleSheets, sheet]
     }
   }
@@ -654,17 +693,19 @@ export function ensureHostId(kernel: Kernel): void {
   kernel.hostId = `${kernel.element.localName}-${index < 0 ? 1 : index + 1}`
 }
 
-function markKeyedSelectorDirty(
+function markKeyedSelectorsDirty(
   kernel: Kernel,
-  selector: string,
+  source: string,
   previousValue: unknown,
   nextValue: unknown,
 ): void {
   if (Object.is(previousValue, nextValue)) return
-  const registry = keyedRegistry(kernel)
-  if (registry.size === 0) return
-  kernel.dirty.add(keyedSelectorToken(selector, previousValue))
-  kernel.dirty.add(keyedSelectorToken(selector, nextValue))
+  const selectors = kernel.spec.keyedSelectors?.[source]
+  if (!selectors || kernel.keyedBindings.size === 0) return
+  for (const selector of selectors) {
+    kernel.dirty.add(keyedSelectorToken(selector, previousValue))
+    kernel.dirty.add(keyedSelectorToken(selector, nextValue))
+  }
 }
 
 function keyedSelectorToken(selector: string, key: unknown): string {
@@ -673,13 +714,7 @@ function keyedSelectorToken(selector: string, key: unknown): string {
 }
 
 function keyedRegistry(kernel: Kernel): KeyedRegistry {
-  const key = "__naosKeyedBindingRegistry"
-  const nodes = kernel.nodes as Record<string, unknown>
-  const existing = nodes[key] as KeyedRegistry | undefined
-  if (existing) return existing
-  const registry: KeyedRegistry = new Map()
-  nodes[key] = registry
-  return registry
+  return kernel.keyedBindings
 }
 
 function unregisterKeyedBindingToken(

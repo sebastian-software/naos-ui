@@ -14,8 +14,13 @@ emits the helpers required by a component.
   exports `createNaosEvent` and `scheduleNaosUpdate`.
 - `@naos-ui/runtime/internal` is the compiler-facing kernel contract. It
   exports individually tree-shakeable functions such as `createKernel`,
-  `connect`, `markDirty`, and `lazySheet`. It is not an author-facing
+  `connect`, `listen`, `runEffect`, `reconcileKeyed`, and `lazySheet`. It is not an author-facing
   component API and carries no `HTMLElement` base class.
+
+The kernel owns lifecycle ordering: disconnect aborts lifecycle and listener
+scopes before it invokes effect cleanups. `listen()` returns a disposer for
+compiler-managed keyed rows, while all in-flight handler scopes remain tied to
+the kernel and are aborted on disconnect.
 
 **Stability: preview.** Before 1.0, the `./internal` contract tracks the
 generated-output contract and may change in a minor release.
