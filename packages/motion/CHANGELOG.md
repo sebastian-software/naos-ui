@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/sebastian-software/naos-ui/compare/motion-v1.0.0...motion-v1.1.0) (2026-07-20)
+
+
+### Features
+
+* **motion:** autoLayout helper for automatic direct-child layout motion ([#160](https://github.com/sebastian-software/naos-ui/issues/160)) ([3be3507](https://github.com/sebastian-software/naos-ui/commit/3be3507d013686996ab119f55ede65868876cce5))
+
 ## 1.0.0 (2026-07-12)
 
 

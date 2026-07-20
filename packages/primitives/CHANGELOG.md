@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/sebastian-software/naos-ui/compare/primitives-v1.0.0...primitives-v1.1.0) (2026-07-20)
+
+
+### Features
+
+* **compiler:** emit typed element declarations for compiled components ([#152](https://github.com/sebastian-software/naos-ui/issues/152)) ([956a758](https://github.com/sebastian-software/naos-ui/commit/956a7585abdcf62d6da7ffc04c80d1ada23246be)), closes [#107](https://github.com/sebastian-software/naos-ui/issues/107)
+* **testing:** ship @naos-ui/testing mount/flush/inspect harness ([#146](https://github.com/sebastian-software/naos-ui/issues/146)) ([3d60c00](https://github.com/sebastian-software/naos-ui/commit/3d60c00a24d0c8827ea784542fc54f0513392b39)), closes [#108](https://github.com/sebastian-software/naos-ui/issues/108)
+
 ## 1.0.0 (2026-07-12)
 
 

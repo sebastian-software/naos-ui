@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.1.0](https://github.com/sebastian-software/naos-ui/compare/core-v1.0.0...core-v1.1.0) (2026-07-20)
+
+
+### Features
+
+* **actions:** component-local action primitives with native form enhancement ([#154](https://github.com/sebastian-software/naos-ui/issues/154)) ([004b950](https://github.com/sebastian-software/naos-ui/commit/004b950602d098182c5405714e7e21d09ee2e8a6)), closes [#72](https://github.com/sebastian-software/naos-ui/issues/72)
+* **compiler:** clx class helper and style-object CSS custom properties ([#159](https://github.com/sebastian-software/naos-ui/issues/159)) ([f962c6e](https://github.com/sebastian-software/naos-ui/commit/f962c6e94191fd8daa2c3ba7b289a5f2cee7da03))
+* **compiler:** dev-only reactive tracing with inspect() ([#161](https://github.com/sebastian-software/naos-ui/issues/161)) ([3b15483](https://github.com/sebastian-software/naos-ui/commit/3b15483b8dce0740ad4c06ed62445e7826ab3508))
+
 ## 1.0.0 (2026-07-12)
 
 

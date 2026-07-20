@@ -1,6 +1,6 @@
 {
   "name": "create-naos",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Scaffold a Naos + Vite starter project with one command.",
   "license": "Apache-2.0",
   "type": "module",
