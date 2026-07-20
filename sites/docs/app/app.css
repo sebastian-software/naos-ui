@@ -1,150 +1,715 @@
+/* ---------------------------------------------------------------------------
+ * Homepage
+ *
+ * Styled exclusively with Ardo theme tokens (--ardo-*) so every section keeps
+ * working in light and dark mode and follows the site brand automatically.
+ * ------------------------------------------------------------------------- */
+
 .naos-home {
-  display: grid;
-  gap: 2rem;
+  width: 100%;
+  overflow-x: clip;
 }
 
-.naos-hero {
-  display: grid;
-  gap: 1.25rem;
-  padding: 4rem 0 2rem;
+.naos-container {
+  width: 100%;
+  max-width: 74rem;
+  margin-inline: auto;
+  padding-inline: clamp(1.25rem, 4vw, 2.5rem);
+}
+
+/* --- Shared section scaffolding --------------------------------------- */
+
+.naos-section {
+  padding-block: var(--ardo-space-section);
 }
 
 .naos-eyebrow {
-  margin: 0;
-  color: #0f766e;
+  margin: 0 0 0.75rem;
+  color: var(--ardo-color-brand);
   font-size: 0.78rem;
-  font-weight: 800;
-  letter-spacing: 0;
+  font-weight: 700;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
+.naos-section h2 {
+  max-width: 46rem;
+  margin: 0;
+  color: var(--ardo-color-text);
+  font-family: var(--ardo-font-familyHeading);
+  font-size: clamp(1.85rem, 3.2vw, 2.55rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+
+.naos-section-lead {
+  max-width: 44rem;
+  margin: 1rem 0 0;
+  color: var(--ardo-color-textLight);
+  font-size: var(--ardo-fontSize-lg);
+  line-height: 1.65;
+}
+
+/* --- Buttons ------------------------------------------------------------ */
+
+.naos-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.6rem 1.35rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition:
+    transform var(--ardo-transition-fast),
+    box-shadow var(--ardo-transition-fast),
+    background var(--ardo-transition-fast),
+    border-color var(--ardo-transition-fast);
+}
+
+.naos-btn:hover {
+  transform: translateY(-1px);
+}
+
+.naos-btn:focus-visible {
+  outline: 2px solid var(--ardo-color-brand);
+  outline-offset: 2px;
+}
+
+.naos-btn[data-variant="primary"] {
+  background: var(--ardo-color-brandGradient);
+  color: white;
+  box-shadow: 0 4px 14px color-mix(in oklch, var(--ardo-color-brand) 35%, transparent);
+}
+
+.dark .naos-btn[data-variant="primary"] {
+  color: oklch(0.16 0.01 356);
+}
+
+.naos-btn[data-variant="primary"]:hover {
+  box-shadow: 0 6px 20px color-mix(in oklch, var(--ardo-color-brand) 45%, transparent);
+}
+
+.naos-btn[data-variant="secondary"] {
+  border-color: var(--ardo-color-border);
+  background: var(--ardo-color-bg);
+  color: var(--ardo-color-text);
+}
+
+.naos-btn[data-variant="secondary"]:hover {
+  border-color: color-mix(in oklch, var(--ardo-color-brand) 45%, var(--ardo-color-border));
+  box-shadow: var(--ardo-color-shadowSm);
+}
+
+/* --- Hero --------------------------------------------------------------- */
+
+.naos-hero {
+  position: relative;
+  padding-block: clamp(3.5rem, 7vw, 5.5rem) clamp(4.5rem, 8vw, 6.5rem);
+  background:
+    radial-gradient(
+      44rem 24rem at 8% -12%,
+      color-mix(in oklch, var(--ardo-color-brand) 11%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      40rem 22rem at 96% 4%,
+      color-mix(in oklch, var(--ardo-color-accent) 12%, transparent),
+      transparent 70%
+    );
+}
+
+.naos-hero-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
+  gap: clamp(2rem, 4vw, 3.5rem);
+  align-items: center;
+}
+
+.naos-hero-copy {
+  display: grid;
+  justify-items: start;
+  gap: 1.4rem;
+  min-width: 0;
+}
+
+.naos-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  border: 1px solid color-mix(in oklch, var(--ardo-color-brand) 30%, var(--ardo-color-border));
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  background: color-mix(in oklch, var(--ardo-color-brand) 7%, var(--ardo-color-bg));
+  color: var(--ardo-color-brand);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.naos-pill-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: currentColor;
+  animation: naos-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes naos-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 .naos-hero h1 {
-  max-width: 820px;
   margin: 0;
-  color: #111827;
-  font-size: 4rem;
-  letter-spacing: 0;
-  line-height: 0.98;
+  color: var(--ardo-color-text);
+  font-family: var(--ardo-font-familyHeading);
+  font-size: clamp(2.3rem, 3.75vw, 3rem);
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
+  text-wrap: balance;
 }
 
-.naos-hero p {
-  max-width: 760px;
-  margin: 0;
-  color: #475569;
-  font-size: 1.08rem;
+.naos-nowrap {
+  white-space: nowrap;
 }
 
-.naos-actions,
-.naos-grid {
+.naos-gradient-text {
+  background: var(--ardo-color-brandGradient);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+.naos-hero-lead {
+  max-width: 34rem;
+  margin: 0;
+  color: var(--ardo-color-textLight);
+  font-size: var(--ardo-fontSize-lg);
+  line-height: 1.65;
+}
+
+.naos-hero-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.naos-action {
+.naos-install {
   display: inline-flex;
   align-items: center;
-  min-height: 2.5rem;
-  border: 1px solid #0f766e;
-  border-radius: 0.375rem;
-  padding: 0.55rem 0.85rem;
-  color: #0f766e;
+  gap: 0.65rem;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--ardo-color-border);
+  border-radius: var(--ardo-radius-base);
+  padding: 0.5rem 0.6rem 0.5rem 0.95rem;
+  background: var(--ardo-color-bgSoft);
+  font-family: var(--ardo-font-mono);
+  font-size: 0.85rem;
+}
+
+.naos-install-prompt {
+  color: var(--ardo-color-brand);
   font-weight: 700;
-  text-decoration: none;
 }
 
-.naos-action[data-primary="true"] {
-  background: #0f766e;
-  color: white;
+.naos-install code {
+  color: var(--ardo-color-text);
 }
 
-.naos-grid {
+.naos-install-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: var(--ardo-radius-sm);
+  background: transparent;
+  color: var(--ardo-color-textLighter);
+  cursor: pointer;
+  transition:
+    background var(--ardo-transition-fast),
+    color var(--ardo-transition-fast);
+}
+
+.naos-install-copy:hover {
+  background: var(--ardo-color-bgMute);
+  color: var(--ardo-color-text);
+}
+
+.naos-install-copy:focus-visible {
+  outline: 2px solid var(--ardo-color-brand);
+  outline-offset: 1px;
+}
+
+.naos-hero-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1rem;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 34rem;
+  margin: 0.5rem 0 0;
+  border-top: 1px solid var(--ardo-color-divider);
+  padding-top: 1.4rem;
 }
 
-.naos-card {
-  border: 1px solid #d7dde5;
-  border-radius: 0.5rem;
-  padding: 1rem;
-  background: #ffffff;
+.naos-hero-stats dt {
+  color: var(--ardo-color-brand);
+  font-family: var(--ardo-font-familyHeading);
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
 }
 
-.naos-card h2 {
+.naos-hero-stats dd {
+  margin: 0.2rem 0 0;
+  color: var(--ardo-color-textLighter);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+/* --- Hero code windows -------------------------------------------------- */
+
+.naos-hero-code {
+  position: relative;
+  padding: 0 0 4.5rem clamp(0rem, 2vw, 1.5rem);
+}
+
+.naos-window {
   margin: 0;
-  color: #111827;
-  font-size: 1.1rem;
-  letter-spacing: 0;
+  border: 1px solid oklch(0.32 0.012 260);
+  border-radius: var(--ardo-radius-lg);
+  background: oklch(0.235 0.012 260);
+  box-shadow: var(--ardo-color-shadowLg);
+  overflow: hidden;
 }
 
-.naos-card p {
-  margin: 0.65rem 0 0;
-  color: #475569;
+.naos-window-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid oklch(0.3 0.012 260);
+  padding: 0.6rem 0.9rem;
+  background: oklch(0.27 0.012 260);
 }
 
-.naos-compare {
+.naos-window-dots {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
+.naos-window-dots i {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+  background: #ff5f57;
+}
+
+.naos-window-dots i:nth-child(2) {
+  background: #febc2e;
+}
+
+.naos-window-dots i:nth-child(3) {
+  background: #28c840;
+}
+
+.naos-window-file {
+  color: oklch(0.72 0.01 260);
+  font-family: var(--ardo-font-mono);
+  font-size: 0.78rem;
+}
+
+.naos-window-badge {
+  margin-left: auto;
+  border: 1px solid color-mix(in oklch, var(--ardo-color-brandLight) 45%, transparent);
+  border-radius: 999px;
+  padding: 0.12rem 0.6rem;
+  color: var(--ardo-color-brandLight);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.naos-window pre {
+  margin: 0;
+  padding: 1.05rem 1.25rem;
+  overflow-x: auto;
+  background: transparent;
+  color: oklch(0.83 0.01 260);
+  font-family: var(--ardo-font-mono);
+  font-size: 0.8rem;
+  line-height: 1.68;
+  tab-size: 2;
+}
+
+.naos-window code {
+  display: block;
+  background: transparent;
+}
+
+.naos-window .tk-k {
+  color: #c678dd;
+}
+
+.naos-window .tk-f {
+  color: #61afef;
+}
+
+.naos-window .tk-s {
+  color: #98c379;
+}
+
+.naos-window .tk-n {
+  color: #d19a66;
+}
+
+.naos-window .tk-t {
+  color: #e06c75;
+}
+
+.naos-window .tk-a {
+  color: #d19a66;
+}
+
+.naos-window .tk-y {
+  color: #56b6c2;
+}
+
+.naos-window .tk-c {
+  color: #7f848e;
+  font-style: italic;
+}
+
+.naos-window-host {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: min(26rem, 94%);
+}
+
+/* --- Pipeline ----------------------------------------------------------- */
+
+.naos-pipeline {
+  border-block: 1px solid var(--ardo-color-borderLight);
+  background: var(--ardo-color-bgSoft);
+}
+
+.naos-pipeline-grid {
   display: grid;
-  gap: 1.1rem;
-  padding: 1rem 0 3rem;
-}
-
-.naos-compare h2 {
-  max-width: 760px;
-  margin: 0;
-  color: #111827;
-  font-size: 2rem;
-  letter-spacing: 0;
-  line-height: 1.05;
-}
-
-.naos-compare-lead {
-  max-width: 760px;
-  margin: 0;
-  color: #475569;
-  font-size: 1.05rem;
-}
-
-.naos-compare-list {
-  display: grid;
-  gap: 0.6rem;
-  margin: 0.25rem 0 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin: 2.25rem 0 0;
   padding: 0;
   list-style: none;
+  counter-reset: naos-step;
 }
 
-.naos-compare-row {
+.naos-step {
+  position: relative;
   display: grid;
-  grid-template-columns: 10rem 1fr;
-  gap: 1rem;
-  align-items: baseline;
-  border: 1px solid #d7dde5;
-  border-radius: 0.5rem;
-  padding: 0.9rem 1rem;
-  background: #ffffff;
+  justify-items: start;
+  gap: 0.55rem;
+  border: 1px solid var(--ardo-color-border);
+  border-radius: var(--ardo-radius-lg);
+  padding: 1.5rem;
+  background: var(--ardo-color-bg);
+}
+
+.naos-step-index {
+  position: absolute;
+  top: 1.15rem;
+  right: 1.25rem;
+  color: color-mix(in oklch, var(--ardo-color-brand) 55%, var(--ardo-color-bgAlt));
+  font-family: var(--ardo-font-familyHeading);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.naos-step-icon,
+.naos-feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--ardo-radius-base);
+  background: color-mix(in oklch, var(--ardo-color-brand) 11%, var(--ardo-color-bg));
+  color: var(--ardo-color-brand);
+}
+
+.naos-step h3,
+.naos-feature h3 {
+  margin: 0.4rem 0 0;
+  color: var(--ardo-color-text);
+  font-family: var(--ardo-font-familyHeading);
+  font-size: 1.08rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.naos-step p,
+.naos-feature p {
+  margin: 0;
+  color: var(--ardo-color-textLight);
+  font-size: 0.92rem;
+  line-height: 1.62;
+}
+
+/* --- Features ----------------------------------------------------------- */
+
+.naos-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+}
+
+.naos-feature {
+  display: grid;
+  justify-items: start;
+  gap: 0.55rem;
+  border: 1px solid var(--ardo-color-border);
+  border-radius: var(--ardo-radius-lg);
+  padding: 1.5rem;
+  background: var(--ardo-color-bg);
+  transition:
+    transform var(--ardo-transition-base),
+    border-color var(--ardo-transition-base),
+    box-shadow var(--ardo-transition-base);
+}
+
+.naos-feature:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--ardo-color-brand) 40%, var(--ardo-color-border));
+  box-shadow: var(--ardo-color-shadowMd);
+}
+
+/* --- Comparisons -------------------------------------------------------- */
+
+.naos-compare {
+  border-top: 1px solid var(--ardo-color-borderLight);
+  background: var(--ardo-color-bgSoft);
+}
+
+.naos-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 2.5rem;
+}
+
+.naos-compare-card {
+  display: grid;
+  align-content: start;
+  gap: 0.6rem;
+  border: 1px solid var(--ardo-color-border);
+  border-radius: var(--ardo-radius-lg);
+  padding: 1.4rem 1.5rem;
+  background: var(--ardo-color-bg);
   color: inherit;
   text-decoration: none;
+  transition:
+    transform var(--ardo-transition-base),
+    border-color var(--ardo-transition-base),
+    box-shadow var(--ardo-transition-base);
 }
 
-.naos-compare-row:hover,
-.naos-compare-row:focus-visible {
-  border-color: #0f766e;
+.naos-compare-card:hover,
+.naos-compare-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in oklch, var(--ardo-color-brand) 40%, var(--ardo-color-border));
+  box-shadow: var(--ardo-color-shadowMd);
+}
+
+.naos-compare-card:focus-visible {
+  outline: 2px solid var(--ardo-color-brand);
+  outline-offset: 2px;
+}
+
+.naos-compare-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: var(--ardo-color-brand);
+}
+
+.naos-compare-head svg {
+  opacity: 0;
+  transform: translate(-0.2rem, 0.2rem);
+  transition:
+    opacity var(--ardo-transition-base),
+    transform var(--ardo-transition-base);
+}
+
+.naos-compare-card:hover .naos-compare-head svg,
+.naos-compare-card:focus-visible .naos-compare-head svg {
+  opacity: 1;
+  transform: translate(0, 0);
 }
 
 .naos-compare-name {
-  color: #0f766e;
+  font-family: var(--ardo-font-familyHeading);
+  font-size: 1.05rem;
   font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .naos-compare-line {
-  color: #475569;
+  color: var(--ardo-color-textLight);
+  font-size: 0.92rem;
+  line-height: 1.62;
 }
 
-.naos-compare-kicker {
-  max-width: 760px;
-  margin: 0.25rem 0 0;
-  color: #111827;
-  font-weight: 600;
+.naos-compare-card[data-variant="overview"] {
+  border-style: dashed;
+  border-color: color-mix(in oklch, var(--ardo-color-brand) 35%, var(--ardo-color-border));
+  background: color-mix(in oklch, var(--ardo-color-brand) 5%, var(--ardo-color-bg));
+}
+
+/* --- Closing CTA -------------------------------------------------------- */
+
+.naos-cta {
+  padding-block: clamp(3.5rem, 7vw, 5.5rem);
+  background: var(--ardo-color-brandGradient);
+  color: white;
+}
+
+.dark .naos-cta {
+  color: oklch(0.16 0.01 356);
+}
+
+.naos-cta-inner {
+  display: grid;
+  justify-items: center;
+  gap: 1.1rem;
+  text-align: center;
+}
+
+.naos-cta h2 {
+  max-width: 40rem;
+  margin: 0;
+  font-family: var(--ardo-font-familyHeading);
+  font-size: clamp(1.85rem, 3.4vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+
+.naos-cta p {
+  max-width: 42rem;
+  margin: 0;
+  font-size: var(--ardo-fontSize-lg);
+  line-height: 1.65;
+  opacity: 0.88;
+}
+
+.naos-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.naos-btn[data-variant="inverse"] {
+  background: var(--ardo-color-bg);
+  color: var(--ardo-color-brand);
+}
+
+.naos-btn[data-variant="inverse"]:hover {
+  box-shadow: 0 6px 20px oklch(0 0 0 / 0.2);
+}
+
+.naos-btn[data-variant="ghost"] {
+  border-color: color-mix(in oklch, currentColor 55%, transparent);
+  color: inherit;
+}
+
+.naos-btn[data-variant="ghost"]:hover {
+  border-color: currentColor;
+}
+
+.naos-cta .naos-btn:focus-visible {
+  outline-color: currentColor;
+}
+
+/* --- Homepage responsive + motion --------------------------------------- */
+
+@media (max-width: 1100px) {
+  .naos-feature-grid,
+  .naos-compare-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .naos-hero-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .naos-hero-code {
+    padding-left: 0;
+  }
+
+  .naos-pipeline-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .naos-feature-grid,
+  .naos-compare-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .naos-hero-stats {
+    gap: 0.9rem;
+  }
+
+  .naos-hero-code {
+    padding-bottom: 0;
+  }
+
+  .naos-window-host {
+    position: static;
+    width: 100%;
+    margin-top: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .naos-pill-dot {
+    animation: none;
+  }
+
+  .naos-btn,
+  .naos-feature,
+  .naos-compare-card,
+  .naos-compare-head svg {
+    transition: none;
+  }
+
+  .naos-btn:hover,
+  .naos-feature:hover,
+  .naos-compare-card:hover {
+    transform: none;
+  }
 }
 
 .naos-playground {
@@ -403,23 +968,6 @@
 }
 
 @media (max-width: 780px) {
-  .naos-hero {
-    padding-top: 2rem;
-  }
-
-  .naos-hero h1 {
-    font-size: 2.45rem;
-  }
-
-  .naos-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .naos-compare-row {
-    grid-template-columns: 1fr;
-    gap: 0.25rem;
-  }
-
   .naos-playground-columns {
     grid-template-columns: 1fr;
   }

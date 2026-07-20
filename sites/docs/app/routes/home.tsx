@@ -1,4 +1,19 @@
+import { useState } from "react"
 import type { MetaFunction } from "react-router"
+import {
+  Activity,
+  ArrowRight,
+  ArrowUpRight,
+  Blocks,
+  Box,
+  Check,
+  Copy,
+  Cpu,
+  Feather,
+  FileCode,
+  Layers,
+  PackageCheck,
+} from "lucide-react"
 import config from "virtual:ardo/config"
 
 export const meta: MetaFunction = () => [
@@ -13,6 +28,169 @@ function withBase(path: string): string {
   const base = config.base?.replace(/\/?$/, "/") ?? "/"
   return `${base}${path.replace(/^\//, "")}`
 }
+
+const INSTALL_COMMAND = "pnpm add @naos-ui/core @naos-ui/runtime"
+
+/**
+ * One highlighted code token: a token class suffix (`tk-<cls>`) or null for
+ * plain text. Hand-tokenized so the hero ships zero highlighting runtime.
+ */
+type CodeToken = [cls: string | null, text: string]
+
+const counterCode: CodeToken[][] = [
+  [
+    ["k", "import"],
+    [null, " { event, state } "],
+    ["k", "from"],
+    ["s", ' "@naos-ui/core"'],
+  ],
+  [],
+  [
+    ["k", "export function"],
+    ["f", " Counter"],
+    [null, "({ "],
+    ["a", "label"],
+    [null, " = "],
+    ["s", '"Count"'],
+    [null, " } = {}) {"],
+  ],
+  [
+    ["k", "  const"],
+    [null, " count = "],
+    ["f", "state"],
+    [null, "("],
+    ["n", "0"],
+    [null, ")"],
+  ],
+  [
+    ["k", "  const"],
+    [null, " change = "],
+    ["f", "event"],
+    [null, "<"],
+    ["y", "number"],
+    [null, ">("],
+    ["s", '"change"'],
+    [null, ")"],
+  ],
+  [],
+  [
+    ["k", "  return"],
+    [null, " ("],
+  ],
+  [
+    [null, "    <"],
+    ["t", "button"],
+  ],
+  [
+    ["a", "      part"],
+    [null, "="],
+    ["s", '"button"'],
+  ],
+  [
+    ["a", "      onClick"],
+    [null, "={() => {"],
+  ],
+  [
+    [null, "        count."],
+    ["f", "update"],
+    [null, "((value) => value + "],
+    ["n", "1"],
+    [null, ")"],
+  ],
+  [
+    [null, "        change."],
+    ["f", "emit"],
+    [null, "(count())"],
+  ],
+  [[null, "      }}"]],
+  [[null, "    >"]],
+  [[null, "      {label}: {count()}"]],
+  [
+    [null, "    </"],
+    ["t", "button"],
+    [null, ">"],
+  ],
+  [[null, "  )"]],
+  [[null, "}"]],
+]
+
+const hostCode: CodeToken[][] = [
+  [["c", "<!-- any framework — or no framework at all -->"]],
+  [
+    [null, "<"],
+    ["t", "app-counter"],
+    ["a", " label"],
+    [null, "="],
+    ["s", '"Clicks"'],
+    [null, "></"],
+    ["t", "app-counter"],
+    [null, ">"],
+  ],
+  [
+    [null, "<"],
+    ["t", "script"],
+    ["a", " type"],
+    [null, "="],
+    ["s", '"module"'],
+    ["a", " src"],
+    [null, "="],
+    ["s", '"/counter.js"'],
+    [null, "></"],
+    ["t", "script"],
+    [null, ">"],
+  ],
+]
+
+const pipeline = [
+  {
+    icon: FileCode,
+    title: "Author",
+    text: "Write typed PascalCase component functions with state(), computed(), and typed events — a strict, React-like TSX subset.",
+  },
+  {
+    icon: Cpu,
+    title: "Compile",
+    text: "The Rust/OXC compiler analyzes your TSX and generates native Custom Element modules. No virtual DOM anywhere in the output.",
+  },
+  {
+    icon: PackageCheck,
+    title: "Ship",
+    text: "Deliver real Custom Elements with Shadow DOM, slots, and Declarative Shadow DOM prerendering. Consumers load zero framework.",
+  },
+]
+
+const features = [
+  {
+    icon: Box,
+    title: "Native Custom Elements",
+    text: "Shadow DOM, slots, part, CSS custom properties, form association. One tag that works wherever HTML works.",
+  },
+  {
+    icon: Feather,
+    title: "Zero framework runtime",
+    text: "The runtime package stays a tiny helper for events, scheduling, and hydration — consumers never download a framework.",
+  },
+  {
+    icon: Activity,
+    title: "Signals reactivity",
+    text: "state(), computed(), and effect() update exactly what changed. No re-render cycles, no reconciliation passes.",
+  },
+  {
+    icon: Cpu,
+    title: "Rust-powered compiler",
+    text: "A Rust/OXC core behind a thin TypeScript surface: fast parses, precise diagnostics, and a typed N-API boundary.",
+  },
+  {
+    icon: Layers,
+    title: "Prerender & DSD",
+    text: "Static HTML with <template shadowrootmode> by default — markup that renders before JavaScript and hydrates on upgrade.",
+  },
+  {
+    icon: Blocks,
+    title: "Every stack welcome",
+    text: "React, Vue, Angular, CMS pages, plain HTML. Build a component once, consume it as a native element everywhere.",
+  },
+]
 
 const comparisons = [
   {
@@ -42,96 +220,246 @@ const comparisons = [
   },
 ]
 
+function CodeLines({ lines }: { lines: CodeToken[][] }) {
+  return (
+    <pre>
+      <code>
+        {lines.map((line, lineIndex) => (
+          <span key={lineIndex} className="naos-code-line">
+            {line.map(([cls, text], tokenIndex) =>
+              cls === null ? (
+                text
+              ) : (
+                <span key={tokenIndex} className={`tk-${cls}`}>
+                  {text}
+                </span>
+              ),
+            )}
+            {"\n"}
+          </span>
+        ))}
+      </code>
+    </pre>
+  )
+}
+
+function CodeWindow({
+  file,
+  lines,
+  badge,
+  className,
+}: {
+  file: string
+  lines: CodeToken[][]
+  badge?: string
+  className?: string
+}) {
+  return (
+    <figure className={`naos-window ${className ?? ""}`}>
+      <figcaption className="naos-window-bar">
+        <span className="naos-window-dots" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="naos-window-file">{file}</span>
+        {badge === undefined ? null : <span className="naos-window-badge">{badge}</span>}
+      </figcaption>
+      <CodeLines lines={lines} />
+    </figure>
+  )
+}
+
+function InstallCommand() {
+  const [copied, setCopied] = useState(false)
+
+  return (
+    <div className="naos-install">
+      <span className="naos-install-prompt" aria-hidden="true">
+        $
+      </span>
+      <code>{INSTALL_COMMAND}</code>
+      <button
+        type="button"
+        className="naos-install-copy"
+        aria-label={copied ? "Copied" : "Copy install command"}
+        onClick={() => {
+          void navigator.clipboard.writeText(INSTALL_COMMAND).then(() => {
+            setCopied(true)
+            window.setTimeout(() => {
+              setCopied(false)
+            }, 2000)
+          })
+        }}
+      >
+        {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
+      </button>
+    </div>
+  )
+}
+
 export default function HomePage() {
   return (
     <main className="naos-home">
       <section className="naos-hero">
-        <p className="naos-eyebrow">v0.1 prerelease docs</p>
-        <h1>React-like TSX authoring. Native Custom Element output.</h1>
-        <p>
-          Write typed component functions. Ship platform-native Web Components with Shadow DOM,
-          events, slots, and static HTML output when you prerender.
-        </p>
-        <div className="naos-actions">
-          <a className="naos-action" data-primary="true" href={withBase("guide/getting-started")}>
-            Get started
-          </a>
-          <a className="naos-action" href={withBase("reference/api")}>
-            API reference
-          </a>
-          <a className="naos-action" href={withBase("comparisons/overview")}>
-            Comparisons
-          </a>
-          <a className="naos-action" href={withBase("playground/")}>
-            Playground
-          </a>
-          <a className="naos-action" href={withBase("guide/styling-and-dsd")}>
-            Styling and DSD
-          </a>
-          <a className="naos-action" href={withBase("demos/")}>
-            Static demos
-          </a>
+        <div className="naos-container naos-hero-inner">
+          <div className="naos-hero-copy">
+            <p className="naos-pill">
+              <span className="naos-pill-dot" aria-hidden="true" />
+              v0.1 prerelease — Rust/OXC compiler
+            </p>
+            <h1>
+              <span className="naos-nowrap">React-like</span> TSX in.
+              <br />
+              <span className="naos-gradient-text">Native elements out.</span>
+            </h1>
+            <p className="naos-hero-lead">
+              Naos compiles typed component functions into platform-native Web Components — Shadow
+              DOM, slots, events, and static HTML when you prerender. No virtual DOM. No framework
+              runtime.
+            </p>
+            <div className="naos-hero-actions">
+              <a
+                className="naos-btn"
+                data-variant="primary"
+                href={withBase("guide/getting-started")}
+              >
+                Get started
+                <ArrowRight size={17} aria-hidden="true" />
+              </a>
+              <a className="naos-btn" data-variant="secondary" href={withBase("playground/")}>
+                Open the playground
+              </a>
+            </div>
+            <InstallCommand />
+            <dl className="naos-hero-stats">
+              <div>
+                <dt>0 kB</dt>
+                <dd>framework runtime shipped to consumers</dd>
+              </div>
+              <div>
+                <dt>1×</dt>
+                <dd>authored — runs in every stack, or none</dd>
+              </div>
+              <div>
+                <dt>100%</dt>
+                <dd>platform output: real Custom Elements</dd>
+              </div>
+            </dl>
+          </div>
+          <div className="naos-hero-code">
+            <CodeWindow file="counter.wc.tsx" lines={counterCode} />
+            <CodeWindow
+              file="index.html"
+              lines={hostCode}
+              badge="zero runtime"
+              className="naos-window-host"
+            />
+          </div>
         </div>
       </section>
 
-      <section className="naos-grid" aria-label="Naos documentation areas">
-        <article className="naos-card">
-          <h2>Learning path</h2>
-          <p>
-            Start with install and Vite setup, then move through authoring, styling, Declarative
-            Shadow DOM, packages, demos, and API details.
-          </p>
-        </article>
-        <article className="naos-card">
-          <h2>Authoring</h2>
-          <p>
-            Use <code>state()</code>, <code>computed()</code>, <code>effect()</code>, typed events,
-            explicit listeners, host lifecycle access, and keyed <code>.map()</code> lists.
-          </p>
-        </article>
-        <article className="naos-card">
-          <h2>Native output</h2>
-          <p>
-            The public result is Custom Elements with Shadow DOM, parts, slots, CSS custom
-            properties, and Declarative Shadow DOM in prerendered HTML.
-          </p>
-        </article>
-        <article className="naos-card">
-          <h2>Small boundary</h2>
-          <p>
-            Vite owns the module graph. <code>@naos-ui/runtime</code> stays a tiny helper package
-            for events, scheduling, and hydration support.
-          </p>
-        </article>
+      <section className="naos-section naos-pipeline" aria-label="How Naos works">
+        <div className="naos-container">
+          <p className="naos-eyebrow">How it works</p>
+          <h2>From typed functions to platform code.</h2>
+          <ol className="naos-pipeline-grid">
+            {pipeline.map((step, index) => (
+              <li key={step.title} className="naos-step">
+                <span className="naos-step-index" aria-hidden="true">
+                  {index + 1}
+                </span>
+                <span className="naos-step-icon" aria-hidden="true">
+                  <step.icon size={22} />
+                </span>
+                <h3>{step.title}</h3>
+                <p>{step.text}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
       </section>
 
-      <section className="naos-compare" aria-label="How Naos compares to other tools">
-        <p className="naos-eyebrow">Where Naos fits</p>
-        <h2>Familiar words, a different core bet.</h2>
-        <p className="naos-compare-lead">
-          Naos shares the "compiler-first, no virtual DOM" vocabulary of today's tools — but it
-          compiles to native Custom Elements, ships no framework runtime, and updates with signals.
-          Here is how that lands next to the tools you already know.
-        </p>
-        <ul className="naos-compare-list">
-          {comparisons.map((item) => (
-            <li key={item.slug}>
-              <a className="naos-compare-row" href={withBase(`comparisons/${item.slug}`)}>
-                <span className="naos-compare-name">{item.name}</span>
+      <section className="naos-section naos-features" aria-label="Why Naos">
+        <div className="naos-container">
+          <p className="naos-eyebrow">Why Naos</p>
+          <h2>The platform is the framework.</h2>
+          <p className="naos-section-lead">
+            Everything Naos generates is standard browser technology. Your components do not depend
+            on Naos being fashionable in five years — only on the web platform still existing.
+          </p>
+          <div className="naos-feature-grid">
+            {features.map((feature) => (
+              <article key={feature.title} className="naos-feature">
+                <span className="naos-feature-icon" aria-hidden="true">
+                  <feature.icon size={22} />
+                </span>
+                <h3>{feature.title}</h3>
+                <p>{feature.text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="naos-section naos-compare" aria-label="How Naos compares to other tools">
+        <div className="naos-container">
+          <p className="naos-eyebrow">Where Naos fits</p>
+          <h2>Familiar words, a different core bet.</h2>
+          <p className="naos-section-lead">
+            Naos shares the "compiler-first, no virtual DOM" vocabulary of today's tools — but it
+            compiles to native Custom Elements, ships no framework runtime, and updates with
+            signals. Here is how that lands next to the tools you already know.
+          </p>
+          <div className="naos-compare-grid">
+            {comparisons.map((item) => (
+              <a
+                key={item.slug}
+                className="naos-compare-card"
+                href={withBase(`comparisons/${item.slug}`)}
+              >
+                <span className="naos-compare-head">
+                  <span className="naos-compare-name">{item.name}</span>
+                  <ArrowUpRight size={17} aria-hidden="true" />
+                </span>
                 <span className="naos-compare-line">{item.line}</span>
               </a>
-            </li>
-          ))}
-        </ul>
-        <p className="naos-compare-kicker">
-          If a component should outlive the framework that renders it, author it once in Naos and
-          ship it as a native element — instead of rebuilding it for React, Vue, and Angular in
-          turn.
-        </p>
-        <div className="naos-actions">
-          <a className="naos-action" data-primary="true" href={withBase("comparisons/overview")}>
-            See all comparisons
-          </a>
+            ))}
+            <a
+              className="naos-compare-card"
+              data-variant="overview"
+              href={withBase("comparisons/overview")}
+            >
+              <span className="naos-compare-head">
+                <span className="naos-compare-name">All comparisons</span>
+                <ArrowUpRight size={17} aria-hidden="true" />
+              </span>
+              <span className="naos-compare-line">
+                Side-by-side tables and sourced claims — every statement backed by the other tool's
+                own documentation.
+              </span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="naos-cta" aria-label="Get started with Naos">
+        <div className="naos-container naos-cta-inner">
+          <h2>Build components that outlive the framework.</h2>
+          <p>
+            If a component should outlive the framework that renders it, author it once in Naos and
+            ship it as a native element — instead of rebuilding it for React, Vue, and Angular in
+            turn.
+          </p>
+          <div className="naos-cta-actions">
+            <a className="naos-btn" data-variant="inverse" href={withBase("guide/getting-started")}>
+              Get started
+              <ArrowRight size={17} aria-hidden="true" />
+            </a>
+            <a className="naos-btn" data-variant="ghost" href={withBase("comparisons/overview")}>
+              Read the comparisons
+            </a>
+          </div>
         </div>
       </section>
     </main>
