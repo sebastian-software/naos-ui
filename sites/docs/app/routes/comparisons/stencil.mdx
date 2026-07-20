@@ -27,6 +27,7 @@ element, and how mature each project is.
 | Authoring unit | Exported PascalCase functions | Classes with `@Component`, `@Prop`, `@State` decorators + `render()` |
 | Reactivity | Explicit signals: `state()`, `computed()`, `effect()` | Decorated props/state; `render()` re-runs on change |
 | Update model | Generated direct DOM code per element | **Lightweight virtual DOM** (snabbdom-derived) diffing |
+| Runtime model | Small shared, tree-shakeable execution kernel (~6 kB gzip complete); no framework runtime | Per-component runtime with a lightweight virtual DOM diff step |
 | Compiler | Rust / OXC core over an N-API boundary | TypeScript compiler |
 | Framework interop | Native custom-element interop; consumer uses the tag directly | Auto-generates **React / Vue / Angular wrapper packages** |
 | SSR / prerender | Declarative Shadow DOM prerender + hydration | `hydrate` module, SSR, and static prerendering |

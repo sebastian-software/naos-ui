@@ -27,7 +27,7 @@ properties.
 | Authoring unit | Exported PascalCase functions | Classes extending `LitElement` (+ decorators) |
 | Reactivity | Explicit signals: `state()`, `computed()`, `effect()` | Reactive properties (`@property` / `@state`) trigger re-render |
 | Virtual DOM | None | None (lit-html template diffing) |
-| Runtime cost | Minimal generated code; no template runtime | Small shared runtime (~5 KB) + your components |
+| Runtime cost | Small shared, tree-shakeable execution kernel (~6 kB gzip complete); no template or framework runtime | Small shared runtime (~5 KB) + your components |
 | Build step | Required (Vite plugin / CLI) | **Optional** — works with plain JS + templates |
 | Batteries | Optional layer: primitives, router, data, motion | Labs packages (context, task, ssr, virtualizer) + broad ecosystem |
 | Maturity | v0.1 prerelease | Mature, production |
