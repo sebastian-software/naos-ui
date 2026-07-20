@@ -20,7 +20,8 @@ export const meta: MetaFunction = () => [
   { title: "Naos" },
   {
     name: "description",
-    content: "React-like TSX authoring for native Custom Elements without a React runtime.",
+    content:
+      "React-like TSX authoring for native Custom Elements with a small shared runtime kernel instead of a React runtime.",
   },
 ]
 
@@ -155,7 +156,7 @@ const pipeline = [
   {
     icon: PackageCheck,
     title: "Ship",
-    text: "Deliver real Custom Elements with Shadow DOM, slots, and Declarative Shadow DOM prerendering. Consumers load zero framework.",
+    text: "Deliver real Custom Elements with Shadow DOM, slots, and Declarative Shadow DOM prerendering. Consumers share a small runtime kernel, not a framework.",
   },
 ]
 
@@ -167,8 +168,8 @@ const features = [
   },
   {
     icon: Feather,
-    title: "Zero framework runtime",
-    text: "The runtime package stays a tiny helper for events, scheduling, and hydration — consumers never download a framework.",
+    title: "Small shared runtime",
+    text: "A tree-shakeable kernel handles lifecycle, updates, styles, and DOM spreads. The complete internal kernel is about 6 kB gzip — not a framework runtime.",
   },
   {
     icon: Activity,
@@ -320,8 +321,8 @@ export default function HomePage() {
             </h1>
             <p className="naos-hero-lead">
               Naos compiles typed component functions into platform-native Web Components — Shadow
-              DOM, slots, events, and static HTML when you prerender. No virtual DOM. No framework
-              runtime.
+              DOM, slots, events, and static HTML when you prerender. No virtual DOM. A small shared
+              runtime kernel, not a framework runtime.
             </p>
             <div className="naos-hero-actions">
               <a
@@ -339,8 +340,8 @@ export default function HomePage() {
             <InstallCommand />
             <dl className="naos-hero-stats">
               <div>
-                <dt>0 kB</dt>
-                <dd>framework runtime shipped to consumers</dd>
+                <dt>≈6 kB</dt>
+                <dd>gzip for the complete shared runtime kernel</dd>
               </div>
               <div>
                 <dt>1×</dt>
@@ -357,7 +358,7 @@ export default function HomePage() {
             <CodeWindow
               file="index.html"
               lines={hostCode}
-              badge="zero runtime"
+              badge="shared runtime"
               className="naos-window-host"
             />
           </div>
@@ -413,8 +414,9 @@ export default function HomePage() {
           <h2>Familiar words, a different core bet.</h2>
           <p className="naos-section-lead">
             Naos shares the "compiler-first, no virtual DOM" vocabulary of today's tools — but it
-            compiles to native Custom Elements, ships no framework runtime, and updates with
-            signals. Here is how that lands next to the tools you already know.
+            compiles to native Custom Elements, ships a small shared runtime rather than a framework
+            runtime, and updates with signals. Here is how that lands next to the tools you already
+            know.
           </p>
           <div className="naos-compare-grid">
             {comparisons.map((item) => (
