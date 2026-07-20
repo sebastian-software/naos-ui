@@ -5,25 +5,26 @@ import type { HighlighterCore } from "shiki"
 
 let highlighterPromise: Promise<HighlighterCore> | null = null
 
-async function loadHighlighter(): Promise<HighlighterCore> {
+function loadHighlighter(): Promise<HighlighterCore> {
   highlighterPromise ??= (async () => {
-    const [
-      { createHighlighterCore },
-      { createJavaScriptRegexEngine },
-      { bundledThemes },
-      { bundledLanguages },
-    ] = await Promise.all([
-      import("shiki/core"),
-      import("shiki/engine/javascript"),
-      import("shiki/themes"),
-      import("shiki/langs"),
-    ])
+    const [{ createHighlighterCore }, { createJavaScriptRegexEngine }, javascript, oneDarkPro] =
+      await Promise.all([
+        import("shiki/core"),
+        import("shiki/engine/javascript"),
+        import("@shikijs/langs/javascript"),
+        import("@shikijs/themes/one-dark-pro"),
+      ])
     return createHighlighterCore({
       engine: createJavaScriptRegexEngine(),
-      langs: [bundledLanguages.javascript],
-      themes: [bundledThemes["one-dark-pro"]],
+      langs: [javascript.default],
+      themes: [oneDarkPro.default],
     })
-  })()
+  })().catch((error: unknown) => {
+    // Do not cache a rejection - a transient load failure should retry on
+    // the next highlight attempt instead of disabling highlighting forever.
+    highlighterPromise = null
+    throw error
+  })
   return highlighterPromise
 }
 

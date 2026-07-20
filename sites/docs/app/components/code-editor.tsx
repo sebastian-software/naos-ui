@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react"
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands"
 import { javascript } from "@codemirror/lang-javascript"
 import { bracketMatching, indentOnInput } from "@codemirror/language"
-import { Compartment, EditorState } from "@codemirror/state"
+import { EditorState } from "@codemirror/state"
 import { oneDark } from "@codemirror/theme-one-dark"
 import { EditorView, keymap, lineNumbers } from "@codemirror/view"
 
@@ -30,7 +30,6 @@ export function CodeEditor({ value, onChange, onSubmit, ariaLabel }: CodeEditorP
   useEffect(() => {
     if (!containerRef.current) return
 
-    const submitKeymap = new Compartment()
     const view = new EditorView({
       parent: containerRef.current,
       state: EditorState.create({
@@ -42,17 +41,24 @@ export function CodeEditor({ value, onChange, onSubmit, ariaLabel }: CodeEditorP
           bracketMatching(),
           javascript({ jsx: true, typescript: true }),
           oneDark,
-          submitKeymap.of(
-            keymap.of([
-              {
-                key: "Mod-Enter",
-                run: () => {
-                  callbacksRef.current.onSubmit()
-                  return true
-                },
+          keymap.of([
+            {
+              key: "Mod-Enter",
+              run: () => {
+                callbacksRef.current.onSubmit()
+                return true
               },
-            ]),
-          ),
+            },
+            // Tab indents (indentWithTab below); Escape blurs the editor so
+            // keyboard-only users can Tab onward instead of being trapped.
+            {
+              key: "Escape",
+              run: (currentView) => {
+                currentView.contentDOM.blur()
+                return true
+              },
+            },
+          ]),
           keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) {
