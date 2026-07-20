@@ -369,6 +369,34 @@ describe("shared runtime kernel", () => {
     expect(listener).toHaveBeenCalledOnce()
   })
 
+  it("normalizes compound DOM events from JSX spreads", () => {
+    const compoundEvents: ReadonlyArray<readonly [propName: string, eventName: string]> = [
+      ["onMouseDown", "mousedown"],
+      ["onMouseEnter", "mouseenter"],
+      ["onMouseLeave", "mouseleave"],
+      ["onMouseMove", "mousemove"],
+      ["onMouseOut", "mouseout"],
+      ["onMouseOver", "mouseover"],
+      ["onMouseUp", "mouseup"],
+      ["onDblClick", "dblclick"],
+      ["onAnimationEnd", "animationend"],
+      ["onSecurityPolicyViolation", "securitypolicyviolation"],
+    ]
+
+    for (const [propName, eventName] of compoundEvents) {
+      const element = new FakeStyledElement()
+      const listener = vi.fn()
+      applySpreadAttributes(
+        element as unknown as HTMLElement,
+        { listeners: new Map(), names: new Set(), raw: false, styles: new Set() },
+        { [propName]: listener },
+      )
+
+      element.dispatchEvent(new Event(eventName))
+      expect(listener).toHaveBeenCalledOnce()
+    }
+  })
+
   it("reports errors through both the component event and platform reporter", () => {
     const instanceKernel = kernel()
     const reported = vi.fn()
