@@ -650,7 +650,7 @@ function abortHostUpdateScope(kernel: Kernel): void {
 }
 
 function abortEventHandlers(kernel: Kernel): void {
-  for (const controller of [...kernel.eventAbortControllers]) controller.abort()
+  for (const controller of kernel.eventAbortControllers) controller.abort()
   kernel.eventAbortControllers.clear()
 }
 
@@ -687,7 +687,7 @@ export function ensureHostId(kernel: Kernel): void {
   const root = kernel.element.getRootNode()
   const siblings =
     typeof (root as ParentNode).querySelectorAll === "function"
-      ? [...(root as ParentNode).querySelectorAll(kernel.element.localName)]
+      ? Array.from((root as ParentNode).querySelectorAll(kernel.element.localName))
       : []
   const index = siblings.indexOf(kernel.element)
   kernel.hostId = `${kernel.element.localName}-${index < 0 ? 1 : index + 1}`
@@ -738,8 +738,8 @@ function runKeyedBindings(kernel: Kernel, dirty: DirtySources): void {
   for (const source of dirty) {
     const records = registry.get(source)
     if (!records) continue
-    for (const bindings of [...records.values()]) {
-      for (const update of [...bindings.values()]) update()
+    for (const bindings of records.values()) {
+      for (const update of bindings.values()) update()
     }
   }
 }
