@@ -2,6 +2,7 @@
   "packages/actions": "1.0.0",
   "packages/cli": "1.0.0",
   "packages/compiler": "1.0.0",
+  "packages/compiler-wasm": "1.0.0",
   "packages/compiler-darwin-arm64": "1.0.0",
   "packages/compiler-darwin-x64": "1.0.0",
   "packages/compiler-linux-arm64-gnu": "1.0.0",

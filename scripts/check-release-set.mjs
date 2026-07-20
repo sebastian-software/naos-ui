@@ -66,6 +66,17 @@ export function validateReleaseSet({
         `${packagePath} must build with the primitives compiler script`,
         errors,
       )
+    } else if (packagePath === "packages/compiler-wasm") {
+      check(
+        packageJson?.scripts?.build === "node ../../scripts/build-wasm-binding.mjs && tsdown",
+        `${packagePath} must build the wasm binding before tsdown`,
+        errors,
+      )
+      check(
+        packageJson?.files?.includes("native/naos-compiler.wasm"),
+        `${packagePath} must publish the wasm binding`,
+        errors,
+      )
     } else {
       check(
         packageJson?.scripts?.build === "tsdown",

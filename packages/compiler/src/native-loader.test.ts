@@ -8,6 +8,7 @@ import {
   NATIVE_BINDING_ENV,
   NATIVE_TARGETS,
   resolveNativeTarget,
+  WASM_FALLBACK_PACKAGE,
 } from "./native-loader.js"
 
 function createBindings(): NativeBindings {
@@ -128,18 +129,59 @@ describe("native compiler loader", () => {
     expect(attempts).toEqual(["@naos-ui/compiler-darwin-x64", localBinding])
   })
 
-  it("reports unsupported platforms with the supported package list", () => {
+  it("loads the WebAssembly fallback on unsupported platforms", () => {
+    const bindings = createBindings()
+    const attempts: string[] = []
+
+    const loaded = loadNativeBindingsWithContext({
+      arch: "x64",
+      platform: "freebsd",
+      requireBinding: (specifier) => {
+        attempts.push(specifier)
+        return bindings
+      },
+    })
+
+    expect(loaded).toBe(bindings)
+    expect(attempts).toEqual([WASM_FALLBACK_PACKAGE])
+  })
+
+  it("falls back to the WebAssembly package after native package and workspace misses", () => {
+    const bindings = createBindings()
+    const attempts: string[] = []
+
+    const loaded = loadNativeBindingsWithContext({
+      arch: "arm64",
+      bindingExists: () => false,
+      platform: "darwin",
+      requireBinding: (specifier) => {
+        attempts.push(specifier)
+        if (specifier === WASM_FALLBACK_PACKAGE) {
+          return bindings
+        }
+        throw new Error("optional package not installed")
+      },
+    })
+
+    expect(loaded).toBe(bindings)
+    expect(attempts).toEqual(["@naos-ui/compiler-darwin-arm64", WASM_FALLBACK_PACKAGE])
+  })
+
+  it("reports unsupported platforms with the supported list and wasm fallback hint", () => {
     expect(() =>
       loadNativeBindingsWithContext({
         arch: "x64",
         platform: "freebsd",
+        requireBinding: () => {
+          throw new Error("Cannot find module")
+        },
       }),
     ).toThrow(
-      /No Naos native compiler package is available for freebsd\/x64.*@naos-ui\/compiler-darwin-arm64/s,
+      /No Naos native compiler package is available for freebsd\/x64.*@naos-ui\/compiler-darwin-arm64.*npm install @naos-ui\/compiler-wasm/s,
     )
   })
 
-  it("reports missing optional packages with target and source-build guidance", () => {
+  it("reports missing optional packages with target, wasm, and source-build guidance", () => {
     expect(() =>
       loadNativeBindingsWithContext({
         arch: "x64",
@@ -150,6 +192,8 @@ describe("native compiler loader", () => {
           throw new Error("Cannot find module")
         },
       }),
-    ).toThrow(/x86_64-unknown-linux-gnu.*@naos-ui\/compiler-linux-x64-gnu.*pnpm -w build:native/s)
+    ).toThrow(
+      /x86_64-unknown-linux-gnu.*@naos-ui\/compiler-linux-x64-gnu.*npm install @naos-ui\/compiler-wasm.*pnpm -w build:native/s,
+    )
   })
 })

@@ -47,6 +47,11 @@
       "package-name": "@naos-ui/compiler",
       "release-type": "node"
     },
+    "packages/compiler-wasm": {
+      "component": "compiler-wasm",
+      "package-name": "@naos-ui/compiler-wasm",
+      "release-type": "node"
+    },
     "packages/vite": {
       "component": "vite",
       "package-name": "@naos-ui/vite",

@@ -105,6 +105,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -136,6 +138,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -183,6 +187,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
