@@ -15,6 +15,11 @@
       "types": "./dist/runtime.d.mts",
       "import": "./dist/runtime.mjs",
       "require": "./dist/runtime.cjs"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.mts",
+      "import": "./dist/internal.mjs",
+      "require": "./dist/internal.cjs"
     }
   },
   "main": "./dist/runtime.cjs",

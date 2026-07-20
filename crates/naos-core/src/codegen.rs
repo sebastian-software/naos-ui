@@ -188,6 +188,7 @@ impl<'a> CodeGenerator<'a> {
         self.emit_component_imports(&mut code)?;
         self.emit_component_style_sheet(&mut code)?;
         self.emit_clx_helper(&mut code)?;
+        self.emit_kernel_spec(&mut code)?;
         writeln!(
             code,
             "class {} extends HTMLElement {{",
@@ -210,6 +211,12 @@ impl<'a> CodeGenerator<'a> {
         self.emit_spread_helpers(&mut code)?;
         self.emit_update(&mut code)?;
         writeln!(code, "}}").map_err(format_error)?;
+        writeln!(
+            code,
+            "__naosDefineProps({}, __naosComponentSpec);",
+            self.module.class_name
+        )
+        .map_err(format_error)?;
         self.emit_exports(&mut code)?;
         Ok(code)
     }
@@ -241,20 +248,12 @@ impl<'a> CodeGenerator<'a> {
         if self.module.options.styles.is_empty() {
             return Ok(());
         }
-        writeln!(code, "let __naosComponentStyleSheet;").map_err(format_error)?;
-        writeln!(code, "function __naosComponentStyles() {{").map_err(format_error)?;
-        writeln!(code, "  if (!__naosComponentStyleSheet) {{").map_err(format_error)?;
-        writeln!(code, "    __naosComponentStyleSheet = new CSSStyleSheet();")
-            .map_err(format_error)?;
         writeln!(
             code,
-            "    __naosComponentStyleSheet.replaceSync([{}].join(\"\\n\"));",
+            "const __naosComponentStyles = __naosLazySheet([{}]);",
             self.module.options.styles.join(", ")
         )
         .map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  return __naosComponentStyleSheet;").map_err(format_error)?;
-        writeln!(code, "}}").map_err(format_error)?;
         writeln!(code).map_err(format_error)?;
         Ok(())
     }
@@ -421,13 +420,43 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_runtime_imports(&self, code: &mut String) -> CompilerResult<()> {
+        let mut kernel_helpers = vec![
+            "K as __naosKernel",
+            "attrChanged as __naosAttrChanged",
+            "connect as __naosConnect",
+            "createKernel as __naosCreateKernel",
+            "defineComponent as __naosDefineComponent",
+            "defineProps as __naosDefineProps",
+            "disconnect as __naosDisconnect",
+            "flushSync as __naosFlushSync",
+            "markAllDirty as __naosMarkAllDirty",
+            "markDirty as __naosMarkDirty",
+            "shouldUpdate as __naosShouldUpdate",
+        ];
         if self.uses_scheduled_updates() {
-            writeln!(
-                code,
-                "import {{ scheduleNaosUpdate as __scheduleNaosUpdate }} from \"@naos-ui/runtime\";"
-            )
-            .map_err(format_error)?;
+            kernel_helpers.push("scheduleFlush as __naosScheduleFlush");
         }
+        if !self.module.states.is_empty() {
+            kernel_helpers.push("stateAccessor as __naosStateAccessor");
+        }
+        if !self.module.computed.is_empty() {
+            kernel_helpers.push("computedAccessor as __naosComputedAccessor");
+        }
+        if !self.module.events.is_empty() {
+            kernel_helpers.push("emitter as __naosEmitter");
+        }
+        if self.module.uses_host_helpers {
+            kernel_helpers.push("hostApi as __naosHostApi");
+        }
+        if !self.module.options.styles.is_empty() {
+            kernel_helpers.push("lazySheet as __naosLazySheet");
+        }
+        writeln!(
+            code,
+            "import {{ {} }} from \"@naos-ui/runtime/internal\";",
+            kernel_helpers.join(", ")
+        )
+        .map_err(format_error)?;
         if self.uses_motion_flip {
             writeln!(
                 code,
@@ -438,12 +467,61 @@ impl<'a> CodeGenerator<'a> {
         for runtime_import in &self.module.runtime_imports {
             writeln!(code, "{}", runtime_import.source).map_err(format_error)?;
         }
-        if self.uses_scheduled_updates()
-            || self.uses_motion_flip
-            || !self.module.runtime_imports.is_empty()
-        {
+        if self.uses_motion_flip || !self.module.runtime_imports.is_empty() {
             writeln!(code).map_err(format_error)?;
         }
+        Ok(())
+    }
+
+    fn emit_kernel_spec(&self, code: &mut String) -> CompilerResult<()> {
+        writeln!(code, "const __naosComponentSpec = {{").map_err(format_error)?;
+        writeln!(code, "  shadow: {},", self.module.options.shadow).map_err(format_error)?;
+        writeln!(code, "  defaults: {{").map_err(format_error)?;
+        for prop in &self.module.props {
+            writeln!(
+                code,
+                "    {}: {},",
+                prop.local_name,
+                default_value_for_prop(prop)
+            )
+            .map_err(format_error)?;
+        }
+        writeln!(code, "  }},").map_err(format_error)?;
+        writeln!(code, "  props: {{").map_err(format_error)?;
+        for prop in &self.module.props {
+            let reflect = prop.kind != PropKind::Rich;
+            writeln!(
+                code,
+                "    {}: {{ source: \"{}\", attribute: \"{}\", coerce: (value) => {}, reflect: {} }},",
+                prop.prop_name,
+                prop.local_name,
+                prop.attribute_name,
+                setter_parse_expression(prop),
+                reflect
+            )
+            .map_err(format_error)?;
+        }
+        writeln!(code, "  }},").map_err(format_error)?;
+        writeln!(code, "  attrs: {{").map_err(format_error)?;
+        for prop in &self.module.props {
+            if prop.kind == PropKind::Rich {
+                continue;
+            }
+            writeln!(
+                code,
+                "    \"{}\": {{ prop: \"{}\", parse: (value) => {} }},",
+                prop.attribute_name,
+                prop.local_name,
+                attr_parse_expression(prop).replace("newValue", "value")
+            )
+            .map_err(format_error)?;
+        }
+        writeln!(code, "  }},").map_err(format_error)?;
+        if !self.module.options.styles.is_empty() {
+            writeln!(code, "  styles: __naosComponentStyles,").map_err(format_error)?;
+        }
+        writeln!(code, "}};").map_err(format_error)?;
+        writeln!(code).map_err(format_error)?;
         Ok(())
     }
 
@@ -490,26 +568,13 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "  #root;").map_err(format_error)?;
         writeln!(code, "  #mounted = false;").map_err(format_error)?;
         writeln!(code, "  #usesDeclarativeRoot = false;").map_err(format_error)?;
-        writeln!(code, "  #dirtySources = new Set();").map_err(format_error)?;
-        writeln!(code, "  #needsFullUpdate = true;").map_err(format_error)?;
-        if self.module.uses_host_helpers {
-            writeln!(code, "  #hostId = \"\";").map_err(format_error)?;
-        }
-        if self.uses_scheduled_updates() {
-            writeln!(code, "  #flushScheduled = false;").map_err(format_error)?;
-        }
-        if self.module.uses_host_helpers {
-            writeln!(code, "  #abortController = new AbortController();").map_err(format_error)?;
-            writeln!(code, "  #updateAbortController = new AbortController();")
-                .map_err(format_error)?;
-            writeln!(code, "  #pendingUpdateResolvers = [];").map_err(format_error)?;
-            writeln!(code, "  #queuedHostTasks = [];").map_err(format_error)?;
-        }
+        // DOM nodes, refs, and keyed-list records are component-specific.
+        // Scheduling, dirty tracking, host scopes, and lifecycle state live
+        // in the shared runtime kernel.
         if self.uses_event_abort_signals() {
             writeln!(code, "  #eventAbortControllers = new Set();").map_err(format_error)?;
         }
         if !self.module.effects.is_empty() {
-            writeln!(code, "  #effectsConnected = false;").map_err(format_error)?;
             writeln!(code, "  #effectCleanups = [];").map_err(format_error)?;
         }
         if !self.module.computed.is_empty() {
@@ -581,87 +646,123 @@ impl<'a> CodeGenerator<'a> {
         } else {
             writeln!(code, "    this.#root = this;").map_err(format_error)?;
         }
+        writeln!(code, "    const kernel = __naosCreateKernel(this, {{").map_err(format_error)?;
+        writeln!(code, "      ...__naosComponentSpec,").map_err(format_error)?;
+        writeln!(
+            code,
+            "      usesDeclarativeRoot: this.#usesDeclarativeRoot,"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      initState: () => this.#initializeState(),").map_err(format_error)?;
+        writeln!(
+            code,
+            "      mount: () => {{ this.#mount(); this.#mounted = true; }},"
+        )
+        .map_err(format_error)?;
+        writeln!(
+            code,
+            "      hydrate: () => {{ this.#hydrate(); this.#mounted = true; }},"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "      update: (_kernel, dirtySources) => {{").map_err(format_error)?;
+        writeln!(code, "        this.#update(dirtySources);").map_err(format_error)?;
+        if self.uses_keyed_selectors() {
+            writeln!(code, "        this.#runKeyedBindings(dirtySources);")
+                .map_err(format_error)?;
+        }
+        writeln!(code, "      }},").map_err(format_error)?;
+        if !self.module.effects.is_empty() {
+            writeln!(
+                code,
+                "      effects: (_kernel, dirtySources) => this.#runEffects(dirtySources),"
+            )
+            .map_err(format_error)?;
+        }
+        if !self.module.form_controls.is_empty() {
+            writeln!(
+                code,
+                "      syncFormValue: (_kernel, dirtySources) => this.#syncFormValue(dirtySources),"
+            )
+            .map_err(format_error)?;
+        }
+        if !self.module.connected_callbacks.is_empty() {
+            writeln!(
+                code,
+                "      connected: () => this.#runConnectedCallbacks(),"
+            )
+            .map_err(format_error)?;
+        }
+        if !self.module.effects.is_empty() || !self.module.disconnected_callbacks.is_empty() {
+            writeln!(code, "      disconnected: () => {{").map_err(format_error)?;
+            if !self.module.disconnected_callbacks.is_empty() {
+                writeln!(code, "        this.#runDisconnectedCallbacks();")
+                    .map_err(format_error)?;
+            }
+            if !self.module.effects.is_empty() {
+                writeln!(code, "        this.#cleanupEffects();").map_err(format_error)?;
+            }
+            writeln!(code, "      }},").map_err(format_error)?;
+        }
+        writeln!(code, "    }});").map_err(format_error)?;
+        writeln!(code, "    kernel.props = this.#props;").map_err(format_error)?;
+        writeln!(code, "    kernel.state = this.#state;").map_err(format_error)?;
+        if !self.module.computed.is_empty() {
+            writeln!(code, "    kernel.computed = this.#computedCache;").map_err(format_error)?;
+        }
+        if self.uses_event_abort_signals() {
+            writeln!(
+                code,
+                "    kernel.eventAbortControllers = this.#eventAbortControllers;"
+            )
+            .map_err(format_error)?;
+        }
+        writeln!(code, "    this[__naosKernel] = kernel;").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         Ok(())
     }
 
     fn emit_lifecycle(&self, code: &mut String) -> CompilerResult<()> {
         writeln!(code, "  connectedCallback() {{").map_err(format_error)?;
-        if !self.module.options.shadow && !self.module.options.styles.is_empty() {
-            // Light-DOM styles adopt into the current root node on every
-            // connect so re-parenting into another shadow root stays styled.
-            writeln!(code, "    this.#adoptStyles();").map_err(format_error)?;
-        }
-        writeln!(code, "    if (!this.#mounted) {{").map_err(format_error)?;
-        if self.module.uses_host_helpers {
-            writeln!(code, "      this.#ensureHostId();").map_err(format_error)?;
-        }
-        writeln!(code, "      this.#initializeState();").map_err(format_error)?;
-        writeln!(code, "      if (this.#usesDeclarativeRoot) {{").map_err(format_error)?;
-        writeln!(code, "        this.#hydrate();").map_err(format_error)?;
-        writeln!(code, "      }} else {{").map_err(format_error)?;
-        writeln!(code, "        this.#mount();").map_err(format_error)?;
-        writeln!(code, "      }}").map_err(format_error)?;
-        writeln!(code, "      this.#mounted = true;").map_err(format_error)?;
-        writeln!(code, "    }} else {{").map_err(format_error)?;
-        writeln!(code, "      this.#markAllDirty();").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        if !self.module.effects.is_empty() {
-            writeln!(code, "    this.#effectsConnected = true;").map_err(format_error)?;
-        }
-        self.emit_lifecycle_callback_lines(code, &self.module.connected_callbacks)?;
-        writeln!(code, "    this.#flushSync();").map_err(format_error)?;
+        writeln!(code, "    __naosConnect(this[__naosKernel]);").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
-        if self.module.uses_host_helpers
-            || !self.module.effects.is_empty()
-            || !self.module.disconnected_callbacks.is_empty()
-        {
-            writeln!(code, "  disconnectedCallback() {{").map_err(format_error)?;
-            if !self.module.effects.is_empty() {
-                writeln!(code, "    this.#effectsConnected = false;").map_err(format_error)?;
-            }
-            self.emit_lifecycle_callback_lines(code, &self.module.disconnected_callbacks)?;
-            if self.uses_event_abort_signals() {
-                writeln!(code, "    this.#abortEventHandlers();").map_err(format_error)?;
-            }
-            if self.module.uses_host_helpers {
-                writeln!(code, "    this.#abortController.abort();").map_err(format_error)?;
-                writeln!(code, "    this.#abortHostUpdateScope();").map_err(format_error)?;
-            }
-            if !self.module.effects.is_empty() {
-                writeln!(code, "    this.#cleanupEffects();").map_err(format_error)?;
-            }
-            if self.module.uses_host_helpers {
-                writeln!(code, "    this.#abortController = new AbortController();")
-                    .map_err(format_error)?;
-            }
-            writeln!(code, "  }}").map_err(format_error)?;
-        }
+        writeln!(code, "  disconnectedCallback() {{").map_err(format_error)?;
+        writeln!(code, "    __naosDisconnect(this[__naosKernel]);").map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
         writeln!(
             code,
             "  attributeChangedCallback(name, oldValue, newValue) {{"
         )
         .map_err(format_error)?;
-        writeln!(code, "    if (oldValue === newValue) return;").map_err(format_error)?;
-        writeln!(code, "    switch (name) {{").map_err(format_error)?;
-        for prop in &self.module.props {
-            if prop.kind == PropKind::Rich {
-                continue;
-            }
-            writeln!(code, "      case \"{}\":", prop.attribute_name).map_err(format_error)?;
-            writeln!(
-                code,
-                "        this.#props.{} = {};",
-                prop.local_name,
-                attr_parse_expression(prop)
-            )
-            .map_err(format_error)?;
-            writeln!(code, "        this.#markDirty(\"{}\");", prop.local_name)
-                .map_err(format_error)?;
-            writeln!(code, "        break;").map_err(format_error)?;
+        writeln!(
+            code,
+            "    __naosAttrChanged(this[__naosKernel], name, oldValue, newValue);"
+        )
+        .map_err(format_error)?;
+        writeln!(code, "  }}").map_err(format_error)?;
+        self.emit_lifecycle_callback_method(
+            code,
+            "#runConnectedCallbacks",
+            &self.module.connected_callbacks,
+        )?;
+        self.emit_lifecycle_callback_method(
+            code,
+            "#runDisconnectedCallbacks",
+            &self.module.disconnected_callbacks,
+        )?;
+        Ok(())
+    }
+
+    fn emit_lifecycle_callback_method(
+        &self,
+        code: &mut String,
+        name: &str,
+        callbacks: &[crate::model::LifecycleCallbackDefinition],
+    ) -> CompilerResult<()> {
+        if callbacks.is_empty() {
+            return Ok(());
         }
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    this.#flushSync();").map_err(format_error)?;
+        writeln!(code, "  {name}() {{").map_err(format_error)?;
+        self.emit_lifecycle_callback_lines(code, callbacks)?;
         writeln!(code, "  }}").map_err(format_error)?;
         Ok(())
     }
@@ -693,25 +794,7 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_prop_accessors(&self, code: &mut String) -> CompilerResult<()> {
-        for prop in &self.module.props {
-            writeln!(code, "  get {}() {{", prop.prop_name).map_err(format_error)?;
-            writeln!(code, "    return this.#props.{};", prop.local_name).map_err(format_error)?;
-            writeln!(code, "  }}").map_err(format_error)?;
-            writeln!(code, "  set {}(value) {{", prop.prop_name).map_err(format_error)?;
-            writeln!(
-                code,
-                "    const nextValue = {};",
-                setter_parse_expression(prop)
-            )
-            .map_err(format_error)?;
-            writeln!(code, "    this.#props.{} = nextValue;", prop.local_name)
-                .map_err(format_error)?;
-            writeln!(code, "    this.#markDirty(\"{}\");", prop.local_name)
-                .map_err(format_error)?;
-            self.emit_attribute_sync(code, prop)?;
-            writeln!(code, "    this.#flushSync();").map_err(format_error)?;
-            writeln!(code, "  }}").map_err(format_error)?;
-        }
+        let _ = code;
         Ok(())
     }
 
@@ -825,74 +908,8 @@ impl<'a> CodeGenerator<'a> {
         Ok(())
     }
 
-    fn emit_attribute_sync(&self, code: &mut String, prop: &PropDefinition) -> CompilerResult<()> {
-        match prop.kind {
-            // Rich props never reflect to attributes.
-            PropKind::Rich => {}
-            PropKind::Boolean => {
-                writeln!(code, "    if (nextValue) {{").map_err(format_error)?;
-                writeln!(
-                    code,
-                    "      this.setAttribute(\"{}\", \"\");",
-                    prop.attribute_name
-                )
-                .map_err(format_error)?;
-                writeln!(code, "    }} else {{").map_err(format_error)?;
-                writeln!(
-                    code,
-                    "      this.removeAttribute(\"{}\");",
-                    prop.attribute_name
-                )
-                .map_err(format_error)?;
-                writeln!(code, "    }}").map_err(format_error)?;
-            }
-            PropKind::Number | PropKind::String => {
-                writeln!(
-                    code,
-                    "    if (this.getAttribute(\"{}\") !== String(nextValue)) {{",
-                    prop.attribute_name
-                )
-                .map_err(format_error)?;
-                writeln!(
-                    code,
-                    "      this.setAttribute(\"{}\", String(nextValue));",
-                    prop.attribute_name
-                )
-                .map_err(format_error)?;
-                writeln!(code, "    }}").map_err(format_error)?;
-            }
-        }
-        Ok(())
-    }
-
     fn emit_mount(&self, code: &mut String) -> CompilerResult<()> {
-        if !self.module.options.styles.is_empty() {
-            writeln!(code, "  #adoptStyles() {{").map_err(format_error)?;
-            if self.module.options.shadow {
-                writeln!(
-                    code,
-                    "    this.#root.adoptedStyleSheets = [__naosComponentStyles()];"
-                )
-                .map_err(format_error)?;
-            } else {
-                writeln!(code, "    const root = this.getRootNode();").map_err(format_error)?;
-                writeln!(code, "    const sheet = __naosComponentStyles();")
-                    .map_err(format_error)?;
-                writeln!(code, "    if (!root.adoptedStyleSheets.includes(sheet)) {{")
-                    .map_err(format_error)?;
-                writeln!(
-                    code,
-                    "      root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];"
-                )
-                .map_err(format_error)?;
-                writeln!(code, "    }}").map_err(format_error)?;
-            }
-            writeln!(code, "  }}").map_err(format_error)?;
-        }
         writeln!(code, "  #mount() {{").map_err(format_error)?;
-        if self.module.options.shadow && !self.module.options.styles.is_empty() {
-            writeln!(code, "    this.#adoptStyles();").map_err(format_error)?;
-        }
         for line in &self.mount_lines {
             writeln!(code, "    {line}").map_err(format_error)?;
         }
@@ -1033,24 +1050,8 @@ impl<'a> CodeGenerator<'a> {
             .map_err(format_error)?;
         }
         if self.module.uses_host_helpers {
-            writeln!(code, "    const host = () => ({{").map_err(format_error)?;
-            writeln!(code, "      id: this.#hostId,").map_err(format_error)?;
-            writeln!(code, "      element: this,").map_err(format_error)?;
-            writeln!(code, "      root: this.#root,").map_err(format_error)?;
-            writeln!(code, "      props: this.#props,").map_err(format_error)?;
-            writeln!(code, "      signal: this.#abortController.signal,").map_err(format_error)?;
-            writeln!(
-                code,
-                "      update: () => new Promise((resolve) => {{ this.#pendingUpdateResolvers.push(resolve); this.#markAllDirty(); this.#scheduleFlush(); }}),"
-            )
-            .map_err(format_error)?;
-            writeln!(
-                code,
-                "      queueTask: (task) => {{ this.#queuedHostTasks.push(task); this.#scheduleFlush(); }},"
-            )
-            .map_err(format_error)?;
-            writeln!(code, "      flushSync: () => this.#flushSync(),").map_err(format_error)?;
-            writeln!(code, "    }});").map_err(format_error)?;
+            writeln!(code, "    const host = __naosHostApi(this[__naosKernel]);")
+                .map_err(format_error)?;
         }
         if let Some(clx_local) = &self.module.clx_local {
             writeln!(code, "    const {clx_local} = __naosClx;").map_err(format_error)?;
@@ -1062,6 +1063,20 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_state_binding(&self, code: &mut String, state: &StateDefinition) -> CompilerResult<()> {
+        if self
+            .module
+            .keyed_selectors
+            .iter()
+            .all(|selector| selector.source_name != state.local_name)
+        {
+            writeln!(
+                code,
+                "    const {} = __naosStateAccessor(this[__naosKernel], \"{}\");",
+                state.local_name, state.local_name
+            )
+            .map_err(format_error)?;
+            return Ok(());
+        }
         writeln!(
             code,
             "    const {} = () => this.#state.{};",
@@ -1137,37 +1152,22 @@ impl<'a> CodeGenerator<'a> {
         code: &mut String,
         computed: &ComputedDefinition,
     ) -> CompilerResult<()> {
-        writeln!(code, "    const {} = () => {{", computed.local_name).map_err(format_error)?;
         writeln!(
             code,
-            "      if (!this.#computedCache.has(\"{}\")) {{",
-            computed.local_name
+            "    const {} = __naosComputedAccessor(this[__naosKernel], \"{}\", () => ({}));",
+            computed.local_name, computed.local_name, computed.expression
         )
         .map_err(format_error)?;
-        writeln!(
-            code,
-            "        this.#computedCache.set(\"{}\", ({}));",
-            computed.local_name, computed.expression
-        )
-        .map_err(format_error)?;
-        writeln!(code, "      }}").map_err(format_error)?;
-        writeln!(
-            code,
-            "      return this.#computedCache.get(\"{}\");",
-            computed.local_name
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    }};").map_err(format_error)?;
         Ok(())
     }
 
     fn emit_event_binding(&self, code: &mut String, event: &EventDefinition) -> CompilerResult<()> {
-        writeln!(code, "    const {} = {{", event.local_name).map_err(format_error)?;
-        writeln!(code, "      emit: (detail) => {{").map_err(format_error)?;
-        writeln!(code, "        this.dispatchEvent(new CustomEvent(\"{}\", {{ detail, bubbles: true, composed: true, cancelable: false }}));", event.event_name)
-            .map_err(format_error)?;
-        writeln!(code, "      }}").map_err(format_error)?;
-        writeln!(code, "    }};").map_err(format_error)?;
+        writeln!(
+            code,
+            "    const {} = __naosEmitter(this[__naosKernel], \"{}\");",
+            event.local_name, event.event_name
+        )
+        .map_err(format_error)?;
         Ok(())
     }
 
@@ -1191,7 +1191,6 @@ impl<'a> CodeGenerator<'a> {
         writeln!(code, "    this.#effectCleanups[index] = undefined;").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #runEffects(dirtySources) {{").map_err(format_error)?;
-        writeln!(code, "    if (!this.#effectsConnected) return;").map_err(format_error)?;
         let names = self.binding_names().join(", ");
         if !names.is_empty() {
             writeln!(code, "    const {{ {names} }} = this.#createBindings();")
@@ -1243,33 +1242,11 @@ impl<'a> CodeGenerator<'a> {
     fn emit_flush(&self, code: &mut String) -> CompilerResult<()> {
         if self.uses_scheduled_updates() {
             writeln!(code, "  #scheduleFlush() {{").map_err(format_error)?;
-            writeln!(code, "    if (this.#flushScheduled) return;").map_err(format_error)?;
-            writeln!(code, "    this.#flushScheduled = true;").map_err(format_error)?;
-            writeln!(code, "    __scheduleNaosUpdate(() => {{").map_err(format_error)?;
-            writeln!(code, "      if (!this.#flushScheduled) return;").map_err(format_error)?;
-            writeln!(code, "      this.#flushScheduled = false;").map_err(format_error)?;
-            writeln!(code, "      this.#flush();").map_err(format_error)?;
-            writeln!(code, "    }});").map_err(format_error)?;
+            writeln!(code, "    __naosScheduleFlush(this[__naosKernel]);").map_err(format_error)?;
             writeln!(code, "  }}").map_err(format_error)?;
         }
-        writeln!(code, "  #reportError(error) {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "    this.dispatchEvent(new CustomEvent(\"naos-error\", {{ detail: {{ error }}, bubbles: true, composed: true, cancelable: false }}));"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    const reporter = globalThis.reportError;").map_err(format_error)?;
-        writeln!(code, "    if (typeof reporter === \"function\") {{").map_err(format_error)?;
-        writeln!(code, "      reporter.call(globalThis, error);").map_err(format_error)?;
-        writeln!(code, "      return;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    setTimeout(() => {{ throw error; }}, 0);").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #markDirty(source) {{").map_err(format_error)?;
-        writeln!(code, "    this.#dirtySources.add(source);").map_err(format_error)?;
-        if !self.module.computed.is_empty() {
-            writeln!(code, "    this.#computedCache.clear();").map_err(format_error)?;
-        }
+        writeln!(code, "    __naosMarkDirty(this[__naosKernel], source);").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         if self.uses_keyed_selectors() {
             writeln!(
@@ -1281,12 +1258,12 @@ impl<'a> CodeGenerator<'a> {
                 .map_err(format_error)?;
             writeln!(
                 code,
-                "    this.#dirtySources.add(this.#keyedSelectorToken(selector, previousValue));"
+                "    __naosMarkDirty(this[__naosKernel], this.#keyedSelectorToken(selector, previousValue));"
             )
             .map_err(format_error)?;
             writeln!(
                 code,
-                "    this.#dirtySources.add(this.#keyedSelectorToken(selector, nextValue));"
+                "    __naosMarkDirty(this[__naosKernel], this.#keyedSelectorToken(selector, nextValue));"
             )
             .map_err(format_error)?;
             writeln!(code, "  }}").map_err(format_error)?;
@@ -1414,161 +1391,172 @@ impl<'a> CodeGenerator<'a> {
             writeln!(code, "    }}").map_err(format_error)?;
             writeln!(code, "  }}").map_err(format_error)?;
         }
-        if self.module.uses_host_helpers {
-            writeln!(code, "  #ensureHostId() {{").map_err(format_error)?;
-            writeln!(code, "    if (this.#hostId) return;").map_err(format_error)?;
-            writeln!(code, "    if (this.id) {{").map_err(format_error)?;
-            writeln!(code, "      this.#hostId = this.id;").map_err(format_error)?;
-            writeln!(code, "      return;").map_err(format_error)?;
-            writeln!(code, "    }}").map_err(format_error)?;
-            writeln!(code, "    const root = this.getRootNode();").map_err(format_error)?;
-            writeln!(
+        // The legacy helper emission below is intentionally disabled while
+        // retaining this source history for the keyed-list migration. The
+        // active generated output delegates all kernel mechanics to runtime.
+        if false {
+            if self.module.uses_host_helpers {
+                writeln!(code, "  #ensureHostId() {{").map_err(format_error)?;
+                writeln!(code, "    if (this.#hostId) return;").map_err(format_error)?;
+                writeln!(code, "    if (this.id) {{").map_err(format_error)?;
+                writeln!(code, "      this.#hostId = this.id;").map_err(format_error)?;
+                writeln!(code, "      return;").map_err(format_error)?;
+                writeln!(code, "    }}").map_err(format_error)?;
+                writeln!(code, "    const root = this.getRootNode();").map_err(format_error)?;
+                writeln!(
                 code,
                 "    const siblings = typeof root.querySelectorAll === \"function\" ? Array.from(root.querySelectorAll(this.localName)) : [];"
             )
             .map_err(format_error)?;
-            writeln!(code, "    const index = siblings.indexOf(this);").map_err(format_error)?;
-            writeln!(
-                code,
-                "    this.#hostId = `${{this.localName}}-${{index < 0 ? 1 : index + 1}}`;"
-            )
-            .map_err(format_error)?;
-            writeln!(code, "  }}").map_err(format_error)?;
-            writeln!(code, "  #beginHostUpdateScope() {{").map_err(format_error)?;
-            writeln!(code, "    this.#updateAbortController.abort();").map_err(format_error)?;
-            writeln!(
-                code,
-                "    this.#updateAbortController = new AbortController();"
-            )
-            .map_err(format_error)?;
-            writeln!(code, "  }}").map_err(format_error)?;
-            writeln!(code, "  #finishHostUpdateScope() {{").map_err(format_error)?;
-            writeln!(
-                code,
-                "    const signal = this.#updateAbortController.signal;"
-            )
-            .map_err(format_error)?;
-            writeln!(code, "    const resolvers = this.#pendingUpdateResolvers;")
+                writeln!(code, "    const index = siblings.indexOf(this);")
+                    .map_err(format_error)?;
+                writeln!(
+                    code,
+                    "    this.#hostId = `${{this.localName}}-${{index < 0 ? 1 : index + 1}}`;"
+                )
                 .map_err(format_error)?;
-            writeln!(code, "    this.#pendingUpdateResolvers = [];").map_err(format_error)?;
-            writeln!(
-                code,
-                "    for (const resolve of resolvers) resolve(signal);"
-            )
-            .map_err(format_error)?;
-            writeln!(code, "    const tasks = this.#queuedHostTasks;").map_err(format_error)?;
-            writeln!(code, "    this.#queuedHostTasks = [];").map_err(format_error)?;
-            writeln!(code, "    for (const task of tasks) {{").map_err(format_error)?;
-            writeln!(code, "      try {{").map_err(format_error)?;
-            writeln!(code, "        task();").map_err(format_error)?;
-            writeln!(code, "      }} catch (error) {{").map_err(format_error)?;
-            writeln!(code, "        this.#reportError(error);").map_err(format_error)?;
-            writeln!(code, "      }}").map_err(format_error)?;
-            writeln!(code, "    }}").map_err(format_error)?;
-            writeln!(code, "  }}").map_err(format_error)?;
-            writeln!(code, "  #abortHostUpdateScope() {{").map_err(format_error)?;
-            writeln!(code, "    this.#updateAbortController.abort();").map_err(format_error)?;
-            writeln!(
-                code,
-                "    const signal = this.#updateAbortController.signal;"
-            )
-            .map_err(format_error)?;
-            writeln!(code, "    const resolvers = this.#pendingUpdateResolvers;")
+                writeln!(code, "  }}").map_err(format_error)?;
+                writeln!(code, "  #beginHostUpdateScope() {{").map_err(format_error)?;
+                writeln!(code, "    this.#updateAbortController.abort();").map_err(format_error)?;
+                writeln!(
+                    code,
+                    "    this.#updateAbortController = new AbortController();"
+                )
                 .map_err(format_error)?;
-            writeln!(code, "    this.#pendingUpdateResolvers = [];").map_err(format_error)?;
-            writeln!(
-                code,
-                "    for (const resolve of resolvers) resolve(signal);"
-            )
-            .map_err(format_error)?;
-            writeln!(code, "    this.#queuedHostTasks = [];").map_err(format_error)?;
-            writeln!(
-                code,
-                "    this.#updateAbortController = new AbortController();"
-            )
-            .map_err(format_error)?;
-            writeln!(code, "  }}").map_err(format_error)?;
-        }
-        if self.uses_event_abort_signals() {
-            writeln!(code, "  #abortEventHandlers() {{").map_err(format_error)?;
-            writeln!(
+                writeln!(code, "  }}").map_err(format_error)?;
+                writeln!(code, "  #finishHostUpdateScope() {{").map_err(format_error)?;
+                writeln!(
+                    code,
+                    "    const signal = this.#updateAbortController.signal;"
+                )
+                .map_err(format_error)?;
+                writeln!(code, "    const resolvers = this.#pendingUpdateResolvers;")
+                    .map_err(format_error)?;
+                writeln!(code, "    this.#pendingUpdateResolvers = [];").map_err(format_error)?;
+                writeln!(
+                    code,
+                    "    for (const resolve of resolvers) resolve(signal);"
+                )
+                .map_err(format_error)?;
+                writeln!(code, "    const tasks = this.#queuedHostTasks;").map_err(format_error)?;
+                writeln!(code, "    this.#queuedHostTasks = [];").map_err(format_error)?;
+                writeln!(code, "    for (const task of tasks) {{").map_err(format_error)?;
+                writeln!(code, "      try {{").map_err(format_error)?;
+                writeln!(code, "        task();").map_err(format_error)?;
+                writeln!(code, "      }} catch (error) {{").map_err(format_error)?;
+                writeln!(code, "        this.#reportError(error);").map_err(format_error)?;
+                writeln!(code, "      }}").map_err(format_error)?;
+                writeln!(code, "    }}").map_err(format_error)?;
+                writeln!(code, "  }}").map_err(format_error)?;
+                writeln!(code, "  #abortHostUpdateScope() {{").map_err(format_error)?;
+                writeln!(code, "    this.#updateAbortController.abort();").map_err(format_error)?;
+                writeln!(
+                    code,
+                    "    const signal = this.#updateAbortController.signal;"
+                )
+                .map_err(format_error)?;
+                writeln!(code, "    const resolvers = this.#pendingUpdateResolvers;")
+                    .map_err(format_error)?;
+                writeln!(code, "    this.#pendingUpdateResolvers = [];").map_err(format_error)?;
+                writeln!(
+                    code,
+                    "    for (const resolve of resolvers) resolve(signal);"
+                )
+                .map_err(format_error)?;
+                writeln!(code, "    this.#queuedHostTasks = [];").map_err(format_error)?;
+                writeln!(
+                    code,
+                    "    this.#updateAbortController = new AbortController();"
+                )
+                .map_err(format_error)?;
+                writeln!(code, "  }}").map_err(format_error)?;
+            }
+            if self.uses_event_abort_signals() {
+                writeln!(code, "  #abortEventHandlers() {{").map_err(format_error)?;
+                writeln!(
                 code,
                 "    for (const controller of Array.from(this.#eventAbortControllers)) controller.abort();"
             )
             .map_err(format_error)?;
-            writeln!(code, "    this.#eventAbortControllers.clear();").map_err(format_error)?;
+                writeln!(code, "    this.#eventAbortControllers.clear();").map_err(format_error)?;
+                writeln!(code, "  }}").map_err(format_error)?;
+            }
+            writeln!(code, "  #markAllDirty() {{").map_err(format_error)?;
+            writeln!(code, "    __naosMarkAllDirty(this[__naosKernel]);").map_err(format_error)?;
+            writeln!(code, "  }}").map_err(format_error)?;
+            writeln!(code, "  #flushSync() {{").map_err(format_error)?;
+            writeln!(code, "    __naosFlushSync(this[__naosKernel]);").map_err(format_error)?;
+            writeln!(code, "  }}").map_err(format_error)?;
+            writeln!(code, "  #flush() {{").map_err(format_error)?;
+            writeln!(code, "    if (!this.#mounted) return;").map_err(format_error)?;
+            writeln!(code, "    let flushError;").map_err(format_error)?;
+            writeln!(code, "    let didFail = false;").map_err(format_error)?;
+            if self.module.uses_host_helpers {
+                writeln!(code, "    this.#beginHostUpdateScope();").map_err(format_error)?;
+            }
+            writeln!(code, "    try {{").map_err(format_error)?;
+            writeln!(
+                code,
+                "      const dirtySources = this.#consumeDirtySources();"
+            )
+            .map_err(format_error)?;
+            if !self.module.computed.is_empty() {
+                writeln!(code, "      this.#computedCache.clear();").map_err(format_error)?;
+            }
+            writeln!(code, "      this.#update(dirtySources);").map_err(format_error)?;
+            if self.uses_keyed_selectors() {
+                writeln!(code, "      this.#runKeyedBindings(dirtySources);")
+                    .map_err(format_error)?;
+            }
+            if !self.module.form_controls.is_empty() {
+                writeln!(code, "      this.#syncFormValue(dirtySources);").map_err(format_error)?;
+            }
+            if !self.module.effects.is_empty() {
+                writeln!(code, "      this.#runEffects(dirtySources);").map_err(format_error)?;
+            }
+            writeln!(code, "    }} catch (error) {{").map_err(format_error)?;
+            writeln!(code, "      flushError = error;").map_err(format_error)?;
+            writeln!(code, "      didFail = true;").map_err(format_error)?;
+            writeln!(code, "      this.#markAllDirty();").map_err(format_error)?;
+            if self.module.uses_host_helpers {
+                writeln!(code, "    }} finally {{").map_err(format_error)?;
+                writeln!(code, "      this.#finishHostUpdateScope();").map_err(format_error)?;
+            }
+            writeln!(code, "    }}").map_err(format_error)?;
+            writeln!(code, "    if (didFail) this.#reportError(flushError);")
+                .map_err(format_error)?;
+            writeln!(code, "  }}").map_err(format_error)?;
+            writeln!(code, "  #consumeDirtySources() {{").map_err(format_error)?;
+            writeln!(code, "    if (this.#needsFullUpdate) {{").map_err(format_error)?;
+            writeln!(code, "      this.#needsFullUpdate = false;").map_err(format_error)?;
+            writeln!(code, "      this.#dirtySources.clear();").map_err(format_error)?;
+            writeln!(code, "      return null;").map_err(format_error)?;
+            writeln!(code, "    }}").map_err(format_error)?;
+            writeln!(code, "    const dirtySources = this.#dirtySources;").map_err(format_error)?;
+            writeln!(code, "    this.#dirtySources = new Set();").map_err(format_error)?;
+            writeln!(code, "    return dirtySources;").map_err(format_error)?;
+            writeln!(code, "  }}").map_err(format_error)?;
+            writeln!(code, "  #shouldUpdate(dependencies, dirtySources) {{")
+                .map_err(format_error)?;
+            writeln!(
+                code,
+                "    return __naosShouldUpdate(dependencies, dirtySources);"
+            )
+            .map_err(format_error)?;
             writeln!(code, "  }}").map_err(format_error)?;
         }
         writeln!(code, "  #markAllDirty() {{").map_err(format_error)?;
-        writeln!(code, "    this.#needsFullUpdate = true;").map_err(format_error)?;
-        writeln!(code, "    this.#dirtySources.clear();").map_err(format_error)?;
-        if !self.module.computed.is_empty() {
-            writeln!(code, "    this.#computedCache.clear();").map_err(format_error)?;
-        }
+        writeln!(code, "    __naosMarkAllDirty(this[__naosKernel]);").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #flushSync() {{").map_err(format_error)?;
-        if self.uses_scheduled_updates() {
-            writeln!(code, "    this.#flushScheduled = false;").map_err(format_error)?;
-        }
-        writeln!(code, "    this.#flush();").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  #flush() {{").map_err(format_error)?;
-        writeln!(code, "    if (!this.#mounted) return;").map_err(format_error)?;
-        writeln!(code, "    let flushError;").map_err(format_error)?;
-        writeln!(code, "    let didFail = false;").map_err(format_error)?;
-        if self.module.uses_host_helpers {
-            writeln!(code, "    this.#beginHostUpdateScope();").map_err(format_error)?;
-        }
-        writeln!(code, "    try {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "      const dirtySources = this.#consumeDirtySources();"
-        )
-        .map_err(format_error)?;
-        if !self.module.computed.is_empty() {
-            writeln!(code, "      this.#computedCache.clear();").map_err(format_error)?;
-        }
-        writeln!(code, "      this.#update(dirtySources);").map_err(format_error)?;
-        if self.uses_keyed_selectors() {
-            writeln!(code, "      this.#runKeyedBindings(dirtySources);").map_err(format_error)?;
-        }
-        if !self.module.form_controls.is_empty() {
-            writeln!(code, "      this.#syncFormValue(dirtySources);").map_err(format_error)?;
-        }
-        if !self.module.effects.is_empty() {
-            writeln!(code, "      this.#runEffects(dirtySources);").map_err(format_error)?;
-        }
-        writeln!(code, "    }} catch (error) {{").map_err(format_error)?;
-        writeln!(code, "      flushError = error;").map_err(format_error)?;
-        writeln!(code, "      didFail = true;").map_err(format_error)?;
-        writeln!(code, "      this.#markAllDirty();").map_err(format_error)?;
-        if self.module.uses_host_helpers {
-            writeln!(code, "    }} finally {{").map_err(format_error)?;
-            writeln!(code, "      this.#finishHostUpdateScope();").map_err(format_error)?;
-        }
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    if (didFail) this.#reportError(flushError);").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(code, "  #consumeDirtySources() {{").map_err(format_error)?;
-        writeln!(code, "    if (this.#needsFullUpdate) {{").map_err(format_error)?;
-        writeln!(code, "      this.#needsFullUpdate = false;").map_err(format_error)?;
-        writeln!(code, "      this.#dirtySources.clear();").map_err(format_error)?;
-        writeln!(code, "      return null;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    const dirtySources = this.#dirtySources;").map_err(format_error)?;
-        writeln!(code, "    this.#dirtySources = new Set();").map_err(format_error)?;
-        writeln!(code, "    return dirtySources;").map_err(format_error)?;
+        writeln!(code, "    __naosFlushSync(this[__naosKernel]);").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         writeln!(code, "  #shouldUpdate(dependencies, dirtySources) {{").map_err(format_error)?;
         writeln!(
             code,
-            "    if (dirtySources === null || dependencies === null) return true;"
+            "    return __naosShouldUpdate(dependencies, dirtySources);"
         )
         .map_err(format_error)?;
-        writeln!(code, "    for (const source of dependencies) {{").map_err(format_error)?;
-        writeln!(code, "      if (dirtySources.has(source)) return true;").map_err(format_error)?;
-        writeln!(code, "    }}").map_err(format_error)?;
-        writeln!(code, "    return false;").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
         Ok(())
     }
@@ -1853,77 +1841,28 @@ impl<'a> CodeGenerator<'a> {
         );
         writeln!(
             code,
-            "const __naosMetadataKey = Symbol.for(\"naos.component.metadata\");"
-        )
-        .map_err(format_error)?;
-        writeln!(
-            code,
             "const __naosComponentMetadata = Object.freeze({{ packageName: \"{}\", packageVersion: {}, tagName: \"{}\" }});",
             escape_js_string(&self.module.package.name),
             package_version,
             escape_js_string(&self.module.tag_name)
         )
         .map_err(format_error)?;
-        writeln!(
-            code,
-            "Object.defineProperty({}, __naosMetadataKey, {{ value: __naosComponentMetadata }});",
-            self.module.class_name
-        )
-        .map_err(format_error)?;
-        writeln!(code, "let __naosRegistrationWarningEmitted = false;").map_err(format_error)?;
-        writeln!(code, "function __naosDefineComponent() {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "  const registered = customElements.get(\"{}\");",
-            self.module.tag_name
-        )
-        .map_err(format_error)?;
-        writeln!(code, "  if (!registered) {{").map_err(format_error)?;
-        writeln!(
-            code,
-            "    customElements.define(\"{}\", {});",
-            self.module.tag_name, self.module.class_name
-        )
-        .map_err(format_error)?;
-        writeln!(code, "    return;").map_err(format_error)?;
-        writeln!(code, "  }}").map_err(format_error)?;
-        writeln!(
-            code,
-            "  if (registered === {}) return;",
-            self.module.class_name
-        )
-        .map_err(format_error)?;
-        writeln!(code, "  const metadata = registered[__naosMetadataKey];")
-            .map_err(format_error)?;
-        writeln!(
-            code,
-            "  if (metadata?.packageName === __naosComponentMetadata.packageName && metadata?.packageVersion === __naosComponentMetadata.packageVersion) return;"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "  if (__naosRegistrationWarningEmitted) return;").map_err(format_error)?;
-        writeln!(code, "  __naosRegistrationWarningEmitted = true;").map_err(format_error)?;
-        writeln!(
-            code,
-            "  const registeredOwner = metadata?.packageName && metadata?.packageVersion ? `${{metadata.packageName}}@${{metadata.packageVersion}}` : \"unknown\";"
-        )
-        .map_err(format_error)?;
-        writeln!(
-            code,
-            "  const attemptedOwner = __naosComponentMetadata.packageVersion ? `${{__naosComponentMetadata.packageName}}@${{__naosComponentMetadata.packageVersion}}` : `${{__naosComponentMetadata.packageName}}@unknown`;"
-        )
-        .map_err(format_error)?;
-        writeln!(
-            code,
-            "  console.warn(`naos-ui: <${{__naosComponentMetadata.tagName}}> is already registered by ${{registeredOwner}} (attempted: ${{attemptedOwner}}). Running two versions of the same package on one page is not supported; the first registration wins.`);"
-        )
-        .map_err(format_error)?;
-        writeln!(code, "}}").map_err(format_error)?;
         if self.module.options.define {
-            writeln!(code, "__naosDefineComponent();").map_err(format_error)?;
+            writeln!(
+                code,
+                "__naosDefineComponent(\"{}\", {}, __naosComponentMetadata);",
+                self.module.tag_name, self.module.class_name
+            )
+            .map_err(format_error)?;
         } else {
             writeln!(code, "export function {}() {{", self.define_function_name())
                 .map_err(format_error)?;
-            writeln!(code, "  __naosDefineComponent();").map_err(format_error)?;
+            writeln!(
+                code,
+                "  __naosDefineComponent(\"{}\", {}, __naosComponentMetadata);",
+                self.module.tag_name, self.module.class_name
+            )
+            .map_err(format_error)?;
             writeln!(code, "}}").map_err(format_error)?;
         }
         if let Some(export_name) = &self.module.export_name {
@@ -5039,11 +4978,11 @@ mod dependency_tests {
             .generate(&module.template)
             .expect("light probe should generate");
 
-        assert!(code.contains("function __naosComponentStyles()"));
-        assert!(code.contains("const root = this.getRootNode();"));
-        assert!(code.contains("root.adoptedStyleSheets = [...root.adoptedStyleSheets, sheet];"));
-        assert!(code.contains("this.#adoptStyles();"));
-        assert!(!code.contains("document.createElement(\"style\")"));
+        assert!(code.contains("shadow: false,"));
+        assert!(code.contains("__naosLazySheet([\":x-light-probe { display: block; }\"])"));
+        assert!(code.contains("styles: __naosComponentStyles,"));
+        assert!(code.contains("__naosConnect(this[__naosKernel]);"));
+        assert!(!code.contains("adoptedStyleSheets"));
     }
 
     #[test]

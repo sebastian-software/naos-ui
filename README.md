@@ -7,7 +7,8 @@ lightweight Web Components for design systems, embedded widgets, CMS pages, and
 classic web applications.
 
 No React runtime. No virtual DOM. Just typed components shaped into native
-elements.
+elements. Generated modules can import a small, tree-shakeable shared execution
+kernel, but it is not a framework runtime.
 
 ## Why the Name?
 
@@ -57,20 +58,20 @@ attributes, updates text and dynamic attributes, dispatches native
 This repository is a prerelease compiler toolchain, not a production release.
 The current implementation proves the vertical slice:
 
-* typed TypeScript authoring API and JSX surface
-* PascalCase function component authoring with kebab-case Custom Element output
-* `state()`, `computed()`, and `effect()` authoring primitives
-* `<Show>` and keyed `.map()` compile-time control flow
-* Rust/OXC TSX parse validation and compiler analysis
-* native Custom Element code generation
-* Declarative Shadow DOM prerender output and hydration for explicit static
+- typed TypeScript authoring API and JSX surface
+- PascalCase function component authoring with kebab-case Custom Element output
+- `state()`, `computed()`, and `effect()` authoring primitives
+- `<Show>` and keyed `.map()` compile-time control flow
+- Rust/OXC TSX parse validation and compiler analysis
+- native Custom Element code generation
+- Declarative Shadow DOM prerender output and hydration for explicit static
   HTML paths
-* typed N-API boundary and Node wrapper
-* Vite transform plugin
-* first experimental `@naos-ui/primitives` package built from `.wc.tsx` sources
-* optional `@naos-ui/router` package for Custom Element app shells
-* Ardo-rendered docs plus linked static demos with Playwright browser gates
-* Shadow DOM style injection and default/named slots
+- typed N-API boundary and Node wrapper
+- Vite transform plugin
+- first experimental `@naos-ui/primitives` package built from `.wc.tsx` sources
+- optional `@naos-ui/router` package for Custom Element app shells
+- Ardo-rendered docs plus linked static demos with Playwright browser gates
+- Shadow DOM style injection and default/named slots
 
 Start with [docs/README.md](docs/README.md) for the guided documentation path.
 Use [docs/compiler-limitations.md](docs/compiler-limitations.md) for the current
@@ -83,10 +84,10 @@ ecosystem already has mature ways to build them: runtime libraries, framework
 adapters, full compilers, and design-system toolkits. Naos explores a focused
 point in that landscape:
 
-* Rust owns compiler semantics.
-* TypeScript owns authoring types, package ergonomics, and Vite integration.
-* The browser receives native Custom Elements.
-* The component model stays deliberately small and statically analyzable.
+- Rust owns compiler semantics.
+- TypeScript owns authoring types, package ergonomics, and Vite integration.
+- The browser receives native Custom Elements.
+- The component model stays deliberately small and statically analyzable.
 
 The bet is that a narrow compiler can give design-system and embedded-widget
 teams a useful middle ground: more structure than hand-written Custom Elements,
@@ -96,21 +97,21 @@ less runtime surface than framework-backed wrappers.
 
 Naos is aimed at:
 
-* design-system packages that need framework-neutral output
-* embedded widgets that should not bring an app framework with them
-* multi-framework product surfaces where Custom Elements are the stable
+- design-system packages that need framework-neutral output
+- embedded widgets that should not bring an app framework with them
+- multi-framework product surfaces where Custom Elements are the stable
   integration contract
-* teams that want strong TypeScript authoring types but prefer compiler-owned
+- teams that want strong TypeScript authoring types but prefer compiler-owned
   runtime semantics
-* experiments in Rust-based frontend tooling built on OXC
+- experiments in Rust-based frontend tooling built on OXC
 
 It is not trying to be:
 
-* a React compatibility layer
-* a Solid runtime
-* a general application framework
-* a virtual DOM renderer
-* a drop-in replacement for Lit, Stencil, Svelte, Vue, or Angular
+- a React compatibility layer
+- a Solid runtime
+- a general application framework
+- a virtual DOM renderer
+- a drop-in replacement for Lit, Stencil, Svelte, Vue, or Angular
 
 ## Quick Start
 
@@ -250,17 +251,17 @@ export function Toolbar() {
 
 Current APIs:
 
-* exported PascalCase functions with typed props
-* optional `export const options satisfies ComponentOptions` for CSS styles
-* `state(initialValue)` for writable local state
-* `computed(() => value)` for read-only derived values
-* `effect(() => cleanup?)` for lifecycle side effects
-* `event<Detail>(name)`
-* JSX-owned event names with bare handlers or `on(handler, options?)`
-* `host()` for element, root, update, and abort-signal access
-* `<Show>`, `<For>`, `<Index>`, and keyed `.map()` as explicit compile-time
+- exported PascalCase functions with typed props
+- optional `export const options satisfies ComponentOptions` for CSS styles
+- `state(initialValue)` for writable local state
+- `computed(() => value)` for read-only derived values
+- `effect(() => cleanup?)` for lifecycle side effects
+- `event<Detail>(name)`
+- JSX-owned event names with bare handlers or `on(handler, options?)`
+- `host()` for element, root, update, and abort-signal access
+- `<Show>`, `<For>`, `<Index>`, and keyed `.map()` as explicit compile-time
   control flow
-* typed JSX intrinsic elements and common DOM/event attributes
+- typed JSX intrinsic elements and common DOM/event attributes
 
 For the full path from install to authoring, styling, DSD, tooling, and
 troubleshooting, see [docs/README.md](docs/README.md). For authoring details,
@@ -350,20 +351,20 @@ artifact cannot be hydrated.
 This section is a product-positioning snapshot from June 2026. It is meant to
 explain where Naos fits, not to rank mature projects against an MVP.
 
-| Tool or category | Authoring model | Runtime or output model | Strong fit | How Naos differs |
-| --- | --- | --- | --- | --- |
-| Native Custom Elements | JavaScript classes extending `HTMLElement` | Browser-native Custom Elements | Maximum platform control and minimum dependency surface | Adds typed TSX authoring and compiler-generated boilerplate |
-| Lit | `LitElement`, reactive properties, tagged template literals | Lightweight Lit runtime and reactive update cycle | Mature web component libraries with broad docs and ecosystem | Avoids a template/runtime library and compiles a narrow TSX subset to direct DOM code |
-| Stencil | TypeScript, JSX, and CSS compiler for Web Components | Compiler-generated Custom Elements | Production component libraries that need a complete Web Component compiler toolchain | Closest category neighbor, but Naos is Rust/OXC-first and intentionally smaller |
-| FAST | Web Component libraries and design-system foundation | FAST element/runtime model and component packages | Design systems aligned with FAST/Fluent patterns | Does not provide a design system or runtime foundation package |
-| Svelte custom elements | Svelte components compiled behind a Custom Element wrapper | Svelte component lifecycle wrapped as a custom element | Teams already building in Svelte that need custom-element distribution | The source component is the Custom Element contract itself, not a wrapped framework component |
-| Vue custom elements | Vue component APIs through `defineCustomElement()` | Native Custom Element constructor backed by Vue's component model | Vue teams publishing embeddable components | Does not bring Vue's component/runtime model into the element |
-| Angular Elements | Angular components packaged as Custom Elements | Angular component model exposed through Custom Elements | Angular organizations integrating with non-Angular hosts | Not an adapter for a full application framework |
-| Atomico | Function and hooks style authoring for Web Components | Small library with hooks and virtual DOM concepts | React-like function authoring for Web Components | Keeps the authoring API compile-time only and avoids a client-side virtual DOM |
-| Hybrids | Declarative object and functional component model | Framework API over Web Components | Functional/declarative Web Component applications and libraries | Uses Rust compiler analysis instead of a runtime object model |
-| Preact custom element wrappers | Preact component registered as a custom element | Preact runtime wrapped behind Custom Elements | Preact teams needing simple Custom Element interop | Does not wrap a Preact component or runtime |
-| Solid custom elements | Solid integration for Custom Web Components | Solid primitives exposed through Custom Elements | Solid teams that want custom-element distribution | Solid-inspired ergonomics without depending on Solid runtime semantics |
-| Mitosis | JSX source compiled to many frameworks | Framework-specific generated outputs | Design systems that must target React, Vue, Svelte, Angular, Solid, Qwik, and more | Targets one output deliberately: native Custom Elements |
+| Tool or category               | Authoring model                                             | Runtime or output model                                           | Strong fit                                                                           | How Naos differs                                                                              |
+| ------------------------------ | ----------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Native Custom Elements         | JavaScript classes extending `HTMLElement`                  | Browser-native Custom Elements                                    | Maximum platform control and minimum dependency surface                              | Adds typed TSX authoring and compiler-generated boilerplate                                   |
+| Lit                            | `LitElement`, reactive properties, tagged template literals | Lightweight Lit runtime and reactive update cycle                 | Mature web component libraries with broad docs and ecosystem                         | Avoids a template/runtime library and compiles a narrow TSX subset to direct DOM code         |
+| Stencil                        | TypeScript, JSX, and CSS compiler for Web Components        | Compiler-generated Custom Elements                                | Production component libraries that need a complete Web Component compiler toolchain | Closest category neighbor, but Naos is Rust/OXC-first and intentionally smaller               |
+| FAST                           | Web Component libraries and design-system foundation        | FAST element/runtime model and component packages                 | Design systems aligned with FAST/Fluent patterns                                     | Does not provide a design system or runtime foundation package                                |
+| Svelte custom elements         | Svelte components compiled behind a Custom Element wrapper  | Svelte component lifecycle wrapped as a custom element            | Teams already building in Svelte that need custom-element distribution               | The source component is the Custom Element contract itself, not a wrapped framework component |
+| Vue custom elements            | Vue component APIs through `defineCustomElement()`          | Native Custom Element constructor backed by Vue's component model | Vue teams publishing embeddable components                                           | Does not bring Vue's component/runtime model into the element                                 |
+| Angular Elements               | Angular components packaged as Custom Elements              | Angular component model exposed through Custom Elements           | Angular organizations integrating with non-Angular hosts                             | Not an adapter for a full application framework                                               |
+| Atomico                        | Function and hooks style authoring for Web Components       | Small library with hooks and virtual DOM concepts                 | React-like function authoring for Web Components                                     | Keeps the authoring API compile-time only and avoids a client-side virtual DOM                |
+| Hybrids                        | Declarative object and functional component model           | Framework API over Web Components                                 | Functional/declarative Web Component applications and libraries                      | Uses Rust compiler analysis instead of a runtime object model                                 |
+| Preact custom element wrappers | Preact component registered as a custom element             | Preact runtime wrapped behind Custom Elements                     | Preact teams needing simple Custom Element interop                                   | Does not wrap a Preact component or runtime                                                   |
+| Solid custom elements          | Solid integration for Custom Web Components                 | Solid primitives exposed through Custom Elements                  | Solid teams that want custom-element distribution                                    | Solid-inspired ergonomics without depending on Solid runtime semantics                        |
+| Mitosis                        | JSX source compiled to many frameworks                      | Framework-specific generated outputs                              | Design systems that must target React, Vue, Svelte, Angular, Solid, Qwik, and more   | Targets one output deliberately: native Custom Elements                                       |
 
 Stencil is the closest established category neighbor because it is also a
 complete, established compiler ecosystem. Naos is a focused experiment in
@@ -396,32 +397,32 @@ Linting and formatting cover both languages, and CI enforces all of it via
 
 Workspace layout:
 
-* `crates/naos-core`: Rust compiler analysis and code generation
-* `crates/naos-node`: N-API wrapper around the Rust core
-* `packages/compiler`: typed Node loader for optional native bindings
-* `packages/compiler-*`: platform-specific native compiler packages
-* `packages/cli`: minimal compile, prerender, and info commands
-* `packages/core`: authoring API and JSX types
-* `packages/runtime`: runtime helper surface
-* `packages/vite`: Vite plugin and prerender metadata integration
-* `packages/unplugin`: bundler-agnostic transform for Rollup, esbuild, webpack, and Rspack
-* `examples/counter`: browser smoke-test example and static DSD output
-* `sites/docs`: Ardo documentation site for v0.1 docs and API content
+- `crates/naos-core`: Rust compiler analysis and code generation
+- `crates/naos-node`: N-API wrapper around the Rust core
+- `packages/compiler`: typed Node loader for optional native bindings
+- `packages/compiler-*`: platform-specific native compiler packages
+- `packages/cli`: minimal compile, prerender, and info commands
+- `packages/core`: authoring API and JSX types
+- `packages/runtime`: runtime helper surface
+- `packages/vite`: Vite plugin and prerender metadata integration
+- `packages/unplugin`: bundler-agnostic transform for Rollup, esbuild, webpack, and Rspack
+- `examples/counter`: browser smoke-test example and static DSD output
+- `sites/docs`: Ardo documentation site for v0.1 docs and API content
 
 Useful references:
 
-* [Documentation learning path](docs/README.md)
-* [Quickstart](docs/quickstart.md)
-* [Authoring guide](docs/authoring.md)
-* [Styling and Declarative Shadow DOM](docs/styling-and-dsd.md)
-* [API reference](docs/api-reference.md)
-* [Compiler limitations](docs/compiler-limitations.md)
-* [CLI](docs/cli.md)
-* [Declarative Shadow DOM plan](docs/declarative-shadow-dom-plan.md)
-* [Native distribution](docs/native-distribution.md)
-* [Docs and demos](docs/demos.md)
-* [Troubleshooting](docs/troubleshooting.md)
-* [MDN Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
+- [Documentation learning path](docs/README.md)
+- [Quickstart](docs/quickstart.md)
+- [Authoring guide](docs/authoring.md)
+- [Styling and Declarative Shadow DOM](docs/styling-and-dsd.md)
+- [API reference](docs/api-reference.md)
+- [Compiler limitations](docs/compiler-limitations.md)
+- [CLI](docs/cli.md)
+- [Declarative Shadow DOM plan](docs/declarative-shadow-dom-plan.md)
+- [Native distribution](docs/native-distribution.md)
+- [Docs and demos](docs/demos.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [MDN Web Components](https://developer.mozilla.org/en-US/docs/Web/API/Web_components)
 
 ## License
 
