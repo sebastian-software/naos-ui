@@ -15,7 +15,10 @@
 //! response buffer pointer as the return value. Both the request and the
 //! response buffer must be released with [`naos_free`].
 
-use naos_core::{PackageContext, transform_component_module};
+use naos_core::{
+    PackageContext, render_declarative_shadow_dom_module_with_inline_styles,
+    transform_component_module,
+};
 use serde::Deserialize;
 
 /// Transform request crossing the WASM boundary as JSON.
@@ -32,6 +35,26 @@ struct TransformRequest {
     package_version: Option<String>,
     /// Validated Custom Element prefix for tag derivation.
     tag_prefix: String,
+}
+
+/// Declarative Shadow DOM render request crossing the WASM boundary as JSON.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RenderDsdRequest {
+    /// Original TypeScript/TSX source.
+    source: String,
+    /// Filename used for parser source-type detection and diagnostics.
+    filename: String,
+    /// Package name used for tag derivation and registration metadata.
+    package_name: String,
+    /// Optional package version used for registration metadata.
+    package_version: Option<String>,
+    /// Validated Custom Element prefix for tag derivation.
+    tag_prefix: String,
+    /// Optional JSON object containing initial prop values.
+    props_json: Option<String>,
+    /// Optional JSON object with resolved `?inline` CSS by local import name.
+    inline_styles_json: Option<String>,
 }
 
 /// Allocates an exact-length buffer the caller can fill with request bytes.
@@ -83,9 +106,43 @@ pub unsafe extern "C" fn naos_transform(
     out_len: *mut usize,
 ) -> *mut u8 {
     let request_bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
-    let response = transform_response(request_bytes)
-        .into_bytes()
-        .into_boxed_slice();
+    write_response(transform_response(request_bytes), out_len)
+}
+
+/// Prerenders a component module as Declarative Shadow DOM host HTML.
+///
+/// Same memory protocol and response envelope as [`naos_transform`]; the
+/// success payload carries the serialized core render result.
+///
+/// # Safety
+///
+/// `ptr` and `len` must describe a live, initialized buffer produced by
+/// [`naos_alloc`] containing valid UTF-8, and `out_len` must point to a
+/// writable `usize` slot (4 bytes on `wasm32`).
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn naos_render_dsd(
+    ptr: *const u8,
+    len: usize,
+    out_len: *mut usize,
+) -> *mut u8 {
+    let request_bytes = unsafe { std::slice::from_raw_parts(ptr, len) };
+    write_response(render_dsd_response(request_bytes), out_len)
+}
+
+/// Returns the compiler core version as a UTF-8 buffer.
+///
+/// # Safety
+///
+/// `out_len` must point to a writable `usize` slot (4 bytes on `wasm32`).
+/// The returned buffer must be released with [`naos_free`].
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn naos_core_version(out_len: *mut usize) -> *mut u8 {
+    write_response(naos_core::core_version().to_owned(), out_len)
+}
+
+fn write_response(response: String, out_len: *mut usize) -> *mut u8 {
+    let response = response.into_bytes().into_boxed_slice();
+    // SAFETY: callers guarantee `out_len` points to a writable usize slot.
     unsafe { out_len.write(response.len()) };
     Box::into_raw(response).cast::<u8>()
 }
@@ -125,6 +182,47 @@ fn transform_response(request_bytes: &[u8]) -> String {
     }
 }
 
+fn render_dsd_response(request_bytes: &[u8]) -> String {
+    let core_version = naos_core::core_version();
+    let request: RenderDsdRequest = match serde_json::from_slice(request_bytes) {
+        Ok(request) => request,
+        Err(error) => {
+            return error_response_json(
+                core_version,
+                &format!("Malformed render request: {error}"),
+                &serde_json::json!([]),
+            );
+        }
+    };
+
+    let package = PackageContext {
+        name: request.package_name,
+        version: request.package_version,
+        tag_prefix: request.tag_prefix,
+    };
+    match render_declarative_shadow_dom_module_with_inline_styles(
+        &request.source,
+        &request.filename,
+        &package,
+        request.props_json.as_deref(),
+        request.inline_styles_json.as_deref(),
+    ) {
+        Ok(result) => serde_json::json!({
+            "ok": true,
+            "coreVersion": core_version,
+            "result": result,
+        })
+        .to_string(),
+        Err(error) => error_response_json(
+            core_version,
+            &error.to_string(),
+            &serde_json::json!(
+                error.diagnostics_with_source(&request.filename, Some(&request.source))
+            ),
+        ),
+    }
+}
+
 fn error_response_json(
     core_version: &str,
     message: &str,
@@ -141,15 +239,17 @@ fn error_response_json(
 
 #[cfg(test)]
 mod tests {
-    use super::{naos_alloc, naos_free, naos_transform};
+    use super::{naos_alloc, naos_core_version, naos_free, naos_render_dsd, naos_transform};
 
-    fn call_transform(request: &serde_json::Value) -> serde_json::Value {
+    type WasmEntry = unsafe extern "C" fn(*const u8, usize, *mut usize) -> *mut u8;
+
+    fn call_json(entry: WasmEntry, request: &serde_json::Value) -> serde_json::Value {
         let request_bytes = request.to_string().into_bytes();
         let request_ptr = naos_alloc(request_bytes.len());
         let mut response_len = 0usize;
         let response_ptr = unsafe {
             std::ptr::copy_nonoverlapping(request_bytes.as_ptr(), request_ptr, request_bytes.len());
-            naos_transform(request_ptr, request_bytes.len(), &raw mut response_len)
+            entry(request_ptr, request_bytes.len(), &raw mut response_len)
         };
         let response_bytes =
             unsafe { std::slice::from_raw_parts(response_ptr, response_len) }.to_vec();
@@ -158,6 +258,10 @@ mod tests {
             naos_free(response_ptr, response_len);
         }
         serde_json::from_slice(&response_bytes).expect("response should be valid JSON")
+    }
+
+    fn call_transform(request: &serde_json::Value) -> serde_json::Value {
+        call_json(naos_transform, request)
     }
 
     #[test]
@@ -212,5 +316,42 @@ mod tests {
                 .as_str()
                 .is_some_and(|message| message.contains("Malformed transform request"))
         );
+    }
+
+    #[test]
+    fn render_dsd_round_trips_a_component_module() {
+        let response = call_json(
+            naos_render_dsd,
+            &serde_json::json!({
+                "source": "export function Badge({ label = \"Hi\" }) {\n  return <span>{label}</span>;\n}\n",
+                "filename": "badge.wc.tsx",
+                "packageName": "@naos-ui/playground",
+                "packageVersion": "0.0.0",
+                "tagPrefix": "play1",
+                "propsJson": "{\"label\":\"Served\"}",
+                "inlineStylesJson": null,
+            }),
+        );
+
+        assert_eq!(response["ok"], true);
+        assert_eq!(response["result"]["tag_name"], "play1-badge");
+        let html = response["result"]["html"]
+            .as_str()
+            .expect("html should be a string");
+        assert!(html.contains("<play1-badge"));
+        assert!(html.contains("Served"));
+    }
+
+    #[test]
+    fn core_version_is_exposed() {
+        let mut version_len = 0usize;
+        let version_ptr = unsafe { naos_core_version(&raw mut version_len) };
+        let version = String::from_utf8(
+            unsafe { std::slice::from_raw_parts(version_ptr, version_len) }.to_vec(),
+        )
+        .expect("version should be UTF-8");
+        unsafe { naos_free(version_ptr, version_len) };
+
+        assert_eq!(version, naos_core::core_version());
     }
 }

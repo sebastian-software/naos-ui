@@ -14,6 +14,8 @@ import { copyFile, mkdir } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
+import { installWasmBinding, wasmBindingTarget } from "./build-wasm-binding.mjs"
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const outDir = join(root, "sites", "docs", "public", "playground")
 
@@ -45,32 +47,11 @@ for (const [source, target] of runtimeAssets) {
   console.log(`[playground] installed ${join(outDir, target)}`)
 }
 
-const cargoProbe = spawnSync("cargo", ["--version"], { stdio: "ignore" })
-if (cargoProbe.error || cargoProbe.status !== 0) {
+if (await installWasmBinding()) {
+  await copyFile(wasmBindingTarget, join(outDir, "naos-compiler.wasm"))
+  console.log(`[playground] installed ${join(outDir, "naos-compiler.wasm")}`)
+} else {
   console.warn(
-    "[playground] cargo not found - skipping the wasm compiler module. The playground page will report it as unavailable.",
+    "[playground] wasm module unavailable. The playground page will report it as unavailable.",
   )
-  process.exit(0)
 }
-
-const build = spawnSync(
-  "cargo",
-  ["build", "-p", "naos-wasm", "--profile", "wasm-release", "--target", "wasm32-unknown-unknown"],
-  { cwd: root, stdio: "inherit" },
-)
-if (build.status !== 0) {
-  console.error(
-    "[playground] wasm build failed. If the target is missing, run `rustup target add wasm32-unknown-unknown`.",
-  )
-  process.exit(1)
-}
-
-const wasmArtifact = join(
-  root,
-  "target",
-  "wasm32-unknown-unknown",
-  "wasm-release",
-  "naos_wasm.wasm",
-)
-await copyFile(wasmArtifact, join(outDir, "naos-compiler.wasm"))
-console.log(`[playground] installed ${join(outDir, "naos-compiler.wasm")}`)

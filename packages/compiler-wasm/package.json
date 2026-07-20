@@ -1,0 +1,44 @@
+{
+  "name": "@naos-ui/compiler-wasm",
+  "version": "1.0.0",
+  "description": "WebAssembly fallback compiler binding for @naos-ui/compiler on platforms without a native package.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sebastian-software/naos-ui.git",
+    "directory": "packages/compiler-wasm"
+  },
+  "bugs": "https://github.com/sebastian-software/naos-ui/issues",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "files": [
+    "dist/",
+    "native/naos-compiler.wasm"
+  ],
+  "scripts": {
+    "build": "node ../../scripts/build-wasm-binding.mjs && tsdown",
+    "check-types": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --globals src/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "typescript": "^6.0.3",
+    "tsdown": "0.22.3",
+    "vitest": "^4.1.6"
+  }
+}

@@ -22,6 +22,7 @@ verified by `pnpm check-release-set`:
 | `@naos-ui/router` | `packages/router` |
 | `@naos-ui/testing` | `packages/testing` |
 | `@naos-ui/compiler` | `packages/compiler` |
+| `@naos-ui/compiler-wasm` | `packages/compiler-wasm` |
 | `@naos-ui/vite` | `packages/vite` |
 | `@naos-ui/unplugin` | `packages/unplugin` |
 | `@naos-ui/cli` | `packages/cli` |

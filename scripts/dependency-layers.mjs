@@ -9,6 +9,7 @@ export const foundationPackageNames = freeze([
   "@naos-ui/data",
   "@naos-ui/actions",
   "@naos-ui/compiler",
+  "@naos-ui/compiler-wasm",
 ])
 
 export const outwardPackageNames = freeze([

@@ -27,9 +27,32 @@ All native packages are CommonJS packages whose `main` points directly at
 1. `NAOS_NATIVE_BINDING_PATH`, for diagnostics and explicit local testing.
 2. The matching optional native package.
 3. The workspace local binding at `packages/compiler/native/naos-node.node`.
-4. A clear error with supported packages and contributor source-build guidance.
+4. `@naos-ui/compiler-wasm`, when the consumer installed it explicitly.
+5. A clear error with supported packages, the WebAssembly install hint, and
+   contributor source-build guidance.
 
 Linux GNU versus musl is detected through `process.report.getReport()`.
+
+## WebAssembly Fallback
+
+Platforms outside the native matrix (FreeBSD, older glibc, future
+architectures, edge runtimes) can install the portable fallback decided in
+ADR 0025:
+
+```sh
+npm install @naos-ui/compiler-wasm
+```
+
+The package mirrors the full binding surface (`transformComponent`,
+`renderDeclarativeShadowDom`, `getNativeInfo`) on top of a
+`wasm32-unknown-unknown` build of the compiler core, produces byte-identical
+transform output, and throws the same `NAOS_COMPILER_DIAGNOSTICS:` reason
+payload, so callers cannot tell the tiers apart. It is intentionally **not**
+a default or optional dependency — default installs stay lean, and transforms
+through the fallback run roughly 1.6x slower than the native binding.
+Repository builds produce the module with
+`pnpm --filter @naos-ui/compiler-wasm build` (requires the
+`wasm32-unknown-unknown` Rust target).
 
 ## Contributor Builds
 
