@@ -280,7 +280,7 @@ mod tests {
         let code = response["result"]["code"]
             .as_str()
             .expect("code should be a string");
-        assert!(code.contains("customElements.define(\"play1-counter\""));
+        assert!(code.contains("__naosDefineComponent(\"play1-counter\""));
         assert!(
             response["coreVersion"]
                 .as_str()

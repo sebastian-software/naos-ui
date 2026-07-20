@@ -1990,7 +1990,7 @@ test("declarative shadow dom remounts on production hydration mismatches", async
       "data:text/javascript,export default %22%22",
     )
     code = code.replace(
-      /from "([^"]*packages\/runtime\/dist\/runtime\.mjs)";/,
+      /from "([^"]*packages\/runtime\/dist\/internal\.mjs)";/,
       (_match, specifier: string) =>
         `from ${JSON.stringify(new URL(specifier, window.location.href).href)};`,
     )
