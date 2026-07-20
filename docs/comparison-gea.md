@@ -27,7 +27,7 @@ which job.
 | JSX | Compile-time, narrow analyzable subset | Compile-time transform |
 | Compiler | Rust / OXC core over an N-API boundary | JavaScript compiler in the Vite plugin |
 | Update model | Generated direct DOM code per element | HTML string templates + deep proxy + surgical patching |
-| Scope | Deliberately **not** an application framework; design-system and embed distribution | General application framework (UI, router, mobile, SSR) |
+| Scope | Narrow, analyzable core **plus an optional batteries layer** (primitives, router, data, motion) | Batteries-included framework (UI, router, mobile, SSR) |
 | Distribution contract | The native Custom Element itself, framework-neutral | The Gea app / component model |
 | Maturity | v0.1 prerelease | More developed, benchmark-tuned |
 
@@ -72,6 +72,41 @@ which is what this page relies on.)
 
 That single difference drives most of the rest: Naos is a **Web Components
 distribution tool**, Gea is an **application framework**.
+
+### Scope — both ship batteries, with different emphasis
+
+It would be wrong to read Naos as "just a compiler." Alongside the narrow core
+it ships a real optional layer:
+
+- **`@naos-ui/primitives`** — around three dozen accessible Custom Elements
+  (dialog, combobox, select, slider, menu, tabs, toast, tooltip, and more),
+  many backed by **Zag.js**, with a form-associated MVP — the same headless
+  engine family Gea's `@geajs/ui` builds on.
+- **`@naos-ui/router`** — a real client router: URL-to-element mapping,
+  lazy-loaded route modules, abortable loaders and `FormData` actions,
+  params/search, scroll and focus restoration, and route events.
+- **`@naos-ui/data`** (plus **`@naos-ui/data-convex`**) — SWR-inspired fetch and
+  subscription resources with cache, revalidation, `mutate`, and ref-counted
+  eviction.
+- **`@naos-ui/motion`** — a framework-free motion kernel: spring physics,
+  spring-to-CSS tokens, FLIP, reduced-motion handling, and animation-aware
+  presence timing.
+
+So the scope gap is narrower than the "narrow compiler vs. full framework"
+caricature. The honest split is one of **emphasis and boundary**:
+
+- **Gea-only today:** a first-class mobile package (views, navigation, gestures)
+  and a dedicated SSR package.
+- **Naos-only today:** native Custom Element output with Declarative Shadow DOM
+  and form-associated elements, a dedicated data-resource layer with a Convex
+  adapter, and a standalone motion package.
+- **The boundary difference:** Naos keeps these as *optional layers* that never
+  fold back into the core — foundations never import product layers, and CI
+  enforces it — whereas Gea presents them as one batteries-included whole.
+
+Naos's README still says it is "not trying to be a general application
+framework," and that remains true of the **core**; the batteries live one layer
+out, on purpose.
 
 ### Reactivity
 
@@ -160,13 +195,16 @@ Reach for **Naos** when:
   host page
 - you want **Declarative Shadow DOM** prerender output, `part`-based theming, or
   a form-associated element
+- you still want batteries — **router, data resources, motion, accessible
+  primitives** — but as optional layers around a small, analyzable core
 - you value a **Rust/OXC compiler core** with a deliberately narrow,
   statically analyzable authoring surface
 
 Reach for **Gea** when:
 
-- you are building a **full application** and want a batteries-included
-  framework (router, UI, mobile, SSR) from one vendor
+- you are building a **full application** and want a single batteries-included
+  framework, including **mobile** (views, navigation, gestures) and a dedicated
+  **SSR** package
 - you prefer **direct-mutation, proxy-based** reactivity over explicit signals
 - you want **class-based** stores and components
 - raw **js-framework-benchmark** performance for an app rendered into the page
@@ -174,7 +212,7 @@ Reach for **Gea** when:
 
 The two are adjacent neighbors, not competitors for the same slot: one distributes
 framework-neutral custom elements, the other builds applications that patch the
-page directly.
+page directly. Both ship a comparable batteries layer around that core choice.
 
 ## Honest caveats
 

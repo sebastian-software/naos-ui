@@ -1,0 +1,156 @@
+# Naos and Solid
+
+Solid is where Naos's reactivity comes from. Naos's `state()`, `computed()`, and
+`effect()` are signals in the Solid lineage: read by calling, fine-grained,
+no re-render, no virtual DOM. If any comparison on this site is a family
+resemblance rather than a coincidence, it is this one.
+
+The divergence is the **output boundary**: Solid renders an application into a
+container; Naos compiles each component into a native Custom Element.
+
+> Positioning snapshot from July 2026. Naos is a v0.1 prerelease; Solid is a
+> mature reactive library with a full meta-framework around it. This page
+> explains where Naos fits, not a ranking of a mature project against an MVP.
+
+## At a glance
+
+| | **Naos** | **Solid** |
+| --- | --- | --- |
+| One-line pitch | TSX compiler for native interface elements | Simple, performant reactivity for building UIs |
+| Reactivity | Signals: `state()`, `computed()`, `effect()` | Signals: `createSignal`, `createMemo`, `createEffect` |
+| Virtual DOM | None | None |
+| JSX | Compiled to direct DOM code | Compiled to direct DOM code (dom-expressions) |
+| Default output | **Native Custom Element** per component | **App rendered into a container** (`render(App, root)`) |
+| Custom elements | The primary, built-in output | Available via the separate **`solid-element`** wrapper |
+| Shadow DOM / slots / `part` | First-class in generated elements | Through `solid-element` (Shadow DOM), not the default model |
+| Compiler | Rust / OXC over an N-API boundary | Babel-based JSX transform |
+| Batteries | Optional layer: primitives, router, data, motion | Solid Router, SolidStart (SSR), stores, large ecosystem |
+| Maturity | v0.1 prerelease | Mature, production |
+
+## Common ground
+
+This is the closest reactivity match of any comparison here:
+
+- **Signals with the same ergonomics.** Read by calling (`count()`), fine-grained
+  updates, derived values via memos/computed, side effects via effects.
+- **No virtual DOM, no re-render.** Both compile JSX to direct DOM operations and
+  update only the exact bindings that changed.
+- **Compile-time JSX.** Neither ships a template runtime that re-evaluates a
+  render function.
+
+Naos's README is explicit that it wants "Solid-inspired ergonomics without
+depending on Solid runtime semantics." This page is the honest version of that:
+credit where the model comes from.
+
+## Where they diverge
+
+### Output boundary — the real difference
+
+**Solid**'s default target is an **application**: you call `render(() => <App />,
+document.getElementById("root"))` and Solid owns a subtree of the page. Custom
+elements are possible, but through the **separate `solid-element` package**,
+which wraps a Solid component as a Custom Element (with Shadow DOM) — an add-on,
+not the core model.
+
+**Naos** inverts that. The **Custom Element is the primary output**: every
+compiled component is a registered element with Shadow DOM, slots, `part`
+styling, Declarative Shadow DOM prerender, and a form-associated path. There is
+no "app root" concept in the component model — the element itself is the unit of
+distribution.
+
+So Solid is a **reactive application library that can also emit custom
+elements**, while Naos is a **custom-element compiler that happens to share
+Solid's reactivity**.
+
+### Runtime
+
+Solid ships a small reactivity runtime with the app. Naos compiles more of that
+away at the element boundary and keeps `@naos-ui/runtime` to tiny platform
+helpers (it is deliberately not a component runtime).
+
+### Implementation
+
+Solid's JSX transform is Babel-based. Naos owns compiler semantics in **Rust /
+OXC** behind an N-API boundary.
+
+### Ecosystem shape
+
+Solid has a mature ecosystem — **Solid Router**, **SolidStart** (SSR
+meta-framework), stores, and more. Naos ships its own optional layer (router,
+data, motion, primitives) but is early and narrower, and oriented around
+custom-element distribution rather than full application hosting.
+
+## Side by side
+
+**Naos** — a function compiled to a Custom Element:
+
+```tsx
+import { state } from "@naos-ui/core"
+
+export function Counter() {
+  const count = state(0)
+  return (
+    <button onClick={() => count.set(count() + 1)}>
+      Count: {count()}
+    </button>
+  )
+}
+```
+
+**Solid** — a function component rendered into the page:
+
+```tsx
+import { createSignal } from "solid-js"
+import { render } from "solid-js/web"
+
+function Counter() {
+  const [count, setCount] = createSignal(0)
+  return (
+    <button onClick={() => setCount(count() + 1)}>
+      Count: {count()}
+    </button>
+  )
+}
+
+render(() => <Counter />, document.getElementById("root")!)
+```
+
+The reactivity reads almost identically. The difference is the last line: Solid
+mounts into a root; a Naos `Counter` is registered as an element and used as a
+tag anywhere.
+
+## Which one fits
+
+Reach for **Solid** when:
+
+- you are building a **full application** and want a mature reactive library with
+  a real router and SSR meta-framework (**SolidStart**)
+- custom-element output is **optional** for you, not the primary artifact
+- you want the larger, more proven ecosystem today
+
+Reach for **Naos** when:
+
+- the **Custom Element is the deliverable** — a design system or embeddable
+  widget that any framework consumes as a tag
+- you want the **same signal ergonomics** but with Shadow DOM, slots, `part`,
+  Declarative Shadow DOM, and form-associated elements built in
+- a **Rust/OXC compiler core** and a narrow, statically analyzable surface appeal
+  to you
+- you are comfortable adopting a **v0.1 prerelease**
+
+## Honest caveats
+
+- Naos is a **v0.1 prerelease**; Solid is mature and production-proven.
+- The reactivity resemblance is real and acknowledged — Naos does not claim to
+  have invented this model; it adapts it without depending on Solid's runtime.
+- `solid-element` is a capable path to custom elements; "Solid can't do custom
+  elements" would be wrong. The difference is which model is the default.
+- Treat this as a July 2026 snapshot and re-check both projects' current docs.
+
+## Sources
+
+- Naos: this repository's [README](../README.md) and [docs](README.md)
+- Solid: <https://www.solidjs.com/>
+- `solid-element` (custom-element wrapper):
+  <https://github.com/solidjs/solid/tree/main/packages/solid-element>
+- SolidStart: <https://start.solidjs.com/>

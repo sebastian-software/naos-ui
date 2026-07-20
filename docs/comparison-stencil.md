@@ -1,0 +1,153 @@
+# Naos and Stencil
+
+Stencil is the closest established neighbor to Naos: both are compilers that take
+TypeScript and JSX and emit native Custom Elements. If you are choosing a
+compile-to-Web-Components toolchain, this is the most direct comparison on this
+site.
+
+The difference is not the category — it is what happens inside the generated
+element, and how mature each project is.
+
+> Positioning snapshot from July 2026. Naos is a v0.1 prerelease; Stencil is a
+> production compiler with years of ecosystem behind it. This page explains
+> where Naos fits, not a ranking of a mature project against an MVP.
+
+## At a glance
+
+| | **Naos** | **Stencil** |
+| --- | --- | --- |
+| One-line pitch | TSX compiler for native interface elements | Compiler that builds reusable, scalable component libraries |
+| Output target | Native Custom Elements, Shadow DOM, slots, `part`, DSD, form-associated | Native Custom Elements, Shadow DOM, slots |
+| Authoring unit | Exported PascalCase functions | Classes with `@Component`, `@Prop`, `@State` decorators + `render()` |
+| Reactivity | Explicit signals: `state()`, `computed()`, `effect()` | Decorated props/state; `render()` re-runs on change |
+| Update model | Generated direct DOM code per element | **Lightweight virtual DOM** (snabbdom-derived) diffing |
+| Compiler | Rust / OXC core over an N-API boundary | TypeScript compiler |
+| Framework interop | Native custom-element interop; consumer uses the tag directly | Auto-generates **React / Vue / Angular wrapper packages** |
+| SSR / prerender | Declarative Shadow DOM prerender + hydration | `hydrate` module, SSR, and static prerendering |
+| Batteries | Optional layer: primitives, router, data, motion | Focused on the component compiler; Ionic ecosystem alongside |
+| Maturity | v0.1 prerelease | Production, widely deployed |
+
+## Common ground
+
+- A **compiler**, not a runtime library — JSX/TSX in, custom elements out.
+- **Native Custom Elements** with **Shadow DOM**, slots, and CSS-based theming.
+- **TypeScript-first** authoring with typed props.
+- Framework-neutral output as the whole point: ship one component, consume it
+  anywhere.
+- Server-side output paths (Stencil's hydrate/SSR; Naos's Declarative Shadow DOM
+  prerender).
+
+This shared ground is exactly why Stencil is the fairest yardstick for Naos.
+
+## Where they diverge
+
+### Update model — VDOM vs. no VDOM
+
+Stencil renders each component through a **lightweight virtual DOM** (a
+snabbdom-derived implementation): `render()` returns a fresh tree, Stencil diffs
+it, and patches the differences. It is small and fast, but it is a per-component
+runtime and a diff step.
+
+Naos has **no virtual DOM**. The compiler generates direct DOM instructions per
+element, and fine-grained signals update only the exact text nodes and
+attributes that changed — there is no re-render of a `render()` method and no
+tree diff.
+
+### Authoring model
+
+- **Stencil** is class-and-decorator: `@Component({ tag: 'my-el' })` on a class,
+  `@Prop()` / `@State()` fields, and a `render()` method.
+- **Naos** is function-and-signal: an exported PascalCase function is the
+  component, state is `state()`, derived values are `computed()`, and the
+  TypeScript function name becomes the kebab-case tag.
+
+### Framework interop strategy
+
+- **Stencil** ships an **output-target** system that auto-generates typed
+  **React, Vue, and Angular wrapper** packages around the custom elements, so
+  each framework gets an idiomatic component.
+- **Naos** leans on **native custom-element interop** directly — the consuming
+  app uses `<my-el>` as-is. (React 19's improved custom-element support makes
+  this smoother than it used to be.) There is no wrapper-generation layer today.
+
+### Compiler implementation
+
+- **Stencil**'s compiler is TypeScript.
+- **Naos** owns compiler semantics in **Rust / OXC** behind an N-API boundary,
+  keeping the TypeScript packages thin (types, authoring stubs, Vite glue).
+
+## Side by side
+
+**Naos** — a function that compiles to a Custom Element:
+
+```tsx
+import { state } from "@naos-ui/core"
+
+export function Counter() {
+  const count = state(0)
+  return (
+    <button part="button" onClick={() => count.set(count() + 1)}>
+      Count: {count()}
+    </button>
+  )
+}
+```
+
+**Stencil** — a decorated class with a `render()` method:
+
+```tsx
+import { Component, State, h } from "@stencil/core"
+
+@Component({ tag: "my-counter", shadow: true })
+export class MyCounter {
+  @State() count = 0
+
+  render() {
+    return (
+      <button part="button" onClick={() => this.count++}>
+        Count: {this.count}
+      </button>
+    )
+  }
+}
+```
+
+## Which one fits
+
+Reach for **Stencil** when:
+
+- you want a **battle-tested, production** Web Component compiler with a large
+  ecosystem (and the Ionic lineage behind it)
+- you want **generated React / Vue / Angular wrapper packages** so each host
+  framework gets idiomatic components
+- you are comfortable with **class + decorator** authoring and a lightweight
+  VDOM under the hood
+- you need mature SSR/hydration and prerendering today
+
+Reach for **Naos** when:
+
+- you want **no virtual DOM at all** — direct DOM updates driven by fine-grained
+  signals
+- you prefer **function + signal** authoring over classes and decorators
+- you want **Declarative Shadow DOM** output and **form-associated** elements as
+  first-class compiler concerns
+- a **Rust/OXC compiler core** and a deliberately narrow, statically analyzable
+  authoring surface appeal to you
+- you are comfortable adopting a **v0.1 prerelease** for that trade
+
+## Honest caveats
+
+- Naos is a **v0.1 prerelease**; Stencil is production software with a long
+  track record. This comparison is about design direction, not readiness parity.
+- Stencil's "lightweight VDOM" is genuinely small; "no VDOM" is an architectural
+  difference, not automatically a performance verdict for every workload.
+- Treat this as a July 2026 snapshot and re-check both projects' current docs.
+
+## Sources
+
+- Naos: this repository's [README](../README.md) and [docs](README.md)
+- Stencil: <https://stenciljs.com/>
+- Stencil framework integrations / output targets:
+  <https://stenciljs.com/docs/overview>
+- Lit vs FAST vs Stencil (2026):
+  <https://www.pkgpulse.com/guides/lit-vs-fast-vs-stencil-web-component-frameworks-2026>
