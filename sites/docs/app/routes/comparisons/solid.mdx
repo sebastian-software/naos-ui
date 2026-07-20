@@ -25,7 +25,7 @@ container; Naos compiles each component into a native Custom Element.
 | One-line pitch | TSX compiler for native interface elements | Simple, performant reactivity for building UIs |
 | Reactivity | Signals: `state()`, `computed()`, `effect()` | Signals: `createSignal`, `createMemo`, `createEffect` |
 | Virtual DOM | None | None |
-| Runtime model | Small shared, tree-shakeable execution kernel (~6 kB gzip complete); no framework runtime | Small reactive runtime shared by the app |
+| Runtime model | Small shared, tree-shakeable execution kernel; no framework runtime | Small reactive runtime shared by the app |
 | JSX | Compiled to direct DOM code | Compiled to direct DOM code (dom-expressions) |
 | Default output | **Native Custom Element** per component | **App rendered into a container** (`render(App, root)`) |
 | Custom elements | The primary, built-in output | Available via the separate **`solid-element`** wrapper |
