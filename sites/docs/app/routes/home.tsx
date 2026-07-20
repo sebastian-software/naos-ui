@@ -33,6 +33,9 @@ export default function HomePage() {
           <a className="naos-action" href={withBase("reference/api")}>
             API reference
           </a>
+          <a className="naos-action" href={withBase("comparisons/overview")}>
+            Comparisons
+          </a>
           <a className="naos-action" href={withBase("guide/styling-and-dsd")}>
             Styling and DSD
           </a>

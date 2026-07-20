@@ -1,3 +1,9 @@
+---
+title: Lit
+description: Naos vs. Lit — compiler with signals vs. runtime library with templates.
+order: 3
+---
+
 # Naos and Lit
 
 Lit is the default way most teams build Web Components today: a small, mature
@@ -52,9 +58,9 @@ or CLI), and in return there is little to no framework runtime in the output.
 
 ### Templating and reactivity
 
-- **Lit** uses `html\`...\`` **tagged template literals** and **reactive
-  properties**: changing a `@property`/`@state` schedules a re-render, and
-  lit-html efficiently updates the changed template parts.
+- **Lit** uses `html` **tagged template literals** and **reactive properties**:
+  changing a `@property` or `@state` schedules a re-render, and lit-html
+  efficiently updates the changed template parts.
 - **Naos** uses **JSX/TSX** and **signals**: `state()`, `computed()`, `effect()`.
   Reads happen by calling the signal (`count()`); updates touch only the exact
   bindings that depend on it, with no component-level re-render.
@@ -139,7 +145,7 @@ Reach for **Naos** when:
 
 ## Sources
 
-- Naos: this repository's [README](../README.md) and [docs](README.md)
-- Lit: <https://lit.dev/>
+- Naos: the [project README](https://github.com/sebastian-software/naos-ui#readme)
+- Lit: [lit.dev](https://lit.dev/)
 - Lit vs FAST vs Stencil (2026):
-  <https://www.pkgpulse.com/guides/lit-vs-fast-vs-stencil-web-component-frameworks-2026>
+  [pkgpulse.com guide](https://www.pkgpulse.com/guides/lit-vs-fast-vs-stencil-web-component-frameworks-2026)

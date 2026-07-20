@@ -4,6 +4,12 @@ import { type RouteConfig, route, index } from "@react-router/dev/routes"
 
 export default [
   index("routes/home.tsx"),
+  route("comparisons/gea", "routes/comparisons/gea.mdx"),
+  route("comparisons/lit", "routes/comparisons/lit.mdx"),
+  route("comparisons/overview", "routes/comparisons/overview.mdx"),
+  route("comparisons/react", "routes/comparisons/react.mdx"),
+  route("comparisons/solid", "routes/comparisons/solid.mdx"),
+  route("comparisons/stencil", "routes/comparisons/stencil.mdx"),
   route("guide/authoring", "routes/guide/authoring.mdx"),
   route("guide/demos", "routes/guide/demos.mdx"),
   route("guide/getting-started", "routes/guide/getting-started.mdx"),

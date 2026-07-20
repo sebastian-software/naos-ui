@@ -1,3 +1,9 @@
+---
+title: Solid
+description: Naos vs. Solid — shared signal DNA, different output boundary.
+order: 4
+---
+
 # Naos and Solid
 
 Solid is where Naos's reactivity comes from. Naos's `state()`, `computed()`, and
@@ -46,8 +52,8 @@ credit where the model comes from.
 
 ### Output boundary — the real difference
 
-**Solid**'s default target is an **application**: you call `render(() => <App />,
-document.getElementById("root"))` and Solid owns a subtree of the page. Custom
+**Solid**'s default target is an **application**: you call `render()` with your
+root component and a mount node, and Solid owns a subtree of the page. Custom
 elements are possible, but through the **separate `solid-element` package**,
 which wraps a Solid component as a Custom Element (with Shadow DOM) — an add-on,
 not the core model.
@@ -149,8 +155,8 @@ Reach for **Naos** when:
 
 ## Sources
 
-- Naos: this repository's [README](../README.md) and [docs](README.md)
-- Solid: <https://www.solidjs.com/>
+- Naos: the [project README](https://github.com/sebastian-software/naos-ui#readme)
+- Solid: [solidjs.com](https://www.solidjs.com/)
 - `solid-element` (custom-element wrapper):
-  <https://github.com/solidjs/solid/tree/main/packages/solid-element>
-- SolidStart: <https://start.solidjs.com/>
+  [github.com/solidjs/solid](https://github.com/solidjs/solid/tree/main/packages/solid-element)
+- SolidStart: [start.solidjs.com](https://start.solidjs.com/)

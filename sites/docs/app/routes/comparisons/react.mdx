@@ -1,3 +1,9 @@
+---
+title: React
+description: Naos vs. React — a different corner, and why they are complementary.
+order: 6
+---
+
 # Naos and React
 
 React is a different corner of the map, and this page says so up front. React is
@@ -25,7 +31,7 @@ either/or.
 | Update model | Direct DOM updates on changed bindings | Re-run component, diff virtual DOM, commit |
 | Authoring | PascalCase functions → custom elements | Function components + hooks |
 | JSX | Yes (compiled to DOM code) | Yes (compiled to `createElement` / runtime) |
-| Distribution contract | The Custom Element tag, framework-neutral | A React component (used inside React) |
+| Distribution contract | The native Custom Element tag, framework-neutral | A React component (used inside React) |
 | Interop | Consumed by **any** framework, incl. React 19 | Consumes custom elements well as of React 19 |
 | Batteries | Optional layer: primitives, router, data, motion | Vast ecosystem (Router, Query, Next.js, etc.) |
 | Maturity | v0.1 prerelease | Industry standard |
@@ -74,8 +80,8 @@ virtual DOM and no framework runtime handed to the consumer.
 ### The unit you distribute
 
 - **React**: a React component, meaningful **inside React**.
-- **Naos**: a **standards-based Custom Element** — a `<my-el>` tag that any
-  environment can use without knowing Naos or React exists.
+- **Naos**: a **standards-based Custom Element** — a tag that any environment can
+  use without knowing Naos or React exists.
 
 ### Scope
 
@@ -118,7 +124,7 @@ export function Counter() {
 
 Same JSX shape; different machinery. React re-runs `Counter` and diffs a virtual
 DOM on each click. Naos updates just the one text node, and the compiled result
-is a native element a React app can then embed as `<…-counter>`.
+is a native element a React app can then embed as a tag.
 
 ## Which one fits
 
@@ -153,8 +159,8 @@ React for the application that consumes it.
 
 ## Sources
 
-- Naos: this repository's [README](../README.md), [docs](README.md), and
-  [React 19 adaptation review](react-19-adaptation.md)
-- React: <https://react.dev/>
+- Naos: the [project README](https://github.com/sebastian-software/naos-ui#readme)
+  and the [React 19 adaptation review](https://github.com/sebastian-software/naos-ui/blob/main/docs/react-19-adaptation.md)
+- React: [react.dev](https://react.dev/)
 - React 19 release notes (incl. Custom Elements support):
-  <https://react.dev/blog/2024/12/05/react-19>
+  [react.dev/blog](https://react.dev/blog/2024/12/05/react-19)

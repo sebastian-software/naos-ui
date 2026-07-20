@@ -1,3 +1,9 @@
+---
+title: Gea
+description: Naos vs. Gea — near-identical vocabulary, opposite core bet.
+order: 5
+---
+
 # Naos and Gea
 
 Naos and Gea are both compiler-first UI toolchains that describe themselves in
@@ -12,8 +18,7 @@ which job.
 > Positioning snapshot from July 2026. Naos is a v0.1 prerelease compiler
 > toolchain; Gea is a further-developed application framework. This page is meant
 > to explain where Naos fits, not to rank a broader framework against an MVP.
-> Gea figures are that project's own published claims; see
-> [Sources](#sources).
+> Gea figures are that project's own published claims.
 
 ## At a glance
 
@@ -59,16 +64,16 @@ The similarity is mostly on the tagline layer. The core decisions are different.
 Naos compiles each component to a **native Custom Element**. The element is the
 product: it carries Shadow DOM, slots, `part`-based styling hooks, Declarative
 Shadow DOM prerender output, and an experimental Form-Associated path. You ship
-a `<my-widget>` tag that any page — React, Vue, Angular, plain HTML, a CMS —
-can consume without knowing Naos exists.
+a custom tag that any page — React, Vue, Angular, plain HTML, a CMS — can
+consume without knowing Naos exists.
 
 Gea, per its own documentation, renders into **standard DOM**: a root component
-mounts into a container (`app.render(container)`) and its template produces plain
-elements such as `<div>` and `<button>`, which Gea patches surgically as proxy
-state changes. There is no custom-element registration, Shadow DOM, or slot/part
-contract in that model. (Some third-party write-ups describe Gea as emitting
-"native web components"; Gea's own docs show a plain-DOM mount-and-patch model,
-which is what this page relies on.)
+mounts into a container and its template produces plain elements such as `div`
+and `button`, which Gea patches surgically as proxy state changes. There is no
+custom-element registration, Shadow DOM, or slot/part contract in that model.
+(Some third-party write-ups describe Gea as emitting "native web components";
+Gea's own docs show a plain-DOM mount-and-patch model, which is what this page
+relies on.)
 
 That single difference drives most of the rest: Naos is a **Web Components
 distribution tool**, Gea is an **application framework**.
@@ -225,13 +230,12 @@ page directly. Both ship a comparable batteries layer around that core choice.
 
 ## Sources
 
-- Naos: this repository's [README](../README.md) and
-  [documentation](README.md)
-- Gea repository: <https://github.com/dashersw/gea>
+- Naos: the [project README](https://github.com/sebastian-software/naos-ui#readme)
+- Gea repository: [github.com/dashersw/gea](https://github.com/dashersw/gea)
 - Gea docs — components:
-  <https://github.com/dashersw/gea/blob/main/docs/core-concepts/components.md>
+  [components.md](https://github.com/dashersw/gea/blob/main/docs/core-concepts/components.md)
 - Gea docs — getting started:
-  <https://github.com/dashersw/gea/blob/main/docs/getting-started.md>
-- Gea site: <https://geajs.com/>
+  [getting-started.md](https://github.com/dashersw/gea/blob/main/docs/getting-started.md)
+- Gea site: [geajs.com](https://geajs.com/)
 - "Introducing Gea", Coyotiv:
-  <https://www.coyotiv.com/blog/posts/introducing-gea-compile-time-reactive-ui-framework/>
+  [coyotiv.com blog](https://www.coyotiv.com/blog/posts/introducing-gea-compile-time-reactive-ui-framework/)
