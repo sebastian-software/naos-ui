@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { MetaFunction } from "react-router"
 import config from "virtual:ardo/config"
 
+import { CodeEditor } from "../components/code-editor"
+import { highlightGeneratedModule } from "../lib/highlight"
 import {
   PlaygroundCompiler,
   type PlaygroundDiagnostic,
@@ -17,19 +19,51 @@ export const meta: MetaFunction = () => [
   },
 ]
 
-const SAMPLE_SOURCE = `import { clx, computed, state } from "@naos-ui/core"
+const SAMPLE_SOURCE = `import { clx, state } from "@naos-ui/core"
+
+export const options = {
+  styles: [
+    \`
+    button {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      border: 0;
+      border-radius: 999px;
+      padding: 0.7rem 1.5rem;
+      background: #0f766e;
+      color: #ffffff;
+      font: 600 1rem/1 system-ui, sans-serif;
+      cursor: pointer;
+      transition: background 150ms ease, transform 150ms ease;
+    }
+    button:hover { background: #115e59; }
+    button:active { transform: scale(0.96); }
+    .badge {
+      display: inline-grid;
+      place-items: center;
+      min-width: 1.7rem;
+      height: 1.7rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.25);
+      font-size: 0.85rem;
+      transition: background 150ms ease;
+    }
+    button.active .badge { background: #f59e0b; color: #451a03; }
+    \`,
+  ],
+}
 
 export function Counter({ label = "Count" }) {
   const count = state(0)
-  const text = computed(() => \`\${label}: \${count()}\`)
 
   return (
     <button
-      class={clx("counter", { active: count() > 0 })}
-      style={{ "--count": String(count()) }}
+      class={clx({ active: count() > 0 })}
       onClick={() => count.update((value) => value + 1)}
     >
-      {text()}
+      {label}
+      <span class="badge">{count()}</span>
     </button>
   )
 }
@@ -73,7 +107,10 @@ export default function PlaygroundPage() {
   const [source, setSource] = useState(SAMPLE_SOURCE)
   const [compilerState, setCompilerState] = useState<CompilerState>({ status: "loading" })
   const [run, setRun] = useState<RunState>(INITIAL_RUN)
+  const [highlightedCode, setHighlightedCode] = useState<string | null>(null)
   const previewRef = useRef<HTMLDivElement>(null)
+  const sourceRef = useRef(source)
+  sourceRef.current = source
 
   useEffect(() => {
     let disposed = false
@@ -100,11 +137,12 @@ export default function PlaygroundPage() {
     const result = compiler.transform(nextSource, `play${nextInstanceId}`)
     nextInstanceId += 1
     if (!result.ok) {
-      setRun({
-        ...INITIAL_RUN,
+      setRun((previous) => ({
+        ...previous,
         diagnostics: result.diagnostics,
         message: result.message,
-      })
+        previewError: null,
+      }))
       return
     }
 
@@ -129,27 +167,65 @@ export default function PlaygroundPage() {
     })
   }, [])
 
+  // Compile on load and auto-recompile shortly after edits settle.
   useEffect(() => {
-    if (compilerState.status === "ready") {
-      void runSource(compilerState.compiler, SAMPLE_SOURCE)
+    if (compilerState.status !== "ready") return
+    const timeout = window.setTimeout(() => {
+      void runSource(compilerState.compiler, source)
+    }, 350)
+    return () => window.clearTimeout(timeout)
+  }, [compilerState, source, runSource])
+
+  useEffect(() => {
+    if (!run.code) {
+      setHighlightedCode(null)
+      return
     }
-  }, [compilerState, runSource])
+    let disposed = false
+    highlightGeneratedModule(run.code)
+      .then((html) => {
+        if (!disposed) setHighlightedCode(html)
+      })
+      .catch(() => {
+        if (!disposed) setHighlightedCode(null)
+      })
+    return () => {
+      disposed = true
+    }
+  }, [run.code])
 
   const handleRun = () => {
     if (compilerState.status === "ready") {
-      void runSource(compilerState.compiler, source)
+      void runSource(compilerState.compiler, sourceRef.current)
     }
   }
+
+  const statusChip =
+    compilerState.status === "loading" ? (
+      <span className="naos-playground-chip" data-state="loading">
+        Loading compiler...
+      </span>
+    ) : compilerState.status === "ready" ? (
+      <span className="naos-playground-chip" data-state="ready">
+        naos-core {run.coreVersion || "ready"} - WebAssembly
+      </span>
+    ) : (
+      <span className="naos-playground-chip" data-state="unavailable">
+        Compiler unavailable
+      </span>
+    )
 
   return (
     <main className="naos-playground">
       <header className="naos-playground-header">
-        <h1>Playground</h1>
-        <p>
-          The Rust compiler core, compiled to WebAssembly, transforms your TSX component to a native
-          Custom Element module right here in the browser. Single module only - relative and CSS
-          imports are not resolvable in the playground.
-        </p>
+        <div>
+          <h1>Playground</h1>
+          <p>
+            The Rust compiler core, compiled to WebAssembly, transforms your TSX component into a
+            native Custom Element module right here in the browser - no server involved.
+          </p>
+        </div>
+        {statusChip}
       </header>
 
       {compilerState.status === "unavailable" ? (
@@ -160,44 +236,42 @@ export default function PlaygroundPage() {
       ) : null}
 
       <div className="naos-playground-columns">
-        <section className="naos-playground-pane" aria-label="Component source">
+        <section className="naos-playground-pane" data-pane="editor" aria-label="Component source">
           <div className="naos-playground-pane-header">
             <h2>Source</h2>
-            <button
-              type="button"
-              onClick={handleRun}
-              disabled={compilerState.status !== "ready"}
-              data-playground-run
-            >
-              {compilerState.status === "loading" ? "Loading compiler..." : "Compile & run"}
-            </button>
+            <div className="naos-playground-pane-tools">
+              <kbd>Cmd/Ctrl + Enter</kbd>
+              <button
+                type="button"
+                onClick={handleRun}
+                disabled={compilerState.status !== "ready"}
+                data-playground-run
+              >
+                Run
+              </button>
+            </div>
           </div>
-          <textarea
-            aria-label="Component source editor"
-            spellCheck={false}
+          <CodeEditor
             value={source}
-            onChange={(event) => setSource(event.target.value)}
-            onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-                event.preventDefault()
-                handleRun()
-              }
-            }}
+            onChange={setSource}
+            onSubmit={handleRun}
+            ariaLabel="Component source editor"
           />
         </section>
 
-        <section className="naos-playground-pane" aria-label="Compiler output">
+        <section className="naos-playground-pane" data-pane="preview" aria-label="Live preview">
           <div className="naos-playground-pane-header">
             <h2>Preview</h2>
             {run.tagName ? <code data-playground-tag>&lt;{run.tagName}&gt;</code> : null}
           </div>
-          <div ref={previewRef} className="naos-playground-preview" data-playground-preview />
+          <div className="naos-playground-stage">
+            <div ref={previewRef} data-playground-preview />
+          </div>
           {run.previewError ? (
             <p className="naos-playground-notice" role="alert">
               Preview failed: {run.previewError}
             </p>
           ) : null}
-
           {run.message ? (
             <div className="naos-playground-diagnostics" role="alert">
               <h3>Diagnostics</h3>
@@ -215,21 +289,30 @@ export default function PlaygroundPage() {
                 ))}
               </ul>
             </div>
-          ) : null}
-
-          {run.code ? (
-            <details className="naos-playground-code" open>
-              <summary>
-                Generated module
-                {run.coreVersion ? ` (naos-core ${run.coreVersion})` : null}
-              </summary>
-              <pre>
-                <code data-playground-code>{run.code}</code>
-              </pre>
-            </details>
-          ) : null}
+          ) : (
+            <p className="naos-playground-hint">
+              Single module only - relative and CSS imports are not resolvable in the playground.
+            </p>
+          )}
         </section>
       </div>
+
+      {run.code ? (
+        <details className="naos-playground-code" open>
+          <summary>Generated module</summary>
+          {highlightedCode ? (
+            <div
+              data-playground-code
+              // Shiki output is generated locally from the compiled module.
+              dangerouslySetInnerHTML={{ __html: highlightedCode }}
+            />
+          ) : (
+            <pre data-playground-code>
+              <code>{run.code}</code>
+            </pre>
+          )}
+        </details>
+      ) : null}
     </main>
   )
 }
