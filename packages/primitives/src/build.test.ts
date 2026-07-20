@@ -13,7 +13,7 @@ describe("@naos-ui/primitives build output", () => {
   it("ships compiled component modules without Vite-only CSS imports", () => {
     const button = readFileSync(join(distRoot, "button.mjs"), "utf8")
 
-    expect(button).toContain('customElements.define("naos-button"')
+    expect(button).toContain('__naosDefineComponent("naos-button"')
     expect(button).toContain("const css =")
     expect(button).not.toContain("?inline")
   })
@@ -575,9 +575,10 @@ describe("@naos-ui/primitives build output", () => {
     const dropdown = readFileSync(join(distRoot, "dropdown.mjs"), "utf8")
     const tabs = readFileSync(join(distRoot, "tabs.mjs"), "utf8")
 
-    expect(dropdown).toContain('addEventListener("keydown"')
+    expect(dropdown).toContain("__naosListen(")
+    expect(dropdown).toContain('"keydown"')
     expect(tabs).toContain('"key-down": "keydown"')
-    expect(dropdown).not.toContain('addEventListener("key-down"')
+    expect(dropdown).not.toContain('"key-down"')
     expect(tabs).not.toContain('addEventListener("key-down"')
   })
 

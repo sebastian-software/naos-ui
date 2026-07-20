@@ -43,7 +43,7 @@ describe.skipIf(!wasmModuleAvailable)("@naos-ui/compiler-wasm", () => {
   it("transforms components with the N-API result shape", () => {
     const result = transformComponent({ ...baseRequest, source: counterSource })
 
-    expect(result.code).toContain('customElements.define("wasm-counter"')
+    expect(result.code).toContain('__naosDefineComponent("wasm-counter"')
     expect(result.tagName).toBe("wasm-counter")
     expect(result.className).toBe("CounterElement")
     expect(result.exportName).toBe("Counter")
