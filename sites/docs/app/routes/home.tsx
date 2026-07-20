@@ -284,12 +284,17 @@ function InstallCommand() {
         className="naos-install-copy"
         aria-label={copied ? "Copied" : "Copy install command"}
         onClick={() => {
-          void navigator.clipboard.writeText(INSTALL_COMMAND).then(() => {
-            setCopied(true)
-            window.setTimeout(() => {
-              setCopied(false)
-            }, 2000)
-          })
+          void navigator.clipboard
+            ?.writeText(INSTALL_COMMAND)
+            .then(() => {
+              setCopied(true)
+              window.setTimeout(() => {
+                setCopied(false)
+              }, 2000)
+            })
+            .catch(() => {
+              /* Permission denied — the command stays selectable for manual copy. */
+            })
         }}
       >
         {copied ? <Check size={15} aria-hidden="true" /> : <Copy size={15} aria-hidden="true" />}
