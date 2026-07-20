@@ -1,12 +1,13 @@
-// Builds the static assets behind the docs-site compiler playground
+// Builds the static assets behind the standalone playground site
 // (ADR 0025, phase 1):
 //
 //   1. The `naos-wasm` compiler module for `wasm32-unknown-unknown`.
 //   2. Browser-ready ESM copies of @naos-ui/runtime and @naos-ui/motion that
 //      generated playground modules import instead of bare package names.
 //
-// Without a Rust toolchain the wasm step is skipped with a warning so
-// JS-only contributors can still build the docs; the playground page then
+// The assets land in sites/playground/public/ so the Vite build ships them
+// next to the page. Without a Rust toolchain the wasm step is skipped with a
+// warning so JS-only contributors can still build the site; the page then
 // reports the missing module at runtime.
 import { spawnSync } from "node:child_process"
 import { existsSync } from "node:fs"
@@ -17,7 +18,7 @@ import { fileURLToPath } from "node:url"
 import { installWasmBinding, wasmBindingTarget } from "./build-wasm-binding.mjs"
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
-const outDir = join(root, "sites", "docs", "public", "playground")
+const outDir = join(root, "sites", "playground", "public")
 
 const runtimeAssets = [
   [join(root, "packages", "runtime", "dist", "runtime.mjs"), "naos-runtime.js"],
