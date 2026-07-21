@@ -1,6 +1,6 @@
 {
   "name": "@naos-ui/actions",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Reusable component-local action primitives for Naos and Custom Element applications.",
   "license": "Apache-2.0",
   "type": "module",
