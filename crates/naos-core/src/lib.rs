@@ -132,7 +132,7 @@ mod tests {
               const count = state(0);
 
               return (
-                <section className="panel">
+                <section class="panel">
                   <h2>Status</h2>
                   <button data-count={count()} onClick={() => count.set(count() + 1)}>
                     Count: {count()}
@@ -167,11 +167,88 @@ mod tests {
     }
 
     #[test]
+    fn template_dom_backend_should_assign_holes_before_reapplying_spread_overrides() {
+        let source = r#"
+            export function Chip({ extras = {} }) {
+              return <div><span {...extras} class="chip" hidden>Label</span></div>;
+            }
+        "#;
+
+        let result = transform_component_module_with_dom_backend(
+            source,
+            "chip.wc.tsx",
+            DomBackend::Template,
+        )
+        .expect("a static spread override should compile with the template backend");
+        let mount = result
+            .code
+            .split("  #mount() {")
+            .nth(1)
+            .and_then(|source| source.split("  #hydrate() {").next())
+            .expect("generated component should include mount and hydration methods");
+
+        let hole_assignment = mount
+            .find("this.#node1 = holes[0];")
+            .expect("the spread element should receive a template hole");
+        let class_override = mount
+            .find("this.#node1.setAttribute(\"class\", \"chip\");")
+            .expect("the static class should be reapplied after the spread");
+        let hidden_override = mount
+            .find("this.#node1.setAttribute(\"hidden\", \"\");")
+            .expect("the static boolean should be reapplied after the spread");
+
+        assert!(hole_assignment < class_override);
+        assert!(hole_assignment < hidden_override);
+    }
+
+    #[test]
+    fn template_dom_backend_should_reject_parser_sensitive_html() {
+        for (filename, template) in [
+            (
+                "nested-button.wc.tsx",
+                "<button><button>Inner</button></button>",
+            ),
+            (
+                "nested-list-item.wc.tsx",
+                "<ul><li><li>Inner</li></li></ul>",
+            ),
+            (
+                "nested-definition.wc.tsx",
+                "<dl><dt><dd><dt>Inner</dt></dd></dt></dl>",
+            ),
+            (
+                "pre.wc.tsx",
+                "<pre>Leading newline is parser-sensitive</pre>",
+            ),
+        ] {
+            let source = format!("export function InvalidNesting() {{ return {template}; }}");
+            let error = transform_component_module_with_dom_backend(
+                &source,
+                filename,
+                DomBackend::Template,
+            )
+            .expect_err("parser-sensitive HTML must stay on the imperative backend");
+
+            assert_eq!(
+                error.diagnostics(filename)[0].code,
+                "NAOS_TEMPLATE_BACKEND_INELIGIBLE"
+            );
+
+            let auto =
+                transform_component_module_with_dom_backend(&source, filename, DomBackend::Auto)
+                    .expect(
+                        "auto should keep parser-sensitive components on the imperative backend",
+                    );
+            assert!(!auto.code.contains("content.cloneNode(true)"));
+        }
+    }
+
+    #[test]
     fn auto_dom_backend_should_select_templates_only_when_the_generated_module_is_smaller() {
         let source = r#"
             export function StaticTree() {
               return (
-                <section className="shell">
+                <section class="shell">
                   <div><div><div><div><div><div><div><div><div><div>
                     <span>Reusable static DOM skeleton</span>
                   </div></div></div></div></div></div></div></div></div></div>

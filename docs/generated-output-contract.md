@@ -60,7 +60,7 @@ Generated implementation details are not semver-protected selectors:
 - `data-naos-*` hydration and control markers;
 - text marker names such as `text0`;
 - node marker names such as `node0`;
-- the exact wrapper elements used for control-flow containers.
+- the exact wrapper elements used for control-flow containers;
 - the exact template HTML string and clone-hole paths used by the optional
   template DOM backend.
 
