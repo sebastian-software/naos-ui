@@ -383,8 +383,14 @@ impl<'a> CodeGenerator<'a> {
     }
 
     fn emit_template_root(&mut self, root: &TemplateElement) -> CompilerResult<()> {
+        // Attribute emission can add mount lines for static values that follow
+        // a spread. Keep those lines aside while serializing so every template
+        // hole has been assigned before a generated field is dereferenced.
+        let mount_lines_before_template = std::mem::take(&mut self.mount_lines);
         let mut plan = TemplatePlan::default();
         self.serialize_template_element(root, vec![0], &mut plan)?;
+        let template_attribute_mount_lines = std::mem::take(&mut self.mount_lines);
+        self.mount_lines = mount_lines_before_template;
 
         self.mount_lines
             .push("const fragment = __naosGetTemplate().content.cloneNode(true);".to_owned());
@@ -418,6 +424,7 @@ impl<'a> CodeGenerator<'a> {
                     .push(format!("this.#{} = holes[{index}];", hole.field));
             }
         }
+        self.mount_lines.extend(template_attribute_mount_lines);
         self.mount_lines
             .push("this.#root.append(fragment);".to_owned());
         self.template_plan = Some(plan);
@@ -4199,16 +4206,41 @@ fn template_backend_eligibility(module: &ComponentModule) -> CompilerResult<()> 
             module.template.span,
         );
     }
-    template_element_eligibility(&module.template)
+    template_element_eligibility(&module.template, &[])
 }
 
-fn template_element_eligibility(element: &TemplateElement) -> CompilerResult<()> {
+fn template_element_eligibility(
+    element: &TemplateElement,
+    ancestors: &[String],
+) -> CompilerResult<()> {
     if !is_template_safe_html_tag(&element.tag_name) {
         return template_backend_ineligible(
             format!(
                 "<{}> is not parser-safe for the template DOM backend yet.",
                 element.tag_name
             ),
+            element.span,
+        );
+    }
+    if element.tag_name == "button" && ancestors.iter().any(|tag_name| tag_name == "button") {
+        return template_backend_ineligible(
+            "Nested <button> elements are normalized by HTML template parsing.",
+            element.span,
+        );
+    }
+    if element.tag_name == "li" && has_open_template_list_item(ancestors) {
+        return template_backend_ineligible(
+            "Nested <li> elements without an intervening <ul> or <ol> are normalized by HTML template parsing.",
+            element.span,
+        );
+    }
+    if matches!(element.tag_name.as_str(), "dd" | "dt")
+        && ancestors
+            .iter()
+            .any(|tag_name| matches!(tag_name.as_str(), "dd" | "dt"))
+    {
+        return template_backend_ineligible(
+            "Nested <dd> and <dt> elements are normalized by HTML template parsing.",
             element.span,
         );
     }
@@ -4234,9 +4266,11 @@ fn template_element_eligibility(element: &TemplateElement) -> CompilerResult<()>
             }
         }
     }
+    let mut child_ancestors = ancestors.to_owned();
+    child_ancestors.push(element.tag_name.clone());
     for child in &element.children {
         match child {
-            TemplateChild::Element(child) => template_element_eligibility(child)?,
+            TemplateChild::Element(child) => template_element_eligibility(child, &child_ancestors)?,
             TemplateChild::List(_) => {
                 return template_backend_ineligible(
                     "Dynamic lists are not yet eligible for the template DOM backend.",
@@ -4253,6 +4287,18 @@ fn template_element_eligibility(element: &TemplateElement) -> CompilerResult<()>
         }
     }
     Ok(())
+}
+
+fn has_open_template_list_item(ancestors: &[String]) -> bool {
+    ancestors
+        .iter()
+        .rev()
+        .find_map(|tag_name| match tag_name.as_str() {
+            "li" => Some(true),
+            "ol" | "ul" => Some(false),
+            _ => None,
+        })
+        .unwrap_or(false)
 }
 
 fn template_backend_ineligible(
@@ -4300,7 +4346,6 @@ fn is_template_safe_html_tag(tag_name: &str) -> bool {
             | "nav"
             | "ol"
             | "output"
-            | "pre"
             | "s"
             | "section"
             | "small"

@@ -48,11 +48,11 @@ Compile one .wc.tsx module to JavaScript.
 
 Options:
   -o, --out, --output <file>  Write JavaScript to a file.
-  --dom-backend <backend>      DOM construction backend (default: imperative).
-  --stdout                   Print JavaScript to stdout instead of writing files.
-  --json                     Print a deterministic JSON summary. Requires -o.
-  --pretty                   Pretty-print JSON output.
-  -h, --help                 Show this help.
+  --dom-backend <backend>     DOM construction backend (default: imperative).
+  --stdout                    Print JavaScript to stdout instead of writing files.
+  --json                      Print a deterministic JSON summary. Requires -o.
+  --pretty                    Pretty-print JSON output.
+  -h, --help                  Show this help.
 `
 
 const prerenderHelpText = `Usage:

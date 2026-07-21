@@ -119,8 +119,21 @@ describe("@naos-ui/cli", () => {
     const io = createIo()
 
     await expect(runCli(["compile", "--help"], io)).resolves.toBe(0)
-    expect(io.stdoutText()).toContain("naos compile <input>")
-    expect(io.stdoutText()).toContain("--json")
+    const output = io.stdoutText()
+    expect(output).toContain("naos compile <input>")
+    expect(output).toContain("--json")
+    for (const description of [
+      "Write JavaScript to a file.",
+      "DOM construction backend (default: imperative).",
+      "Print JavaScript to stdout instead of writing files.",
+      "Print a deterministic JSON summary. Requires -o.",
+      "Pretty-print JSON output.",
+      "Show this help.",
+    ]) {
+      expect(
+        output.indexOf(description) - output.lastIndexOf("\n", output.indexOf(description)),
+      ).toBe(31)
+    }
     expect(io.stderrText()).toBe("")
   })
 
