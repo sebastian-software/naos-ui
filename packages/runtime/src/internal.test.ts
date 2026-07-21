@@ -21,6 +21,7 @@ import {
   reconcileKeyed,
   reportError,
   resetRegistrationWarningForTesting,
+  resolveTemplateHoles,
   runEffect,
   setAttr,
   shouldUpdate,
@@ -77,6 +78,30 @@ class FakeStyledElement extends FakeElement {
   style = new FakeStyle()
 }
 
+class FakeTemplateNode {
+  childNodes: FakeTemplateNode[] = []
+  parentNode: FakeTemplateNode | null = null
+
+  append(...nodes: FakeTemplateNode[]): void {
+    for (const node of nodes) {
+      node.parentNode = this
+      this.childNodes.push(node)
+    }
+  }
+
+  replaceWith(node: FakeTemplateNode): void {
+    if (!this.parentNode) return
+    const index = this.parentNode.childNodes.indexOf(this)
+    if (index < 0) return
+    node.parentNode = this.parentNode
+    this.parentNode.childNodes[index] = node
+  }
+}
+
+class FakeTemplateElement extends FakeTemplateNode {}
+class FakeTemplateComment extends FakeTemplateNode {}
+class FakeTemplateText extends FakeTemplateNode {}
+
 function kernel(spec: Parameters<typeof createKernel>[1] = {}): Kernel {
   return createKernel(new FakeElement() as unknown as HTMLElement, {
     shadow: false,
@@ -97,6 +122,29 @@ describe("shared runtime kernel", () => {
     expect(shouldUpdate([], dirty)).toBe(false)
     expect(shouldUpdate(null, dirty)).toBe(true)
     expect(shouldUpdate(["label"], null)).toBe(true)
+  })
+
+  it("resolves clone holes before replacing text comment placeholders", () => {
+    vi.stubGlobal("Comment", FakeTemplateComment)
+    vi.stubGlobal("Element", FakeTemplateElement)
+    vi.stubGlobal("Text", FakeTemplateText)
+    vi.stubGlobal("document", { createTextNode: () => new FakeTemplateText() })
+    const fragment = new FakeTemplateNode()
+    const button = new FakeTemplateElement()
+    const textPlaceholder = new FakeTemplateComment()
+    fragment.append(button)
+    button.append(textPlaceholder)
+
+    const [element, text] = resolveTemplateHoles(
+      fragment as unknown as DocumentFragment,
+      [[0], [0, 0]],
+      [1],
+    )
+
+    expect(element).toBe(button)
+    expect(text).toBeInstanceOf(FakeTemplateText)
+    expect(button.childNodes[0]).toBe(text)
+    vi.unstubAllGlobals()
   })
 
   it("defines data-driven properties and attribute parsing against one kernel record", () => {

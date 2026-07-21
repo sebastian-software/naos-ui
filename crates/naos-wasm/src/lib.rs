@@ -16,8 +16,8 @@
 //! response buffer must be released with [`naos_free`].
 
 use naos_core::{
-    PackageContext, render_declarative_shadow_dom_module_with_inline_styles,
-    transform_component_module,
+    DomBackend, PackageContext, render_declarative_shadow_dom_module_with_inline_styles,
+    transform_component_module_with_dom_backend,
 };
 use serde::Deserialize;
 
@@ -35,6 +35,8 @@ struct TransformRequest {
     package_version: Option<String>,
     /// Validated Custom Element prefix for tag derivation.
     tag_prefix: String,
+    /// DOM construction backend: `auto`, `imperative`, or `template`.
+    dom_backend: Option<String>,
 }
 
 /// Declarative Shadow DOM render request crossing the WASM boundary as JSON.
@@ -165,7 +167,24 @@ fn transform_response(request_bytes: &[u8]) -> String {
         version: request.package_version,
         tag_prefix: request.tag_prefix,
     };
-    match transform_component_module(&request.source, &request.filename, &package) {
+    let dom_backend = match DomBackend::parse(request.dom_backend.as_deref()) {
+        Ok(dom_backend) => dom_backend,
+        Err(error) => {
+            return error_response_json(
+                core_version,
+                &error.to_string(),
+                &serde_json::json!(
+                    error.diagnostics_with_source(&request.filename, Some(&request.source))
+                ),
+            );
+        }
+    };
+    match transform_component_module_with_dom_backend(
+        &request.source,
+        &request.filename,
+        &package,
+        dom_backend,
+    ) {
         Ok(result) => serde_json::json!({
             "ok": true,
             "coreVersion": core_version,
@@ -286,6 +305,24 @@ mod tests {
                 .as_str()
                 .is_some_and(|version| !version.is_empty())
         );
+    }
+
+    #[test]
+    fn transform_accepts_the_template_dom_backend() {
+        let response = call_transform(&serde_json::json!({
+            "source": "export function StaticPanel() { return <section><span>Static</span></section>; }\n",
+            "filename": "static-panel.wc.tsx",
+            "packageName": "@naos-ui/playground",
+            "packageVersion": "0.0.0",
+            "tagPrefix": "play1",
+            "domBackend": "template",
+        }));
+
+        assert_eq!(response["ok"], true);
+        let code = response["result"]["code"]
+            .as_str()
+            .expect("code should be a string");
+        assert!(code.contains("content.cloneNode(true)"));
     }
 
     #[test]

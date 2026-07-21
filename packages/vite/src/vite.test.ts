@@ -70,6 +70,7 @@ describe("naos", () => {
   })
 
   it("transforms wc tsx modules through the native wrapper", async () => {
+    let domBackend: string | undefined
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "test" }),
       renderDeclarativeShadowDom: () => ({
@@ -82,17 +83,20 @@ describe("naos", () => {
         templateHtml: "",
         usesDeclarativeShadowDom: true,
       }),
-      transformComponent: (request) => ({
-        ...nativeMetadata,
-        code: `compiled:${request.filename}:${request.source}`,
-        hasChanged: true,
-        styleImports: [],
-        props: [],
-        events: [],
-      }),
+      transformComponent: (request) => {
+        domBackend = request.domBackend
+        return {
+          ...nativeMetadata,
+          code: `compiled:${request.filename}:${request.source}`,
+          hasChanged: true,
+          styleImports: [],
+          props: [],
+          events: [],
+        }
+      },
     })
 
-    const plugin = naos()
+    const plugin = naos({ domBackend: "auto" })
     const transform = plugin.transform
     if (typeof transform !== "function") {
       throw new Error("Expected transform hook")
@@ -104,6 +108,7 @@ describe("naos", () => {
       code: `compiled:${fixtureFilename}:source`,
       map: null,
     })
+    expect(domBackend).toBe("auto")
   })
 
   it("passes native source maps through to Vite", async () => {

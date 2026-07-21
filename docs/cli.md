@@ -6,7 +6,7 @@ over the same native compiler API used by `@naos-ui/vite`.
 ## Commands
 
 ```sh
-naos compile <input> [-o output] [--stdout] [--json] [--pretty]
+naos compile <input> [--dom-backend auto|imperative|template] [-o output] [--stdout] [--json] [--pretty]
 naos prerender <input> [-o output] [--props json] [--stdout] [--json] [--pretty]
 naos info [--json] [--pretty]
 ```
@@ -17,6 +17,13 @@ Without `-o`, compiled JavaScript is printed to stdout.
 Use `--json` with `-o` to print a deterministic operation summary to stdout
 while keeping generated JavaScript in files. `--pretty` pretty-prints that JSON
 summary.
+
+`--dom-backend` controls how the compiler constructs client DOM. It defaults to
+`imperative`, the established semantic reference. `template` requires a
+parser-safe complete component shape and reports a diagnostic when that is not
+available. `auto` compares both emitted modules and selects the template
+candidate only when it is at least 5% smaller before minification; otherwise it
+keeps the complete component on the imperative path.
 
 `prerender` emits static host HTML with Declarative Shadow DOM by default.
 `--props` must be a JSON object. CSS uses the same flat `?inline` import
@@ -32,7 +39,7 @@ compact JSON.
 ## Examples
 
 ```sh
-naos compile src/counter.wc.tsx -o dist/counter.js
+naos compile src/counter.wc.tsx --dom-backend auto -o dist/counter.js
 naos compile src/counter.wc.tsx -o dist/counter.js --json
 naos prerender src/counter.wc.tsx --props '{"label":"Count"}' --stdout
 naos info --pretty

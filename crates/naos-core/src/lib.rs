@@ -13,8 +13,9 @@ mod naming;
 mod parse;
 
 pub use codegen::{
-    render_declarative_shadow_dom_module, render_declarative_shadow_dom_module_with_inline_styles,
-    transform_component_module,
+    DomBackend, render_declarative_shadow_dom_module,
+    render_declarative_shadow_dom_module_with_inline_styles, transform_component_module,
+    transform_component_module_with_dom_backend,
 };
 pub use error::{CompilerError, CompilerResult, location_for_span};
 pub use model::{
@@ -37,19 +38,21 @@ pub fn core_version() -> &'static str {
 mod tests {
     use super::{
         AttributeValue, CompilerResult, ComponentModule, DeclarativeShadowDomRenderResult,
-        DiagnosticSeverity, DiagnosticSpan, PackageContext, PropKind, StateKind, TemplateAttribute,
-        TemplateChild, TemplateListKey, TemplateListKind, TemplateListMotion, TransformResult,
-        core_version, location_for_span,
+        DiagnosticSeverity, DiagnosticSpan, DomBackend, PackageContext, PropKind, StateKind,
+        TemplateAttribute, TemplateChild, TemplateListKey, TemplateListKind, TemplateListMotion,
+        TransformResult, core_version, location_for_span,
     };
     use super::{
         analyze_component_module as analyze_component_module_with_package,
         render_declarative_shadow_dom_module as render_declarative_shadow_dom_module_with_package,
         render_declarative_shadow_dom_module_with_inline_styles as render_declarative_shadow_dom_module_with_inline_styles_and_package,
         transform_component_module as transform_component_module_with_package,
+        transform_component_module_with_dom_backend as transform_component_module_with_dom_backend_with_package,
     };
     use crate::error::{
         DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED, DIAGNOSTIC_CODE_DSD_INPUT,
-        DIAGNOSTIC_CODE_PROP_TYPE_MISMATCH, DIAGNOSTIC_CODE_REMOVED_AUTHORING_API,
+        DIAGNOSTIC_CODE_INVALID_DOM_BACKEND, DIAGNOSTIC_CODE_PROP_TYPE_MISMATCH,
+        DIAGNOSTIC_CODE_REMOVED_AUTHORING_API, DIAGNOSTIC_CODE_TEMPLATE_BACKEND_INELIGIBLE,
         DIAGNOSTIC_CODE_TEMPLATE_PARSE, DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
         DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
         DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER,
@@ -72,6 +75,19 @@ mod tests {
 
     fn transform_component_module(source: &str, filename: &str) -> CompilerResult<TransformResult> {
         transform_component_module_with_package(source, filename, &test_package())
+    }
+
+    fn transform_component_module_with_dom_backend(
+        source: &str,
+        filename: &str,
+        dom_backend: DomBackend,
+    ) -> CompilerResult<TransformResult> {
+        transform_component_module_with_dom_backend_with_package(
+            source,
+            filename,
+            &test_package(),
+            dom_backend,
+        )
     }
 
     fn render_declarative_shadow_dom_module(
@@ -108,9 +124,110 @@ mod tests {
     }
 
     #[test]
+    fn template_dom_backend_should_clone_static_skeletons_and_keep_only_live_holes() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+
+            export function StatusPanel() {
+              const count = state(0);
+
+              return (
+                <section className="panel">
+                  <h2>Status</h2>
+                  <button data-count={count()} onClick={() => count.set(count() + 1)}>
+                    Count: {count()}
+                  </button>
+                </section>
+              );
+            }
+        "#;
+
+        let result = transform_component_module_with_dom_backend(
+            source,
+            "status-panel.wc.tsx",
+            DomBackend::Template,
+        )
+        .expect("template-safe component should compile with the template backend");
+
+        assert!(result.code.contains("__naosCreateTemplate("));
+        assert!(result.code.contains("panel"));
+        assert!(result.code.contains("content.cloneNode(true)"));
+        assert!(result.code.contains("__naosResolveTemplateHoles(fragment"));
+        assert!(result.code.contains("<!--naos-hole-->"));
+        assert!(result.code.contains("this.#node2"));
+        assert!(!result.code.contains("this.#node0;"));
+        assert!(!result.code.contains("this.#node1;"));
+        assert!(!result.code.contains("document.createElement(\"section\")"));
+        assert!(!result.code.contains("document.createElement(\"button\")"));
+
+        let dsd = render_declarative_shadow_dom_module(source, "status-panel.wc.tsx", None)
+            .expect("the server renderer should stay independent from browser template creation");
+        assert!(dsd.template_html.contains("data-naos-node=\"node2\""));
+        assert!(dsd.template_html.contains("data-naos-text=\"text1\""));
+    }
+
+    #[test]
+    fn auto_dom_backend_should_select_templates_only_when_the_generated_module_is_smaller() {
+        let source = r#"
+            export function StaticTree() {
+              return (
+                <section className="shell">
+                  <div><div><div><div><div><div><div><div><div><div>
+                    <span>Reusable static DOM skeleton</span>
+                  </div></div></div></div></div></div></div></div></div></div>
+                </section>
+              );
+            }
+        "#;
+
+        let result = transform_component_module_with_dom_backend(
+            source,
+            "static-tree.wc.tsx",
+            DomBackend::Auto,
+        )
+        .expect("static component should compile with auto selection");
+
+        assert!(result.code.contains("content.cloneNode(true)"));
+        assert!(!result.code.contains("document.createElement(\"section\")"));
+    }
+
+    #[test]
+    fn template_dom_backend_should_fall_back_as_a_complete_component_for_control_flow() {
+        let source = r#"
+            import { Show, state } from "@naos-ui/core";
+
+            export function Toggle() {
+              const visible = state(true);
+              return <Show when={visible()}><span>Visible</span></Show>;
+            }
+        "#;
+
+        let auto =
+            transform_component_module_with_dom_backend(source, "toggle.wc.tsx", DomBackend::Auto)
+                .expect("auto should retain imperative control-flow semantics");
+        assert!(auto.code.contains("document.createElement(\"span\")"));
+        assert!(!auto.code.contains("content.cloneNode(true)"));
+
+        let error = transform_component_module_with_dom_backend(
+            source,
+            "toggle.wc.tsx",
+            DomBackend::Template,
+        )
+        .expect_err("forced template mode should explain the ineligible complete component");
+        assert_eq!(
+            error.diagnostics("toggle.wc.tsx")[0].code,
+            "NAOS_TEMPLATE_BACKEND_INELIGIBLE"
+        );
+    }
+
+    #[test]
     fn diagnostic_catalog_code_literals_should_stay_stable() {
         let codes = [
             (DIAGNOSTIC_CODE_DSD_INPUT, "NAOS_DSD_INPUT"),
+            (
+                DIAGNOSTIC_CODE_INVALID_DOM_BACKEND,
+                "NAOS_INVALID_DOM_BACKEND",
+            ),
             (
                 DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED,
                 "NAOS_COMPONENT_TEMPLATE_REQUIRED",
@@ -120,6 +237,10 @@ mod tests {
                 "NAOS_REMOVED_AUTHORING_API",
             ),
             (DIAGNOSTIC_CODE_TEMPLATE_PARSE, "NAOS_TEMPLATE_PARSE"),
+            (
+                DIAGNOSTIC_CODE_TEMPLATE_BACKEND_INELIGIBLE,
+                "NAOS_TEMPLATE_BACKEND_INELIGIBLE",
+            ),
             (
                 DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
                 "NAOS_UNSUPPORTED_COMPONENT_OPTIONS",

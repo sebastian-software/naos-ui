@@ -49,24 +49,28 @@ describe("@naos-ui/compiler wrapper", () => {
   })
 
   it("forwards transform requests to the binding", () => {
+    let domBackend: string | undefined
     setNativeBindingsForTesting({
       getNativeInfo: () => ({ coreVersion: "1.2.3" }),
-      transformComponent: (request) => ({
-        ...nativeMetadata,
-        code: `compiled:${request.filename}:${request.source.length}`,
-        hasChanged: true,
-        map: {
-          file: request.filename,
-          mappings: "AAAA",
-          names: [],
-          sources: [request.filename],
-          sourcesContent: [request.source],
-          version: 3,
-        },
-        styleImports: [],
-        props: [],
-        events: [],
-      }),
+      transformComponent: (request) => {
+        domBackend = request.domBackend
+        return {
+          ...nativeMetadata,
+          code: `compiled:${request.filename}:${request.source.length}`,
+          hasChanged: true,
+          map: {
+            file: request.filename,
+            mappings: "AAAA",
+            names: [],
+            sources: [request.filename],
+            sourcesContent: [request.source],
+            version: 3,
+          },
+          styleImports: [],
+          props: [],
+          events: [],
+        }
+      },
       renderDeclarativeShadowDom: () => ({
         ...nativeMetadata,
         html: "",
@@ -77,6 +81,7 @@ describe("@naos-ui/compiler wrapper", () => {
 
     expect(
       transformComponent({
+        domBackend: "template",
         filename: "counter.wc.tsx",
         source: "source",
       }),
@@ -105,6 +110,7 @@ describe("@naos-ui/compiler wrapper", () => {
       events: [],
       tagName: "naos-ui-compiler-counter",
     })
+    expect(domBackend).toBe("template")
   })
 
   it("throws structured compiler errors from native diagnostic payloads", () => {

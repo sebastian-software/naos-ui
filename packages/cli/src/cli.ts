@@ -8,6 +8,7 @@ import {
   isNaosCompilerError,
   renderDeclarativeShadowDom,
   transformComponent,
+  type DomBackend,
   type NaosDiagnostic,
 } from "@naos-ui/compiler"
 
@@ -18,6 +19,7 @@ export type CliIo = {
 }
 
 type ParsedArgs = {
+  domBackend?: DomBackend
   help: boolean
   input?: string
   json: boolean
@@ -28,24 +30,25 @@ type ParsedArgs = {
 }
 
 const helpText = `Usage:
-  naos compile <input> [-o output] [--stdout] [--json] [--pretty]
+  naos compile <input> [--dom-backend auto|imperative|template] [-o output] [--stdout] [--json] [--pretty]
   naos prerender <input> [-o output] [--props json] [--json] [--pretty]
   naos info [--json] [--pretty]
 
 Examples:
-  naos compile src/counter.wc.tsx -o dist/counter.js
+  naos compile src/counter.wc.tsx --dom-backend auto -o dist/counter.js
   naos compile src/counter.wc.tsx -o dist/counter.js --json
   naos prerender src/counter.wc.tsx --props '{"label":"Count"}' --stdout
   naos info --pretty
 `
 
 const compileHelpText = `Usage:
-  naos compile <input> [-o output] [--stdout] [--json] [--pretty]
+  naos compile <input> [--dom-backend auto|imperative|template] [-o output] [--stdout] [--json] [--pretty]
 
 Compile one .wc.tsx module to JavaScript.
 
 Options:
   -o, --out, --output <file>  Write JavaScript to a file.
+  --dom-backend <backend>      DOM construction backend (default: imperative).
   --stdout                   Print JavaScript to stdout instead of writing files.
   --json                     Print a deterministic JSON summary. Requires -o.
   --pretty                   Pretty-print JSON output.
@@ -117,7 +120,7 @@ export async function runCli(
 }
 
 async function compileCommand(args: readonly string[], cwd: string, io: CliIo): Promise<number> {
-  const parsed = parseArgs(args, { props: false })
+  const parsed = parseArgs(args, { domBackend: true, props: false })
   if (parsed.help) {
     io.stdout.write(compileHelpText)
     return 0
@@ -126,7 +129,7 @@ async function compileCommand(args: readonly string[], cwd: string, io: CliIo): 
   const filename = resolve(cwd, input)
   validateJsonSummaryMode(parsed, "compile")
   const source = await readInputFile(filename)
-  const result = transformComponent({ filename, source })
+  const result = transformComponent({ domBackend: parsed.domBackend, filename, source })
   const outputPath = parsed.output ? resolve(cwd, parsed.output) : undefined
 
   if (outputPath && !parsed.stdout) {
@@ -171,7 +174,7 @@ async function compileCommand(args: readonly string[], cwd: string, io: CliIo): 
 }
 
 async function prerenderCommand(args: readonly string[], cwd: string, io: CliIo): Promise<number> {
-  const parsed = parseArgs(args, { props: true })
+  const parsed = parseArgs(args, { domBackend: false, props: true })
   if (parsed.help) {
     io.stdout.write(prerenderHelpText)
     return 0
@@ -214,7 +217,7 @@ async function prerenderCommand(args: readonly string[], cwd: string, io: CliIo)
 }
 
 function infoCommand(args: readonly string[], io: CliIo): number {
-  const parsed = parseArgs(args, { props: false })
+  const parsed = parseArgs(args, { domBackend: false, props: false })
   if (parsed.help) {
     io.stdout.write(infoHelpText)
     return 0
@@ -236,7 +239,10 @@ function infoCommand(args: readonly string[], io: CliIo): number {
   return 0
 }
 
-function parseArgs(args: readonly string[], options: { props: boolean }): ParsedArgs {
+function parseArgs(
+  args: readonly string[],
+  options: { domBackend: boolean; props: boolean },
+): ParsedArgs {
   const parsed: ParsedArgs = { help: false, json: false, pretty: false, stdout: false }
 
   for (let index = 0; index < args.length; index += 1) {
@@ -260,6 +266,11 @@ function parseArgs(args: readonly string[], options: { props: boolean }): Parsed
     }
     if (arg === "--stdout") {
       parsed.stdout = true
+      continue
+    }
+    if (arg === "--dom-backend" && options.domBackend) {
+      parsed.domBackend = parseDomBackend(readOptionValue(args, index, arg))
+      index += 1
       continue
     }
     if (arg === "--props" && options.props) {
@@ -331,6 +342,13 @@ function parseProps(source: string): Record<string, unknown> {
     throw new Error("--props must be a JSON object")
   }
   return value as Record<string, unknown>
+}
+
+function parseDomBackend(value: string): DomBackend {
+  if (value === "auto" || value === "imperative" || value === "template") {
+    return value
+  }
+  throw new Error("--dom-backend must be auto, imperative, or template")
 }
 
 async function resolveInlineStyles(

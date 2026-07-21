@@ -26,12 +26,15 @@ pub(crate) const DIAGNOSTIC_HINT_SWITCH: &str = "Use static <Switch> children wi
 pub(crate) const DIAGNOSTIC_HINT_PROP_TYPES: &str = "Align the prop's TypeScript annotation and its default literal; string, boolean, and number reflect to attributes while other types stay property-only.";
 
 pub(crate) const DIAGNOSTIC_CODE_DSD_INPUT: &str = "NAOS_DSD_INPUT";
+pub(crate) const DIAGNOSTIC_CODE_INVALID_DOM_BACKEND: &str = "NAOS_INVALID_DOM_BACKEND";
 pub(crate) const DIAGNOSTIC_CODE_INVALID_PACKAGE_CONTEXT: &str = "NAOS_INVALID_PACKAGE_CONTEXT";
 pub(crate) const DIAGNOSTIC_CODE_COMPONENT_TEMPLATE_REQUIRED: &str =
     "NAOS_COMPONENT_TEMPLATE_REQUIRED";
 pub(crate) const DIAGNOSTIC_CODE_REMOVED_AUTHORING_API: &str = "NAOS_REMOVED_AUTHORING_API";
 #[cfg(test)]
 pub(crate) const DIAGNOSTIC_CODE_TEMPLATE_PARSE: &str = "NAOS_TEMPLATE_PARSE";
+pub(crate) const DIAGNOSTIC_CODE_TEMPLATE_BACKEND_INELIGIBLE: &str =
+    "NAOS_TEMPLATE_BACKEND_INELIGIBLE";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS: &str =
     "NAOS_UNSUPPORTED_COMPONENT_OPTIONS";
 pub(crate) const DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX: &str =
