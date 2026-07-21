@@ -1,5 +1,6 @@
 {
   "name": "naos-workspace",
+  "version": "1.0.0",
   "private": true,
   "description": "Rust/OXC-powered TSX compiler for Naos native interface elements.",
   "license": "Apache-2.0",

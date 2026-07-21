@@ -1,8 +1,15 @@
 # npm Publishing
 
-This runbook prepares the first public npm publish for the Naos package set.
-Use it when bootstrapping the `@naos-ui` packages and when validating later
-manual release runs.
+This runbook covers the coordinated Naos npm release. Release Please maintains
+one product version, one release PR, one `naos-ui-v<version>` tag, and one GitHub
+Release. That single GitHub Release publishes every package in the inventory
+below at the same version. Use the manual workflow for dry runs and bootstrap
+publishes only.
+
+The migration config pins `last-release-sha` to the existing `1.0.0`
+multi-component release commit. Remove that override after the first successful
+coordinated `naos-ui` release; Release Please otherwise keeps using the pinned
+commit as its release boundary.
 
 ## Package Set
 

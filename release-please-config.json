@@ -1,121 +1,129 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "separate-pull-requests": false,
+  "release-type": "node",
+  "include-component-in-tag": true,
+  "last-release-sha": "b4e5d7f5208b7db3e6476bc084f3ee7a51bbfeb2",
   "packages": {
-    "packages/core": {
-      "component": "core",
-      "package-name": "@naos-ui/core",
-      "release-type": "node"
-    },
-    "packages/data": {
-      "component": "data",
-      "package-name": "@naos-ui/data",
-      "release-type": "node"
-    },
-    "packages/data-convex": {
-      "component": "data-convex",
-      "package-name": "@naos-ui/data-convex",
-      "release-type": "node"
-    },
-    "packages/motion": {
-      "component": "motion",
-      "package-name": "@naos-ui/motion",
-      "release-type": "node"
-    },
-    "packages/runtime": {
-      "component": "runtime",
-      "package-name": "@naos-ui/runtime",
-      "release-type": "node"
-    },
-    "packages/primitives": {
-      "component": "primitives",
-      "package-name": "@naos-ui/primitives",
-      "release-type": "node"
-    },
-    "packages/router": {
-      "component": "router",
-      "package-name": "@naos-ui/router",
-      "release-type": "node"
-    },
-    "packages/testing": {
-      "component": "testing",
-      "package-name": "@naos-ui/testing",
-      "release-type": "node"
-    },
-    "packages/compiler": {
-      "component": "compiler",
-      "package-name": "@naos-ui/compiler",
-      "release-type": "node"
-    },
-    "packages/compiler-wasm": {
-      "component": "compiler-wasm",
-      "package-name": "@naos-ui/compiler-wasm",
-      "release-type": "node"
-    },
-    "packages/vite": {
-      "component": "vite",
-      "package-name": "@naos-ui/vite",
-      "release-type": "node"
-    },
-    "packages/cli": {
-      "component": "cli",
-      "package-name": "@naos-ui/cli",
-      "release-type": "node"
-    },
-    "packages/compiler-darwin-arm64": {
-      "component": "compiler-darwin-arm64",
-      "package-name": "@naos-ui/compiler-darwin-arm64",
-      "release-type": "node"
-    },
-    "packages/compiler-darwin-x64": {
-      "component": "compiler-darwin-x64",
-      "package-name": "@naos-ui/compiler-darwin-x64",
-      "release-type": "node"
-    },
-    "packages/compiler-linux-arm64-gnu": {
-      "component": "compiler-linux-arm64-gnu",
-      "package-name": "@naos-ui/compiler-linux-arm64-gnu",
-      "release-type": "node"
-    },
-    "packages/compiler-linux-arm64-musl": {
-      "component": "compiler-linux-arm64-musl",
-      "package-name": "@naos-ui/compiler-linux-arm64-musl",
-      "release-type": "node"
-    },
-    "packages/compiler-linux-x64-gnu": {
-      "component": "compiler-linux-x64-gnu",
-      "package-name": "@naos-ui/compiler-linux-x64-gnu",
-      "release-type": "node"
-    },
-    "packages/compiler-linux-x64-musl": {
-      "component": "compiler-linux-x64-musl",
-      "package-name": "@naos-ui/compiler-linux-x64-musl",
-      "release-type": "node"
-    },
-    "packages/compiler-win32-arm64-msvc": {
-      "component": "compiler-win32-arm64-msvc",
-      "package-name": "@naos-ui/compiler-win32-arm64-msvc",
-      "release-type": "node"
-    },
-    "packages/compiler-win32-x64-msvc": {
-      "component": "compiler-win32-x64-msvc",
-      "package-name": "@naos-ui/compiler-win32-x64-msvc",
-      "release-type": "node"
-    },
-    "packages/actions": {
-      "component": "actions",
-      "package-name": "@naos-ui/actions",
-      "release-type": "node"
-    },
-    "packages/create-naos": {
-      "component": "create-naos",
-      "package-name": "create-naos",
-      "release-type": "node"
-    },
-    "packages/unplugin": {
-      "component": "unplugin",
-      "package-name": "@naos-ui/unplugin",
-      "release-type": "node"
+    ".": {
+      "component": "naos-ui",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": [
+        {
+          "type": "json",
+          "path": "packages/core/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/actions/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/data/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/data-convex/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/motion/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/runtime/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/primitives/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/router/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/testing/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler-wasm/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/vite/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/unplugin/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/cli/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/create-naos/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler-linux-x64-gnu/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler-linux-arm64-gnu/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler-linux-x64-musl/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler-linux-arm64-musl/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler-darwin-x64/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler-darwin-arm64/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler-win32-x64-msvc/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "packages/compiler-win32-arm64-msvc/package.json",
+          "jsonpath": "$.version"
+        }
+      ]
     }
   }
 }
