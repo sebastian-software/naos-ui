@@ -1,6 +1,6 @@
 {
   "name": "@naos-ui/testing",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Mount, flush, and inspect helpers for testing Naos components.",
   "license": "Apache-2.0",
   "type": "module",

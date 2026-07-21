@@ -1,6 +1,6 @@
 {
   "name": "@naos-ui/unplugin",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Bundler-agnostic Naos component transform for Vite, Rollup, esbuild, webpack, and Rspack.",
   "license": "Apache-2.0",
   "type": "module",
