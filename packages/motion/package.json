@@ -1,6 +1,6 @@
 {
   "name": "@naos-ui/motion",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Framework-free motion primitives for Naos components.",
   "license": "Apache-2.0",
   "type": "module",
