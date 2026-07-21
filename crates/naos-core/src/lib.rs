@@ -1920,6 +1920,12 @@ mod tests {
         };
 
         assert!(result.code.contains("data-naos-control\", \"show"));
+        assert!(result.code.contains(
+            "this.#node1Content.style.display = this.#node1Content.hidden ? \"none\" : \"contents\";"
+        ));
+        assert!(result.code.contains(
+            "this.#node1Fallback.style.display = this.#node1Fallback.hidden ? \"none\" : \"contents\";"
+        ));
         assert!(result.code.contains("data-naos-control\", \"for"));
         assert!(result.code.contains(".replaceChildren("));
         assert!(result.code.contains("listen as __naosListen"));
@@ -1985,7 +1991,7 @@ mod tests {
         assert!(
             result
                 .code
-                .contains("this.#node1Match0.hidden = node1Matched || !node1Match0When;")
+                .contains("this.#node1Match0.hidden = node1Matched || !node1Match0When; this.#node1Match0.style.display = this.#node1Match0.hidden ? \"none\" : \"contents\";")
         );
         assert!(
             result
@@ -1995,7 +2001,7 @@ mod tests {
         assert!(
             result
                 .code
-                .contains("this.#node1Match3.hidden = node1Matched;")
+                .contains("this.#node1Match3.hidden = node1Matched; this.#node1Match3.style.display = this.#node1Match3.hidden ? \"none\" : \"contents\";")
         );
         assert!(
             result
@@ -2901,14 +2907,14 @@ mod tests {
                 .contains("data-naos-control=\"switch\"")
         );
         assert!(
-            result.template_html.contains(
-                "<span style=\"display: contents\" data-naos-node=\"node1Match0\" hidden>"
-            )
+            result
+                .template_html
+                .contains("<span style=\"display: none\" data-naos-node=\"node1Match0\" hidden>")
         );
         assert!(
-            result.template_html.contains(
-                "<span style=\"display: contents\" data-naos-node=\"node1Match1\" hidden>"
-            )
+            result
+                .template_html
+                .contains("<span style=\"display: none\" data-naos-node=\"node1Match1\" hidden>")
         );
         assert!(
             result

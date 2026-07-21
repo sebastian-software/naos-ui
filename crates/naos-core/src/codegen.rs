@@ -1367,9 +1367,8 @@ impl<'a> CodeGenerator<'a> {
         self.push_update_lines(
             vec![
                 format!("const {condition_variable} = Boolean({when});"),
-                format!(
-                    "this.#{content_field}.hidden = !{condition_variable}; this.#{fallback_field}.hidden = {condition_variable};"
-                ),
+                control_flow_visibility_update(&content_field, &format!("!{condition_variable}")),
+                control_flow_visibility_update(&fallback_field, &condition_variable),
             ],
             self.dependencies_for_expression(&when),
         );
@@ -1468,8 +1467,9 @@ impl<'a> CodeGenerator<'a> {
             if let Some(when) = &switch_match.when {
                 let condition_variable = format!("{field}Match{match_index}When");
                 update_lines.push(format!("const {condition_variable} = Boolean({when});"));
-                update_lines.push(format!(
-                    "this.#{branch_field}.hidden = {matched_variable} || !{condition_variable};"
+                update_lines.push(control_flow_visibility_update(
+                    branch_field,
+                    &format!("{matched_variable} || !{condition_variable}"),
                 ));
                 update_lines.push(format!(
                     "{matched_variable} = {matched_variable} || {condition_variable};"
@@ -1483,7 +1483,10 @@ impl<'a> CodeGenerator<'a> {
                     }
                 }
             } else {
-                update_lines.push(format!("this.#{branch_field}.hidden = {matched_variable};"));
+                update_lines.push(control_flow_visibility_update(
+                    branch_field,
+                    &matched_variable,
+                ));
                 update_lines.push(format!("{matched_variable} = true;"));
             }
         }
@@ -2915,6 +2918,8 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         let container_field = self.next_node_field();
         let content_field = format!("{container_field}Content");
         let fallback_field = format!("{container_field}Fallback");
+        let content_hidden = is_visible == Some(false);
+        let fallback_hidden = is_visible == Some(true);
         let mut output = String::new();
         write!(
             output,
@@ -2924,9 +2929,10 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         .map_err(format_error)?;
         write!(
             output,
-            "<span style=\"display: contents\" data-naos-node=\"{}\"{}>",
+            "<span style=\"display: {}\" data-naos-node=\"{}\"{}>",
+            control_flow_display(content_hidden),
             escape_html_attribute(&content_field),
-            hidden_attribute(is_visible == Some(false))
+            hidden_attribute(content_hidden)
         )
         .map_err(format_error)?;
         for child in &element.children {
@@ -2935,9 +2941,10 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
         output.push_str("</span>");
         write!(
             output,
-            "<span style=\"display: contents\" data-naos-node=\"{}\"{}>",
+            "<span style=\"display: {}\" data-naos-node=\"{}\"{}>",
+            control_flow_display(fallback_hidden),
             escape_html_attribute(&fallback_field),
-            hidden_attribute(is_visible == Some(true))
+            hidden_attribute(fallback_hidden)
         )
         .map_err(format_error)?;
         if let Some(fallback) = optional_attribute(element, "fallback") {
@@ -3009,7 +3016,8 @@ impl<'a> DeclarativeShadowDomRenderer<'a> {
             };
             write!(
                 output,
-                "<span style=\"display: contents\" data-naos-node=\"{}\"{}>",
+                "<span style=\"display: {}\" data-naos-node=\"{}\"{}>",
+                control_flow_display(!is_visible),
                 escape_html_attribute(&branch_field),
                 hidden_attribute(!is_visible)
             )
@@ -3405,6 +3413,18 @@ fn push_serialized_dynamic_attribute(
 
 fn hidden_attribute(hidden: bool) -> &'static str {
     if hidden { " hidden" } else { "" }
+}
+
+fn control_flow_display(hidden: bool) -> &'static str {
+    if hidden { "none" } else { "contents" }
+}
+
+fn control_flow_visibility_update(field: &str, hidden_expression: &str) -> String {
+    // An inline `display: contents` overrides the browser's default `[hidden]`
+    // rule, so keep the semantic state and the effective display in sync.
+    format!(
+        "this.#{field}.hidden = {hidden_expression}; this.#{field}.style.display = this.#{field}.hidden ? \"none\" : \"contents\";"
+    )
 }
 
 fn is_number_literal(source: &str) -> bool {
