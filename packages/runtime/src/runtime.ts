@@ -5,6 +5,8 @@
  * Application code should normally not need either entry point directly.
  */
 
+export { configureTemplateHtmlPolicy, type TemplateHtmlPolicy } from "./template.js"
+
 export type EventInitOptions = {
   bubbles?: boolean
   cancelable?: boolean

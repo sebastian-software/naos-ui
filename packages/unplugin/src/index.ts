@@ -5,11 +5,14 @@ import {
   formatNaosCodeFrame,
   isNaosCompilerError,
   transformComponent,
+  type DomBackend,
   type NaosDiagnostic,
 } from "@naos-ui/compiler"
 import { createUnplugin, type UnpluginFactory, type UnpluginInstance } from "unplugin"
 
 export type NaosUnpluginOptions = {
+  /** DOM backend forwarded to each component transform. Defaults to `imperative`. */
+  readonly domBackend?: DomBackend
   /** Files transformed as Naos components. Defaults to `\.wc\.tsx$`. */
   readonly include?: RegExp
   /** Files never transformed. Defaults to `node_modules`. */
@@ -54,7 +57,11 @@ export const naosUnpluginFactory: UnpluginFactory<NaosUnpluginOptions | undefine
       }
 
       try {
-        const result = transformComponent({ filename, source: code })
+        const result = transformComponent({
+          domBackend: options.domBackend,
+          filename,
+          source: code,
+        })
         if (!result.hasChanged) {
           return null
         }

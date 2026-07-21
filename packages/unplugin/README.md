@@ -8,7 +8,7 @@ for Vite, Rollup, esbuild, webpack, and Rspack:
 import { naosPlugin } from "@naos-ui/unplugin"
 
 // Rollup
-export default { plugins: [naosPlugin.rollup()] }
+export default { plugins: [naosPlugin.rollup({ domBackend: "auto" })] }
 
 // esbuild
 await build({ plugins: [naosPlugin.esbuild()] })
@@ -23,14 +23,14 @@ as inlined strings on bundlers without Vite's native `?inline` support.
 
 ## Supported bundlers
 
-| Integration | Package |
-| --- | --- |
-| Vite (full-featured: DSD prerender, manifest, HMR) | `@naos-ui/vite` |
-| Vite (transform only) | `naosPlugin.vite()` |
-| Rollup | `naosPlugin.rollup()` |
-| esbuild | `naosPlugin.esbuild()` |
-| webpack | `naosPlugin.webpack()` |
-| Rspack | `naosPlugin.rspack()` |
+| Integration                                        | Package                |
+| -------------------------------------------------- | ---------------------- |
+| Vite (full-featured: DSD prerender, manifest, HMR) | `@naos-ui/vite`        |
+| Vite (transform only)                              | `naosPlugin.vite()`    |
+| Rollup                                             | `naosPlugin.rollup()`  |
+| esbuild                                            | `naosPlugin.esbuild()` |
+| webpack                                            | `naosPlugin.webpack()` |
+| Rspack                                             | `naosPlugin.rspack()`  |
 
 Vite users should prefer `@naos-ui/vite`, which layers Declarative Shadow
 DOM prerendering, manifest emission, and HMR wiring on top of the same
@@ -42,3 +42,6 @@ For toolchains not covered here, `transformComponent({ filename, source })`
 and `renderDeclarativeShadowDom(...)` from `@naos-ui/compiler` are the
 stable, supported integration points — pure functions this plugin itself is
 built on.
+
+The factory options also accept `domBackend: "imperative" | "template" |
+"auto"`; `imperative` is the default.

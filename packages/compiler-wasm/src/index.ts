@@ -20,6 +20,7 @@ export type NativeInfo = {
 export type NativeTransformRequest = {
   source: string
   filename: string
+  domBackend?: "auto" | "imperative" | "template"
   packageName: string
   packageVersion?: string
   tagPrefix: string

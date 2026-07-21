@@ -5,31 +5,31 @@ for v0.1 and are not published to crates.io.
 
 ## Packages
 
-| Package | Public role |
-| --- | --- |
-| `@naos-ui/core` | Authoring primitives and JSX runtime types. |
-| `@naos-ui/data` | Optional fetch and subscription resources for Custom Element data loading. |
-| `@naos-ui/data-convex` | Optional Convex adapter for `@naos-ui/data` resources. |
-| `@naos-ui/motion` | Framework-free motion kernels used by generated output and primitives. |
-| `@naos-ui/runtime` | Tiny platform helpers for generated output. |
-| `@naos-ui/router` | Optional platform router for Custom Element app shells. |
-| `@naos-ui/compiler` | Node wrapper around the native compiler. |
-| `@naos-ui/compiler-*` | Platform-specific optional native compiler bindings. |
-| `@naos-ui/vite` | Vite transform and prerender metadata plugin. |
-| `@naos-ui/cli` | `naos compile`, `naos prerender`, and `naos info`. |
+| Package                | Public role                                                                |
+| ---------------------- | -------------------------------------------------------------------------- |
+| `@naos-ui/core`        | Authoring primitives and JSX runtime types.                                |
+| `@naos-ui/data`        | Optional fetch and subscription resources for Custom Element data loading. |
+| `@naos-ui/data-convex` | Optional Convex adapter for `@naos-ui/data` resources.                     |
+| `@naos-ui/motion`      | Framework-free motion kernels used by generated output and primitives.     |
+| `@naos-ui/runtime`     | Tiny platform helpers for generated output.                                |
+| `@naos-ui/router`      | Optional platform router for Custom Element app shells.                    |
+| `@naos-ui/compiler`    | Node wrapper around the native compiler.                                   |
+| `@naos-ui/compiler-*`  | Platform-specific optional native compiler bindings.                       |
+| `@naos-ui/vite`        | Vite transform and prerender metadata plugin.                              |
+| `@naos-ui/cli`         | `naos compile`, `naos prerender`, and `naos info`.                         |
 
 ## `@naos-ui/motion`
 
-| Export | Stability | Purpose |
-| --- | --- | --- |
-| `spring(presetOrOptions)` | Experimental | Resolve a spring preset or option object into browser-native duration and `linear(...)` CSS easing. |
-| `springEasing(presetOrOptions)` | Experimental | Return only the generated CSS easing string. |
-| `springMotionToken(options)` | Experimental | Generate a deterministic motion class name plus CSS custom-property rule for a spring token. |
-| `springMotionTokenClassName(options)` | Experimental | Generate only the deterministic class name for build/runtime coordination. |
-| `springMotionTokenCss(options)` | Experimental | Generate only the CSS rule for compiler or package-build output. |
-| `flipMovedElements(firstRects, options?)` | Experimental | Play transform-only FLIP move animations for preserved keyed elements. |
-| `autoLayout(container, options?)` | Experimental | Animate direct-child layout changes of one container on child-list mutations: persisted children FLIP, added children can opt into an enter animation. Returns a dispose function and accepts an `AbortSignal`. |
-| `waitForAnimations(element, options?)` | Experimental | Wait for pending Web Animations API animations, with reduced-motion and timeout guards. |
+| Export                                    | Stability    | Purpose                                                                                                                                                                                                         |
+| ----------------------------------------- | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `spring(presetOrOptions)`                 | Experimental | Resolve a spring preset or option object into browser-native duration and `linear(...)` CSS easing.                                                                                                             |
+| `springEasing(presetOrOptions)`           | Experimental | Return only the generated CSS easing string.                                                                                                                                                                    |
+| `springMotionToken(options)`              | Experimental | Generate a deterministic motion class name plus CSS custom-property rule for a spring token.                                                                                                                    |
+| `springMotionTokenClassName(options)`     | Experimental | Generate only the deterministic class name for build/runtime coordination.                                                                                                                                      |
+| `springMotionTokenCss(options)`           | Experimental | Generate only the CSS rule for compiler or package-build output.                                                                                                                                                |
+| `flipMovedElements(firstRects, options?)` | Experimental | Play transform-only FLIP move animations for preserved keyed elements.                                                                                                                                          |
+| `autoLayout(container, options?)`         | Experimental | Animate direct-child layout changes of one container on child-list mutations: persisted children FLIP, added children can opt into an enter animation. Returns a dispose function and accepts an `AbortSignal`. |
+| `waitForAnimations(element, options?)`    | Experimental | Wait for pending Web Animations API animations, with reduced-motion and timeout guards.                                                                                                                         |
 
 Motion token classes are intended for compiler or package-build CSS output. For
 example, primitives can share `--naos-presence-motion-*` variables through a
@@ -53,22 +53,22 @@ const dispose = autoLayout(list, { layout: "snappy", enter: "fade" })
 
 ## `@naos-ui/core`
 
-| Export | Stability | Purpose |
-| --- | --- | --- |
-| `state(initialValue)` | Public | Writable local component state. |
-| `computed(() => value)` | Public | Read-only derived value. |
-| `effect(() => cleanup?)` | Public | Lifecycle-aware side effect with optional cleanup. |
-| `inspect(...values)` | Experimental | Dev-only reactive tracing: logs the values on mount and whenever one of their sources changes; skipped when `import.meta.env.DEV` is `false`. |
-| `event<Detail>(name)` | Public | Typed `CustomEvent` dispatcher. |
-| `on(handler, options?)` | Public | Optional listener-options and invocation-scoped abort-signal marker. Normal JSX listeners use bare handlers. |
-| `host()` | Public | Current element, root, props, lifecycle signals, and update/task handle. |
-| `Show` | Public | Explicit conditional control-flow primitive. |
-| `Switch` | Public | First-match-wins multi-way control-flow primitive. |
-| `Match` | Public | Static branch arm for `<Switch>`, with optional trailing default. |
-| `For` | Public | Item-keyed list control-flow primitive. |
-| `Index` | Public | Position-keyed list control-flow primitive with item accessors. |
-| `ComponentOptions` | Public | Component-level `styles` metadata. |
-| `ElementRef` | Public | JSX `ref` variable or callback type for direct element access. |
+| Export                   | Stability    | Purpose                                                                                                                                       |
+| ------------------------ | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `state(initialValue)`    | Public       | Writable local component state.                                                                                                               |
+| `computed(() => value)`  | Public       | Read-only derived value.                                                                                                                      |
+| `effect(() => cleanup?)` | Public       | Lifecycle-aware side effect with optional cleanup.                                                                                            |
+| `inspect(...values)`     | Experimental | Dev-only reactive tracing: logs the values on mount and whenever one of their sources changes; skipped when `import.meta.env.DEV` is `false`. |
+| `event<Detail>(name)`    | Public       | Typed `CustomEvent` dispatcher.                                                                                                               |
+| `on(handler, options?)`  | Public       | Optional listener-options and invocation-scoped abort-signal marker. Normal JSX listeners use bare handlers.                                  |
+| `host()`                 | Public       | Current element, root, props, lifecycle signals, and update/task handle.                                                                      |
+| `Show`                   | Public       | Explicit conditional control-flow primitive.                                                                                                  |
+| `Switch`                 | Public       | First-match-wins multi-way control-flow primitive.                                                                                            |
+| `Match`                  | Public       | Static branch arm for `<Switch>`, with optional trailing default.                                                                             |
+| `For`                    | Public       | Item-keyed list control-flow primitive.                                                                                                       |
+| `Index`                  | Public       | Position-keyed list control-flow primitive with item accessors.                                                                               |
+| `ComponentOptions`       | Public       | Component-level `styles` metadata.                                                                                                            |
+| `ElementRef`             | Public       | JSX `ref` variable or callback type for direct element access.                                                                                |
 
 Authoring primitives are compile-time APIs. They throw if a `.wc.tsx` module is
 executed without the compiler transform.
@@ -80,13 +80,13 @@ and resolves to an `AbortSignal` for work tied to that update pass.
 
 ## `@naos-ui/data`
 
-| Export | Stability | Purpose |
-| --- | --- | --- |
-| `fetchResource(key, fetcher, options?)` | Experimental | Create an abortable, cached, stale-while-revalidate resource from a fetcher. |
-| `subscriptionResource(key, subscriber, options?)` | Experimental | Create a ref-counted resource from a push subscription source. |
-| `NaosResourceCache` | Experimental | Scope resource cache, in-flight fetches, and active subscriptions. |
-| `defaultNaosResourceCache` | Experimental | Shared default cache for simple apps. |
-| `normalizeResourceKey(key)` | Experimental | Convert string, tuple, or object keys into stable cache keys. |
+| Export                                            | Stability    | Purpose                                                                      |
+| ------------------------------------------------- | ------------ | ---------------------------------------------------------------------------- |
+| `fetchResource(key, fetcher, options?)`           | Experimental | Create an abortable, cached, stale-while-revalidate resource from a fetcher. |
+| `subscriptionResource(key, subscriber, options?)` | Experimental | Create a ref-counted resource from a push subscription source.               |
+| `NaosResourceCache`                               | Experimental | Scope resource cache, in-flight fetches, and active subscriptions.           |
+| `defaultNaosResourceCache`                        | Experimental | Shared default cache for simple apps.                                        |
+| `normalizeResourceKey(key)`                       | Experimental | Convert string, tuple, or object keys into stable cache keys.                |
 
 `null`, `undefined`, and `false` keys disable a resource. Fetchers receive an
 `AbortSignal`; equivalent in-flight keys are deduped; cached data is retained as
@@ -99,13 +99,13 @@ See [Data Resources](data.md) for examples and the Convex adapter direction.
 
 ## `@naos-ui/data-convex`
 
-| Export | Stability | Purpose |
-| --- | --- | --- |
-| `convexResource(client, query, args, options?)` | Experimental | Create a resource from a Convex WebSocket query subscription. |
-| `convexMutation(client, mutation, options?)` | Experimental | Create a typed Convex mutation caller. |
-| `convexAction(client, action)` | Experimental | Create a typed Convex action caller. |
-| `convexConnectionResource(client, options?)` | Experimental | Create a resource from Convex connection state. |
-| `convexQueryKey(query, args)` | Experimental | Create the stable `@naos-ui/data` cache key for a Convex query. |
+| Export                                          | Stability    | Purpose                                                         |
+| ----------------------------------------------- | ------------ | --------------------------------------------------------------- |
+| `convexResource(client, query, args, options?)` | Experimental | Create a resource from a Convex WebSocket query subscription.   |
+| `convexMutation(client, mutation, options?)`    | Experimental | Create a typed Convex mutation caller.                          |
+| `convexAction(client, action)`                  | Experimental | Create a typed Convex action caller.                            |
+| `convexConnectionResource(client, options?)`    | Experimental | Create a resource from Convex connection state.                 |
+| `convexQueryKey(query, args)`                   | Experimental | Create the stable `@naos-ui/data` cache key for a Convex query. |
 
 `@naos-ui/data-convex` depends on `@naos-ui/data` and declares `convex` as a peer
 dependency. It should be installed only by apps that use Convex.
@@ -114,6 +114,7 @@ dependency. It should be installed only by apps that use Convex.
 
 ```ts
 type TransformComponentRequest = {
+  domBackend?: "auto" | "imperative" | "template"
   filename: string
   source: string
 }
@@ -129,9 +130,11 @@ type TransformComponentResult = {
 `hasChanged` is `true` when the generated code differs from the input module
 source. `styleImports` lists the `?inline` CSS imports the compiler saw, so
 build integrations can resolve and watch them without re-parsing the source.
+`domBackend` defaults to `"imperative"`; `"template"` requires a
+whole-component parser-safe shape, while `"auto"` selects templates only when
+the raw generated module is at least 5% smaller.
 
 ```ts
-
 type RenderDeclarativeShadowDomRequest = {
   filename: string
   source: string
@@ -200,10 +203,10 @@ cookies, SSR, or backend routing.
 
 ## `@naos-ui/cli`
 
-| Command | Purpose |
-| --- | --- |
-| `naos compile <input>` | Transform one `.wc.tsx` module to JavaScript. |
-| `naos prerender <input>` | Emit Declarative Shadow DOM host HTML. |
-| `naos info` | Print platform and native compiler metadata. |
+| Command                  | Purpose                                       |
+| ------------------------ | --------------------------------------------- |
+| `naos compile <input>`   | Transform one `.wc.tsx` module to JavaScript. |
+| `naos prerender <input>` | Emit Declarative Shadow DOM host HTML.        |
+| `naos info`              | Print platform and native compiler metadata.  |
 
 See [CLI](cli.md) for options and examples.

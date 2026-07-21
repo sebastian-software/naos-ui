@@ -53,6 +53,9 @@ export type NaosDiagnostic = {
   hint?: string | null
 }
 
+/** Selects the generated DOM construction strategy for one component transform. */
+export type DomBackend = "auto" | "imperative" | "template"
+
 export class NaosCompilerError extends Error {
   readonly diagnostics: NaosDiagnostic[]
 
@@ -66,6 +69,8 @@ export class NaosCompilerError extends Error {
 export type TransformComponentRequest = {
   source: string
   filename: string
+  /** Defaults to `imperative` while the template backend is evaluated. */
+  domBackend?: DomBackend
   packageJsonPath?: string
 }
 
@@ -114,6 +119,7 @@ export function transformComponent(request: TransformComponentRequest): Transfor
   const packageContext = resolveNaosPackageContext(request.filename, request.packageJsonPath)
   const result = withNativeDiagnostics(() =>
     loadNativeBindings().transformComponent({
+      domBackend: request.domBackend,
       filename: request.filename,
       packageName: packageContext.name,
       packageVersion: packageContext.version ?? undefined,

@@ -16,6 +16,8 @@ export interface NativeTransformRequest {
   packageVersion?: string;
   /** Validated Custom Element prefix for the owning package. */
   tagPrefix: string;
+  /** DOM construction backend: `auto`, `imperative`, or `template`. */
+  domBackend?: string;
 }
 export interface NativeSourceMap {
   /** Source map version. */

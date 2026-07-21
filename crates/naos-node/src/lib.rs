@@ -42,6 +42,8 @@ pub struct NativeTransformRequest {
     pub package_version: Option<String>,
     /// Validated Custom Element prefix for the owning package.
     pub tag_prefix: String,
+    /// DOM construction backend: `auto`, `imperative`, or `template`.
+    pub dom_backend: Option<String>,
 }
 
 /// Source map returned by the native compiler transform.
@@ -197,51 +199,58 @@ pub struct NativeDeclarativeShadowDomResult {
 #[napi]
 #[allow(clippy::needless_pass_by_value)]
 pub fn transform_component(request: NativeTransformRequest) -> napi::Result<NativeTransformResult> {
+    let dom_backend = naos_core::DomBackend::parse(request.dom_backend.as_deref())
+        .map_err(|error| to_napi_error(&error, &request.filename, &request.source))?;
     let package = naos_core::PackageContext {
         name: request.package_name,
         version: request.package_version,
         tag_prefix: request.tag_prefix,
     };
-    naos_core::transform_component_module(&request.source, &request.filename, &package)
-        .map(|result| NativeTransformResult {
-            code: result.code,
-            map: result.map.map(Into::into),
-            has_changed: result.has_changed,
-            style_imports: result
-                .style_imports
-                .into_iter()
-                .map(|style_import| NativeStyleImport {
-                    local_name: style_import.local_name,
-                    source: style_import.source,
-                })
-                .collect(),
-            tag_name: result.tag_name,
-            class_name: result.class_name,
-            export_name: result.export_name,
-            shadow: result.shadow,
-            props: result
-                .props
-                .into_iter()
-                .map(|prop| NativePropDefinition {
-                    prop_name: prop.prop_name,
-                    attribute_name: prop.attribute_name,
-                    kind: native_prop_kind(prop.kind),
-                    default_value: prop.default_value,
-                })
-                .collect(),
-            events: result
-                .events
-                .into_iter()
-                .map(|event| NativeEventDefinition {
-                    event_name: event.event_name,
-                    detail_type: event.detail_type,
-                })
-                .collect(),
-            package_name: result.package.name,
-            package_version: result.package.version,
-            tag_prefix: result.package.tag_prefix,
-        })
-        .map_err(|error| to_napi_error(&error, &request.filename, &request.source))
+    naos_core::transform_component_module_with_dom_backend(
+        &request.source,
+        &request.filename,
+        &package,
+        dom_backend,
+    )
+    .map(|result| NativeTransformResult {
+        code: result.code,
+        map: result.map.map(Into::into),
+        has_changed: result.has_changed,
+        style_imports: result
+            .style_imports
+            .into_iter()
+            .map(|style_import| NativeStyleImport {
+                local_name: style_import.local_name,
+                source: style_import.source,
+            })
+            .collect(),
+        tag_name: result.tag_name,
+        class_name: result.class_name,
+        export_name: result.export_name,
+        shadow: result.shadow,
+        props: result
+            .props
+            .into_iter()
+            .map(|prop| NativePropDefinition {
+                prop_name: prop.prop_name,
+                attribute_name: prop.attribute_name,
+                kind: native_prop_kind(prop.kind),
+                default_value: prop.default_value,
+            })
+            .collect(),
+        events: result
+            .events
+            .into_iter()
+            .map(|event| NativeEventDefinition {
+                event_name: event.event_name,
+                detail_type: event.detail_type,
+            })
+            .collect(),
+        package_name: result.package.name,
+        package_version: result.package.version,
+        tag_prefix: result.package.tag_prefix,
+    })
+    .map_err(|error| to_napi_error(&error, &request.filename, &request.source))
 }
 
 /// Prerenders an Naos component module as Declarative Shadow DOM host HTML.

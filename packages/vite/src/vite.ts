@@ -13,12 +13,15 @@ import {
   type NaosManifestComponent,
   type NaosManifestComponentInput,
   type NativeStyleImport,
+  type DomBackend,
   type RenderDeclarativeShadowDomRequest,
   type RenderDeclarativeShadowDomResult,
 } from "@naos-ui/compiler"
 import { createFilter, type FilterPattern, type Plugin } from "vite"
 
 export type NaosVitePluginOptions = {
+  /** DOM backend forwarded to each component transform. Defaults to `imperative`. */
+  domBackend?: DomBackend
   include?: FilterPattern
   exclude?: FilterPattern
   prerender?: boolean | NaosDeclarativeShadowDomPrerenderOptions
@@ -57,6 +60,7 @@ export function naos(options: NaosVitePluginOptions = {}): Plugin {
 
       try {
         const result = transformComponent({
+          domBackend: options.domBackend,
           filename,
           source: code,
         })

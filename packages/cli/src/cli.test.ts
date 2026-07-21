@@ -128,6 +128,7 @@ describe("@naos-ui/cli", () => {
     const root = await createProjectRoot()
     try {
       await writeFile(join(root, "counter.wc.tsx"), "source")
+      let domBackend: string | undefined
       setNativeBindingsForTesting({
         getNativeInfo: () => ({ coreVersion: "1.2.3" }),
         renderDeclarativeShadowDom: () => ({
@@ -139,19 +140,25 @@ describe("@naos-ui/cli", () => {
           templateHtml: "",
           usesDeclarativeShadowDom: true,
         }),
-        transformComponent: (request) => ({
-          ...nativeMetadata,
-          code: `compiled:${request.filename}:${request.source}`,
-          hasChanged: true,
-          styleImports: [],
-          props: [],
-          events: [],
-        }),
+        transformComponent: (request) => {
+          domBackend = request.domBackend
+          return {
+            ...nativeMetadata,
+            code: `compiled:${request.filename}:${request.source}`,
+            hasChanged: true,
+            styleImports: [],
+            props: [],
+            events: [],
+          }
+        },
       })
       const io = createIo(root)
 
-      await expect(runCli(["compile", "counter.wc.tsx"], io)).resolves.toBe(0)
+      await expect(
+        runCli(["compile", "counter.wc.tsx", "--dom-backend", "auto"], io),
+      ).resolves.toBe(0)
       expect(io.stdoutText()).toBe(`compiled:${join(root, "counter.wc.tsx")}:source\n`)
+      expect(domBackend).toBe("auto")
     } finally {
       await rm(root, { force: true, recursive: true })
     }

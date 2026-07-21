@@ -12,10 +12,12 @@ use oxc_span::SourceType;
 use oxc_syntax::scope::ScopeFlags;
 
 use crate::error::{
-    CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
+    CompilerError, CompilerResult, DIAGNOSTIC_CODE_INVALID_DOM_BACKEND,
+    DIAGNOSTIC_CODE_TEMPLATE_BACKEND_INELIGIBLE, DIAGNOSTIC_CODE_UNSUPPORTED_CONDITIONAL_JSX,
     DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SHOW_FALLBACK,
     DIAGNOSTIC_CODE_UNSUPPORTED_SWITCH_MATCH, DIAGNOSTIC_HINT_LISTS, DIAGNOSTIC_HINT_SHOW,
-    DIAGNOSTIC_HINT_SWITCH, dsd_input, unsupported, unsupported_at, unsupported_with_code_at,
+    DIAGNOSTIC_HINT_SWITCH, dsd_input, unsupported, unsupported_at, unsupported_with_code,
+    unsupported_with_code_at,
 };
 use crate::model::{
     AttributeValue, ComponentModule, ComputedDefinition, DeclarativeShadowDomRenderResult,
@@ -42,9 +44,78 @@ pub fn transform_component_module(
     filename: &str,
     package: &PackageContext,
 ) -> CompilerResult<TransformResult> {
+    transform_component_module_with_dom_backend(source, filename, package, DomBackend::Imperative)
+}
+
+/// Selects the DOM construction backend used for a component transform.
+///
+/// `Imperative` preserves the established statement-by-statement output.
+/// `Template` requires a parser-safe complete component shape. `Auto` compares
+/// both generated candidates and selects templates only when they are at least
+/// five percent smaller before minification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DomBackend {
+    /// Let the compiler choose a profitable eligible template backend.
+    Auto,
+    /// Always emit imperative DOM construction.
+    Imperative,
+    /// Require reusable HTML template construction.
+    Template,
+}
+
+impl DomBackend {
+    /// Parses the stable toolchain option accepted by the native and WASM boundaries.
+    pub fn parse(value: Option<&str>) -> CompilerResult<Self> {
+        match value.unwrap_or("imperative") {
+            "auto" => Ok(Self::Auto),
+            "imperative" => Ok(Self::Imperative),
+            "template" => Ok(Self::Template),
+            value => Err(unsupported_with_code(
+                DIAGNOSTIC_CODE_INVALID_DOM_BACKEND,
+                format!(
+                    "Unknown domBackend `{value}`. Expected `auto`, `imperative`, or `template`."
+                ),
+                "Pass domBackend as `auto`, `imperative`, or `template`.",
+            )),
+        }
+    }
+}
+
+/// Transforms a TSX module with an explicit DOM construction backend.
+///
+/// # Errors
+///
+/// Returns [`CompilerError`] when analysis fails, the requested backend is not
+/// eligible for the complete component, or code generation fails.
+pub fn transform_component_module_with_dom_backend(
+    source: &str,
+    filename: &str,
+    package: &PackageContext,
+    dom_backend: DomBackend,
+) -> CompilerResult<TransformResult> {
     let module = analyze_component_module(source, filename, package)?;
-    let mut generator = CodeGenerator::new(&module);
-    let code = generator.generate(&module.template)?;
+    let mut imperative_generator = CodeGenerator::new(&module);
+    let imperative_code = imperative_generator.generate(&module.template)?;
+    let code = match dom_backend {
+        DomBackend::Imperative => imperative_code,
+        DomBackend::Template => {
+            template_backend_eligibility(&module)?;
+            let mut template_generator = CodeGenerator::with_template_backend(&module);
+            template_generator.generate(&module.template)?
+        }
+        DomBackend::Auto => match template_backend_eligibility(&module) {
+            Ok(()) => {
+                let mut template_generator = CodeGenerator::with_template_backend(&module);
+                let template_code = template_generator.generate(&module.template)?;
+                if template_code.len() * 100 <= imperative_code.len() * 95 {
+                    template_code
+                } else {
+                    imperative_code
+                }
+            }
+            Err(_) => imperative_code,
+        },
+    };
     let map = Some(source_map_for_transform(source, filename, &code));
     let has_changed = code != source;
     Ok(TransformResult {
@@ -134,8 +205,23 @@ impl UpdateStep {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TemplateHole {
+    field: String,
+    path: Vec<usize>,
+    is_text: bool,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct TemplatePlan {
+    html: String,
+    holes: Vec<TemplateHole>,
+}
+
 struct CodeGenerator<'a> {
     module: &'a ComponentModule,
+    template_backend: bool,
+    template_plan: Option<TemplatePlan>,
     next_node_index: usize,
     next_text_index: usize,
     node_fields: Vec<String>,
@@ -160,6 +246,8 @@ impl<'a> CodeGenerator<'a> {
     fn new(module: &'a ComponentModule) -> Self {
         Self {
             module,
+            template_backend: false,
+            template_plan: None,
             next_node_index: 0,
             next_text_index: 0,
             node_fields: Vec::new(),
@@ -181,11 +269,21 @@ impl<'a> CodeGenerator<'a> {
         }
     }
 
+    fn with_template_backend(module: &'a ComponentModule) -> Self {
+        let mut generator = Self::new(module);
+        generator.template_backend = true;
+        generator
+    }
+
     fn generate(&mut self, root: &TemplateElement) -> CompilerResult<String> {
         self.collect_element_refs(root)?;
-        let root_variable = self.emit_element(root)?;
-        self.mount_lines
-            .push(format!("this.#root.append({root_variable});"));
+        if self.template_backend {
+            self.emit_template_root(root)?;
+        } else {
+            let root_variable = self.emit_element(root)?;
+            self.mount_lines
+                .push(format!("this.#root.append({root_variable});"));
+        }
         self.push_inspect_steps();
 
         let mut code = String::new();
@@ -193,6 +291,7 @@ impl<'a> CodeGenerator<'a> {
         self.emit_style_imports(&mut code)?;
         self.emit_component_imports(&mut code)?;
         self.emit_component_style_sheet(&mut code)?;
+        self.emit_template_factory(&mut code)?;
         self.emit_kernel_spec(&mut code)?;
         writeln!(
             code,
@@ -261,6 +360,260 @@ impl<'a> CodeGenerator<'a> {
         .map_err(format_error)?;
         writeln!(code).map_err(format_error)?;
         Ok(())
+    }
+
+    fn emit_template_factory(&self, code: &mut String) -> CompilerResult<()> {
+        let Some(plan) = &self.template_plan else {
+            return Ok(());
+        };
+        writeln!(code, "let __naosTemplate;").map_err(format_error)?;
+        writeln!(code, "function __naosGetTemplate() {{").map_err(format_error)?;
+        writeln!(code, "  if (__naosTemplate) return __naosTemplate;").map_err(format_error)?;
+        writeln!(
+            code,
+            "  const template = __naosCreateTemplate(\"{}\");",
+            escape_js_string(&plan.html)
+        )
+        .map_err(format_error)?;
+        writeln!(code, "  __naosTemplate = template;").map_err(format_error)?;
+        writeln!(code, "  return template;").map_err(format_error)?;
+        writeln!(code, "}}").map_err(format_error)?;
+        writeln!(code).map_err(format_error)?;
+        Ok(())
+    }
+
+    fn emit_template_root(&mut self, root: &TemplateElement) -> CompilerResult<()> {
+        let mut plan = TemplatePlan::default();
+        self.serialize_template_element(root, vec![0], &mut plan)?;
+
+        self.mount_lines
+            .push("const fragment = __naosGetTemplate().content.cloneNode(true);".to_owned());
+        if !plan.holes.is_empty() {
+            let paths = plan
+                .holes
+                .iter()
+                .map(|hole| {
+                    let path = hole
+                        .path
+                        .iter()
+                        .map(usize::to_string)
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    format!("[{path}]")
+                })
+                .collect::<Vec<_>>()
+                .join(", ");
+            let text_hole_indexes = plan
+                .holes
+                .iter()
+                .enumerate()
+                .filter_map(|(index, hole)| hole.is_text.then_some(index.to_string()))
+                .collect::<Vec<_>>()
+                .join(", ");
+            self.mount_lines.push(format!(
+                "const holes = __naosResolveTemplateHoles(fragment, [{paths}], [{text_hole_indexes}]);"
+            ));
+            for (index, hole) in plan.holes.iter().enumerate() {
+                self.mount_lines
+                    .push(format!("this.#{} = holes[{index}];", hole.field));
+            }
+        }
+        self.mount_lines
+            .push("this.#root.append(fragment);".to_owned());
+        self.template_plan = Some(plan);
+        Ok(())
+    }
+
+    fn serialize_template_element(
+        &mut self,
+        element: &TemplateElement,
+        path: Vec<usize>,
+        plan: &mut TemplatePlan,
+    ) -> CompilerResult<()> {
+        let index = self.next_node_index;
+        self.next_node_index += 1;
+        let field = format!("node{index}");
+        let tag_name = self.element_tag_name(&element.tag_name)?;
+        let is_component_element = is_pascal_case_identifier(&element.tag_name);
+        let needs_hole = element
+            .attributes
+            .iter()
+            .any(template_attribute_requires_hole);
+
+        if needs_hole {
+            self.node_fields.push(field.clone());
+            plan.holes.push(TemplateHole {
+                field: field.clone(),
+                path: path.clone(),
+                is_text: false,
+            });
+        }
+
+        write!(plan.html, "<{tag_name}").map_err(format_error)?;
+        for attribute in &element.attributes {
+            self.serialize_template_attribute(&mut plan.html, attribute, is_component_element)?;
+        }
+        write!(plan.html, ">").map_err(format_error)?;
+        if !is_void_html_element(&tag_name) {
+            let mut child_index = 0usize;
+            for child in &element.children {
+                let child_path = {
+                    let mut child_path = path.clone();
+                    child_path.push(child_index);
+                    child_path
+                };
+                if self.serialize_template_child(child, child_path, plan, element.span)? {
+                    child_index += 1;
+                }
+            }
+            write!(plan.html, "</{tag_name}>").map_err(format_error)?;
+        }
+
+        if needs_hole {
+            let field_reference = format!("this.#{field}");
+            let mut follows_spread = false;
+            for attribute in &element.attributes {
+                if template_attribute_requires_hole(attribute)
+                    || (follows_spread && !template_attribute_is_key(attribute))
+                {
+                    self.emit_attribute(
+                        &field_reference,
+                        &field_reference,
+                        &field,
+                        attribute,
+                        &element.tag_name,
+                        is_component_element,
+                        follows_spread,
+                        element.span,
+                    )?;
+                }
+                if matches!(attribute, TemplateAttribute::Spread { .. }) {
+                    follows_spread = true;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn serialize_template_attribute(
+        &self,
+        html: &mut String,
+        attribute: &TemplateAttribute,
+        is_component_element: bool,
+    ) -> CompilerResult<()> {
+        let TemplateAttribute::Named { name, value } = attribute else {
+            return Ok(());
+        };
+        if name == "key" || template_attribute_requires_hole(attribute) {
+            return Ok(());
+        }
+        let attribute_name = attribute_name_for_element(name, is_component_element);
+        match value {
+            AttributeValue::Boolean => {
+                write!(html, " {attribute_name}").map_err(format_error)?;
+            }
+            AttributeValue::Static(value) => {
+                write!(
+                    html,
+                    " {attribute_name}=\"{}\"",
+                    escape_html_attribute(value)
+                )
+                .map_err(format_error)?;
+            }
+            AttributeValue::Expression(_)
+            | AttributeValue::EventHandler(_)
+            | AttributeValue::Element(_) => {}
+        }
+        Ok(())
+    }
+
+    fn serialize_template_child(
+        &mut self,
+        child: &TemplateChild,
+        path: Vec<usize>,
+        plan: &mut TemplatePlan,
+        parent_span: Option<DiagnosticSpan>,
+    ) -> CompilerResult<bool> {
+        match child {
+            TemplateChild::Element(element) => {
+                self.serialize_template_element(element, path, plan)?;
+                Ok(true)
+            }
+            TemplateChild::List(_) => Err(unsupported_with_code_at(
+                DIAGNOSTIC_CODE_TEMPLATE_BACKEND_INELIGIBLE,
+                "Dynamic lists are not yet eligible for the template DOM backend.",
+                "Use domBackend: `auto` or `imperative` for components with lists.",
+                parent_span,
+            )),
+            TemplateChild::Expression(expression) => {
+                let trimmed = expression.trim();
+                if trimmed.is_empty() {
+                    return Ok(false);
+                }
+                validate_child_expression(trimmed, parent_span)?;
+                self.serialize_template_dynamic_text(
+                    path,
+                    plan,
+                    format!("String({trimmed})"),
+                    self.dependencies_for_expression(trimmed),
+                );
+                Ok(true)
+            }
+            TemplateChild::Text(text) => {
+                let chunks = text_chunks(text);
+                if chunks.is_empty() {
+                    return Ok(false);
+                }
+                if chunks
+                    .iter()
+                    .all(|chunk| matches!(chunk, TextChunk::Raw(_)))
+                {
+                    self.next_text_index += 1;
+                    for value in chunks.into_iter().filter_map(|chunk| match chunk {
+                        TextChunk::Raw(value) => Some(value),
+                        TextChunk::Expression(_) => None,
+                    }) {
+                        write!(plan.html, "{}", escape_html_text(&value)).map_err(format_error)?;
+                    }
+                    return Ok(true);
+                }
+                let expression = chunks
+                    .into_iter()
+                    .map(|chunk| match chunk {
+                        TextChunk::Raw(value) => format!("\"{}\"", escape_js_string(&value)),
+                        TextChunk::Expression(value) => format!("String({value})"),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" + ");
+                self.serialize_template_dynamic_text(
+                    path,
+                    plan,
+                    expression.clone(),
+                    self.dependencies_for_expression(&expression),
+                );
+                Ok(true)
+            }
+        }
+    }
+
+    fn serialize_template_dynamic_text(
+        &mut self,
+        path: Vec<usize>,
+        plan: &mut TemplatePlan,
+        expression: String,
+        dependencies: ReactiveDependencies,
+    ) {
+        let index = self.next_text_index;
+        self.next_text_index += 1;
+        let field = format!("text{index}");
+        self.text_fields.push(field.clone());
+        plan.html.push_str("<!--naos-hole-->");
+        plan.holes.push(TemplateHole {
+            field: field.clone(),
+            path,
+            is_text: true,
+        });
+        self.push_update_line(format!("this.#{field}.data = {expression};"), dependencies);
     }
 
     fn push_inspect_steps(&mut self) {
@@ -448,6 +801,10 @@ impl<'a> CodeGenerator<'a> {
         }
         if self.uses_style_objects {
             kernel_helpers.push("applyStyleValue as __naosApplyStyleValue");
+        }
+        if self.template_plan.is_some() {
+            kernel_helpers.push("createTemplate as __naosCreateTemplate");
+            kernel_helpers.push("resolveTemplateHoles as __naosResolveTemplateHoles");
         }
         if !self.module.form_controls.is_empty() {
             kernel_helpers.push("flushSync as __naosFlushSync");
@@ -3833,6 +4190,148 @@ fn dynamic_attribute_update(
     format!(
         "const {value_variable} = {expression}; __naosSetAttr({target}, \"{name}\", {value_variable});"
     )
+}
+
+fn template_backend_eligibility(module: &ComponentModule) -> CompilerResult<()> {
+    if !module.form_controls.is_empty() {
+        return template_backend_ineligible(
+            "Form-associated components are not yet eligible for the template DOM backend.",
+            module.template.span,
+        );
+    }
+    template_element_eligibility(&module.template)
+}
+
+fn template_element_eligibility(element: &TemplateElement) -> CompilerResult<()> {
+    if !is_template_safe_html_tag(&element.tag_name) {
+        return template_backend_ineligible(
+            format!(
+                "<{}> is not parser-safe for the template DOM backend yet.",
+                element.tag_name
+            ),
+            element.span,
+        );
+    }
+    for attribute in &element.attributes {
+        match attribute {
+            TemplateAttribute::Spread { .. } => {}
+            TemplateAttribute::Named { name, value } => {
+                if name == "ref" || name == "key" || event_name_from_attribute(name).is_some() {
+                    continue;
+                }
+                if matches!(value, AttributeValue::Element(_)) {
+                    return template_backend_ineligible(
+                        "JSX element attribute values are not eligible for the template DOM backend.",
+                        element.span,
+                    );
+                }
+                if matches!(value, AttributeValue::EventHandler(_)) {
+                    return template_backend_ineligible(
+                        format!("Attribute `{name}` is not a supported event handler."),
+                        element.span,
+                    );
+                }
+            }
+        }
+    }
+    for child in &element.children {
+        match child {
+            TemplateChild::Element(child) => template_element_eligibility(child)?,
+            TemplateChild::List(_) => {
+                return template_backend_ineligible(
+                    "Dynamic lists are not yet eligible for the template DOM backend.",
+                    element.span,
+                );
+            }
+            TemplateChild::Expression(expression) => {
+                if expression.trim().is_empty() {
+                    continue;
+                }
+                validate_child_expression(expression.trim(), element.span)?;
+            }
+            TemplateChild::Text(_) => {}
+        }
+    }
+    Ok(())
+}
+
+fn template_backend_ineligible(
+    message: impl Into<String>,
+    span: Option<DiagnosticSpan>,
+) -> CompilerResult<()> {
+    Err(unsupported_with_code_at(
+        DIAGNOSTIC_CODE_TEMPLATE_BACKEND_INELIGIBLE,
+        message,
+        "Use domBackend: `auto` or `imperative`, or simplify the complete component shape.",
+        span,
+    ))
+}
+
+fn is_template_safe_html_tag(tag_name: &str) -> bool {
+    matches!(
+        tag_name,
+        "article"
+            | "aside"
+            | "b"
+            | "blockquote"
+            | "br"
+            | "button"
+            | "code"
+            | "dd"
+            | "div"
+            | "dl"
+            | "dt"
+            | "em"
+            | "figcaption"
+            | "figure"
+            | "footer"
+            | "h1"
+            | "h2"
+            | "h3"
+            | "h4"
+            | "h5"
+            | "h6"
+            | "header"
+            | "hr"
+            | "img"
+            | "li"
+            | "main"
+            | "mark"
+            | "nav"
+            | "ol"
+            | "output"
+            | "pre"
+            | "s"
+            | "section"
+            | "small"
+            | "span"
+            | "strong"
+            | "sub"
+            | "sup"
+            | "time"
+            | "u"
+            | "ul"
+    )
+}
+
+fn is_void_html_element(tag_name: &str) -> bool {
+    matches!(tag_name, "br" | "hr" | "img")
+}
+
+fn template_attribute_requires_hole(attribute: &TemplateAttribute) -> bool {
+    match attribute {
+        TemplateAttribute::Spread { .. } => true,
+        TemplateAttribute::Named { name, value } => {
+            name != "key"
+                && (name == "ref"
+                    || event_name_from_attribute(name).is_some()
+                    || matches!(value, AttributeValue::Expression(_)))
+        }
+    }
+}
+
+fn template_attribute_is_key(attribute: &TemplateAttribute) -> bool {
+    matches!(attribute, TemplateAttribute::Named { name, .. } if name == "key")
 }
 
 fn text_expression(text: &str) -> Option<String> {

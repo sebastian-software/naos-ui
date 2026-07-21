@@ -1,5 +1,7 @@
 import { createNaosEvent, scheduleNaosUpdate } from "./runtime.js"
 
+export { createTemplate } from "./template.js"
+
 /**
  * Private-to-the-runtime instance slot used by compiler-generated element
  * shells. The symbol is exported so independently compiled packages can share
@@ -46,6 +48,49 @@ export type SpreadAttributeCache = StylePropertiesCache & {
   names: Set<string>
   listeners: Map<string, EventListener>
   raw: boolean
+}
+
+/**
+ * Resolves compiler-owned paths in a cloned template fragment.
+ *
+ * Text holes are represented by inert comments in the static HTML because an
+ * empty text node cannot be serialized into `template.innerHTML`. The helper
+ * resolves every path before replacing those comments, keeping later sibling
+ * paths stable while the fragment is still detached.
+ */
+export function resolveTemplateHoles(
+  fragment: DocumentFragment,
+  paths: readonly (readonly number[])[],
+  textHoleIndexes: readonly number[],
+): Array<Element | Text> {
+  const holes = paths.map((path) => {
+    let node: Node = fragment
+    for (const index of path) {
+      const child = node.childNodes[index]
+      if (!child) {
+        throw new Error(`Naos template hole is missing at child path ${path.join(".")}.`)
+      }
+      node = child
+    }
+    return node
+  })
+
+  for (const index of textHoleIndexes) {
+    const placeholder = holes[index]
+    if (!(placeholder instanceof Comment)) {
+      throw new Error(`Naos template text hole ${index} is not a comment placeholder.`)
+    }
+    const text = document.createTextNode("")
+    placeholder.replaceWith(text)
+    holes[index] = text
+  }
+
+  return holes.map((hole, index) => {
+    if (hole instanceof Element || hole instanceof Text) {
+      return hole
+    }
+    throw new Error(`Naos template hole ${index} is not an Element or Text node.`)
+  })
 }
 
 export type KernelSpec = {
