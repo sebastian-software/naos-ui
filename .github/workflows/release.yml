@@ -21,6 +21,7 @@ permissions:
 jobs:
   release-set:
     name: Resolve Release Inventory
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'naos-ui-v')
     runs-on: ubuntu-latest
     outputs:
       native_matrix: ${{ steps.inventory.outputs.native_matrix }}
@@ -40,6 +41,7 @@ jobs:
 
   validate:
     name: Validate Release Set
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'naos-ui-v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

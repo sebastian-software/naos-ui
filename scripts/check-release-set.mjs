@@ -26,6 +26,13 @@ export function validateReleaseSet({
     ]),
   )
   const expectedVersion = packageJsonByPath.get("packages/core")?.version
+  const rootPackageJson = readJson("package.json")
+
+  check(
+    rootPackageJson.version === expectedVersion,
+    `root product version must be ${expectedVersion}`,
+    errors,
+  )
 
   for (const packagePath of publicPackagePaths) {
     const packageJson = packageJsonByPath.get(packagePath)
@@ -156,8 +163,35 @@ export function validateReleaseSet({
   const releasePlease = readJson("release-please-config.json")
   const releasePleasePackages = Object.keys(releasePlease.packages ?? {}).sort()
   check(
-    arrayEquals(releasePleasePackages, [...publicPackagePaths].sort()),
-    "release-please packages must match the public release set",
+    arrayEquals(releasePleasePackages, ["."]),
+    "release-please must define exactly one root product release",
+    errors,
+  )
+  check(
+    releasePlease["release-type"] === "node",
+    "release-please root product must use the node release strategy",
+    errors,
+  )
+  check(
+    releasePlease.packages?.["."]?.component === "naos-ui",
+    "release-please root component must be naos-ui",
+    errors,
+  )
+  check(
+    releasePlease["include-component-in-tag"] === true,
+    "release-please product tags must include the naos-ui component",
+    errors,
+  )
+  const releaseVersionFiles = (releasePlease.packages?.["."]?.["extra-files"] ?? [])
+    .filter(({ type, jsonpath }) => type === "json" && jsonpath === "$.version")
+    .map(({ path }) => path)
+    .sort()
+  const expectedReleaseVersionFiles = publicPackagePaths
+    .map((packagePath) => `${packagePath}/package.json`)
+    .sort()
+  check(
+    arrayEquals(releaseVersionFiles, expectedReleaseVersionFiles),
+    "release-please version files must match the public release set",
     errors,
   )
 
@@ -173,6 +207,11 @@ export function validateReleaseSet({
     errors,
   )
   check(releaseWorkflow.includes("id-token: write"), "release workflow must allow npm OIDC", errors)
+  check(
+    releaseWorkflow.includes("startsWith(github.event.release.tag_name, 'naos-ui-v')"),
+    "release workflow must publish only coordinated naos-ui releases",
+    errors,
+  )
   check(
     releaseWorkflow.includes("release-set:"),
     "release workflow must resolve the release inventory",
@@ -207,13 +246,11 @@ export function validateReleaseSet({
   )
 
   const manifest = readJson(".release-please-manifest.json")
-  for (const packagePath of publicPackagePaths) {
-    check(
-      manifest[packagePath] === expectedVersion,
-      `${packagePath} release manifest version must be ${expectedVersion}`,
-      errors,
-    )
-  }
+  check(
+    arrayEquals(Object.keys(manifest), ["."]) && manifest["."] === expectedVersion,
+    `release manifest must contain only the root product at ${expectedVersion}`,
+    errors,
+  )
 
   return errors
 }

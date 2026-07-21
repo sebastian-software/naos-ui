@@ -52,7 +52,7 @@ test("release validation rejects stale generated publishing documentation", () =
   assert.ok(errors.some((error) => error.includes("generated package table")))
 })
 
-test("release validation rejects a release-please package mismatch", () => {
+test("release validation rejects a release-please version-file mismatch", () => {
   const errors = validateReleaseSet({
     rootDir,
     readText: (path) => {
@@ -61,10 +61,12 @@ test("release validation rejects a release-please package mismatch", () => {
         return content
       }
       const config = JSON.parse(content)
-      delete config.packages["packages/data"]
+      config.packages["."]["extra-files"] = config.packages["."]["extra-files"].filter(
+        ({ path: packagePath }) => packagePath !== "packages/data/package.json",
+      )
       return JSON.stringify(config)
     },
   })
 
-  assert.ok(errors.some((error) => error.includes("release-please packages")))
+  assert.ok(errors.some((error) => error.includes("release-please version files")))
 })
