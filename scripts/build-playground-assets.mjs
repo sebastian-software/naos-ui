@@ -21,7 +21,8 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const outDir = join(root, "sites", "playground", "public")
 
 const runtimeAssets = [
-  [join(root, "packages", "runtime", "dist", "runtime.mjs"), "naos-runtime.js"],
+  [join(root, "packages", "runtime", "dist", "runtime.mjs"), "naos-runtime/runtime.mjs"],
+  [join(root, "packages", "runtime", "dist", "internal.mjs"), "naos-runtime/internal.mjs"],
   [join(root, "packages", "motion", "dist", "index.mjs"), "naos-motion.js"],
 ]
 
@@ -44,8 +45,10 @@ for (const [source, target] of runtimeAssets) {
     console.error(`[playground] missing ${source} after the package build.`)
     process.exit(1)
   }
-  await copyFile(source, join(outDir, target))
-  console.log(`[playground] installed ${join(outDir, target)}`)
+  const destination = join(outDir, target)
+  await mkdir(dirname(destination), { recursive: true })
+  await copyFile(source, destination)
+  console.log(`[playground] installed ${destination}`)
 }
 
 if (await installWasmBinding()) {

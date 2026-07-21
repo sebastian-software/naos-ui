@@ -126,7 +126,8 @@ async function run() {
   coreChip.textContent = result.coreVersion ? `naos-core ${result.coreVersion}` : ""
 
   const runtimeCode = rewriteRuntimeImports(result.code, {
-    runtime: assetUrl("naos-runtime.js"),
+    runtime: assetUrl("naos-runtime/runtime.mjs"),
+    runtimeInternal: assetUrl("naos-runtime/internal.mjs"),
     motion: assetUrl("naos-motion.js"),
   })
   let mountError: unknown = null

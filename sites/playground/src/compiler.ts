@@ -118,11 +118,15 @@ export class PlaygroundCompiler {
  */
 export function rewriteRuntimeImports(
   code: string,
-  assetUrls: { runtime: string; motion: string },
+  assetUrls: { runtime: string; runtimeInternal: string; motion: string },
 ): string {
   // Codegen emits double-quoted specifiers today; match both quote styles
   // anyway so a future emitter change fails loudly here instead of at import.
   return code
+    .replace(
+      /from\s+["']@naos-ui\/runtime\/internal["']/g,
+      `from ${JSON.stringify(assetUrls.runtimeInternal)}`,
+    )
     .replace(/from\s+["']@naos-ui\/runtime["']/g, `from ${JSON.stringify(assetUrls.runtime)}`)
     .replace(/from\s+["']@naos-ui\/motion["']/g, `from ${JSON.stringify(assetUrls.motion)}`)
 }
