@@ -47,3 +47,45 @@ test("deep link renders detail from the loader directly", async ({ page }) => {
   await expect(detail.locator('h2[part~="title"]')).toHaveText("Motion pass over list surfaces")
   await expect(page).toHaveTitle("Task motion-pass – Task board")
 })
+
+for (const { mode, origin } of [
+  { mode: "development", origin: "http://127.0.0.1:4176" },
+  { mode: "production", origin: "http://127.0.0.1:4177" },
+]) {
+  test(`${mode} reports a failing task resource only in development`, async ({ page }) => {
+    const diagnostics: unknown[] = []
+    const messages: string[] = []
+    page.on("console", async (message) => {
+      if (message.text().startsWith("[Tasks] Navigation failed")) {
+        messages.push(message.text())
+        const args = message.args()
+        diagnostics.push(
+          await args[1]!.evaluate((value) => ({
+            ...value,
+            error: { message: value.error.message },
+          })),
+        )
+      }
+    })
+    await page.goto(origin)
+    await expect(page.locator("tasks-board")).toBeVisible()
+    const failure = page.waitForEvent("pageerror")
+    await page.locator("[data-app-outlet]").evaluate((outlet) => {
+      outlet.dispatchEvent(new CustomEvent("naos-open-task", { detail: { id: "missing" } }))
+    })
+    // The thrown navigation error confirms the resource and router both settled.
+    await failure
+    if (mode === "development") {
+      await expect.poll(() => diagnostics.length).toBe(1)
+      expect(diagnostics[0]).toMatchObject({
+        error: { message: 'Unknown task "missing".' },
+        navigationId: expect.any(Number),
+        resource: ["task", "missing"],
+        route: "/tasks/:id",
+        url: `${origin}/tasks/missing`,
+      })
+    } else {
+      expect(messages).toEqual([])
+    }
+  })
+}

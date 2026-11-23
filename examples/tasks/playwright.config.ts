@@ -19,9 +19,16 @@ export default defineConfig({
   use: {
     baseURL: "http://127.0.0.1:4176",
   },
-  webServer: {
-    command: "pnpm vite --host 127.0.0.1 --port 4176",
-    reuseExistingServer: true,
-    url: "http://127.0.0.1:4176",
-  },
+  webServer: [
+    {
+      command: "pnpm vite --host 127.0.0.1 --port 4176",
+      reuseExistingServer: true,
+      url: "http://127.0.0.1:4176",
+    },
+    {
+      command: "pnpm vite build && pnpm vite preview --host 127.0.0.1 --port 4177",
+      reuseExistingServer: false,
+      url: "http://127.0.0.1:4177",
+    },
+  ],
 })
