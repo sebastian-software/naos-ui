@@ -107,6 +107,7 @@ export type KernelSpec = {
   initState?(kernel: Kernel): void
   mount?(kernel: Kernel): void
   hydrate?(kernel: Kernel): void
+  initFormActions?(kernel: Kernel): void
   update?(kernel: Kernel, dirty: DirtySources): void
   effects?(kernel: Kernel, dirty: DirtySources): void
   syncFormValue?(kernel: Kernel, dirty: DirtySources): void
@@ -257,6 +258,8 @@ export function connect(kernel: Kernel): void {
     } else {
       kernel.spec.mount?.(kernel)
     }
+    // Hydration can remount before returning. Initialize against the final nodes.
+    kernel.spec.initFormActions?.(kernel)
     kernel.mounted = true
   } else {
     markAllDirty(kernel)
@@ -274,9 +277,10 @@ export function connect(kernel: Kernel): void {
   flushSync(kernel)
 }
 
-/** Records an enhancement discovered once by the generated mount code. */
+/** Records an enhancement after the generated DOM has mounted or hydrated. */
 export function registerFormEnhancement(kernel: Kernel, enhance: () => () => void): void {
-  ;(kernel.formEnhancements ??= []).push(enhance)
+  const enhancements = (kernel.formEnhancements ??= [])
+  enhancements.push(enhance)
 }
 
 /** Releases lifecycle-scoped work while preserving DOM for a later reconnect. */

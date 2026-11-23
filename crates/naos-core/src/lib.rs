@@ -1076,7 +1076,11 @@ mod tests {
         );
         assert_contains(
             &result.code,
-            "__naosRegisterFormEnhancement(this[__naosKernel], () => node0FormAction.enhance(node0));",
+            "initFormActions: () => this.#initializeFormActions(),",
+        );
+        assert_contains(
+            &result.code,
+            "__naosRegisterFormEnhancement(this[__naosKernel], () => node0FormAction.enhance(this.#node0));",
         );
         assert_contains(
             &result.code,

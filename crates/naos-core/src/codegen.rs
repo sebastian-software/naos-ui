@@ -233,10 +233,10 @@ struct CodeGenerator<'a> {
     mount_lines: Vec<String>,
     ref_lines: Vec<String>,
     listener_lines: Vec<String>,
+    form_enhancement_lines: Vec<String>,
     update_steps: Vec<UpdateStep>,
     uses_spread_attributes: bool,
     uses_style_objects: bool,
-    uses_form_enhancements: bool,
     uses_motion_flip: bool,
     uses_set_attr: bool,
     uses_list_reconciliation: bool,
@@ -260,10 +260,10 @@ impl<'a> CodeGenerator<'a> {
             mount_lines: Vec::new(),
             ref_lines: Vec::new(),
             listener_lines: Vec::new(),
+            form_enhancement_lines: Vec::new(),
             update_steps: Vec::new(),
             uses_spread_attributes: false,
             uses_style_objects: false,
-            uses_form_enhancements: false,
             uses_motion_flip: false,
             uses_set_attr: false,
             uses_list_reconciliation: false,
@@ -311,6 +311,7 @@ impl<'a> CodeGenerator<'a> {
         self.emit_form_callbacks(&mut code)?;
         self.emit_mount(&mut code)?;
         self.emit_hydration(&mut code)?;
+        self.emit_form_enhancements(&mut code)?;
         self.emit_bindings(&mut code)?;
         self.emit_effects(&mut code)?;
         self.emit_update(&mut code)?;
@@ -811,7 +812,7 @@ impl<'a> CodeGenerator<'a> {
         if self.uses_style_objects {
             kernel_helpers.push("applyStyleValue as __naosApplyStyleValue");
         }
-        if self.uses_form_enhancements {
+        if !self.form_enhancement_lines.is_empty() {
             kernel_helpers.push("registerFormEnhancement as __naosRegisterFormEnhancement");
         }
         if self.template_plan.is_some() {
@@ -1030,6 +1031,13 @@ impl<'a> CodeGenerator<'a> {
         }
         writeln!(code, "      mount: () => this.#mount(),").map_err(format_error)?;
         writeln!(code, "      hydrate: () => this.#hydrate(),").map_err(format_error)?;
+        if !self.form_enhancement_lines.is_empty() {
+            writeln!(
+                code,
+                "      initFormActions: () => this.#initializeFormActions(),"
+            )
+            .map_err(format_error)?;
+        }
         if !self.update_steps.is_empty() {
             writeln!(
                 code,
@@ -1384,6 +1392,17 @@ impl<'a> CodeGenerator<'a> {
         if !self.ref_lines.is_empty() {
             writeln!(code, "  #applyRefs() {{").map_err(format_error)?;
             for line in &self.ref_lines {
+                writeln!(code, "    {line}").map_err(format_error)?;
+            }
+            writeln!(code, "  }}").map_err(format_error)?;
+        }
+        Ok(())
+    }
+
+    fn emit_form_enhancements(&self, code: &mut String) -> CompilerResult<()> {
+        if !self.form_enhancement_lines.is_empty() {
+            writeln!(code, "  #initializeFormActions() {{").map_err(format_error)?;
+            for line in &self.form_enhancement_lines {
                 writeln!(code, "    {line}").map_err(format_error)?;
             }
             writeln!(code, "  }}").map_err(format_error)?;
@@ -2497,17 +2516,16 @@ impl<'a> CodeGenerator<'a> {
             // native browser submission, Naos form actions (brand-checked via
             // Symbol.for so generated code needs no package import) enhance
             // the form, and anything else fails fast.
-            self.uses_form_enhancements = true;
             let action_variable = format!("{field_name}FormAction");
-            self.mount_lines
+            self.form_enhancement_lines
                 .push(format!("const {action_variable} = ({expression});"));
-            self.mount_lines.push(format!(
-                "if (typeof {action_variable} === \"string\") {{ {variable}.setAttribute(\"action\", {action_variable}); }}"
+            self.form_enhancement_lines.push(format!(
+                "if (typeof {action_variable} === \"string\") {{ {field_reference}.setAttribute(\"action\", {action_variable}); }}"
             ));
-            self.mount_lines.push(format!(
-                "else if ({action_variable} != null && {action_variable}[Symbol.for(\"naos.form.action\")] === true) {{ __naosRegisterFormEnhancement(this[__naosKernel], () => {action_variable}.enhance({variable})); }}"
+            self.form_enhancement_lines.push(format!(
+                "else if ({action_variable} != null && {action_variable}[Symbol.for(\"naos.form.action\")] === true) {{ __naosRegisterFormEnhancement(this[__naosKernel], () => {action_variable}.enhance({field_reference})); }}"
             ));
-            self.mount_lines.push(
+            self.form_enhancement_lines.push(
                 "else { throw new Error(\"<form action={...}> requires a string URL or a Naos form action object.\"); }".to_owned(),
             );
             return Ok(());

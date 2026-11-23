@@ -202,8 +202,12 @@ describe("shared runtime kernel", () => {
       form.addEventListener("submit", submit)
       return cleanup
     })
-    const mount = vi.fn((kernel: Kernel) => registerFormEnhancement(kernel, enhance))
-    const kernel = createKernel(new FakeElement() as unknown as HTMLElement, { mount })
+    const mount = vi.fn()
+    const initFormActions = vi.fn((kernel: Kernel) => registerFormEnhancement(kernel, enhance))
+    const kernel = createKernel(new FakeElement() as unknown as HTMLElement, {
+      mount,
+      initFormActions,
+    })
 
     connect(kernel)
     form.dispatchEvent(new Event("submit"))
@@ -216,10 +220,37 @@ describe("shared runtime kernel", () => {
     connect(kernel)
     form.dispatchEvent(new Event("submit"))
     expect(mount).toHaveBeenCalledTimes(1)
+    expect(initFormActions).toHaveBeenCalledTimes(1)
     expect(enhance).toHaveBeenCalledTimes(2)
     expect(submit).toHaveBeenCalledTimes(2)
     disconnect(kernel)
     expect(cleanup).toHaveBeenCalledTimes(2)
+  })
+
+  it("initializes form actions against the final DOM after hydration remounts", () => {
+    let node = "prerendered"
+    const order: string[] = []
+    const initFormActions = vi.fn((kernel: Kernel) => {
+      order.push(`initialize:${node}`)
+      registerFormEnhancement(kernel, () => {
+        order.push(`enhance:${node}`)
+        return () => {}
+      })
+    })
+    const mount = vi.fn(() => {
+      node = "remounted"
+    })
+    const kernel = createKernel(new FakeElement() as unknown as HTMLElement, {
+      usesDeclarativeRoot: true,
+      hydrate: () => mount(),
+      mount,
+      initFormActions,
+    })
+    connect(kernel)
+    expect(mount).toHaveBeenCalledOnce()
+    expect(initFormActions).toHaveBeenCalledOnce()
+    expect(order).toEqual(["initialize:remounted", "enhance:remounted"])
+    disconnect(kernel)
   })
 
   it("aborts lifecycle work before running effect cleanups on disconnect", () => {

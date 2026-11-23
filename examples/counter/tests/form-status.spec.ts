@@ -56,3 +56,30 @@ test("a compiled form removes enhancement while detached and reinstalls it on re
   await expect(host.locator("[data-note-count]")).toHaveText("1")
   await expect(status).toHaveAttribute("data-status", "idle")
 })
+
+test("a prerendered note form keeps its DOM and enhances on hydration", async ({ page }) => {
+  await page.goto("/dsd.html?delayUpgrade=1")
+  const host = page.locator("#dsd-note-form-case demo-note-form")
+  const status = page.locator("#dsd-note-status")
+  const form = host.locator("form")
+  const prerendered = await form.elementHandle()
+  if (!prerendered) throw new Error("Missing prerendered form")
+  expect(
+    await host.evaluate((element) => customElements.get(element.localName) === undefined),
+  ).toBe(true)
+  await expect(status).toHaveAttribute("data-status", "absent")
+  await expect(form).toHaveAttribute("data-naos-root", "")
+  const input = form.getByRole("textbox", { name: "Note" })
+  await input.fill("A prerendered note")
+
+  await page.evaluate(() =>
+    (window as Window & { __naosUpgrade(): Promise<unknown> }).__naosUpgrade(),
+  )
+  await expect(status).toHaveAttribute("data-status", "idle")
+  expect(await prerendered.evaluate((element) => element.isConnected)).toBe(true)
+  await expect(input).toHaveValue("A prerendered note")
+  await form.getByRole("button", { name: "Save note" }).click()
+  await expect(status).toHaveAttribute("data-status", "pending")
+  await expect(form.locator("[data-note-count]")).toHaveText("1")
+  await expect(status).toHaveAttribute("data-status", "idle")
+})

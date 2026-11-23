@@ -21,6 +21,10 @@ const components = [
     props: { label: "Power" },
     title: "DSD toggle",
   },
+  {
+    filename: resolve(root, "examples/counter/src/note-form.wc.tsx"),
+    id: "dsd-note-form-case",
+  },
 ]
 
 function renderComponent(component) {
@@ -57,6 +61,7 @@ function resolveInlineStyles(source, filename) {
 const renderedComponents = components.map(renderComponent)
 const counter = renderedComponents[0]
 const toggle = renderedComponents[1]
+const noteForm = renderedComponents[2]
 
 const html = `<!doctype html>
 <html lang="en">
@@ -116,11 +121,33 @@ const html = `<!doctype html>
           <output id="toggle-event">Last toggle event: none</output>
         </div>
       </section>
+      <section class="demo-case" id="${noteForm.id}" aria-labelledby="dsd-note-form-title">
+        <div class="case-copy">
+          <h2 id="dsd-note-form-title">Prerendered note form</h2>
+        </div>
+        <div class="case-surface">
+          ${noteForm.html}
+          <output id="dsd-note-status" data-status="absent"></output>
+        </div>
+      </section>
     </main>
 
     <script type="module">
+      import { bindFormStatus } from "@naos-ui/actions"
+
       const params = new URLSearchParams(window.location.search)
-      window.__naosUpgrade = () => import("/src/main.ts")
+      let upgrade
+      window.__naosUpgrade = () => upgrade ??= import("/src/main.ts").then(() => {
+        const host = document.querySelector("#dsd-note-form-case demo-note-form")
+        const form = host?.shadowRoot?.querySelector("form")
+        const output = document.querySelector("#dsd-note-status")
+        if (form && output) {
+          bindFormStatus(form, (status) => {
+            output.dataset.status = status ? (status.pending ? "pending" : "idle") : "absent"
+            output.textContent = status ? (status.pending ? "Saving note" : "Ready to save") : ""
+          })
+        }
+      })
       if (!params.has("delayUpgrade")) {
         window.__naosUpgrade()
       }
