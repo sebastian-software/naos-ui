@@ -21,6 +21,11 @@ import {
   settleNaosPresenceSnapshot,
   waitForNaosPresenceExit,
 } from "./internal/behavior/presence.js"
+import {
+  cancelDialogInitialFocus,
+  hasOpenNestedDialog,
+  scheduleDialogInitialFocus,
+} from "./internal/ui-sdk/dialog-focus.js"
 import css from "./dialog.wc.css?inline"
 
 export type NaosDialogProps = {
@@ -51,21 +56,17 @@ export function NaosDialog({
   onConnected(() => {
     const control = host().root.querySelector<UiDialogElement>("ui-dialog")
     if (control) control.open = expanded()
-    if (alert && expanded()) {
-      setTimeout(
-        (root: ShadowRoot) => {
-          if (root.querySelector<UiDialogElement>("ui-dialog")?.open)
-            root.querySelector<HTMLElement>("[part~=close]")?.focus()
-        },
-        0,
-        host().root,
-      )
-    }
+    if (alert && expanded()) scheduleDialogInitialFocus(host().root)
   })
+  onDisconnected(() => cancelDialogInitialFocus(host().root))
   effect(() => {
     const content = host().root.querySelector("[part~=content]")
     if (!content) return
-    const role = alert ? "alertdialog" : "dialog"
+    if (!alert) {
+      content.setAttribute("role", "dialog")
+      return
+    }
+    const role = "alertdialog"
     const applyRole = () => {
       if (content.getAttribute("role") !== role) content.setAttribute("role", role)
     }
@@ -104,21 +105,16 @@ export function NaosDialog({
       onOpenchange={(event) => {
         if (event.target !== event.currentTarget) return
         const detail = (event as DialogEvents["openchange"]).detail
+        if (detail.reason === "outside-press" && hasOpenNestedDialog(host().element)) {
+          event.preventDefault()
+          return
+        }
         const nextOpen = detail.value
         if (nextOpen === expanded()) return
         expanded.set(nextOpen)
         changed.emit({ open: nextOpen })
-        if (alert && nextOpen) {
-          setTimeout(
-            (root: ShadowRoot) => {
-              const control = root.querySelector<UiDialogElement>("ui-dialog")
-              const cancel = root.querySelector<HTMLElement>("[part~=close]")
-              if (control?.open) cancel?.focus()
-            },
-            0,
-            host().root,
-          )
-        }
+        if (alert && nextOpen) scheduleDialogInitialFocus(host().root)
+        if (!nextOpen) cancelDialogInitialFocus(host().root)
         if (!nextOpen && (detail.reason === "outside-press" || detail.reason === "escape-key")) {
           setTimeout(
             (trigger: Element | null, control: UiDialogElement | null) => {

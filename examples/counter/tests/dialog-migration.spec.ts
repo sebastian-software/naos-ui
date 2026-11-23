@@ -66,6 +66,9 @@ test("alert dialog names and describes its prompt, focuses cancel and restores n
   await expect(alert.locator("#confirm")).toBeFocused()
   await page.keyboard.press("Shift+Tab")
   await expect(cancel).toBeFocused()
+  await page.mouse.click(2, 2)
+  await expect(content).toBeVisible()
+  await expect(outer.locator("[part~=content]").first()).toBeVisible()
   await page.keyboard.press("Escape")
   await expect(content).toBeHidden()
   await expect(trigger).toBeFocused()
@@ -90,4 +93,32 @@ test("alert dialog ignores outside presses", async ({ page }) => {
   await expect(content).toBeVisible()
   await page.keyboard.press("Escape")
   await expect(content).toBeHidden()
+})
+
+test("initially open alert reconnects and can return to ordinary dialog semantics", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.evaluate(() => {
+    const dialog = document.createElement("naos-dialog")
+    dialog.id = "initial-alert"
+    dialog.setAttribute("alert", "")
+    dialog.setAttribute("open", "")
+    document.body.append(dialog)
+  })
+  const dialog = page.locator("#initial-alert")
+  const content = dialog.locator("[part~='content']")
+  const cancel = dialog.locator("[part~='close']")
+  await expect(content).toHaveRole("alertdialog")
+  await expect(cancel).toBeFocused()
+  await dialog.evaluate((el) => {
+    const parent = el.parentElement!
+    el.remove()
+    parent.append(el)
+  })
+  await expect(content).toBeVisible()
+  await expect(cancel).toBeFocused()
+  await dialog.evaluate((el) => el.removeAttribute("alert"))
+  await expect(content).toHaveRole("dialog")
 })
