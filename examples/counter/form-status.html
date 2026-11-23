@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Form action status fixture</title>
+  </head>
+  <body>
+    <form id="primary">
+      <button type="submit">Submit primary</button>
+      <span id="shadow-host"></span>
+      <span id="light-status"></span>
+      <span id="closed-slot-host"><span id="slotted-status"></span></span>
+    </form>
+    <form id="secondary">
+      <button id="external" type="submit" form="primary">Submit primary externally</button>
+      <span id="secondary-status"></span>
+    </form>
+    <span id="outside-status"></span>
+    <button id="finish" type="button">Finish submission</button>
+    <button id="dispose" type="button">Remove primary enhancement</button>
+    <button id="move" type="button">Move and rebind status observer</button>
+    <div id="compiled-form-container"><demo-note-form></demo-note-form></div>
+    <output id="compiled-form-status"></output>
+    <button id="disconnect-compiled" type="button">Disconnect compiled form</button>
+    <button id="reconnect-compiled" type="button">Reconnect compiled form</button>
+    <script type="module" src="/fixtures/form-status.ts"></script>
+  </body>
+</html>

@@ -17,6 +17,7 @@ import {
   hostApi,
   listen,
   markAllDirty,
+  registerFormEnhancement,
   registerKeyedBinding,
   reconcileKeyed,
   reportError,
@@ -191,6 +192,34 @@ describe("shared runtime kernel", () => {
 
     expect(mount).toHaveBeenCalledOnce()
     expect(hydrate).not.toHaveBeenCalled()
+  })
+
+  it("enhances mounted forms on each connection and cleans up on disconnection", () => {
+    const form = new EventTarget()
+    const submit = vi.fn()
+    const cleanup = vi.fn(() => form.removeEventListener("submit", submit))
+    const enhance = vi.fn(() => {
+      form.addEventListener("submit", submit)
+      return cleanup
+    })
+    const mount = vi.fn((kernel: Kernel) => registerFormEnhancement(kernel, enhance))
+    const kernel = createKernel(new FakeElement() as unknown as HTMLElement, { mount })
+
+    connect(kernel)
+    form.dispatchEvent(new Event("submit"))
+    expect(submit).toHaveBeenCalledTimes(1)
+    disconnect(kernel)
+    form.dispatchEvent(new Event("submit"))
+    expect(submit).toHaveBeenCalledTimes(1)
+    expect(cleanup).toHaveBeenCalledTimes(1)
+
+    connect(kernel)
+    form.dispatchEvent(new Event("submit"))
+    expect(mount).toHaveBeenCalledTimes(1)
+    expect(enhance).toHaveBeenCalledTimes(2)
+    expect(submit).toHaveBeenCalledTimes(2)
+    disconnect(kernel)
+    expect(cleanup).toHaveBeenCalledTimes(2)
   })
 
   it("aborts lifecycle work before running effect cleanups on disconnect", () => {

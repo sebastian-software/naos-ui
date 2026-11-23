@@ -137,6 +137,7 @@ export type Kernel = {
   eventAbortControllers: Set<AbortController>
   effectsConnected: boolean
   effectCleanups: Cleanup[]
+  formEnhancements?: Array<() => () => void>
   stylesAdopted: boolean
   /** Runtime-owned keyed row bindings, indexed by selector/key tokens. */
   keyedBindings: KeyedRegistry
@@ -262,8 +263,20 @@ export function connect(kernel: Kernel): void {
   }
 
   kernel.effectsConnected = true
+  const signal = kernel.lifecycleAbort.signal
+  for (const enhance of kernel.formEnhancements ?? []) {
+    if (signal.aborted) break
+    const cleanup = enhance()
+    if (signal.aborted) cleanup()
+    else signal.addEventListener("abort", cleanup, { once: true })
+  }
   kernel.spec.connected?.(kernel)
   flushSync(kernel)
+}
+
+/** Records an enhancement discovered once by the generated mount code. */
+export function registerFormEnhancement(kernel: Kernel, enhance: () => () => void): void {
+  ;(kernel.formEnhancements ??= []).push(enhance)
 }
 
 /** Releases lifecycle-scoped work while preserving DOM for a later reconnect. */

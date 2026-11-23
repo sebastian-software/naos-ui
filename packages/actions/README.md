@@ -25,6 +25,12 @@ receives `new FormData(form, submitter)`. Use
 snapshots to the element lifecycle. String `action` values keep native
 browser submission.
 
+A nested status indicator can read `getFormStatus(element)?.pending` or use
+`bindFormStatus(element, listener)` for immediate and subsequent snapshots.
+A missing form action yields `null`. Call the returned cleanup on disconnect
+and rebind if the element changes form owners. See the
+[form status and validation guide](../../docs/actions.md#pending-status-inside-a-form).
+
 `action(reducer, initialState, options?)` is the payload-generic variant for
 non-form mutations. Submissions run sequentially, `reset()` aborts in-flight
 work and restores the initial state, and `dispose()` detaches permanently.

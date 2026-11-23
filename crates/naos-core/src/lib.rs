@@ -1074,7 +1074,10 @@ mod tests {
             &result.code,
             "node0FormAction[Symbol.for(\"naos.form.action\")] === true",
         );
-        assert_contains(&result.code, "node0FormAction.enhance(node0);");
+        assert_contains(
+            &result.code,
+            "__naosRegisterFormEnhancement(this[__naosKernel], () => node0FormAction.enhance(node0));",
+        );
         assert_contains(
             &result.code,
             "requires a string URL or a Naos form action object",
