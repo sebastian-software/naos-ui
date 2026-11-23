@@ -111,8 +111,10 @@ Future demo sections should keep the same shape:
 
 Run the Tasks example in development and open a missing task, for example
 `/tasks/missing`. The browser console reports `[Tasks] Navigation failed` with
-the navigation ID, destination URL, route pattern, resource key, and original
-error. The example subscribes to the router's `naos:navigationerror` event;
+the navigation ID, destination URL, route pattern, route-associated resource
+key, and original error. The key identifies the resource used by the route;
+it does not assert that the resource caused every route error. The example
+subscribes to the router's `naos:navigationerror` event;
 the resource rejection reaches that event through the route loader. This
 example diagnostic is guarded by `import.meta.env.DEV` and is absent from the
 production build. Avoid logging sensitive resource keys or errors in your own

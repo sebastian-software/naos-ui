@@ -80,7 +80,7 @@ for (const { mode, origin } of [
       expect(diagnostics[0]).toMatchObject({
         error: { message: 'Unknown task "missing".' },
         navigationId: expect.any(Number),
-        resource: ["task", "missing"],
+        routeResource: ["task", "missing"],
         route: "/tasks/:id",
         url: `${origin}/tasks/missing`,
       })

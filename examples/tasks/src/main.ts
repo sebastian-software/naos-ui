@@ -83,8 +83,8 @@ const router = createRouter({
     : {}),
 })
 
-// The resource error reaches the router unchanged. Correlate it with the
-// navigation so a developer can find the failing loader and resource.
+// The router preserves the original error. Include route context without
+// asserting that the route-associated resource caused every failure.
 if (import.meta.env.DEV) {
   router.addEventListener("naos:navigationerror", (event) => {
     const { error, navigation } = (
@@ -97,7 +97,7 @@ if (import.meta.env.DEV) {
     console.error("[Tasks] Navigation failed", {
       error,
       navigationId: navigation.id,
-      resource: match?.route.path === "/tasks/:id" ? ["task", match.params.id] : undefined,
+      routeResource: match?.route.path === "/tasks/:id" ? ["task", match.params.id] : undefined,
       route: match?.route.path,
       url: navigation.url.href,
     })
