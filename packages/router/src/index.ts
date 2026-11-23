@@ -619,34 +619,40 @@ export class NaosRouter<
   #onSubmit = (event: Event): void => {
     if (event.defaultPrevented) return
     const form = event.target instanceof HTMLFormElement ? event.target : null
-    if (!form || !isRoutableForm(form)) return
+    if (!form?.hasAttribute("data-naos-action")) return
 
-    const url = new URL(form.action || this.#currentUrl().href, this.#currentUrl())
-    if (url.origin !== this.#currentUrl().origin || this.#toInternalPath(url) === null) {
-      return
-    }
-
-    event.preventDefault()
     const submitter =
       typeof SubmitEvent !== "undefined" &&
       event instanceof SubmitEvent &&
       event.submitter instanceof HTMLElement
         ? event.submitter
         : null
-    const formData = formDataFromForm(form, submitter)
-    const method = normalizeMethod(form.method || "get")
+    const target =
+      submitter?.getAttribute("formtarget") ??
+      form.getAttribute("target") ??
+      form.ownerDocument.querySelector("base[target]")?.getAttribute("target")
+    if (target && target.toLowerCase() !== "_self") return
 
-    if (method === "GET") {
-      void this.submit(url, {
-        form,
-        formData,
-        method,
-        submitter,
-        viewTransition: form.hasAttribute("data-naos-view-transition"),
-      })
+    const formMethod = (
+      submitter?.getAttribute("formmethod") ??
+      form.getAttribute("method") ??
+      "get"
+    ).toLowerCase()
+    if (formMethod === "dialog") return
+    const method = formMethod === "post" ? "POST" : "GET"
+
+    const currentUrl = this.#currentUrl()
+    const action = submitter?.getAttribute("formaction") ?? form.getAttribute("action")
+    let url: URL
+    try {
+      url = action ? new URL(action, form.ownerDocument.baseURI) : currentUrl
+    } catch {
       return
     }
+    if (url.origin !== currentUrl.origin || this.#toInternalPath(url) === null) return
 
+    const formData = formDataFromForm(form, submitter)
+    event.preventDefault()
     void this.submit(url, {
       form,
       formData,
@@ -1693,14 +1699,6 @@ function isRoutableAnchor(anchor: HTMLAnchorElement): boolean {
     !anchor.target &&
     !anchor.hasAttribute("download") &&
     !anchor.getAttribute("rel")?.split(/\s+/).includes("external")
-  )
-}
-
-function isRoutableForm(form: HTMLFormElement): boolean {
-  return (
-    form.hasAttribute("data-naos-action") &&
-    !form.target &&
-    normalizeMethod(form.method || "get") !== "DIALOG"
   )
 }
 

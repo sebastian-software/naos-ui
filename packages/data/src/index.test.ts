@@ -24,6 +24,295 @@ describe("resource keys", () => {
       normalizeResourceKey({ a: ["x", { c: true }], b: 1 }).key,
     )
   })
+
+  it("distinguishes nested dates, strings and structured-key lookalikes", () => {
+    const first = new Date("2026-06-18T00:00:00.000Z")
+    const equivalent = new Date(first)
+    const second = new Date("2026-06-19T00:00:00.000Z")
+    const key = normalizeResourceKey(["day", { at: first, other: 1 }]).key!
+    expect(key).toBe(normalizeResourceKey(["day", { other: 1, at: equivalent }]).key)
+    expect(key).not.toBe(normalizeResourceKey(["day", { at: second, other: 1 }]).key)
+    expect(key).not.toBe(normalizeResourceKey(["day", { at: first.toISOString(), other: 1 }]).key)
+    expect(normalizeResourceKey([first]).key).not.toBe(normalizeResourceKey([{}]).key)
+  })
+
+  it("rejects invalid dates before cache lookup", () => {
+    expect(() => normalizeResourceKey([new Date(NaN)])).toThrow(TypeError)
+  })
+
+  it("fetches different dates separately and shares equivalent instances", async () => {
+    const cache = new NaosResourceCache()
+    const fetcher = vi.fn(([date]: readonly [Date]) => date.toISOString())
+    const first = fetchResource([new Date("2026-06-18T00:00:00Z")] as const, fetcher, {
+      cache,
+      lazy: false,
+    })
+    const equivalent = fetchResource([new Date("2026-06-18T00:00:00Z")] as const, fetcher, {
+      cache,
+      lazy: false,
+    })
+    const second = fetchResource([new Date("2026-06-19T00:00:00Z")] as const, fetcher, {
+      cache,
+      lazy: false,
+    })
+    await waitForSnapshot(first, { status: "success", data: "2026-06-18T00:00:00.000Z" })
+    await waitForSnapshot(second, { status: "success", data: "2026-06-19T00:00:00.000Z" })
+    expect(equivalent.snapshot()).toEqual(first.snapshot())
+    expect(fetcher).toHaveBeenCalledTimes(2)
+    first.dispose()
+    equivalent.dispose()
+    second.dispose()
+  })
+})
+
+describe("optimistic mutation ordering", () => {
+  it("returns a rejected promise for a synchronous throw and honors rollback options", async () => {
+    const cache = new NaosResourceCache()
+    cache.set("key", { status: "success", data: 1 })
+    const failure = new Error("synchronous")
+    const run = () => {
+      throw failure
+    }
+    const result = cache.mutate<number>("key", run, { optimisticData: 2 })
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 2 })
+    await expect(result).rejects.toBe(failure)
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 1 })
+    await expect(
+      cache.mutate<number>("key", run, { optimisticData: 3, rollbackOnError: false }),
+    ).rejects.toBe(failure)
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 3 })
+    const decide = vi.fn(() => false)
+    await expect(
+      cache.mutate<number>("key", run, { optimisticData: 4, rollbackOnError: decide }),
+    ).rejects.toBe(failure)
+    expect(decide).toHaveBeenCalledWith(failure)
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 4 })
+  })
+
+  it("keeps a later committed mutation when an older optimistic mutation rejects", async () => {
+    const cache = new NaosResourceCache()
+    cache.set("key", { status: "success", data: 1 })
+    const listener = vi.fn()
+    cache.subscribe("key", listener)
+    let reject!: (error: Error) => void
+    const older = cache.mutate<number>(
+      "key",
+      new Promise<number>((_, fail) => {
+        reject = fail
+      }),
+      { optimisticData: 2 },
+    )
+    await cache.mutate<number>("key", 3)
+    listener.mockClear()
+    reject(new Error("older failed"))
+    await expect(older).rejects.toThrow("older failed")
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 3 })
+    expect(listener).not.toHaveBeenCalled()
+  })
+
+  it("keeps a later successful optimistic write without cache population", async () => {
+    const cache = new NaosResourceCache()
+    cache.set("key", { status: "success", data: 1 })
+    let reject!: (error: Error) => void
+    const older = cache.mutate<number>(
+      "key",
+      new Promise<number>((_, fail) => {
+        reject = fail
+      }),
+      { optimisticData: 2, populateCache: false },
+    )
+    await cache.mutate<number>("key", 99, { optimisticData: 3, populateCache: false })
+    reject(new Error("older failed"))
+    await expect(older).rejects.toThrow("older failed")
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 3 })
+  })
+
+  it("retains an older successful result beneath a newer failing optimistic mutation", async () => {
+    const cache = new NaosResourceCache()
+    cache.set("key", { status: "success", data: 1 })
+    let resolveA!: (value: number) => void
+    let rejectB!: (error: Error) => void
+    const a = cache.mutate<number>(
+      "key",
+      new Promise<number>((resolve) => {
+        resolveA = resolve
+      }),
+      { optimisticData: 2 },
+    )
+    const b = cache.mutate<number>(
+      "key",
+      new Promise<number>((_, reject) => {
+        rejectB = reject
+      }),
+      { optimisticData: 3 },
+    )
+    resolveA(20)
+    await expect(a).resolves.toBe(20)
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 3 })
+    rejectB(new Error("b"))
+    await expect(b).rejects.toThrow("b")
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 20 })
+  })
+
+  it.each(["older-first", "newer-first"])(
+    "unwinds overlapping rejected optimistic writes: %s",
+    async (order) => {
+      const cache = new NaosResourceCache()
+      cache.set("key", { status: "success", data: 1 })
+      let rejectA!: (error: Error) => void
+      let rejectB!: (error: Error) => void
+      const a = cache.mutate<number>(
+        "key",
+        new Promise<number>((_, fail) => {
+          rejectA = fail
+        }),
+        { optimisticData: 2 },
+      )
+      const b = cache.mutate<number>(
+        "key",
+        new Promise<number>((_, fail) => {
+          rejectB = fail
+        }),
+        { optimisticData: 3 },
+      )
+      const doneA = expect(a).rejects.toThrow("a")
+      const doneB = expect(b).rejects.toThrow("b")
+      if (order === "older-first") {
+        rejectA(new Error("a"))
+        await doneA
+        expect(cache.snapshot("key")).toEqual({ status: "success", data: 3 })
+        rejectB(new Error("b"))
+        await doneB
+      } else {
+        rejectB(new Error("b"))
+        await doneB
+        expect(cache.snapshot("key")).toEqual({ status: "success", data: 2 })
+        rejectA(new Error("a"))
+        await doneA
+      }
+      expect(cache.snapshot("key")).toEqual({ status: "success", data: 1 })
+    },
+  )
+
+  it("preserves an authoritative live subscription update after a rejected mutation", async () => {
+    const cache = new NaosResourceCache()
+    let update!: (value: number) => void
+    const resource = subscriptionResource<number, string>(
+      "live",
+      (_key, { next }) => {
+        update = (value) => next(null, value)
+        next(null, 1)
+        return () => {}
+      },
+      { cache },
+    )
+    let reject!: (error: Error) => void
+    const pending = cache.mutate<number>(
+      "live",
+      new Promise<number>((_, fail) => {
+        reject = fail
+      }),
+      { optimisticData: 2, populateCache: false },
+    )
+    update(5)
+    reject(new Error("failed"))
+    await expect(pending).rejects.toThrow("failed")
+    expect(resource.snapshot()).toEqual({ status: "success", data: 5 })
+    resource.dispose()
+  })
+
+  it("rolls back after an in-flight revalidation is aborted", async () => {
+    const cache = new NaosResourceCache()
+    cache.set("key", { status: "success", data: 1 })
+    let reject!: (error: Error) => void
+    const mutation = cache.mutate<number>(
+      "key",
+      new Promise<number>((_, fail) => {
+        reject = fail
+      }),
+      { optimisticData: 2 },
+    )
+    const fetch = cache.startFetch<number, Error, string>("key", "key", () => new Promise(() => {}))
+    expect(cache.snapshot("key")).toMatchObject({ data: 2, fetching: true })
+    fetch.release()
+    reject(new Error("failed"))
+    await expect(mutation).rejects.toThrow("failed")
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 1 })
+  })
+
+  it("rolls back after a subscription error without discarding later real updates", async () => {
+    const cache = new NaosResourceCache()
+    let report!: (error: Error | null, value?: number) => void
+    const resource = subscriptionResource<number, string, Error>(
+      "key",
+      (_key, { next }) => {
+        report = next
+        next(null, 1)
+        return () => {}
+      },
+      { cache },
+    )
+    let reject!: (error: Error) => void
+    const mutation = cache.mutate<number>(
+      "key",
+      new Promise<number>((_, fail) => {
+        reject = fail
+      }),
+      { optimisticData: 2 },
+    )
+    report(new Error("offline"))
+    reject(new Error("failed"))
+    await expect(mutation).rejects.toThrow("failed")
+    expect(resource.snapshot()).toEqual({ status: "success", data: 1 })
+    resource.dispose()
+  })
+
+  it("cleans up a mutation when its rollback predicate throws", async () => {
+    const cache = new NaosResourceCache()
+    cache.set("key", { status: "success", data: 1 })
+    const predicateError = new Error("rollback predicate failed")
+    await expect(
+      cache.mutate<number>("key", Promise.reject(new Error("mutation failed")), {
+        optimisticData: 2,
+        rollbackOnError: () => {
+          throw predicateError
+        },
+      }),
+    ).rejects.toBe(predicateError)
+    await expect(
+      cache.mutate<number>("key", Promise.reject(new Error("later failed")), {
+        optimisticData: 3,
+      }),
+    ).rejects.toThrow("later failed")
+    expect(cache.snapshot("key")).toEqual({ status: "success", data: 2 })
+  })
+
+  it.each(["reject", "resolve"])(
+    "does not resurrect a deleted entry when a pending mutation settles: %s",
+    async (outcome) => {
+      const cache = new NaosResourceCache()
+      cache.set("key", { status: "success", data: 1 })
+      let resolve!: (value: number) => void
+      let reject!: (error: Error) => void
+      const pending = cache.mutate<number>(
+        "key",
+        new Promise<number>((ok, fail) => {
+          resolve = ok
+          reject = fail
+        }),
+        { optimisticData: 2 },
+      )
+      cache.delete("key")
+      if (outcome === "resolve") {
+        resolve(3)
+        await expect(pending).resolves.toBe(3)
+      } else {
+        reject(new Error("failed"))
+        await expect(pending).rejects.toThrow("failed")
+      }
+      expect(cache.snapshot("key")).toEqual({ status: "pending" })
+    },
+  )
 })
 
 describe("fetchResource", () => {

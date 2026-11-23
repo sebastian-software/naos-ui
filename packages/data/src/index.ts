@@ -139,10 +139,15 @@ type ActiveSubscription = {
   references: number
 }
 
+type OptimisticMutation = {
+  previous: NaosResourceState<unknown, unknown>
+}
+
 export class NaosResourceCache {
   readonly #entries = new Map<string, CacheEntry<unknown, unknown>>()
   readonly #fetches = new Map<string, InflightFetch<unknown>>()
   readonly #subscriptions = new Map<string, ActiveSubscription>()
+  readonly #optimistic = new Map<string, OptimisticMutation[]>()
   readonly #keepAlive: number
 
   constructor(options: NaosResourceCacheOptions = {}) {
@@ -163,6 +168,11 @@ export class NaosResourceCache {
   }
 
   set<Data, Error = unknown>(key: string, state: NaosResourceState<Data, Error>): void {
+    this.#optimistic.delete(key)
+    this.#write(key, state)
+  }
+
+  #write<Data, Error = unknown>(key: string, state: NaosResourceState<Data, Error>): void {
     const entry = this.#entry<Data, Error>(key)
     entry.state = state
     for (const listener of entry.listeners) {
@@ -204,6 +214,7 @@ export class NaosResourceCache {
   }
 
   delete(key: string): void {
+    this.#optimistic.delete(key)
     this.#abortFetch(key)
     this.#abortSubscription(key)
 
@@ -235,7 +246,7 @@ export class NaosResourceCache {
     }
   }
 
-  mutate<Data, MutationData = Data>(
+  async mutate<Data, MutationData = Data>(
     key: string,
     next:
       | MutationData
@@ -246,39 +257,81 @@ export class NaosResourceCache {
     const previous = this.snapshot<Data>(key)
     const current = stateData(previous)
     const rollbackOnError = options.rollbackOnError ?? true
+    let mutation: OptimisticMutation | undefined
+    let mutationStarted = false
 
-    if (options.optimisticData !== undefined) {
-      const optimistic =
-        typeof options.optimisticData === "function"
-          ? (options.optimisticData as (current: Data | undefined) => Data)(current)
-          : options.optimisticData
-      this.set(key, { data: optimistic, status: "success" })
-    }
+    try {
+      if (options.optimisticData !== undefined) {
+        const optimistic =
+          typeof options.optimisticData === "function"
+            ? (options.optimisticData as (current: Data | undefined) => Data)(current)
+            : options.optimisticData
+        mutation = { previous }
+        const mutations = this.#optimistic.get(key) ?? []
+        mutations.push(mutation)
+        this.#optimistic.set(key, mutations)
+        this.#write(key, { data: optimistic, status: "success" })
+      }
 
-    return Promise.resolve(
-      typeof next === "function"
-        ? (next as (current: Data | undefined) => MutationData)(current)
-        : next,
-    )
-      .then((result) => {
-        if (options.populateCache !== false) {
-          const latest = stateData(this.snapshot<Data>(key))
+      const pending =
+        typeof next === "function"
+          ? (next as (current: Data | undefined) => MutationData | Promise<MutationData>)(current)
+          : next
+      mutationStarted = true
+      const result = await pending
+      if (mutation && this.#optimistic.get(key)?.at(-1) !== mutation) {
+        const mutations = this.#optimistic.get(key)
+        const index = mutations?.indexOf(mutation) ?? -1
+        const later = index >= 0 ? mutations?.[index + 1] : undefined
+        if (later && options.populateCache !== false) {
+          const prior = stateData(later.previous as NaosResourceState<Data>)
           const data =
             typeof options.populateCache === "function"
-              ? options.populateCache(result, latest)
+              ? options.populateCache(result, prior)
               : (result as unknown as Data)
-          this.set(key, { data, status: "success" })
+          later.previous = { data, status: "success" }
         }
+        this.#settleOptimistic(key, mutation, false)
         return result
-      })
-      .catch((error: unknown) => {
-        const shouldRollback =
+      }
+      if (options.populateCache !== false) {
+        const latest = stateData(this.snapshot<Data>(key))
+        const data =
+          typeof options.populateCache === "function"
+            ? options.populateCache(result, latest)
+            : (result as unknown as Data)
+        this.set(key, { data, status: "success" })
+      } else if (mutation) {
+        this.#settleOptimistic(key, mutation, false)
+      }
+      return result
+    } catch (error) {
+      if (!mutationStarted) await Promise.resolve()
+      let shouldRollback = false
+      try {
+        shouldRollback =
           typeof rollbackOnError === "function" ? rollbackOnError(error) : rollbackOnError
-        if (shouldRollback) {
-          this.set(key, previous)
-        }
-        throw error
-      })
+      } finally {
+        if (mutation) this.#settleOptimistic(key, mutation, shouldRollback)
+      }
+      throw error
+    }
+  }
+
+  #settleOptimistic(key: string, mutation: OptimisticMutation, rollback: boolean): void {
+    const mutations = this.#optimistic.get(key)
+    const index = mutations?.indexOf(mutation) ?? -1
+    if (!mutations || index < 0) return
+    let restore: NaosResourceState<unknown, unknown> | undefined
+    if (rollback) {
+      const next = mutations[index + 1]
+      if (next) next.previous = mutation.previous
+      else restore = mutation.previous
+    }
+    if (rollback) mutations.splice(index, 1)
+    else mutations.splice(0, index + 1)
+    if (mutations.length === 0) this.#optimistic.delete(key)
+    if (restore) this.#write(key, restore)
   }
 
   startFetch<Data, Error, Key extends NaosEnabledResourceKey>(
@@ -307,14 +360,14 @@ export class NaosResourceCache {
     const previousData = stateData(previous)
     const initialData = previousData ?? options.initialData
     if (initialData !== undefined) {
-      this.set<Data, Error>(key, {
+      this.#write<Data, Error>(key, {
         data: initialData,
         fetching: true,
         stale: true,
         status: "success",
       })
     } else {
-      this.set<Data, Error>(key, { fetching: true, status: "pending" })
+      this.#write<Data, Error>(key, { fetching: true, status: "pending" })
     }
 
     const controller = new AbortController()
@@ -328,7 +381,7 @@ export class NaosResourceCache {
       .catch((error: Error) => {
         if (!controller.signal.aborted) {
           const data = stateData(this.snapshot<Data, Error>(key))
-          this.set<Data, Error>(
+          this.#write<Data, Error>(
             key,
             data === undefined ? { error, status: "error" } : { data, error, status: "error" },
           )
@@ -366,7 +419,7 @@ export class NaosResourceCache {
 
       if (error !== null && error !== undefined) {
         const previousData = stateData(this.snapshot<Data, Error>(key))
-        this.set<Data, Error>(
+        this.#write<Data, Error>(
           key,
           previousData === undefined
             ? { error, status: "error" }
@@ -441,7 +494,7 @@ export class NaosResourceCache {
     const entry = this.#entries.get(key)
     if (entry?.state.fetching) {
       const { fetching: _fetching, ...rest } = entry.state
-      this.set(key, rest as NaosResourceState<unknown, unknown>)
+      this.#write(key, rest as NaosResourceState<unknown, unknown>)
     }
   }
 
@@ -468,6 +521,7 @@ export class NaosResourceCache {
     }
 
     if (this.#keepAlive === 0) {
+      this.#optimistic.delete(key)
       this.#entries.delete(key)
       return
     }
@@ -485,6 +539,7 @@ export class NaosResourceCache {
         !this.#subscriptions.has(key) &&
         this.#entries.get(key) === entry
       ) {
+        this.#optimistic.delete(key)
         this.#entries.delete(key)
       }
     }, this.#keepAlive)
@@ -761,6 +816,12 @@ function stableStringify(value: unknown): string {
 
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value) ?? String(value)
+  }
+
+  if (value instanceof Date) {
+    if (!Number.isFinite(value.getTime()))
+      throw new TypeError("NaosResource keys must contain valid dates.")
+    return `Date(${JSON.stringify(value.toISOString())})`
   }
 
   if (Array.isArray(value)) {
