@@ -14,10 +14,10 @@ let touched = false
 let attempted = false
 let serverError = ""
 
-function renderName() {
+function renderName(dirty = name.value !== name.defaultValue) {
   const localError = touched || attempted ? name.validationMessage : ""
   const message = localError || serverError
-  field.dataset.dirty = String(name.value !== name.defaultValue)
+  field.dataset.dirty = String(dirty)
   field.dataset.touched = String(touched)
   field.toggleAttribute("invalid", Boolean(message))
   name.setAttribute("aria-invalid", String(Boolean(message)))
@@ -52,10 +52,11 @@ form.addEventListener("submit", () => {
   attempted = true
   serverError = ""
   renderName()
+  // Stamp this submission before the enhanced action queues its payload.
+  form.addEventListener("formdata", (event) => event.formData.set(revisionKey, String(revision)), {
+    once: true,
+  })
 })
-// The enhanced action queues payloads. Save the revision when the browser
-// constructs each payload, before the reducer gets its turn.
-form.addEventListener("formdata", (event) => event.formData.set(revisionKey, String(revision)))
 
 const save = formAction(async (_state: null, data, { signal }) => {
   const submittedRevision = data.get(revisionKey)
@@ -80,20 +81,19 @@ bindAction(save, (action) => {
   status.value = action.pending ? "Saving…" : action.error ? "Could not save the profile." : ""
 })
 
-form.addEventListener("reset", (event) => {
-  // Native reset restores controls after the reset event has finished.
-  setTimeout(() => {
-    if (event.defaultPrevented) return
-    revision++
-    touched = false
-    attempted = false
-    serverError = ""
-    save.reset()
-    updates.dataset.touched = "false"
-    renderName()
-    // Form-associated reset callbacks can run after the native controls reset.
-    updates.dataset.dirty = "false"
-  })
+// Handle the bubbling reset after the form's listeners can cancel it. The
+// browser restores control values after dispatch, so record their clean state
+// directly. A second submission in the same task starts a fresh action.
+window.addEventListener("reset", (event) => {
+  if (event.target !== form || event.defaultPrevented) return
+  revision++
+  touched = false
+  attempted = false
+  serverError = ""
+  save.reset()
+  updates.dataset.touched = "false"
+  updates.dataset.dirty = "false"
+  renderName(false)
 })
 updates.dataset.touched = "false"
 renderName()

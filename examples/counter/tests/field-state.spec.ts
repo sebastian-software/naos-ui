@@ -83,3 +83,24 @@ test("late field errors do not reappear after editing back to the submitted valu
   await expect(name).toHaveAttribute("aria-invalid", "false")
   await expect(name).toHaveAccessibleDescription("Choose a public name.")
 })
+
+test("reset and immediate resubmission validate the restored values", async ({ page }) => {
+  await page.goto("/field-state.html")
+  const form = page.locator("#profile")
+  const name = form.getByRole("textbox", { name: "Display name" })
+  await name.fill("Previous edit")
+  await page.route("**/api/profile", (route) =>
+    route.fulfill({ status: 422, json: { name: "Choose another name." } }),
+  )
+  const entries = await form.evaluate((node: HTMLFormElement) => {
+    node.reset()
+    node.requestSubmit()
+    return Array.from(new FormData(node).entries())
+  })
+  expect(entries).toEqual([
+    ["name", "Ada"],
+    ["updates", "on"],
+  ])
+  await expect(name).toHaveAccessibleDescription("Choose another name.")
+  await expect(form.locator("naos-field")).toHaveAttribute("data-dirty", "false")
+})
