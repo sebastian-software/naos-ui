@@ -8,7 +8,7 @@
   },
   "scripts": {
     "build": "pnpm build:deps && pnpm prepare:dsd && vite build",
-    "build:deps": "pnpm -w build:native && pnpm --filter @naos-ui/core build && pnpm --filter @naos-ui/runtime build && pnpm --filter @naos-ui/motion build && pnpm --filter @naos-ui/compiler build && pnpm --filter @naos-ui/router build && pnpm --filter @naos-ui/vite build && pnpm --filter @naos-ui/primitives build",
+    "build:deps": "pnpm -w build:native && pnpm --filter @naos-ui/core build && pnpm --filter @naos-ui/data build && pnpm --filter @naos-ui/runtime build && pnpm --filter @naos-ui/motion build && pnpm --filter @naos-ui/compiler build && pnpm --filter @naos-ui/router build && pnpm --filter @naos-ui/vite build && pnpm --filter @naos-ui/primitives build",
     "prepare:dsd": "node scripts/build-dsd-html.mjs",
     "test": "pnpm build:deps && pnpm prepare:dsd && playwright test",
     "type-check": "pnpm build:deps && tsc --noEmit -p tsconfig.json"

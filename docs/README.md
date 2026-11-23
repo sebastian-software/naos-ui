@@ -23,7 +23,9 @@ you already know the workflow.
    metadata behavior.
 6. [CLI](cli.md)
    Documents `naos compile`, `naos prerender`, and `naos info`.
-7. [Data Resources](data.md)
+7. [App Rendering](app-rendering.md)
+   Describes request-scoped route rendering and client snapshot restoration.
+8. [Data Resources](data.md)
    Covers optional fetch and subscription resources for Custom Element data
    loading.
 8. [Native Distribution](native-distribution.md)

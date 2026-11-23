@@ -657,6 +657,26 @@ describe("bindResource", () => {
 })
 
 describe("cache eviction", () => {
+  it("evicts unused restored entries and retains those in use", () => {
+    vi.useFakeTimers()
+    try {
+      const cache = new NaosResourceCache({ keepAlive: 50 })
+      cache.hydrate([
+        ["unused", 1],
+        ["used", 2],
+      ])
+      const resource = fetchResource("used", async () => 3, { cache })
+      vi.advanceTimersByTime(50)
+      expect(cache.snapshot("unused")).toEqual({ status: "pending" })
+      expect(resource.snapshot()).toEqual({ status: "success", data: 2 })
+      resource.dispose()
+      vi.advanceTimersByTime(50)
+      expect(cache.snapshot("used")).toEqual({ status: "pending" })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it("evicts an idle entry immediately with keepAlive 0", async () => {
     const cache = new NaosResourceCache({ keepAlive: 0 })
     const fetcher = vi.fn(async () => "value")

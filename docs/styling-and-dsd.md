@@ -90,9 +90,9 @@ plugin options. That draws a hard boundary:
 
 If a component's initial output cannot be computed statically, prerender it
 with props that produce a meaningful fallback state, or skip prerendering for
-that component and let it render client-side. "SSR support" in Naos always
-means this static DSD path; there is no server runtime executing components
-per request.
+that component and let it render client-side. For request-specific route data,
+[app rendering](app-rendering.md) runs the route loader per request and passes
+its result to a renderer that can invoke this same DSD compiler path.
 
 ## Vite Manifest
 
