@@ -69,10 +69,40 @@ const routes = defineRoutes([
   },
 ])
 
+const snapshot = document.querySelector<HTMLScriptElement>("#naos-snapshot")?.textContent
 const router = createRouter({
   outlet,
   routes,
+  snapshot: snapshot ?? undefined,
+  ...(import.meta.env.DEV
+    ? {
+        onSnapshotMismatch(reason) {
+          console.warn("[Tasks] Snapshot mismatch", { reason, url: location.href })
+        },
+      }
+    : {}),
 })
+
+// The router preserves the original error. Include route context without
+// asserting that the route-associated resource caused every failure.
+if (import.meta.env.DEV) {
+  router.addEventListener("naos:navigationerror", (event) => {
+    const { error, navigation } = (
+      event as CustomEvent<{
+        error: unknown
+        navigation: { id: number; url: URL }
+      }>
+    ).detail
+    const match = router.match(navigation.url)
+    console.error("[Tasks] Navigation failed", {
+      error,
+      navigationId: navigation.id,
+      routeResource: match?.route.path === "/tasks/:id" ? ["task", match.params.id] : undefined,
+      route: match?.route.path,
+      url: navigation.url.href,
+    })
+  })
+}
 
 outlet.addEventListener("naos-open-task", (openEvent) => {
   if (!(openEvent instanceof CustomEvent)) {

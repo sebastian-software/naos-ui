@@ -106,3 +106,22 @@ Future demo sections should keep the same shape:
 * a Playwright assertion covering the behavior;
 * no framework runtime adapter unless the milestone being documented is
   explicitly about interop.
+
+### Tracing a Tasks loader failure
+
+Run the Tasks example in development and open a missing task, for example
+`/tasks/missing`. The browser console reports `[Tasks] Navigation failed` with
+the navigation ID, destination URL, route pattern, route-associated resource
+key, and original error. The key identifies the resource used by the route;
+it does not assert that the resource caused every route error. The example
+subscribes to the router's `naos:navigationerror` event;
+the resource rejection reaches that event through the route loader. This
+example diagnostic is guarded by `import.meta.env.DEV` and is absent from the
+production build. Avoid logging sensitive resource keys or errors in your own
+applications.
+
+When a Tasks page supplies a serialized router snapshot in a script element
+with ID `naos-snapshot`, the router validates it before hydration. In
+development, `[Tasks] Snapshot mismatch` reports the rejection reason and
+destination; the router falls back to client loading. Production omits the
+example's diagnostic callback.
