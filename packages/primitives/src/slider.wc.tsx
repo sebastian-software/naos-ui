@@ -31,6 +31,7 @@ export function NaosSlider({
   step = 1,
   value = 0,
 }: NaosSliderProps = {}) {
+  let thumb: HTMLInputElement | null = null
   const current = state(value)
   const changed = event<{ value: number }>("naos-change")
   const cleanup = state<(() => void) | null>(null)
@@ -48,7 +49,7 @@ export function NaosSlider({
   onConnected(() => {
     const control = host().root.querySelector("ui-slider")
     if (control) control.value = current()
-    cleanup.set(exposeSliderThumb(host().root))
+    if (thumb) cleanup.set(exposeSliderThumb(thumb))
   })
   onDisconnected(() => {
     cleanup()?.()
@@ -82,6 +83,7 @@ export function NaosSlider({
         <ui-slider-thumb>
           <ui-slider-thumb-input>
             <input
+              ref={thumb}
               part="thumb"
               aria-label={label}
               aria-valuemin={min}

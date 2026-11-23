@@ -514,6 +514,32 @@ return (
 )
 ```
 
+### Element-scoped behavior in a keyed row
+
+The slider binds its style observer to a statically declared thumb input.
+A native element ref resolves that input during mount or hydration.
+`onConnected` installs the observer on the resolved input, and
+`onDisconnected` releases it. The ref identifies the node. The connection
+callbacks own the lifetime, including disconnecting and reconnecting the
+same slider.
+
+A keyed list can render one `naos-slider` per row. Removing a row disconnects
+its slider while the list stays connected. The [browser regression](../examples/counter/tests/slider-attachment.spec.ts)
+counts one observer installation on the original thumb, one cleanup on
+removal and a fresh installation on the next thumb. A removed input can
+then retain its own inline styles. The [adapter](../packages/primitives/src/internal/ui-sdk/slider.ts)
+takes the input directly, so the component can use the ref in place of a
+shadow-root selector.
+
+The proposed `use={[exposeSliderThumb]}` would give the compiler ownership of
+that same install/cleanup pair. The slider already has a component boundary
+at the row, so it uses the existing ref and lifecycle APIs. A bare native
+element created and removed inside a connected component would need a
+per-element cleanup hook. Dynamic rows currently reject refs, and callback
+refs have no cleanup return contract. Revisit attachment syntax when an
+actual adapter needs that bare-element case. CSS hiding alone keeps the
+element connected.
+
 PascalCase child components are rewritten to inferred Custom Element tags.
 Direct `.wc` imports are preserved as side-effect imports so the generated child
 element module still runs.
