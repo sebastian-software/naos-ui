@@ -86,10 +86,11 @@ for (const tag of ["naos-tooltip", "naos-hover-card"]) {
 
 for (const tag of ["naos-tooltip", "naos-hover-card"]) {
   test(`${tag} delays and cancels pointer and focus transitions`, async ({ page }) => {
+    const start = new Date("2025-01-01T00:00:00Z")
+    await page.clock.install({ time: start })
     await page.goto("/")
     await page.mouse.move(0, 0)
-    await page.clock.install()
-    await page.clock.pauseAt(Date.now())
+    await page.clock.pauseAt(start.getTime() + 60_000)
     await page.emulateMedia({ reducedMotion: "reduce" })
     await page.evaluate((name) => {
       const element = document.createElement(name) as HTMLElement & { changes: boolean[] }
