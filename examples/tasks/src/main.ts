@@ -69,9 +69,18 @@ const routes = defineRoutes([
   },
 ])
 
+const snapshot = document.querySelector<HTMLScriptElement>("#naos-snapshot")?.textContent
 const router = createRouter({
   outlet,
   routes,
+  snapshot: snapshot ?? undefined,
+  ...(import.meta.env.DEV
+    ? {
+        onSnapshotMismatch(reason) {
+          console.warn("[Tasks] Snapshot mismatch", { reason, url: location.href })
+        },
+      }
+    : {}),
 })
 
 // The resource error reaches the router unchanged. Correlate it with the

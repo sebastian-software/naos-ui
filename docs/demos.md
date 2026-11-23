@@ -117,3 +117,9 @@ the resource rejection reaches that event through the route loader. This
 example diagnostic is guarded by `import.meta.env.DEV` and is absent from the
 production build. Avoid logging sensitive resource keys or errors in your own
 applications.
+
+When a Tasks page supplies a serialized router snapshot in a script element
+with ID `naos-snapshot`, the router validates it before hydration. In
+development, `[Tasks] Snapshot mismatch` reports the rejection reason and
+destination; the router falls back to client loading. Production omits the
+example's diagnostic callback.

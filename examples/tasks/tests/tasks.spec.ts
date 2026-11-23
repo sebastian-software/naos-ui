@@ -89,3 +89,47 @@ for (const { mode, origin } of [
     }
   })
 }
+
+for (const { mode, origin } of [
+  { mode: "development", origin: "http://127.0.0.1:4176" },
+  { mode: "production", origin: "http://127.0.0.1:4177" },
+]) {
+  test(`${mode} falls back from a mismatched hydration snapshot`, async ({ page }) => {
+    const messages: string[] = []
+    const diagnostics: unknown[] = []
+    page.on("console", async (message) => {
+      if (message.text().startsWith("[Tasks] Snapshot mismatch")) {
+        messages.push(message.text())
+        diagnostics.push(await message.args()[1]!.jsonValue())
+      }
+    })
+    await page.route(`${origin}/`, async (route) => {
+      const response = await route.fetch()
+      const html = await response.text()
+      const snapshot = JSON.stringify({
+        version: 1,
+        url: `${origin}/different`,
+        route: "/",
+        expiresAt: Date.now() + 60_000,
+        data: null,
+        actionData: null,
+        resources: [],
+      })
+      await route.fulfill({
+        response,
+        body: html.replace(
+          "</head>",
+          `<script id="naos-snapshot" type="application/json">${snapshot}</script></head>`,
+        ),
+      })
+    })
+    await page.goto(origin)
+    await expect(page.locator("tasks-task-list li[data-task-row]")).toHaveCount(4)
+    if (mode === "development") {
+      await expect.poll(() => diagnostics.length).toBe(1)
+      expect(diagnostics[0]).toEqual({ reason: "url", url: `${origin}/` })
+    } else {
+      expect(messages).toEqual([])
+    }
+  })
+}
