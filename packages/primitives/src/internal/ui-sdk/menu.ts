@@ -42,6 +42,7 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
   const key = (item: HTMLElement) => item.getAttribute("value") ?? ""
   const label = (item: HTMLElement) =>
     item.getAttribute("label") || item.textContent?.trim() || key(item)
+  const type = (item: HTMLElement) => item.getAttribute("type")
   const enabled = () => items.filter((item) => !item.hasAttribute("disabled"))
   const render = () => {
     const highlighted = navigation.get().highlighted
@@ -59,12 +60,47 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
       item.setAttribute("data-state", highlighted === key(item) ? "highlighted" : "idle")
     }
   }
-  const refresh = () => {
+  const refresh = (changes: MutationRecord[] = []) => {
     releases.forEach((release) => release())
     items = Array.from(element.querySelectorAll<HTMLElement>(":scope > naos-menu-item[value]"))
+    // A newly checked or regrouped radio wins its group; initial markup uses
+    // the first checked item in document order.
+    const preferred = new Map<string, HTMLElement>()
+    for (const change of changes) {
+      const candidates =
+        change.type === "childList"
+          ? Array.from(change.addedNodes).filter(
+              (node): node is HTMLElement => node instanceof HTMLElement,
+            )
+          : change.target instanceof HTMLElement
+            ? [change.target]
+            : []
+      for (const candidate of candidates) {
+        if (
+          items.includes(candidate) &&
+          type(candidate) === "radio" &&
+          candidate.hasAttribute("checked")
+        )
+          preferred.set(candidate.getAttribute("name") ?? "", candidate)
+      }
+    }
+    const chosen = new Map(preferred)
+    for (const item of items) {
+      if (type(item) !== "radio" || !item.hasAttribute("checked")) continue
+      const name = item.getAttribute("name") ?? ""
+      if (!chosen.has(name)) chosen.set(name, item)
+      else if (chosen.get(name) !== item) item.removeAttribute("checked")
+    }
     releases = items.map((item) => {
       item.slot = "item"
-      item.setAttribute("role", "menuitem")
+      const itemType = type(item)
+      item.setAttribute(
+        "role",
+        itemType === "checkbox" || itemType === "radio" ? `menuitem${itemType}` : "menuitem",
+      )
+      if (itemType === "checkbox" || itemType === "radio")
+        item.setAttribute("aria-checked", String(item.hasAttribute("checked")))
+      else item.removeAttribute("aria-checked")
       item.tabIndex = -1
       const option = {
         key: key(item),
@@ -115,6 +151,32 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
   function choose(item: HTMLElement) {
     if (disabled() || item.hasAttribute("disabled")) return
     const value = key(item)
+    const itemType = type(item)
+    if (itemType === "checkbox" || itemType === "radio") {
+      if (itemType === "radio" && item.hasAttribute("checked")) return
+      const checked = itemType === "radio" || !item.hasAttribute("checked")
+      if (itemType === "radio") {
+        const name = item.getAttribute("name") ?? ""
+        for (const peer of items) {
+          if (peer !== item && type(peer) === "radio" && (peer.getAttribute("name") ?? "") === name)
+            peer.removeAttribute("checked")
+        }
+      }
+      item.toggleAttribute("checked", checked)
+      // Update ARIA synchronously, before listeners inspect the new state.
+      for (const peer of items) {
+        if (type(peer) === "checkbox" || type(peer) === "radio")
+          peer.setAttribute("aria-checked", String(peer.hasAttribute("checked")))
+      }
+      item.dispatchEvent(
+        new CustomEvent("naos-checked-change", {
+          bubbles: true,
+          composed: true,
+          detail: { value, checked },
+        }),
+      )
+      return
+    }
     setOpen(false, true)
     onSelect(value)
   }
@@ -240,10 +302,10 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
   )
   const unsubscribe = navigation.subscribe(render)
   refresh()
-  const observer = new MutationObserver(refresh)
+  const observer = new MutationObserver((changes) => refresh(changes))
   observer.observe(element, {
     attributes: true,
-    attributeFilter: ["value", "disabled", "label"],
+    attributeFilter: ["value", "disabled", "label", "type", "name", "checked"],
     childList: true,
     characterData: true,
     subtree: true,
