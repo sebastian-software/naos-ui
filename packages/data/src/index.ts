@@ -145,6 +145,7 @@ type OptimisticMutation = {
 
 export class NaosResourceCache {
   readonly #entries = new Map<string, CacheEntry<unknown, unknown>>()
+  readonly #restored = new Set<string>()
   readonly #fetches = new Map<string, InflightFetch<unknown>>()
   readonly #subscriptions = new Map<string, ActiveSubscription>()
   readonly #optimistic = new Map<string, OptimisticMutation[]>()
@@ -153,6 +154,23 @@ export class NaosResourceCache {
   constructor(options: NaosResourceCacheOptions = {}) {
     const keepAlive = options.keepAlive ?? defaultKeepAlive
     this.#keepAlive = Number.isNaN(keepAlive) ? defaultKeepAlive : Math.max(0, keepAlive)
+  }
+
+  /** Export settled successful entries for an app hydration snapshot. */
+  dehydrate(): ReadonlyArray<readonly [string, unknown]> {
+    return [...this.#entries].flatMap(([key, entry]) =>
+      entry.state.status === "success" && !entry.state.stale && !entry.state.fetching
+        ? [[key, entry.state.data] as const]
+        : [],
+    )
+  }
+
+  /** Restore validated entries before creating resources on the client. */
+  hydrate(entries: ReadonlyArray<readonly [string, unknown]>): void {
+    for (const [key, data] of entries) {
+      this.set(key, { status: "success", data })
+      this.#restored.add(key)
+    }
   }
 
   snapshot<Data, Error = unknown>(key: string | undefined): NaosResourceState<Data, Error> {
@@ -169,10 +187,12 @@ export class NaosResourceCache {
 
   set<Data, Error = unknown>(key: string, state: NaosResourceState<Data, Error>): void {
     this.#optimistic.delete(key)
+    this.#restored.delete(key)
     this.#write(key, state)
   }
 
   #write<Data, Error = unknown>(key: string, state: NaosResourceState<Data, Error>): void {
+    this.#restored.delete(key)
     const entry = this.#entry<Data, Error>(key)
     entry.state = state
     for (const listener of entry.listeners) {
@@ -214,6 +234,7 @@ export class NaosResourceCache {
   }
 
   delete(key: string): void {
+    this.#restored.delete(key)
     this.#optimistic.delete(key)
     this.#abortFetch(key)
     this.#abortSubscription(key)
@@ -341,7 +362,11 @@ export class NaosResourceCache {
     options: NaosResourceFetchOptions<Data> = {},
   ): { promise: Promise<Data>; release: () => void } {
     const previous = this.snapshot<Data, Error>(key)
-    if (previous.status === "success" && options.revalidateIfStale === false) {
+    if (
+      previous.status === "success" &&
+      (options.revalidateIfStale === false ||
+        (this.#restored.has(key) && options.revalidateIfStale !== true))
+    ) {
       return {
         promise: Promise.resolve(previous.data),
         release: () => this.#scheduleEviction(key),
@@ -523,6 +548,7 @@ export class NaosResourceCache {
     if (this.#keepAlive === 0) {
       this.#optimistic.delete(key)
       this.#entries.delete(key)
+      this.#restored.delete(key)
       return
     }
 
@@ -541,6 +567,7 @@ export class NaosResourceCache {
       ) {
         this.#optimistic.delete(key)
         this.#entries.delete(key)
+        this.#restored.delete(key)
       }
     }, this.#keepAlive)
     unrefTimer(timer)
