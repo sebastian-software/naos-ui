@@ -49,7 +49,9 @@ export function createBinaryControlBinding({
     Object.defineProperty(element, property, {
       configurable: true,
       get: () => active(),
-      set: (value: unknown) => setLive(Boolean(value), true),
+      set: (value: unknown) => {
+        setLive(Boolean(value), true)
+      },
     })
     installed = true
     if (hadOwn) setLive(Boolean(initial), true)

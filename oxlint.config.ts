@@ -6,11 +6,7 @@ import {
 } from "./scripts/dependency-layers.mjs"
 
 export default defineConfig({
-  ignorePatterns: [
-    "**/dist/**",
-    "crates/naos-core/tests/fixtures/**",
-    "scripts/fixtures/dependency-boundaries/**",
-  ],
+  ignorePatterns: ["**/dist/**", "crates/naos-core/tests/fixtures/**"],
   overrides: [
     {
       files: foundationSourceGlobs,

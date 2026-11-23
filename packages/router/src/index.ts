@@ -112,8 +112,7 @@ export type NaosCreateElementRoute<Path extends string = string> = NaosRouteBase
 }
 
 export type NaosRoute<Path extends string = string> =
-  | NaosTagRoute<Path>
-  | NaosCreateElementRoute<Path>
+  NaosTagRoute<Path> | NaosCreateElementRoute<Path>
 
 export type NaosFallbackRoute =
   | (Omit<NaosTagRoute, "path"> & { readonly path?: string })
@@ -122,9 +121,7 @@ export type NaosFallbackRoute =
 export type NaosHrefOptions = {
   readonly hash?: string
   readonly search?:
-    | URLSearchParams
-    | Record<string, string | number | boolean | null | undefined>
-    | string
+    URLSearchParams | Record<string, string | number | boolean | null | undefined> | string
 }
 
 export type NaosNavigateOptions = {

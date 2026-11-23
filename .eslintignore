@@ -1,0 +1,2 @@
+# This intentionally invalid fixture is linted with --no-ignore in the boundary test.
+scripts/fixtures/dependency-boundaries/**

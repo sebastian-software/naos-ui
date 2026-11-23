@@ -6,7 +6,7 @@ the command vocabulary, and the conventions CI enforces.
 ## Prerequisites
 
 - Node.js ≥ 22
-- pnpm 11.6.0 (pinned via `packageManager`; `corepack enable` activates it)
+- pnpm 11.28.13 (pinned via `packageManager`; `corepack enable` activates it)
 - Rust stable — only for compiler work and `pnpm build:native`; see the
   JS-only workflow below for everything else
 

@@ -13,10 +13,7 @@ export type EventHandler<EventType extends Event = Event> = {
 }["bivarianceHack"]
 
 export type ElementRef<ElementType extends Element = HTMLElement> =
-  | ElementType
-  | null
-  | undefined
-  | ((element: ElementType) => void)
+  ElementType | null | undefined | ((element: ElementType) => void)
 
 /**
  * Structural shape of a Naos form action (`@naos-ui/actions`). Declared
