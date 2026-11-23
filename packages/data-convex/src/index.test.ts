@@ -184,6 +184,36 @@ describe("convexMutation and convexAction", () => {
     await expect(createMessage({ body: "hello" })).rejects.toThrow("rejected")
     expect(cache.snapshot<string[]>(key)).toEqual({ data: ["existing"], status: "success" })
   })
+
+  it("keeps a newer live query update when an optimistic mutation rejects", async () => {
+    const cache = new NaosResourceCache()
+    const client = new FakeConvexClient(["existing"])
+    const resource = convexResource(client, messagesQuery, { channel: "general" }, { cache })
+    let reject!: (error: Error) => void
+    client.mutation.mockReturnValueOnce(
+      new Promise((_, fail) => {
+        reject = fail
+      }),
+    )
+    const createMessage = convexMutation<typeof createMessageMutation, string[]>(
+      client,
+      createMessageMutation,
+      {
+        optimistic: {
+          cache,
+          key: ["convex", "messages:list", { channel: "general" }],
+          optimisticData: (current, args) => [...(current ?? []), args.body],
+        },
+      },
+    )
+    const pending = createMessage({ body: "optimistic" })
+    expect(resource.snapshot()).toEqual({ data: ["existing", "optimistic"], status: "success" })
+    client.emit(["authoritative"])
+    reject(new Error("failed"))
+    await expect(pending).rejects.toThrow("failed")
+    expect(resource.snapshot()).toEqual({ data: ["authoritative"], status: "success" })
+    resource.dispose()
+  })
 })
 
 describe("convexConnectionResource", () => {
