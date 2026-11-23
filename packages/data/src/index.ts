@@ -170,6 +170,7 @@ export class NaosResourceCache {
     for (const [key, data] of entries) {
       this.set(key, { status: "success", data })
       this.#restored.add(key)
+      this.#scheduleEviction(key)
     }
   }
 

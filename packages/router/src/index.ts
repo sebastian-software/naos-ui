@@ -2066,7 +2066,7 @@ export async function renderApp<Cache extends NaosSnapshotCache>(options: {
     throw new Error("App rendering route guard did not allow the request.")
   await route.load?.(navigation)
   const data = await route.loader?.({ ...match, request: options.request })
-  const result = { ...match, data, actionData: options.actionData }
+  const result = { ...match, data: data ?? null, actionData: options.actionData ?? null }
   const html = await options.render(result, cache)
   const snapshot: NaosAppSnapshot = {
     version: 1,
