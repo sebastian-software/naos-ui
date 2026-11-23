@@ -97,19 +97,24 @@ export function NaosPinInput({
             onInput={(event) => {
               if (disabled) return
               const input = event.currentTarget as HTMLInputElement
-              const incoming = input.value
-              const candidate = current().slice(0, slot) + incoming + current().slice(slot + 1)
+              const incoming = (event as InputEvent).data ?? input.value
               const before = current()
-              controller()?.api.setValue(candidate, { reason: "input-change", event })
-              const after = controller()?.api.getValue() ?? before
-              if (incoming && after === before) {
+              const pattern = pinPattern(type)
+              if (Array.from(incoming).some((character) => !pattern.test(character))) {
                 invalid.emit({ index: slot, value: incoming })
                 input.value = before[slot] ?? ""
                 return
               }
+              const start = incoming.length >= count ? 0 : Math.min(slot, before.length)
+              const candidate =
+                before.slice(0, start) +
+                incoming +
+                before.slice(start + Math.max(1, incoming.length))
+              controller()?.api.setValue(candidate, { reason: "input-change", event })
+              input.value = controller()?.api.getValue()[slot] ?? ""
               const next =
                 host().root.querySelectorAll('[part~="input"]')[
-                  Math.min(slot + incoming.length, count - 1)
+                  Math.min(start + incoming.length, count - 1)
                 ]
               if (next instanceof HTMLElement) next.focus()
             }}
