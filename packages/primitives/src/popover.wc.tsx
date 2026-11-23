@@ -1,23 +1,7 @@
-import {
-  computed,
-  effect,
-  event,
-  host,
-  onConnected,
-  onDisconnected,
-  state,
-  type ComponentOptions,
-} from "@naos-ui/core"
-import {
-  createNaosZagPopoverService,
-  getNaosZagPopoverApi,
-  stopNaosZagPopoverService,
-} from "./internal/zag/popover.js"
-import type { NaosZagPopoverService } from "./internal/zag/popover.js"
-import {
-  getNaosOverlayStateAttributes,
-  listenForNaosOverlayEscape,
-} from "./internal/behavior/overlay.js"
+import { effect, event, host, onConnected, state, type ComponentOptions } from "@naos-ui/core"
+import "@ui-sdk/web/popover"
+import type { PopoverEvents, UiPopoverElement } from "@ui-sdk/web/popover"
+import { getNaosOverlayStateAttributes } from "./internal/behavior/overlay.js"
 import {
   createNaosPresenceSnapshot,
   getNaosPresenceAttributes,
@@ -50,29 +34,13 @@ export function NaosPopover({
 }: NaosPopoverProps = {}) {
   const expanded = state(open)
   const presence = state(createNaosPresenceSnapshot(open))
-  const popoverService = state<NaosZagPopoverService | null>(null)
-  const popoverApi = computed(() => getNaosZagPopoverApi(popoverService()))
   const changed = event<{ open: boolean }>("naos-open-change")
 
   onConnected(() => {
-    popoverService.set(
-      createNaosZagPopoverService({
-        host: host().element,
-        id: "naos-popover",
-        modal,
-        onOpenChange(nextOpen) {
-          expanded.set(nextOpen)
-          changed.emit({ open: nextOpen })
-        },
-        open: expanded(),
-        root: host().root,
-      }),
-    )
+    const control = host().root.querySelector<UiPopoverElement>("ui-popover")
+    if (control) control.open = expanded()
   })
-  onDisconnected(() => {
-    stopNaosZagPopoverService(popoverService())
-    popoverService.set(null)
-  })
+
   effect(() => {
     const next = nextNaosPresenceSnapshot(presence(), expanded())
     if (next !== presence()) presence.set(next)
@@ -94,18 +62,37 @@ export function NaosPopover({
       }
     })
   })
-  effect(() => {
-    const api = popoverApi()
-    void expanded()
-    if (api == null || !expanded()) return
-    return listenForNaosOverlayEscape({
-      onClose: () => api.setOpen(false),
-      target: document,
-    })
-  })
 
   return (
-    <div
+    <ui-popover
+      default-open={open}
+      {...{ modal: modal ? "true" : "false" }}
+      close-on-outside-press
+      onOpenchange={(event) => {
+        if (event.target !== event.currentTarget) return
+        const detail = (event as PopoverEvents["openchange"]).detail
+        const nextOpen = detail.value
+        if (nextOpen === expanded()) return
+        expanded.set(nextOpen)
+        changed.emit({ open: nextOpen })
+        if (!nextOpen && (detail.reason === "outside-press" || detail.reason === "escape-key")) {
+          setTimeout(
+            (trigger: Element | null, control: UiPopoverElement | null) => {
+              if (
+                trigger instanceof HTMLElement &&
+                trigger.isConnected &&
+                control &&
+                !control.open
+              ) {
+                trigger.focus()
+              }
+            },
+            0,
+            host().root.querySelector("[part~=trigger]"),
+            host().root.querySelector<UiPopoverElement>("ui-popover"),
+          )
+        }
+      }}
       part="root"
       {...getNaosOverlayStateAttributes({
         kind: "popover",
@@ -115,16 +102,16 @@ export function NaosPopover({
       {...getNaosPresenceAttributes(presence())}
       {...getNaosPresenceMotionAttributes()}
     >
-      <button
-        {...(popoverApi()?.getTriggerProps() ?? {})}
-        part="trigger"
-        aria-expanded={expanded() ? "true" : "false"}
-        data-state={expanded() ? "open" : "closed"}
-      >
-        <slot name="trigger">{label}</slot>
-      </button>
+      <ui-popover-trigger>
+        <button
+          part="trigger"
+          aria-expanded={expanded() ? "true" : "false"}
+          data-state={expanded() ? "open" : "closed"}
+        >
+          <slot name="trigger">{label}</slot>
+        </button>
+      </ui-popover-trigger>
       <div
-        {...(popoverApi()?.getPositionerProps() ?? {})}
         part="positioner"
         {...getNaosOverlayStateAttributes({
           kind: "popover",
@@ -134,8 +121,10 @@ export function NaosPopover({
         {...getNaosPresenceAttributes(presence())}
         hidden={isNaosPresenceHidden(presence())}
       >
-        <div
-          {...(popoverApi()?.getContentProps() ?? {})}
+        <ui-popover-content
+          keep-mounted
+          initial-focus="none"
+          {...{ align: "start" }}
           part="content"
           {...getNaosOverlayStateAttributes({
             kind: "popover",
@@ -146,18 +135,22 @@ export function NaosPopover({
           hidden={isNaosPresenceHidden(presence())}
         >
           <div part="header">
-            <h2 {...(popoverApi()?.getTitleProps() ?? {})} part="title">
-              <slot name="title">{title}</slot>
-            </h2>
-            <button {...(popoverApi()?.getCloseTriggerProps() ?? {})} part="close">
-              <slot name="close">Close</slot>
-            </button>
+            <ui-popover-title as-child>
+              <h2 part="title">
+                <slot name="title">{title}</slot>
+              </h2>
+            </ui-popover-title>
+            <ui-popover-close>
+              <button part="close">
+                <slot name="close">Close</slot>
+              </button>
+            </ui-popover-close>
           </div>
-          <div {...(popoverApi()?.getDescriptionProps() ?? {})} part="description">
+          <ui-popover-description part="description">
             <slot />
-          </div>
-        </div>
+          </ui-popover-description>
+        </ui-popover-content>
       </div>
-    </div>
+    </ui-popover>
   )
 }

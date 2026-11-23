@@ -165,7 +165,8 @@ jobs:
 
   browser:
     name: Browser Gate (${{ matrix.browser }})
-    runs-on: ubuntu-latest
+    # Playwright 1.60 supplies browser dependencies for this LTS release.
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:

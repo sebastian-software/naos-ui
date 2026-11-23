@@ -1,3 +1,4 @@
+import { segmentedControl } from "@ui-sdk/core/segmented-control"
 import {
   computed,
   effect,
@@ -9,13 +10,8 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagSegmentedControlService,
-  getNaosZagSegmentedControlApi,
-  stopNaosZagSegmentedControlService,
-  syncNaosSegmentedItems,
-} from "./internal/zag/segmented-control.js"
-import type { NaosZagSegmentedControlService } from "./internal/zag/segmented-control.js"
+import { syncNaosSegmentedItems } from "./internal/ui-sdk/segmented-control.js"
+import { primitiveId } from "./internal/ui-sdk/id.js"
 import css from "./segmented-control.wc.css?inline"
 
 export type NaosSegmentedControlProps = {
@@ -38,14 +34,14 @@ export function NaosSegmentedControl({
   value = "",
 }: NaosSegmentedControlProps = {}) {
   const selected = state(value)
-  const segmentedService = state<NaosZagSegmentedControlService | null>(null)
-  const segmentedApi = computed(() => getNaosZagSegmentedControlApi(segmentedService()))
+  const segmentedService = state<ReturnType<typeof segmentedControl> | null>(null)
+  const segmentedApi = computed(() => segmentedService()?.api)
   const changed = event<{ value: string }>("naos-change")
   const form = formControl({
     value: () => selected() || null,
     reset: () => {
       selected.set(value)
-      segmentedApi()?.setValue(value ? [value] : [])
+      segmentedApi()?.setValue(value || null)
     },
     disabled,
   })
@@ -54,26 +50,24 @@ export function NaosSegmentedControl({
 
   onConnected(() => {
     segmentedService.set(
-      createNaosZagSegmentedControlService({
-        disabled,
-        host: host().element,
-        id: "naos-segmented-control",
+      segmentedControl({
+        id: primitiveId("segmented-control"),
         onValueChange(nextValue) {
-          selected.set(nextValue)
-          changed.emit({ value: nextValue })
+          selected.set(nextValue ?? "")
+          changed.emit({ value: nextValue ?? "" })
         },
         orientation,
-        root: host().root,
-        value: selected(),
+        defaultValue: selected(),
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagSegmentedControlService(segmentedService())
+    segmentedService()?.destroy()
     segmentedService.set(null)
   })
   effect(() => {
     const api = segmentedApi()
+    void selected()
     if (api == null) return
     return syncNaosSegmentedItems({
       api,
@@ -86,7 +80,8 @@ export function NaosSegmentedControl({
 
   return (
     <section
-      {...(segmentedApi()?.getRootProps() ?? {})}
+      role="radiogroup"
+      aria-label={label}
       part="root"
       aria-disabled={disabled || undefined}
       data-state={selected() || "none"}

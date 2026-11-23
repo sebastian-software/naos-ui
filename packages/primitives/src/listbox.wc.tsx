@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   event,
   formControl,
@@ -9,17 +8,7 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  collectNaosListboxItems,
-  createNaosZagListboxService,
-  getNaosZagListboxApi,
-  listboxFormValue,
-  parseNaosListboxValue,
-  serializeNaosListboxValue,
-  stopNaosZagListboxService,
-  syncNaosListboxItems,
-} from "./internal/zag/listbox.js"
-import type { NaosZagListboxService } from "./internal/zag/listbox.js"
+import { bindOptions, listFormValue } from "./internal/ui-sdk/options.js"
 import css from "./listbox.wc.css?inline"
 
 export type NaosListboxProps = {
@@ -43,22 +32,15 @@ export function NaosListbox({
   orientation = "vertical",
   value = "",
 }: NaosListboxProps = {}) {
-  const selected = state(parseNaosListboxValue(value))
-  const highlighted = state("")
-  const listboxService = state<NaosZagListboxService | null>(null)
-  const listboxApi = computed(() => getNaosZagListboxApi(listboxService()))
+  const selected = state(value.split(/\s+/).filter(Boolean))
+  const binding = state<ReturnType<typeof bindOptions> | null>(null)
   const changed = event<{ value: string[] }>("naos-change")
   const form = formControl({
-    value: () =>
-      listboxFormValue({
-        multiple,
-        name,
-        value: selected(),
-      }),
+    value: () => listFormValue(selected(), multiple, name),
     reset: () => {
-      const nextValue = parseNaosListboxValue(value)
-      selected.set(nextValue)
-      listboxApi()?.setValue(nextValue)
+      const next = value.split(/\s+/).filter(Boolean)
+      selected.set(next)
+      binding()?.reset(next)
     },
     disabled,
   })
@@ -66,60 +48,43 @@ export function NaosListbox({
   void name
 
   onConnected(() => {
-    const hostElement = host().element
-    listboxService.set(
-      createNaosZagListboxService({
-        disabled,
-        host: hostElement,
-        id: "naos-listbox",
-        items: collectNaosListboxItems(hostElement),
-        multiple,
-        onHighlightChange(nextValue) {
-          highlighted.set(nextValue)
-        },
-        onValueChange(nextValue) {
-          selected.set(nextValue)
-          changed.emit({ value: nextValue })
-        },
-        orientation,
+    binding.set(
+      bindOptions({
+        kind: "listbox",
+        element: host().element,
         root: host().root,
         value: selected(),
+        onValue(values) {
+          selected.set(values)
+          changed.emit({ value: values })
+        },
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagListboxService(listboxService())
-    listboxService.set(null)
+    binding()?.destroy()
+    binding.set(null)
   })
   effect(() => {
-    const api = listboxApi()
-    void selected()
-    void highlighted()
-    if (api == null) return
-    return syncNaosListboxItems({
-      api,
-      disabled,
-      host: host().element,
-      onRequestUpdate: () => host().update(),
-    })
+    binding()?.syncDisabled(disabled)
   })
 
   return (
     <section
-      {...(listboxApi()?.getRootProps() ?? {})}
       part="root"
       aria-disabled={disabled || undefined}
-      data-state={serializeNaosListboxValue(selected()) || "none"}
+      data-state={selected().join(" ") || "none"}
       data-disabled={disabled || undefined}
       data-orientation={orientation}
     >
-      <span {...(listboxApi()?.getLabelProps() ?? {})} part="label">
-        {label}
-      </span>
+      <span part="label">{label}</span>
       <div
-        {...(listboxApi()?.getContentProps() ?? {})}
         part="content"
-        data-state={serializeNaosListboxValue(selected()) || "none"}
+        role="listbox"
+        tabindex={disabled ? -1 : 0}
+        aria-orientation={orientation}
+        aria-multiselectable={multiple || undefined}
+        data-state={selected().join(" ") || "none"}
       >
         <slot name="item" />
       </div>

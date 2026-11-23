@@ -91,7 +91,7 @@
   box-shadow: var(--naos-date-picker-shadow, 0 12px 28px rgb(15 23 42 / 0.14));
 }
 
-[part~="content"][hidden] {
+[part~="positioner"][hidden] {
   display: none;
 }
 
@@ -122,6 +122,12 @@
 [part~="table-head"],
 [part~="table-body"] {
   display: grid;
+  gap: 0.15rem;
+}
+
+[part~="table-head"] > [role="row"],
+[part~="table-body"] > ui-calendar-week {
+  display: grid;
   grid-template-columns: repeat(7, 2rem);
   gap: 0.15rem;
 }
@@ -137,13 +143,16 @@
 }
 
 [part~="table-cell"] {
+  display: block;
   padding: 0.1rem;
 }
 
 [part~="cell-trigger"] {
+  box-sizing: border-box;
   width: 2rem;
   height: 2rem;
   border-color: transparent;
+  user-select: none;
 }
 
 [part~="cell-trigger"][data-selected] {
@@ -157,7 +166,7 @@
   border-color: var(--naos-date-picker-today-border, #0f766e);
 }
 
-[part~="cell-trigger"][data-outside-range],
+[part~="cell-trigger"][data-outside],
 [part~="cell-trigger"][data-disabled] {
   color: var(--naos-date-picker-disabled-fg, #94a3b8);
 }

@@ -121,408 +121,96 @@ describe("@naos-ui/primitives build output", () => {
     expect(dropdown).not.toContain("@naos-ui/core")
   })
 
-  it("builds private Zag adapter helpers without adding public exports", () => {
+  it("keeps implementation modules behind the package export boundary", () => {
     const index = readFileSync(join(distRoot, "index.mjs"), "utf8")
-    const accordion = readFileSync(join(distRoot, "internal", "zag", "accordion.js"), "utf8")
-    const avatar = readFileSync(join(distRoot, "internal", "zag", "avatar.js"), "utf8")
-    const checkbox = readFileSync(join(distRoot, "internal", "zag", "checkbox.js"), "utf8")
-    const collapsible = readFileSync(join(distRoot, "internal", "zag", "collapsible.js"), "utf8")
-    const combobox = readFileSync(join(distRoot, "internal", "zag", "combobox.js"), "utf8")
-    const datePicker = readFileSync(join(distRoot, "internal", "zag", "date-picker.js"), "utf8")
-    const dialog = readFileSync(join(distRoot, "internal", "zag", "dialog.js"), "utf8")
-    const editable = readFileSync(join(distRoot, "internal", "zag", "editable.js"), "utf8")
-    const fileUpload = readFileSync(join(distRoot, "internal", "zag", "file-upload.js"), "utf8")
-    const hoverCard = readFileSync(join(distRoot, "internal", "zag", "hover-card.js"), "utf8")
-    const listbox = readFileSync(join(distRoot, "internal", "zag", "listbox.js"), "utf8")
-    const menu = readFileSync(join(distRoot, "internal", "zag", "menu.js"), "utf8")
-    const numberInput = readFileSync(join(distRoot, "internal", "zag", "number-input.js"), "utf8")
-    const pinInput = readFileSync(join(distRoot, "internal", "zag", "pin-input.js"), "utf8")
-    const popover = readFileSync(join(distRoot, "internal", "zag", "popover.js"), "utf8")
-    const progress = readFileSync(join(distRoot, "internal", "zag", "progress.js"), "utf8")
-    const radioGroup = readFileSync(join(distRoot, "internal", "zag", "radio-group.js"), "utf8")
-    const ratingGroup = readFileSync(join(distRoot, "internal", "zag", "rating-group.js"), "utf8")
-    const service = readFileSync(join(distRoot, "internal", "zag", "service.js"), "utf8")
-    const props = readFileSync(join(distRoot, "internal", "zag", "props.js"), "utf8")
-    const scope = readFileSync(join(distRoot, "internal", "zag", "scope.js"), "utf8")
-    const segmentedControl = readFileSync(
-      join(distRoot, "internal", "zag", "segmented-control.js"),
-      "utf8",
+    expect(index).not.toContain("./internal/")
+  })
+
+  it("keeps Zag out of published primitive modules and dependencies", () => {
+    const distModules = readdirSync(distRoot, { encoding: "utf8", recursive: true }).filter(
+      (path) => /\.m?js$/.test(path),
     )
-    const select = readFileSync(join(distRoot, "internal", "zag", "select.js"), "utf8")
-    const slider = readFileSync(join(distRoot, "internal", "zag", "slider.js"), "utf8")
-    const switchAdapter = readFileSync(join(distRoot, "internal", "zag", "switch.js"), "utf8")
-    const tabs = readFileSync(join(distRoot, "internal", "zag", "tabs.js"), "utf8")
-    const tagsInput = readFileSync(join(distRoot, "internal", "zag", "tags-input.js"), "utf8")
-    const tooltip = readFileSync(join(distRoot, "internal", "zag", "tooltip.js"), "utf8")
-    const toast = readFileSync(join(distRoot, "internal", "zag", "toast.js"), "utf8")
-    const toggle = readFileSync(join(distRoot, "internal", "zag", "toggle.js"), "utf8")
-    const toggleGroup = readFileSync(join(distRoot, "internal", "zag", "toggle-group.js"), "utf8")
-
-    expect(accordion).toContain("@zag-js/accordion")
-    expect(accordion).toContain("syncNaosAccordionItems")
-    expect(avatar).toContain("@zag-js/avatar")
-    expect(checkbox).toContain("@zag-js/checkbox")
-    expect(collapsible).toContain("@zag-js/collapsible")
-    expect(combobox).toContain("@zag-js/combobox")
-    expect(combobox).toContain("syncNaosComboboxItems")
-    expect(datePicker).toContain("@zag-js/date-picker")
-    expect(datePicker).toContain("datePickerFormValue")
-    expect(dialog).toContain("@zag-js/dialog")
-    expect(editable).toContain("@zag-js/editable")
-    expect(editable).toContain("editableFormValue")
-    expect(fileUpload).toContain("@zag-js/file-upload")
-    expect(hoverCard).toContain("@zag-js/hover-card")
-    expect(listbox).toContain("@zag-js/listbox")
-    expect(listbox).toContain("syncNaosListboxItems")
-    expect(menu).toContain("@zag-js/menu")
-    expect(menu).toContain("syncNaosMenuItems")
-    expect(numberInput).toContain("@zag-js/number-input")
-    expect(pinInput).toContain("@zag-js/pin-input")
-    expect(popover).toContain("@zag-js/popover")
-    expect(progress).toContain("@zag-js/progress")
-    expect(radioGroup).toContain("@zag-js/radio-group")
-    expect(radioGroup).toContain("NAOS_RADIO_GROUP_CONTEXT")
-    expect(radioGroup).toContain("createNaosRadioGroupContextController")
-    expect(radioGroup).not.toContain("MutationObserver")
-    expect(radioGroup).not.toContain("querySelectorAll")
-    expect(ratingGroup).toContain("@zag-js/rating-group")
-    expect(service).toContain("createZagService")
-    expect(props).toContain("normalizeZagProps")
-    expect(scope).toContain("createZagScope")
-    expect(segmentedControl).toContain("syncNaosSegmentedItems")
-    expect(segmentedControl).toContain("createNaosZagToggleGroupService")
-    expect(select).toContain("@zag-js/select")
-    expect(select).toContain("syncNaosSelectItems")
-    expect(slider).toContain("@zag-js/slider")
-    expect(switchAdapter).toContain("@zag-js/switch")
-    expect(tabs).toContain("@zag-js/tabs")
-    expect(tabs).toContain("syncNaosTabsItems")
-    expect(tagsInput).toContain("@zag-js/tags-input")
-    expect(tooltip).toContain("@zag-js/tooltip")
-    expect(toast).toContain("@zag-js/toast")
-    expect(toast).toContain("createNaosZagToastGroupService")
-    expect(toggle).toContain("@zag-js/toggle")
-    expect(toggleGroup).toContain("@zag-js/toggle-group")
-    expect(toggleGroup).toContain("syncNaosToggleGroupItems")
-    expect(index).not.toContain("internal/zag")
+    for (const path of distModules) {
+      const compiled = readFileSync(join(distRoot, path), "utf8")
+      expect(compiled, path).not.toMatch(/@zag-js\/|[./]internal\/zag\//)
+    }
+    const { dependencies } = JSON.parse(
+      readFileSync(join(import.meta.dirname, "..", "package.json"), "utf8"),
+    ) as { dependencies: Record<string, string> }
+    expect(Object.keys(dependencies).filter((name) => name.startsWith("@zag-js/"))).toEqual([])
   })
 
-  it("backs checkbox and toggle with private Zag adapters", () => {
-    const checkbox = readFileSync(join(distRoot, "checkbox.mjs"), "utf8")
-    const toggle = readFileSync(join(distRoot, "toggle.mjs"), "utf8")
-
-    expect(checkbox).toContain('from "./internal/zag/checkbox.js"')
-    expect(checkbox).toContain("createNaosZagCheckboxService")
-    expect(checkbox).toContain("__naosApplySpreadAttributes")
-    expect(checkbox).not.toContain('from "./internal/behavior/checkbox.js"')
-    expect(checkbox).not.toContain("type NaosZagCheckboxService")
-
-    expect(toggle).toContain('from "./internal/zag/toggle.js"')
-    expect(toggle).toContain("createNaosZagToggleService")
-    expect(toggle).toContain("__naosApplySpreadAttributes")
-    expect(toggle).not.toContain('from "./internal/behavior/toggle.js"')
-    expect(toggle).not.toContain("type NaosZagToggleService")
+  it("builds native feedback and UI SDK disclosure controls without the Zag adapters", () => {
+    for (const name of ["avatar", "progress", "collapsible", "toggle"]) {
+      const compiled = readFileSync(join(distRoot, `${name}.mjs`), "utf8")
+      expect(compiled).toContain(`__naosDefineComponent("naos-${name}"`)
+      expect(compiled).not.toContain("./internal/zag/")
+      expect(compiled).not.toContain("@naos-ui/core")
+      if (name === "collapsible" || name === "toggle") {
+        expect(compiled).toContain(`from "@ui-sdk/core/${name}"`)
+      }
+    }
   })
 
-  it("backs accordion with the private Zag adapter", () => {
-    const accordion = readFileSync(join(distRoot, "accordion.mjs"), "utf8")
-
-    expect(accordion).toContain('from "./internal/zag/accordion.js"')
-    expect(accordion).toContain("createNaosZagAccordionService")
-    expect(accordion).toContain("syncNaosAccordionItems")
-    expect(accordion).toContain("__naosApplySpreadAttributes")
-    expect(accordion).not.toContain("@naos-ui/core")
-    expect(accordion).not.toContain("type NaosZagAccordionService")
+  it("builds migrated controls through their SDK entry points without Zag adapters", () => {
+    const components = {
+      checkbox: "@ui-sdk/core/checkbox",
+      "radio-group": "@ui-sdk/core/radio",
+      "segmented-control": "@ui-sdk/core/segmented-control",
+      select: "./internal/ui-sdk/options.js",
+      listbox: "./internal/ui-sdk/options.js",
+      combobox: "./internal/ui-sdk/options.js",
+      "number-input": "@ui-sdk/web/number-input",
+      dialog: "@ui-sdk/web/dialog",
+      "toggle-group": "@ui-sdk/core/toggle",
+      switch: "@ui-sdk/core/switch",
+      editable: "./internal/behavior/editable.js",
+      "tags-input": "./internal/behavior/tags-input.js",
+      "file-upload": "./internal/ui-sdk/file-upload.js",
+      "rating-group": "@ui-sdk/core/rating",
+      slider: "@ui-sdk/web/slider",
+      tooltip: "./internal/ui-sdk/hover.js",
+      "hover-card": "./internal/ui-sdk/hover.js",
+      "toast-root": "@ui-sdk/web/toast",
+      toast: "./internal/ui-sdk/toast.js",
+      menu: "./internal/ui-sdk/menu.js",
+      "context-menu": "./internal/ui-sdk/menu.js",
+      "pin-input": "@ui-sdk/core/otp-input",
+      "date-picker": "@ui-sdk/web/date-picker",
+    }
+    for (const [name, adapter] of Object.entries(components)) {
+      const compiled = readFileSync(join(distRoot, `${name}.mjs`), "utf8")
+      expect(compiled).toContain(adapter)
+      expect(compiled).not.toContain("./internal/zag/")
+    }
   })
 
-  it("backs avatar with the private Zag adapter", () => {
-    const avatar = readFileSync(join(distRoot, "avatar.mjs"), "utf8")
+  it("backs accordion with the private UI SDK adapter", () => {
+    const compiled = readFileSync(join(distRoot, "accordion.mjs"), "utf8")
+    const adapter = readFileSync(join(distRoot, "internal", "behavior", "accordion.js"), "utf8")
 
-    expect(avatar).toContain('from "./internal/zag/avatar.js"')
-    expect(avatar).toContain("createNaosZagAvatarService")
-    expect(avatar).toContain("__naosApplySpreadAttributes")
-    expect(avatar).not.toContain("@naos-ui/core")
-    expect(avatar).not.toContain("type NaosZagAvatarService")
+    expect(compiled).toContain('from "./internal/behavior/accordion.js"')
+    expect(compiled).not.toContain("./internal/zag/")
+    expect(adapter).toContain('from "@ui-sdk/core/accordion"')
   })
 
-  it("backs tabs with the private Zag adapter", () => {
-    const tabs = readFileSync(join(distRoot, "tabs.mjs"), "utf8")
+  it("backs tabs with the private UI SDK adapter", () => {
+    const compiled = readFileSync(join(distRoot, "tabs.mjs"), "utf8")
+    const adapter = readFileSync(join(distRoot, "internal", "behavior", "tabs-sdk.js"), "utf8")
 
-    expect(tabs).toContain('from "./internal/zag/tabs.js"')
-    expect(tabs).toContain("createNaosZagTabsService")
-    expect(tabs).toContain("syncNaosTabsItems")
-    expect(tabs).toContain("__naosApplySpreadAttributes")
-    expect(tabs).not.toContain('from "./internal/behavior/tabs.js"')
-    expect(tabs).not.toContain("type NaosZagTabsService")
+    expect(compiled).toContain('from "./internal/behavior/tabs-sdk.js"')
+    expect(compiled).not.toContain("./internal/zag/")
+    expect(adapter).toContain('from "@ui-sdk/core/tabs"')
   })
 
-  it("backs radio group with the private Zag adapter", () => {
-    const radioGroup = readFileSync(join(distRoot, "radio-group.mjs"), "utf8")
-
-    expect(radioGroup).toContain('from "./internal/zag/radio-group.js"')
-    expect(radioGroup).toContain("createNaosZagRadioGroupService")
-    expect(radioGroup).toContain("createNaosRadioGroupContextController")
-    expect(radioGroup).toContain("__naosApplySpreadAttributes")
-    expect(radioGroup).not.toContain("@naos-ui/core")
-    expect(radioGroup).not.toContain("type NaosZagRadioGroupService")
-  })
-
-  it("backs rating group with the private Zag adapter", () => {
-    const ratingGroup = readFileSync(join(distRoot, "rating-group.mjs"), "utf8")
-
-    expect(ratingGroup).toContain('from "./internal/zag/rating-group.js"')
-    expect(ratingGroup).toContain("createNaosZagRatingGroupService")
-    expect(ratingGroup).toContain("__naosApplySpreadAttributes")
-    expect(ratingGroup).toContain("static formAssociated = true;")
-    expect(ratingGroup).not.toContain("@naos-ui/core")
-    expect(ratingGroup).not.toContain("type NaosZagRatingGroupService")
-  })
-
-  it("backs segmented control with the private Zag adapter", () => {
-    const segmentedControl = readFileSync(join(distRoot, "segmented-control.mjs"), "utf8")
-
-    expect(segmentedControl).toContain('from "./internal/zag/segmented-control.js"')
-    expect(segmentedControl).toContain("createNaosZagSegmentedControlService")
-    expect(segmentedControl).toContain("syncNaosSegmentedItems")
-    expect(segmentedControl).toContain("__naosApplySpreadAttributes")
-    expect(segmentedControl).not.toContain("@naos-ui/core")
-    expect(segmentedControl).not.toContain("type NaosZagSegmentedControlService")
-  })
-
-  it("backs select with the private Zag adapter", () => {
-    const select = readFileSync(join(distRoot, "select.mjs"), "utf8")
-
-    expect(select).toContain('from "./internal/zag/select.js"')
-    expect(select).toContain("createNaosZagSelectService")
-    expect(select).toContain("syncNaosSelectItems")
-    expect(select).toContain("__naosApplySpreadAttributes")
-    expect(select).not.toContain("@naos-ui/core")
-    expect(select).not.toContain("type NaosZagSelectService")
-  })
-
-  it("backs listbox with the private Zag adapter", () => {
-    const listbox = readFileSync(join(distRoot, "listbox.mjs"), "utf8")
-
-    expect(listbox).toContain('from "./internal/zag/listbox.js"')
-    expect(listbox).toContain("createNaosZagListboxService")
-    expect(listbox).toContain("syncNaosListboxItems")
-    expect(listbox).toContain("listboxFormValue")
-    expect(listbox).toContain("__naosApplySpreadAttributes")
-    expect(listbox).not.toContain("@naos-ui/core")
-    expect(listbox).not.toContain("type NaosZagListboxService")
-  })
-
-  it("backs combobox with the private Zag adapter", () => {
-    const combobox = readFileSync(join(distRoot, "combobox.mjs"), "utf8")
-
-    expect(combobox).toContain('from "./internal/zag/combobox.js"')
-    expect(combobox).toContain("createNaosZagComboboxService")
-    expect(combobox).toContain("syncNaosComboboxItems")
-    expect(combobox).toContain("__naosApplySpreadAttributes")
-    expect(combobox).not.toContain("@naos-ui/core")
-    expect(combobox).not.toContain("type NaosZagComboboxService")
-  })
-
-  it("backs date picker with the private Zag adapter", () => {
-    const datePicker = readFileSync(join(distRoot, "date-picker.mjs"), "utf8")
-
-    expect(datePicker).toContain('from "./internal/zag/date-picker.js"')
-    expect(datePicker).toContain("createNaosZagDatePickerService")
-    expect(datePicker).toContain("datePickerFormValue")
-    expect(datePicker).toContain("__naosApplySpreadAttributes")
-    expect(datePicker).toContain("static formAssociated = true;")
-    expect(datePicker).not.toContain("@naos-ui/core")
-    expect(datePicker).not.toContain("type NaosZagDatePickerService")
-  })
-
-  it("backs editable with the private Zag adapter", () => {
-    const editable = readFileSync(join(distRoot, "editable.mjs"), "utf8")
-
-    expect(editable).toContain('from "./internal/zag/editable.js"')
-    expect(editable).toContain("createNaosZagEditableService")
-    expect(editable).toContain("editableFormValue")
-    expect(editable).toContain("__naosApplySpreadAttributes")
-    expect(editable).toContain("static formAssociated = true;")
-    expect(editable).not.toContain("@naos-ui/core")
-    expect(editable).not.toContain("type NaosZagEditableService")
-  })
-
-  it("backs menu with the private Zag adapter", () => {
-    const menu = readFileSync(join(distRoot, "menu.mjs"), "utf8")
-
-    expect(menu).toContain('from "./internal/zag/menu.js"')
-    expect(menu).toContain("createNaosZagMenuService")
-    expect(menu).toContain("syncNaosMenuItems")
-    expect(menu).toContain("__naosApplySpreadAttributes")
-    expect(menu).not.toContain("@naos-ui/core")
-    expect(menu).not.toContain("type NaosZagMenuService")
-  })
-
-  it("backs context menu with the private Zag menu adapter", () => {
-    const contextMenu = readFileSync(join(distRoot, "context-menu.mjs"), "utf8")
-
-    expect(contextMenu).toContain('from "./internal/zag/menu.js"')
-    expect(contextMenu).toContain("createNaosZagMenuService")
-    expect(contextMenu).toContain("getContextTriggerProps")
-    expect(contextMenu).toContain("__naosApplySpreadAttributes")
-    expect(contextMenu).not.toContain("@naos-ui/core")
-    expect(contextMenu).not.toContain("type NaosZagMenuService")
-  })
-
-  it("backs number input with the private Zag adapter", () => {
-    const numberInput = readFileSync(join(distRoot, "number-input.mjs"), "utf8")
-
-    expect(numberInput).toContain('from "./internal/zag/number-input.js"')
-    expect(numberInput).toContain("createNaosZagNumberInputService")
-    expect(numberInput).toContain("__naosApplySpreadAttributes")
-    expect(numberInput).toContain("static formAssociated = true;")
-    expect(numberInput).not.toContain("@naos-ui/core")
-    expect(numberInput).not.toContain("type NaosZagNumberInputService")
-  })
-
-  it("backs pin input with the private Zag adapter", () => {
-    const pinInput = readFileSync(join(distRoot, "pin-input.mjs"), "utf8")
-
-    expect(pinInput).toContain('from "./internal/zag/pin-input.js"')
-    expect(pinInput).toContain("createNaosZagPinInputService")
-    expect(pinInput).toContain("__naosApplySpreadAttributes")
-    expect(pinInput).toContain("static formAssociated = true;")
-    expect(pinInput).not.toContain("@naos-ui/core")
-    expect(pinInput).not.toContain("(index, index)")
-    expect(pinInput).not.toContain("type NaosZagPinInputService")
-    expect(pinInput).not.toContain("type NaosZagPinInputType")
-  })
-
-  it("backs slider with the private Zag adapter", () => {
-    const slider = readFileSync(join(distRoot, "slider.mjs"), "utf8")
-
-    expect(slider).toContain('from "./internal/zag/slider.js"')
-    expect(slider).toContain("createNaosZagSliderService")
-    expect(slider).toContain("__naosApplySpreadAttributes")
-    expect(slider).toContain("static formAssociated = true;")
-    expect(slider).not.toContain("@naos-ui/core")
-    expect(slider).not.toContain("type NaosZagSliderService")
-  })
-
-  it("backs dialog with the private Zag adapter", () => {
-    const dialog = readFileSync(join(distRoot, "dialog.mjs"), "utf8")
-
-    expect(dialog).toContain('from "./internal/zag/dialog.js"')
-    expect(dialog).toContain("createNaosZagDialogService")
-    expect(dialog).toContain("__naosApplySpreadAttributes")
-    expect(dialog).not.toContain("@naos-ui/core")
-    expect(dialog).not.toContain("type NaosZagDialogService")
-  })
-
-  it("backs collapsible with the private Zag adapter", () => {
-    const collapsible = readFileSync(join(distRoot, "collapsible.mjs"), "utf8")
-
-    expect(collapsible).toContain('from "./internal/zag/collapsible.js"')
-    expect(collapsible).toContain("createNaosZagCollapsibleService")
-    expect(collapsible).toContain("__naosApplySpreadAttributes")
-    expect(collapsible).not.toContain("@naos-ui/core")
-    expect(collapsible).not.toContain("type NaosZagCollapsibleService")
-  })
-
-  it("backs popover with the private Zag adapter", () => {
+  it("backs popover with the UI SDK adapter", () => {
     const popover = readFileSync(join(distRoot, "popover.mjs"), "utf8")
 
-    expect(popover).toContain('from "./internal/zag/popover.js"')
-    expect(popover).toContain("createNaosZagPopoverService")
+    expect(popover).toContain('import "@ui-sdk/web/popover"')
+    expect(popover).not.toContain('from "./internal/zag/popover.js"')
     expect(popover).toContain("__naosApplySpreadAttributes")
     expect(popover).not.toContain("@naos-ui/core")
     expect(popover).not.toContain("type NaosZagPopoverService")
-  })
-
-  it("backs progress with the private Zag adapter", () => {
-    const progress = readFileSync(join(distRoot, "progress.mjs"), "utf8")
-
-    expect(progress).toContain('from "./internal/zag/progress.js"')
-    expect(progress).toContain("createNaosZagProgressService")
-    expect(progress).toContain("__naosApplySpreadAttributes")
-    expect(progress).not.toContain("@naos-ui/core")
-    expect(progress).not.toContain("type NaosZagProgressService")
-  })
-
-  it("backs tooltip with the private Zag adapter", () => {
-    const tooltip = readFileSync(join(distRoot, "tooltip.mjs"), "utf8")
-
-    expect(tooltip).toContain('from "./internal/zag/tooltip.js"')
-    expect(tooltip).toContain("createNaosZagTooltipService")
-    expect(tooltip).toContain("__naosApplySpreadAttributes")
-    expect(tooltip).not.toContain("@naos-ui/core")
-    expect(tooltip).not.toContain("type NaosZagTooltipService")
-  })
-
-  it("backs toast primitives with the private Zag adapter", () => {
-    const toast = readFileSync(join(distRoot, "toast.mjs"), "utf8")
-    const toastRoot = readFileSync(join(distRoot, "toast-root.mjs"), "utf8")
-
-    expect(toast).toContain('from "./internal/zag/toast.js"')
-    expect(toast).toContain("createNaosToast")
-    expect(toast).not.toContain("@naos-ui/core")
-    expect(toastRoot).toContain('from "./internal/zag/toast.js"')
-    expect(toastRoot).toContain("createNaosZagToastGroupService")
-    expect(toastRoot).toContain("syncNaosToastServices")
-    expect(toastRoot).toContain("__naosApplySpreadAttributes")
-    expect(toastRoot).not.toContain("@naos-ui/core")
-    expect(toastRoot).not.toContain("type NaosZagToastGroupService")
-  })
-
-  it("backs hover card with the private Zag adapter", () => {
-    const hoverCard = readFileSync(join(distRoot, "hover-card.mjs"), "utf8")
-
-    expect(hoverCard).toContain('from "./internal/zag/hover-card.js"')
-    expect(hoverCard).toContain("createNaosZagHoverCardService")
-    expect(hoverCard).toContain("__naosApplySpreadAttributes")
-    expect(hoverCard).not.toContain("@naos-ui/core")
-    expect(hoverCard).not.toContain("type NaosZagHoverCardService")
-  })
-
-  it("backs file upload with the private Zag adapter", () => {
-    const fileUpload = readFileSync(join(distRoot, "file-upload.mjs"), "utf8")
-
-    expect(fileUpload).toContain('from "./internal/zag/file-upload.js"')
-    expect(fileUpload).toContain("createNaosZagFileUploadService")
-    expect(fileUpload).toContain("__naosApplySpreadAttributes")
-    expect(fileUpload).toContain("static formAssociated = true;")
-    expect(fileUpload).not.toContain("@naos-ui/core")
-    expect(fileUpload).not.toContain("type NaosZagFileUploadService")
-  })
-
-  it("backs toggle group with the private Zag adapter", () => {
-    const toggleGroup = readFileSync(join(distRoot, "toggle-group.mjs"), "utf8")
-
-    expect(toggleGroup).toContain('from "./internal/zag/toggle-group.js"')
-    expect(toggleGroup).toContain("createNaosZagToggleGroupService")
-    expect(toggleGroup).toContain("syncNaosToggleGroupItems")
-    expect(toggleGroup).toContain("toggleGroupFormValue")
-    expect(toggleGroup).toContain("__naosApplySpreadAttributes")
-    expect(toggleGroup).not.toContain("@naos-ui/core")
-    expect(toggleGroup).not.toContain("type NaosZagToggleGroupService")
-  })
-
-  it("backs switch with the private Zag adapter", () => {
-    const switchComponent = readFileSync(join(distRoot, "switch.mjs"), "utf8")
-
-    expect(switchComponent).toContain('from "./internal/zag/switch.js"')
-    expect(switchComponent).toContain("createNaosZagSwitchService")
-    expect(switchComponent).toContain("__naosApplySpreadAttributes")
-    expect(switchComponent).toContain("static formAssociated = true;")
-    expect(switchComponent).not.toContain("@naos-ui/core")
-    expect(switchComponent).not.toContain("type NaosZagSwitchService")
-  })
-
-  it("backs tags input with the private Zag adapter", () => {
-    const tagsInput = readFileSync(join(distRoot, "tags-input.mjs"), "utf8")
-
-    expect(tagsInput).toContain('from "./internal/zag/tags-input.js"')
-    expect(tagsInput).toContain("createNaosZagTagsInputService")
-    expect(tagsInput).toContain("__naosApplySpreadAttributes")
-    expect(tagsInput).toContain("static formAssociated = true;")
-    expect(tagsInput).not.toContain("@naos-ui/core")
-    expect(tagsInput).not.toContain("initialValue")
-    expect(tagsInput).not.toContain("type NaosZagTagsInputService")
   })
 
   it("emits form-associated custom control output", () => {

@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   event,
   host,
@@ -9,14 +8,11 @@ import {
   type ComponentOptions,
 } from "@naos-ui/core"
 import {
-  createNaosZagAccordionService,
-  getNaosZagAccordionApi,
+  createNaosAccordionController,
   parseNaosAccordionValue,
-  serializeNaosAccordionValue,
-  stopNaosZagAccordionService,
   syncNaosAccordionItems,
-} from "./internal/zag/accordion.js"
-import type { NaosZagAccordionService } from "./internal/zag/accordion.js"
+  type NaosAccordionController,
+} from "./internal/behavior/accordion.js"
 import css from "./accordion.wc.css?inline"
 
 export type NaosAccordionProps = {
@@ -41,43 +37,34 @@ export function NaosAccordion({
   value = "",
 }: NaosAccordionProps = {}) {
   const selected = state(parseNaosAccordionValue(value))
-  const focused = state<string | null>(null)
-  const accordionService = state<NaosZagAccordionService | null>(null)
-  const accordionApi = computed(() => getNaosZagAccordionApi(accordionService()))
+  const controller = state<NaosAccordionController | null>(null)
   const changed = event<{ value: string[] }>("naos-change")
 
   onConnected(() => {
-    accordionService.set(
-      createNaosZagAccordionService({
-        collapsible,
-        disabled,
-        host: host().element,
+    controller.set(
+      createNaosAccordionController({
         id: "naos-accordion",
+        collapsible,
+        defaultValue: selected(),
+        disabled,
         multiple,
-        onFocusChange(nextValue) {
-          focused.set(nextValue)
-        },
         onValueChange(nextValue) {
           selected.set(nextValue)
           changed.emit({ value: nextValue })
         },
-        orientation,
-        root: host().root,
-        value: selected(),
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagAccordionService(accordionService())
-    accordionService.set(null)
+    controller()?.destroy()
+    controller.set(null)
   })
   effect(() => {
-    const api = accordionApi()
+    const instance = controller()
     void selected()
-    void focused()
-    if (api == null) return
+    if (instance == null) return
     return syncNaosAccordionItems({
-      api,
+      api: instance.api,
       disabled,
       host: host().element,
       onRequestUpdate: () => host().update(),
@@ -86,12 +73,14 @@ export function NaosAccordion({
 
   return (
     <section
-      {...(accordionApi()?.getRootProps() ?? {})}
+      id="accordion:naos-accordion"
+      data-scope="accordion"
+      data-part="root"
       part="root"
       aria-disabled={disabled || undefined}
       data-disabled={disabled || undefined}
       data-orientation={orientation}
-      data-state={serializeNaosAccordionValue(selected()) || "none"}
+      data-state={selected().join(" ") || "none"}
     >
       <span part="label">{label}</span>
       <div part="items">

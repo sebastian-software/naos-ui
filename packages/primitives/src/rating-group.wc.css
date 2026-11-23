@@ -38,9 +38,16 @@
   line-height: 1;
 }
 
-[part~="item"][data-highlighted],
-[part~="item"][data-checked] {
+[part~="root"]:not([data-hovering]) [part~="item"][data-checked],
+[part~="item"][data-highlighted] {
   color: var(--naos-rating-group-item-active-fg, #b45309);
+}
+
+[part~="root"]:not([data-hovering]) [part~="item"][data-half],
+[part~="root"][data-hovering] [part~="item"][data-half] {
+  background: linear-gradient(to right, var(--naos-rating-group-item-active-fg, #b45309) 50%, var(--naos-rating-group-item-fg, #64748b) 50%);
+  background-clip: text;
+  color: transparent;
 }
 
 [part~="item"]:focus-visible {

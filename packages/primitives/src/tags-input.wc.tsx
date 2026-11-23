@@ -1,5 +1,4 @@
 import {
-  computed,
   event,
   formControl,
   host,
@@ -8,14 +7,7 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagTagsInputService,
-  getNaosZagTagsInputApi,
-  stopNaosZagTagsInputService,
-  tagsInputFormValue,
-  tagsInputValueArray,
-} from "./internal/zag/tags-input.js"
-import type { NaosZagTagsInputService } from "./internal/zag/tags-input.js"
+import { bindTagsInput, tagsInputValueArray } from "./internal/behavior/tags-input.js"
 import css from "./tags-input.wc.css?inline"
 
 export type NaosTagsInputProps = {
@@ -45,138 +37,147 @@ export function NaosTagsInput({
 }: NaosTagsInputProps = {}) {
   const current = state(tagsInputValueArray(value, delimiter))
   const input = state("")
-  const tagsInputService = state<NaosZagTagsInputService | null>(null)
-  const tagsInputApi = computed(() => getNaosZagTagsInputApi(tagsInputService()))
+  const highlighted = state<number | null>(null)
+  const editing = state<number | null>(null)
+  const controller = state<ReturnType<typeof bindTagsInput>>(null)
   const changed = event<{ value: string[]; valueAsString: string }>("naos-change")
   const inputChanged = event<{ inputValue: string }>("naos-input")
   const highlightedChanged = event<{ highlightedValue: string | null }>("naos-highlight-change")
   const invalid = event<{ reason: string }>("naos-invalid")
   const form = formControl({
-    value: () => tagsInputFormValue(current()),
-    reset: () => {
-      const resetValue = tagsInputValueArray(value, delimiter)
-      current.set(resetValue)
-      input.set("")
-      tagsInputApi()?.setValue(resetValue)
-      tagsInputApi()?.clearInputValue()
-    },
+    value: () => current().join(","),
+    reset: () => controller()?.reset(tagsInputValueArray(value, delimiter)),
     disabled,
   })
   void form
   void name
+  void allowDuplicates
+  void max
 
   onConnected(() => {
-    tagsInputService.set(
-      createNaosZagTagsInputService({
-        allowDuplicates,
-        delimiter,
-        disabled,
-        host: host().element,
-        id: "naos-tags-input",
-        max,
-        name,
-        onHighlightChange(details) {
-          highlightedChanged.emit(details)
+    const component = host<NaosTagsInputProps>()
+    controller.set(
+      bindTagsInput({
+        root: component.root,
+        signal: component.signal,
+        settings: () => ({
+          ...host<NaosTagsInputProps>().props,
+          disabled: host<NaosTagsInputProps>().element.matches(":disabled"),
+        }),
+        values: current,
+        write(next) {
+          current.set(next)
+          changed.emit({ value: next, valueAsString: next.join(",") })
         },
-        onInputValueChange(details) {
-          inputChanged.emit(details)
-          queueMicrotask(() => {
-            input.set(details.inputValue)
-          })
+        input(next) {
+          input.set(next)
+          inputChanged.emit({ inputValue: next })
         },
-        onValueChange(details) {
-          const nextValueAsString = tagsInputFormValue(details.value)
-
-          changed.emit({ value: details.value, valueAsString: nextValueAsString })
-          queueMicrotask(() => {
-            current.set(details.value)
-          })
+        highlight(index, highlightedValue) {
+          highlighted.set(index)
+          highlightedChanged.emit({ highlightedValue })
         },
-        onValueInvalid(details) {
-          invalid.emit(details)
+        edit(index) {
+          editing.set(index)
         },
-        placeholder,
-        root: host().root,
-        value: tagsInputValueArray(value, delimiter),
+        invalid(reason) {
+          invalid.emit({ reason })
+        },
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagTagsInputService(tagsInputService())
-    tagsInputService.set(null)
+    controller.set(null)
+    highlighted.set(null)
+    editing.set(null)
   })
 
   return (
     <section
-      {...(tagsInputApi()?.getRootProps() ?? {})}
       part="root"
+      data-scope="tags-input"
+      data-part="root"
       data-state={current().length === 0 ? "empty" : "filled"}
       data-disabled={disabled || undefined}
-      data-value={tagsInputFormValue(current())}
+      data-value={current().join(",")}
     >
-      <label {...(tagsInputApi()?.getLabelProps() ?? {})} part="label">
+      <label part="label" data-scope="tags-input" data-part="label" {...{ for: "tags-input" }}>
         {label}
       </label>
-      <div {...(tagsInputApi()?.getControlProps() ?? {})} part="control">
+      <div part="control" data-scope="tags-input" data-part="control">
         {current().map((tagValue, tagIndex) => (
           <span
             key={`${tagValue}-${tagIndex}`}
-            {...(tagsInputApi()?.getItemProps({
-              index: tagIndex,
-              value: tagValue,
-            }) ?? {})}
             part="item"
+            data-scope="tags-input"
+            data-part="item"
+            data-value={tagValue}
+            data-index={tagIndex}
+            data-disabled={disabled || undefined}
           >
             <span
-              {...(tagsInputApi()?.getItemPreviewProps({
-                index: tagIndex,
-                value: tagValue,
-              }) ?? {})}
               part="item-preview"
+              data-scope="tags-input"
+              data-part="item-preview"
+              data-value={tagValue}
+              data-highlighted={highlighted() === tagIndex || undefined}
+              hidden={editing() === tagIndex}
             >
-              <span
-                {...(tagsInputApi()?.getItemTextProps({
-                  index: tagIndex,
-                  value: tagValue,
-                }) ?? {})}
-                part="item-text"
-              >
+              <span part="item-text" data-scope="tags-input" data-part="item-text">
                 {tagValue}
               </span>
               <button
-                {...(tagsInputApi()?.getItemDeleteTriggerProps({
-                  index: tagIndex,
-                  value: tagValue,
-                }) ?? {})}
                 part="item-delete"
+                data-scope="tags-input"
+                data-part="item-delete-trigger"
+                type="button"
+                aria-label={`Delete tag ${tagValue}`}
+                disabled={disabled}
+                tabindex={-1}
               >
                 x
               </button>
             </span>
             <input
-              {...(tagsInputApi()?.getItemInputProps({
-                index: tagIndex,
-                value: tagValue,
-              }) ?? {})}
               part="item-input"
+              data-scope="tags-input"
+              data-part="item-input"
+              data-index={tagIndex}
+              aria-label={`Edit tag ${tagValue}`}
+              hidden={editing() !== tagIndex}
+              value={tagValue}
+              disabled={disabled}
+              tabindex={-1}
             />
           </span>
         ))}
         <input
-          {...(tagsInputApi()?.getInputProps() ?? {})}
+          id="tags-input"
           part="input"
+          data-scope="tags-input"
+          data-part="input"
+          {...{
+            autocomplete: "off",
+            autocorrect: "off",
+            autocapitalize: "none",
+            enterkeyhint: "done",
+          }}
+          placeholder={current().length === 0 ? placeholder : undefined}
           value={input()}
           disabled={disabled}
         />
-        <button {...(tagsInputApi()?.getClearTriggerProps() ?? {})} part="clear">
+        <button
+          part="clear"
+          data-scope="tags-input"
+          data-part="clear-trigger"
+          type="button"
+          aria-label="Clear tags"
+          hidden={current().length === 0}
+          disabled={disabled}
+        >
           Clear
         </button>
       </div>
-      <input
-        {...(tagsInputApi()?.getHiddenInputProps() ?? {})}
-        name={undefined}
-        value={tagsInputFormValue(current())}
-      />
     </section>
   )
 }

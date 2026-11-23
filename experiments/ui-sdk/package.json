@@ -1,0 +1,21 @@
+{
+  "name": "naos-sdk-lab",
+  "private": true,
+  "type": "module",
+  "naos": {
+    "tagPrefix": "lab"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "npm run build && node --test browser.test.mjs",
+    "test:capabilities": "npm run build && LAB_STRICT=1 node --test browser.test.mjs"
+  },
+  "dependencies": {
+    "@ui-sdk/core": "0.1.0-beta.14",
+    "@ui-sdk/web": "0.1.0-beta.14"
+  },
+  "devDependencies": {
+    "playwright": "1.60.0",
+    "vite": "8.0.16"
+  }
+}

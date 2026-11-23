@@ -68,8 +68,9 @@ value, not a controlled binding.
 `formControl({ value, reset, disabled })` is supported as an experimental body
 helper when the options object is statically analyzable. `value` must be an
 arrow function expression. `reset` can be an arrow function body. `disabled`
-currently maps to a boolean prop identifier so generated
-`formDisabledCallback()` can synchronize fieldset disabled state.
+currently maps to a boolean prop identifier. Generated bindings combine that
+prop with the effective form-disabled state, including an enclosing fieldset,
+without reflecting the fieldset state onto the host attribute.
 
 ## Template Support
 
@@ -218,6 +219,8 @@ Currently unsupported:
 * Imported CSS object access such as `styles.button`.
 * Rest props in function component parameter destructuring.
 * Non-`const` authoring declarations.
+* Component-local factory-call declarations outside supported authoring helpers;
+  wrap per-instance values in `state()` so generated callbacks can access them.
 * Factory render functions such as `return () => <button />`.
 * Callback expression bodies such as `() => <button />`.
 * Return values not wrapped in parentheses.

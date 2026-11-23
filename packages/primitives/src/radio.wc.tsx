@@ -7,8 +7,8 @@ import {
   type ComponentOptions,
 } from "@naos-ui/core"
 import { consumeNaosContext } from "./internal/behavior/context.js"
-import { NAOS_RADIO_GROUP_CONTEXT } from "./internal/zag/radio-group.js"
-import type { NaosRadioGroupContext } from "./internal/zag/radio-group.js"
+import { NAOS_RADIO_GROUP_CONTEXT } from "./internal/ui-sdk/radio-group.js"
+import type { NaosRadioGroupContext } from "./internal/ui-sdk/radio-group.js"
 import css from "./radio.wc.css?inline"
 
 export type NaosRadioProps = {

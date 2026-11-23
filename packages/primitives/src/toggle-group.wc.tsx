@@ -1,3 +1,4 @@
+import { toggleGroup } from "@ui-sdk/core/toggle"
 import {
   computed,
   effect,
@@ -10,15 +11,12 @@ import {
   type ComponentOptions,
 } from "@naos-ui/core"
 import {
-  createNaosZagToggleGroupService,
-  getNaosZagToggleGroupApi,
   parseNaosToggleGroupValue,
   serializeNaosToggleGroupValue,
-  stopNaosZagToggleGroupService,
   syncNaosToggleGroupItems,
   toggleGroupFormValue,
-} from "./internal/zag/toggle-group.js"
-import type { NaosZagToggleGroupService } from "./internal/zag/toggle-group.js"
+} from "./internal/ui-sdk/toggle-group.js"
+import { primitiveId } from "./internal/ui-sdk/id.js"
 import css from "./toggle-group.wc.css?inline"
 
 export type NaosToggleGroupProps = {
@@ -42,9 +40,9 @@ export function NaosToggleGroup({
   orientation = "horizontal",
   value = "",
 }: NaosToggleGroupProps = {}) {
-  const selected = state(parseNaosToggleGroupValue(value))
-  const toggleGroupService = state<NaosZagToggleGroupService | null>(null)
-  const toggleGroupApi = computed(() => getNaosZagToggleGroupApi(toggleGroupService()))
+  const selected = state(parseNaosToggleGroupValue(value).slice(0, multiple ? undefined : 1))
+  const toggleGroupService = state<ReturnType<typeof toggleGroup> | null>(null)
+  const toggleGroupApi = computed(() => toggleGroupService()?.api)
   const changed = event<{ value: string[] }>("naos-change")
   const form = formControl({
     value: () =>
@@ -54,7 +52,7 @@ export function NaosToggleGroup({
         value: selected(),
       }),
     reset: () => {
-      const nextValue = parseNaosToggleGroupValue(value)
+      const nextValue = parseNaosToggleGroupValue(value).slice(0, multiple ? undefined : 1)
       selected.set(nextValue)
       toggleGroupApi()?.setValue(nextValue)
     },
@@ -65,28 +63,32 @@ export function NaosToggleGroup({
 
   onConnected(() => {
     toggleGroupService.set(
-      createNaosZagToggleGroupService({
-        disabled,
-        host: host().element,
-        id: "naos-toggle-group",
+      toggleGroup({
+        id: primitiveId("toggle-group"),
         multiple,
-        onValueChange(nextValue) {
-          selected.set(nextValue)
-          changed.emit({ value: nextValue })
-        },
         orientation,
-        root: host().root,
-        value: selected(),
+        defaultValue: selected(),
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagToggleGroupService(toggleGroupService())
+    toggleGroupService()?.destroy()
     toggleGroupService.set(null)
   })
   effect(() => {
-    const api = toggleGroupApi()
-    if (api == null) return
+    const service = toggleGroupService()
+    if (service == null) return
+    service.setOptions({
+      id: service.id,
+      multiple,
+      orientation,
+      onValueChange(nextValue) {
+        selected.set(nextValue)
+        changed.emit({ value: nextValue })
+      },
+    })
+    const api = service.api
+    if (!multiple && selected().length > 1) api.setValue(selected().slice(0, 1))
     return syncNaosToggleGroupItems({
       api,
       disabled,
@@ -99,7 +101,8 @@ export function NaosToggleGroup({
 
   return (
     <section
-      {...(toggleGroupApi()?.getRootProps() ?? {})}
+      role={multiple ? "group" : "radiogroup"}
+      aria-label={label}
       part="root"
       aria-disabled={disabled || undefined}
       data-state={serializeNaosToggleGroupValue(selected()) || "none"}

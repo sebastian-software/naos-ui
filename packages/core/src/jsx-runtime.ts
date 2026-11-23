@@ -39,12 +39,23 @@ export type IntrinsicElementAttributes = {
   [attribute: `on${string}`]: EventHandler | undefined
   action?: string | FormActionLike
   children?: JsxChild
+  autocomplete?: string
+  checked?: boolean
   class?: string
   disabled?: boolean
+  for?: string
+  "fixed-weeks"?: boolean
   hidden?: boolean
   id?: string
+  inputmode?: string
   key?: string | number
+  locale?: string
+  max?: number | string
+  maxlength?: number
+  min?: number | string
   name?: string
+  placeholder?: string
+  step?: number | string
   onBlur?: EventHandler<FocusEvent>
   onAnimationCancel?: EventHandler<AnimationEvent>
   onAnimationEnd?: EventHandler<AnimationEvent>
@@ -96,6 +107,7 @@ export type IntrinsicElementAttributes = {
   onTransitionStart?: EventHandler<TransitionEvent>
   part?: string
   required?: boolean
+  readonly?: boolean
   ref?: ElementRef
   role?: string
   slot?: string

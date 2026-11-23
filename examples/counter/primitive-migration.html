@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Primitive migration consumer</title>
+  </head>
+  <body>
+    <naos-popover id="outer" label="Open outer">
+      <span slot="title">Outer details</span>
+      <naos-popover id="inner" label="Open inner">
+        <span slot="title">Inner details</span>
+        <p>Inner description</p>
+      </naos-popover>
+    </naos-popover>
+    <button id="outside" type="button">Outside both popovers</button>
+    <form id="demo-form">
+      <fieldset>
+        <legend>Regions</legend>
+        <naos-select name="region" value="eu" label="Region">
+          <naos-select-item slot="item" value="eu" label="Europe">
+            <strong>Europe</strong> <em>Rich option</em>
+          </naos-select-item>
+          <naos-select-item slot="item" value="na" label="North America">
+            North America
+          </naos-select-item>
+          <naos-select-item slot="item" value="other" label="Other" disabled>
+            Other
+          </naos-select-item>
+        </naos-select>
+      </fieldset>
+      <button type="reset">Restore defaults</button>
+    </form>
+    <naos-combobox id="team-combobox" value="docs" label="Team">
+      <naos-combobox-item slot="item" value="docs" label="Docs team">Docs team</naos-combobox-item>
+      <naos-combobox-item slot="item" value="ops" label="Operations">Operations</naos-combobox-item>
+    </naos-combobox>
+    <script type="module" src="/fixtures/primitive-migration.ts"></script>
+  </body>
+</html>

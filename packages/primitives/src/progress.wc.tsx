@@ -1,19 +1,4 @@
-import {
-  computed,
-  event,
-  host,
-  onConnected,
-  onDisconnected,
-  state,
-  type ComponentOptions,
-} from "@naos-ui/core"
-import {
-  createNaosZagProgressService,
-  getNaosZagProgressApi,
-  progressValue,
-  stopNaosZagProgressService,
-} from "./internal/zag/progress.js"
-import type { NaosZagProgressService } from "./internal/zag/progress.js"
+import { computed, event, type ComponentOptions } from "@naos-ui/core"
 import css from "./progress.wc.css?inline"
 
 export type NaosProgressProps = {
@@ -39,51 +24,73 @@ export function NaosProgress({
   orientation = "horizontal",
   value = 0,
 }: NaosProgressProps = {}) {
-  const current = state(progressValue(indeterminate, value, min, max))
-  const progressService = state<NaosZagProgressService | null>(null)
-  const progressApi = computed(() => getNaosZagProgressApi(progressService()))
   const changed = event<{ value: number | null }>("naos-change")
+  void changed
 
-  onConnected(() => {
-    progressService.set(
-      createNaosZagProgressService({
-        host: host().element,
-        id: "naos-progress",
-        label,
-        locale,
-        max,
-        min,
-        onValueChange(details) {
-          current.set(details.value)
-          changed.emit(details)
-        },
-        orientation,
-        root: host().root,
-        value: current(),
-      }),
-    )
-  })
-  onDisconnected(() => {
-    stopNaosZagProgressService(progressService())
-    progressService.set(null)
-  })
+  const current = computed(() =>
+    indeterminate ? null : Math.min(Math.max(Number.isFinite(value) ? value : min, min), max),
+  )
+  const percent = computed(() =>
+    max === min ? 0 : (((current() ?? min) - min) / (max - min)) * 100,
+  )
+  const valueText = computed(() =>
+    indeterminate
+      ? `${label}: in progress`
+      : `${label}: ${new Intl.NumberFormat(locale, { style: "percent" }).format(percent() / 100)}`,
+  )
+  const state = computed(() =>
+    indeterminate ? "indeterminate" : current() === max ? "complete" : "loading",
+  )
 
   return (
     <section
-      {...(progressApi()?.getRootProps() ?? {})}
+      id="progress-naos-progress"
       part="root"
-      data-state={progressApi()?.indeterminate ? "indeterminate" : "loading"}
+      data-scope="progress"
+      data-part="root"
+      data-state={indeterminate ? "indeterminate" : "loading"}
+      data-max={max}
       data-value={current() == null ? undefined : String(current())}
       data-orientation={orientation}
+      style={{ "--percent": indeterminate ? undefined : percent() }}
     >
-      <div {...(progressApi()?.getLabelProps() ?? {})} part="label">
+      <div
+        id="progress-naos-progress-label"
+        part="label"
+        data-scope="progress"
+        data-part="label"
+        data-orientation={orientation}
+      >
         {label}
       </div>
-      <div {...(progressApi()?.getTrackProps() ?? {})} part="track">
-        <div {...(progressApi()?.getRangeProps() ?? {})} part="range" />
+      <div
+        id="progress-naos-progress-track"
+        part="track"
+        role="progressbar"
+        aria-label={valueText()}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-valuenow={current() ?? undefined}
+        data-scope="progress"
+        data-part="track"
+        data-max={max}
+        data-orientation={orientation}
+        data-state={state()}
+      >
+        <div
+          part="range"
+          data-scope="progress"
+          data-part="range"
+          data-orientation={orientation}
+          data-state={state()}
+          style={{
+            width: indeterminate || orientation !== "horizontal" ? undefined : `${percent()}%`,
+            height: indeterminate || orientation !== "vertical" ? undefined : `${percent()}%`,
+          }}
+        />
       </div>
-      <div {...(progressApi()?.getValueTextProps() ?? {})} part="value">
-        {progressApi()?.valueAsString ?? ""}
+      <div part="value" data-scope="progress" data-part="value-text" aria-live="polite">
+        {valueText()}
       </div>
     </section>
   )

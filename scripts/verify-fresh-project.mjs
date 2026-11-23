@@ -67,6 +67,26 @@ try {
     await run("node", ["verify-native.mjs"], { cwd: appDir })
   })
 
+  await phase("verify packed primitive exports and declarations", async () => {
+    await run("node", ["verify-primitives.mjs"], { cwd: appDir })
+    await run(
+      "pnpm",
+      [
+        "exec",
+        "tsc",
+        "--ignoreConfig",
+        "--noEmit",
+        "--strict",
+        "--module",
+        "nodenext",
+        "--lib",
+        "dom,es2023",
+        "verify-primitives.mts",
+      ],
+      { cwd: appDir },
+    )
+  })
+
   await phase("verify CLI package bin", async () => {
     await run("pnpm", ["exec", "naos", "info", "--json"], { cwd: appDir })
   })
@@ -139,6 +159,50 @@ async function writeVerifierOverlay(projectDir, tarballs) {
   await writeFile(
     join(projectDir, "verify-native.mjs"),
     `import { getNativeInfo, transformComponent } from "@naos-ui/compiler"\n\nconst expectedTag = ${JSON.stringify(smokeTagName)}\nconst info = getNativeInfo()\nif (!info || typeof info.coreVersion !== "string") {\n  throw new Error("native compiler info did not expose a coreVersion")\n}\n\nconst source = await import("node:fs/promises").then((fs) => fs.readFile("src/app-counter.wc.tsx", "utf8"))\nconst result = transformComponent({ filename: "src/app-counter.wc.tsx", source })\nconst definition = "__naosDefineComponent(\\\"" + expectedTag + "\\\""\nif (result.tagName !== expectedTag) {\n  throw new Error(\`native compiler transform generated <\${result.tagName}> instead of <\${expectedTag}>\`)\n}\nif (!result.code.includes(definition)) {\n  throw new Error(\`native compiler did not register <\${expectedTag}> through the runtime kernel\`)\n}\n`,
+  )
+
+  await writeFile(
+    join(projectDir, "verify-primitives.mjs"),
+    `import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
+
+assert.equal(globalThis.HTMLElement, undefined)
+assert.equal(globalThis.customElements, undefined)
+const rootUrl = import.meta.resolve("@naos-ui/primitives")
+const selective = await import("@naos-ui/primitives/popover")
+const root = await import(rootUrl)
+const manifest = JSON.parse(await readFile(new URL("naos-manifest.json", rootUrl), "utf8"))
+const pkg = JSON.parse(await readFile(new URL("../package.json", rootUrl), "utf8"))
+assert.deepEqual(Object.keys(pkg.dependencies).filter((name) => name.startsWith("@zag-js/")), [])
+assert.equal(pkg.dependencies["@ui-sdk/core"], pkg.dependencies["@ui-sdk/web"])
+assert.equal(manifest.package.name, "@naos-ui/primitives")
+assert.equal(root.NaosPopover, selective.NaosPopover)
+
+for (const { exportName, tagName } of manifest.components) {
+  const subpath = tagName.slice("naos-".length)
+  const entry = await import("@naos-ui/primitives/" + subpath)
+  assert.equal(typeof entry.default, "function", subpath)
+  assert.equal(entry.default, entry[exportName], subpath)
+  assert.equal(entry.default, root[exportName], subpath)
+}
+`,
+  )
+  await writeFile(
+    join(projectDir, "verify-primitives.mts"),
+    `import { NaosPopover } from "@naos-ui/primitives/popover"
+import { NaosSelect } from "@naos-ui/primitives"
+
+export function observePopover(popover: InstanceType<typeof NaosPopover>) {
+  popover.addEventListener("naos-open-change", (event) => {
+    const open: boolean = event.detail.open
+    return open
+  })
+}
+
+export function readSelect(select: InstanceType<typeof NaosSelect>): string {
+  return select.value
+}
+`,
   )
 }
 

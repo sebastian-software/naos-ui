@@ -1,19 +1,5 @@
-import {
-  computed,
-  event,
-  formControl,
-  host,
-  onConnected,
-  onDisconnected,
-  state,
-  type ComponentOptions,
-} from "@naos-ui/core"
-import {
-  createNaosZagNumberInputService,
-  getNaosZagNumberInputApi,
-  stopNaosZagNumberInputService,
-} from "./internal/zag/number-input.js"
-import type { NaosZagNumberInputService } from "./internal/zag/number-input.js"
+import "@ui-sdk/web/number-input"
+import { event, formControl, host, onConnected, state, type ComponentOptions } from "@naos-ui/core"
 import css from "./number-input.wc.css?inline"
 
 export type NaosNumberInputProps = {
@@ -26,9 +12,7 @@ export type NaosNumberInputProps = {
   value?: string
 }
 
-export const options = {
-  styles: [css],
-} satisfies ComponentOptions
+export const options = { styles: [css] } satisfies ComponentOptions
 
 export function NaosNumberInput({
   disabled = false,
@@ -40,20 +24,13 @@ export function NaosNumberInput({
   value = "",
 }: NaosNumberInputProps = {}) {
   const current = state(value)
-  const numeric = state(Number(value))
-  const numberInputService = state<NaosZagNumberInputService | null>(null)
-  const numberInputApi = computed(() => getNaosZagNumberInputApi(numberInputService()))
   const changed = event<{ value: string; valueAsNumber: number }>("naos-change")
   const form = formControl({
     value: () => current(),
     reset: () => {
       current.set(value)
-      numeric.set(Number(value))
-      if (value === "") {
-        numberInputApi()?.clearValue()
-      } else {
-        numberInputApi()?.setValue(Number(value))
-      }
+      const control = host().root.querySelector("ui-number-input")
+      if (control) control.value = value === "" ? null : Number(value)
     },
     disabled,
   })
@@ -61,59 +38,56 @@ export function NaosNumberInput({
   void name
 
   onConnected(() => {
-    numberInputService.set(
-      createNaosZagNumberInputService({
-        disabled,
-        host: host().element,
-        id: "naos-number-input",
-        label,
-        max,
-        min,
-        onValueChange(details) {
-          current.set(details.value)
-          numeric.set(details.valueAsNumber)
-          changed.emit(details)
-        },
-        root: host().root,
-        step,
-        value,
-      }),
-    )
-  })
-  onDisconnected(() => {
-    stopNaosZagNumberInputService(numberInputService())
-    numberInputService.set(null)
+    const control = host().root.querySelector("ui-number-input")
+    if (control) control.value = current() === "" ? null : Number(current())
   })
 
   return (
-    <section
-      {...(numberInputApi()?.getRootProps() ?? {})}
+    <ui-number-input
       part="root"
+      default-value={value === "" ? undefined : Number(value)}
+      min={min}
+      max={max}
+      step={step}
+      disabled={disabled}
       data-state={current() === "" ? "empty" : "filled"}
       data-disabled={disabled || undefined}
-      data-invalid={numberInputApi()?.invalid || undefined}
+      onValuechange={(event) => {
+        const next = (event as CustomEvent<{ value: number | null }>).detail.value
+        current.set(next === null ? "" : String(next))
+        changed.emit({
+          value: next === null ? "" : String(next),
+          valueAsNumber: next ?? Number.NaN,
+        })
+      }}
     >
-      <label {...(numberInputApi()?.getLabelProps() ?? {})} part="label">
+      <label part="label" for="number-input-control">
         {label}
       </label>
-      <div {...(numberInputApi()?.getControlProps() ?? {})} part="control">
-        <button {...(numberInputApi()?.getDecrementTriggerProps() ?? {})} part="decrement">
-          -
-        </button>
-        <input
-          {...(numberInputApi()?.getInputProps() ?? {})}
-          part="input"
-          name={undefined}
-          value={current()}
-          disabled={disabled}
-        />
-        <button {...(numberInputApi()?.getIncrementTriggerProps() ?? {})} part="increment">
-          +
-        </button>
+      <div part="control">
+        <ui-number-input-decrement>
+          <button part="decrement" type="button" aria-label={`Decrease ${label}`}>
+            -
+          </button>
+        </ui-number-input-decrement>
+        <ui-number-input-control>
+          <input
+            id="number-input-control"
+            part="input"
+            role="spinbutton"
+            aria-valuemin={min}
+            aria-valuemax={max}
+            aria-valuenow={current() === "" ? undefined : Number(current())}
+            disabled={disabled}
+          />
+        </ui-number-input-control>
+        <ui-number-input-increment>
+          <button part="increment" type="button" aria-label={`Increase ${label}`}>
+            +
+          </button>
+        </ui-number-input-increment>
       </div>
-      <output {...(numberInputApi()?.getValueTextProps() ?? {})} part="value">
-        {Number.isNaN(numeric()) ? "" : current()}
-      </output>
-    </section>
+      <output part="value">{current()}</output>
+    </ui-number-input>
   )
 }

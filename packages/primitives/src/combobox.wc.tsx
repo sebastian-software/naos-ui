@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   event,
   formControl,
@@ -9,15 +8,7 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  collectNaosComboboxItems,
-  createNaosZagComboboxService,
-  getNaosZagComboboxApi,
-  labelForNaosComboboxValue,
-  stopNaosZagComboboxService,
-  syncNaosComboboxItems,
-} from "./internal/zag/combobox.js"
-import type { NaosZagComboboxService } from "./internal/zag/combobox.js"
+import { bindOptions } from "./internal/ui-sdk/options.js"
 import { getNaosOverlayStateAttributes } from "./internal/behavior/overlay.js"
 import css from "./combobox.wc.css?inline"
 
@@ -41,21 +32,16 @@ export function NaosCombobox({
   value = "",
 }: NaosComboboxProps = {}) {
   const selected = state(value)
-  const input = state("")
   const open = state(false)
-  const comboboxService = state<NaosZagComboboxService | null>(null)
-  const comboboxApi = computed(() => getNaosZagComboboxApi(comboboxService()))
+  const binding = state<ReturnType<typeof bindOptions> | null>(null)
   const changed = event<{ value: string }>("naos-change")
   const inputChanged = event<{ inputValue: string }>("naos-input")
   const opened = event<{ open: boolean }>("naos-open-change")
   const form = formControl({
     value: () => selected() || null,
     reset: () => {
-      const resetInputValue = value ? labelForNaosComboboxValue(host().element, value) : ""
       selected.set(value)
-      input.set(resetInputValue)
-      comboboxApi()?.setValue(value ? [value] : [])
-      comboboxApi()?.setInputValue(resetInputValue)
+      binding()?.reset(value ? [value] : [])
     },
     disabled,
   })
@@ -63,56 +49,38 @@ export function NaosCombobox({
   void name
 
   onConnected(() => {
-    const hostElement = host().element
-    const initialInput = value ? labelForNaosComboboxValue(hostElement, value) : ""
-    input.set(initialInput)
-    comboboxService.set(
-      createNaosZagComboboxService({
-        disabled,
-        host: hostElement,
-        id: "naos-combobox",
-        inputValue: initialInput,
-        items: collectNaosComboboxItems(hostElement),
-        name,
-        onInputValueChange(nextValue) {
-          input.set(nextValue)
-          inputChanged.emit({ inputValue: nextValue })
-        },
-        onOpenChange(nextOpen) {
-          open.set(nextOpen)
-          opened.emit({ open: nextOpen })
-        },
-        onValueChange(nextValue) {
-          selected.set(nextValue)
-          changed.emit({ value: nextValue })
-        },
-        placeholder,
+    binding.set(
+      bindOptions({
+        kind: "combobox",
+        element: host().element,
         root: host().root,
-        value: selected(),
+        value: selected() ? [selected()] : [],
+        onValue(values) {
+          const next = values[0] ?? ""
+          selected.set(next)
+          changed.emit({ value: next })
+        },
+        onOpen(next) {
+          open.set(next)
+          opened.emit({ open: next })
+        },
+        onInput(next) {
+          inputChanged.emit({ inputValue: next })
+        },
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagComboboxService(comboboxService())
-    comboboxService.set(null)
+    binding()?.destroy()
+    binding.set(null)
+    open.set(false)
   })
   effect(() => {
-    const api = comboboxApi()
-    void selected()
-    void input()
-    void open()
-    if (api == null) return
-    return syncNaosComboboxItems({
-      api,
-      disabled,
-      host: host().element,
-      onRequestUpdate: () => host().update(),
-    })
+    binding()?.syncDisabled(disabled)
   })
 
   return (
     <section
-      {...(comboboxApi()?.getRootProps() ?? {})}
       part="root"
       {...getNaosOverlayStateAttributes({
         kind: "combobox",
@@ -120,25 +88,27 @@ export function NaosCombobox({
       })}
       data-disabled={disabled || undefined}
     >
-      <label {...(comboboxApi()?.getLabelProps() ?? {})} part="label">
-        {label}
-      </label>
-      <div {...(comboboxApi()?.getControlProps() ?? {})} part="control">
+      <label part="label">{label}</label>
+      <div part="control">
         <input
-          {...(comboboxApi()?.getInputProps() ?? {})}
           part="input"
+          role="combobox"
+          aria-autocomplete="list"
+          placeholder={placeholder}
+          disabled={disabled}
           data-state={open() ? "open" : "closed"}
         />
         <button
-          {...(comboboxApi()?.getTriggerProps() ?? {})}
           part="trigger"
+          type="button"
+          aria-label={label}
+          disabled={disabled}
           data-state={open() ? "open" : "closed"}
         >
           v
         </button>
       </div>
       <div
-        {...(comboboxApi()?.getPositionerProps() ?? {})}
         part="positioner"
         {...getNaosOverlayStateAttributes({
           kind: "combobox",
@@ -146,14 +116,13 @@ export function NaosCombobox({
         })}
       >
         <div
-          {...(comboboxApi()?.getContentProps() ?? {})}
           part="content"
           {...getNaosOverlayStateAttributes({
             kind: "combobox",
             open: open(),
           })}
         >
-          <div {...(comboboxApi()?.getListProps() ?? {})} part="list">
+          <div part="list" role="listbox">
             <slot name="item" />
           </div>
         </div>
