@@ -14,6 +14,7 @@ import css from "./combobox.wc.css?inline"
 
 export type NaosComboboxProps = {
   disabled?: boolean
+  freeText?: boolean
   label?: string
   name?: string
   placeholder?: string
@@ -26,21 +27,24 @@ export const options = {
 
 export function NaosCombobox({
   disabled = false,
+  freeText = false,
   label = "Options",
   name = "",
   placeholder = "Search options",
   value = "",
 }: NaosComboboxProps = {}) {
   const selected = state(value)
+  const committed = state(value)
   const open = state(false)
   const binding = state<ReturnType<typeof bindOptions> | null>(null)
   const changed = event<{ value: string }>("naos-change")
   const inputChanged = event<{ inputValue: string }>("naos-input")
   const opened = event<{ open: boolean }>("naos-open-change")
   const form = formControl({
-    value: () => selected() || null,
+    value: () => (freeText ? selected() : selected() || null),
     reset: () => {
       selected.set(value)
+      committed.set(value)
       binding()?.reset(value ? [value] : [])
     },
     disabled,
@@ -52,17 +56,31 @@ export function NaosCombobox({
     binding.set(
       bindOptions({
         kind: "combobox",
+        freeText,
         element: host().element,
         root: host().root,
         value: selected() ? [selected()] : [],
         onValue(values) {
           const next = values[0] ?? ""
           selected.set(next)
-          changed.emit({ value: next })
+          if (next !== committed()) {
+            committed.set(next)
+            changed.emit({ value: next })
+          }
         },
         onOpen(next) {
           open.set(next)
           opened.emit({ open: next })
+        },
+        onDraft(next) {
+          selected.set(next)
+        },
+        onCommit(next) {
+          selected.set(next)
+          if (next !== committed()) {
+            committed.set(next)
+            changed.emit({ value: next })
+          }
         },
         onInput(next) {
           inputChanged.emit({ inputValue: next })

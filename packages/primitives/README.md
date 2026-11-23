@@ -88,6 +88,25 @@ use the package-private `presence` helper for entering/open/closing/closed
 phase attributes and animation-aware close teardown. They are intentionally not
 public exports.
 
+## Combobox free text
+
+Comboboxes submit selected option values by default. Add `free-text` (or set
+`freeText` in TSX) to allow arbitrary input:
+
+```html
+<naos-combobox name="search" label="Search" free-text>
+  <naos-combobox-item value="docs" label="Documentation"></naos-combobox-item>
+</naos-combobox>
+```
+
+Typing updates the form value and emits `naos-input` with `{ inputValue }`.
+Closing suggestions with Tab, Escape, an outside click, or Enter with no
+highlight commits the text and emits `naos-change` with `{ value }` when it
+changed. Escape does not select the highlighted suggestion. Choosing a
+suggestion displays its label and commits its option value. Clearing submits an
+empty string. Form reset restores the initial value and its option label, if
+available. IME composition does not trigger keyboard selection.
+
 ## Typed Elements
 
 Every primitive ships a generated declaration file next to its module: the

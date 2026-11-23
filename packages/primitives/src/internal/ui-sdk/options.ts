@@ -19,12 +19,15 @@ const optionNavigation = definePrimitive({
 type Kind = "select" | "combobox" | "listbox"
 type BindOptions = {
   kind: Kind
+  freeText?: boolean
   element: HTMLElement
   root: ParentNode
   value: string[]
   onValue(values: string[]): void
   onLabel?(label: string): void
   onInput?(input: string): void
+  onDraft?(input: string): void
+  onCommit?(input: string): void
   onOpen?(open: boolean): void
 }
 
@@ -40,10 +43,13 @@ export function bindOptions({
   element,
   root,
   kind,
+  freeText = false,
   value,
   onValue,
   onLabel,
   onInput,
+  onDraft,
+  onCommit,
   onOpen,
 }: BindOptions) {
   const part = (name: string) => root.querySelector<HTMLElement>(`[part~="${name}"]`)!
@@ -59,10 +65,12 @@ export function bindOptions({
   const disabled = () => groupDisabled || disabledFromHost()
   let selected = value
   let open = false
+  let choosing = false
   let stopLayer: VoidFunction | undefined
   let stopPosition: VoidFunction | undefined
   let items: HTMLElement[] = []
   let currentLabel = ""
+  let initialRefresh = true
   let groupDisabled = disabledFromHost()
   function disabledFromHost() {
     return element.matches(":disabled,[disabled]")
@@ -145,7 +153,14 @@ export function bindOptions({
     }
     render()
     const nextLabel = selectedLabel()
-    if (input && (!open || input.value === currentLabel)) input.value = nextLabel
+    if (input && !freeText && (!open || input.value === currentLabel)) input.value = nextLabel
+    if (
+      input &&
+      freeText &&
+      (initialRefresh || (!open && selected.length > 0 && input.value === currentLabel))
+    )
+      input.value = nextLabel || selected[0] || ""
+    initialRefresh = false
     currentLabel = nextLabel
     onLabel?.(nextLabel)
   }
@@ -197,7 +212,9 @@ export function bindOptions({
     } else {
       navigation.api.highlight(null)
       search.reset()
-      writeInput(selectedLabel())
+      if (freeText && input) {
+        if (!choosing) onCommit?.(input.value)
+      } else writeInput(selectedLabel())
       if (restore) focusTarget.focus()
     }
     onOpen?.(next)
@@ -205,6 +222,7 @@ export function bindOptions({
   function choose(item: HTMLElement) {
     if (disabled() || item.hasAttribute("disabled")) return
     const next = key(item)
+    choosing = true
     if (kind === "select") setOpen(false, true)
     if (kind === "listbox" && element.hasAttribute("multiple")) {
       selected = selected.includes(next) ? selected.filter((v) => v !== next) : [...selected, next]
@@ -217,6 +235,7 @@ export function bindOptions({
     onLabel?.(selectedLabel())
     if (kind === "listbox") navigation.api.highlight(next)
     setOpen(false, true)
+    choosing = false
     render()
   }
   function keydown(event: KeyboardEvent) {
@@ -227,6 +246,13 @@ export function bindOptions({
     }
     const active = items.find((item) => key(item) === navigation.get().highlighted)
     if (event.key === "Enter" || (!input && event.key === " " && !search.active())) {
+      if (freeText && input && !active) {
+        if (open) {
+          event.preventDefault()
+          setOpen(false)
+        }
+        return
+      }
       event.preventDefault()
       if (!open && kind !== "listbox") setOpen(true)
       else if (active) choose(active)
@@ -306,6 +332,11 @@ export function bindOptions({
       () => {
         if (disabled()) return
         onInput?.(input.value)
+        if (freeText) {
+          selected = []
+          onDraft?.(input.value)
+          render()
+        }
         setOpen(true)
         const match = available().find((item) =>
           label(item).toLocaleLowerCase().startsWith(input.value.toLocaleLowerCase()),
@@ -332,8 +363,10 @@ export function bindOptions({
         values.some((value, index) => selected[index] !== value)
       selected = values
       if (changed) onValue(values)
-      writeInput(selectedLabel())
+      writeInput(selectedLabel() || (freeText ? selected[0] || "" : ""))
+      choosing = true
       setOpen(false)
+      choosing = false
       navigation.api.highlight(null)
       refresh()
     },

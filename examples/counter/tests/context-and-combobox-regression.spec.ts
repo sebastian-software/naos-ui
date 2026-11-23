@@ -191,3 +191,75 @@ test("PIN leaves modified arrow shortcuts native and handles plain arrows", asyn
   await expect(first).toBeFocused()
   await expect(pin.locator("[part~='root']")).toHaveAttribute("data-value", "123")
 })
+
+test("free-text combobox submits drafts, commits on dismissal, and resets", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<form id="free-form">
+      <naos-combobox id="free-combo" free-text name="query" label="Search" value="docs">
+        <naos-combobox-item value="docs" label="Docs team">Docs team</naos-combobox-item>
+        <naos-combobox-item value="ops" label="Operations">Operations</naos-combobox-item>
+      </naos-combobox><button type="reset">Reset</button></form>`,
+    )
+    const combo = document.querySelector("#free-combo")!
+    const events: unknown[] = []
+    for (const name of ["naos-input", "naos-change"]) {
+      combo.addEventListener(name, (event) => {
+        events.push([name, (event as CustomEvent).detail])
+        combo.setAttribute("data-events", JSON.stringify(events))
+      })
+    }
+  })
+  const combo = page.locator("#free-combo")
+  const input = combo.getByRole("combobox", { name: "Search" })
+  const formValue = () =>
+    page.locator("#free-form").evaluate((form: HTMLFormElement) => new FormData(form).get("query"))
+  await expect(input).toHaveValue("Docs team")
+  await input.fill("unmatched")
+  await expect.poll(formValue).toBe("unmatched")
+  await expect(combo).toHaveAttribute("data-events", '[["naos-input",{"inputValue":"unmatched"}]]')
+  await input.press("Escape")
+  await expect(input).toHaveValue("unmatched")
+  await expect(combo).toHaveAttribute("data-events", /"naos-change",\{"value":"unmatched"\}/)
+  await input.fill("Ope")
+  await input.press("Enter")
+  await expect(input).toHaveValue("Operations")
+  await expect.poll(formValue).toBe("ops")
+  await input.fill("")
+  await input.press("Tab")
+  await expect.poll(formValue).toBe("")
+  await page.locator('#free-form button[type="reset"]').click()
+  await expect(input).toHaveValue("Docs team")
+  await expect.poll(formValue).toBe("docs")
+})
+
+test("free-text combobox preserves IME input and ignores composing Enter", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      '<form id="ime-form"><naos-combobox id="ime-combo" free-text name="query" label="IME"></naos-combobox></form>',
+    )
+  })
+  const input = page.locator("#ime-combo").getByRole("combobox")
+  await input.evaluate((node: HTMLInputElement) => {
+    node.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }))
+    node.value = "東京"
+    node.dispatchEvent(new InputEvent("input", { bubbles: true, isComposing: true, data: "東京" }))
+    node.dispatchEvent(
+      new KeyboardEvent("keydown", { bubbles: true, key: "Enter", isComposing: true }),
+    )
+    node.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true, data: "東京" }))
+  })
+  await expect(input).toHaveValue("東京")
+  await expect(input).toHaveAttribute("aria-expanded", "true")
+  await expect
+    .poll(() =>
+      page
+        .locator("#ime-form")
+        .evaluate((form: HTMLFormElement) => new FormData(form).get("query")),
+    )
+    .toBe("東京")
+})
