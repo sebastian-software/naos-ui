@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.0](https://github.com/sebastian-software/naos-ui/compare/naos-ui-v1.1.0...naos-ui-v1.2.0) (2026-11-23)
+
+
+### Features
+
+* **router:** render request-scoped app snapshots ([0ada76b](https://github.com/sebastian-software/naos-ui/commit/0ada76b145d6a4f30702a074a8ba5c8a51ac683d))
+
+
+### Bug Fixes
+
+* **data:** expire idle restored resources ([065207f](https://github.com/sebastian-software/naos-ui/commit/065207fbedc2acec3b7e5183c26b76cf8e6d946c))
+* **primitives:** keep switch and toggle values in sync with forms ([#208](https://github.com/sebastian-software/naos-ui/issues/208)) ([0492e13](https://github.com/sebastian-software/naos-ui/commit/0492e13c63c02c3c58d4115f04230bfed1d68271))
+
 ## [1.1.0](https://github.com/sebastian-software/naos-ui/compare/naos-ui-v1.0.0...naos-ui-v1.1.0) (2026-07-21)
 
 
