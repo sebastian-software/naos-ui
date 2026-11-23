@@ -123,3 +123,24 @@ test("initially open alert reconnects and can return to ordinary dialog semantic
   await dialog.evaluate((el) => el.removeAttribute("alert"))
   await expect(content).toHaveRole("dialog")
 })
+
+test("removing an open nested dialog leaves ordinary outside dismissal enabled", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.evaluate(() => {
+    const outer = document.createElement("naos-dialog")
+    outer.id = "remove-outer"
+    outer.innerHTML = '<naos-dialog id="remove-inner" alert></naos-dialog>'
+    document.body.append(outer)
+  })
+  const outer = page.locator("#remove-outer")
+  const inner = page.locator("#remove-inner")
+  await outer.locator("[part~='trigger']").first().click()
+  await inner.locator("[part~='trigger']").click()
+  await expect(inner.locator("[part~='content']")).toBeVisible()
+  await inner.evaluate((el) => el.remove())
+  await page.mouse.click(2, 2)
+  await expect(outer.locator("[part~='content']")).toBeHidden()
+})

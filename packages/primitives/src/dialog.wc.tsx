@@ -22,7 +22,6 @@ import {
   waitForNaosPresenceExit,
 } from "./internal/behavior/presence.js"
 import {
-  bindNestedOutsidePress,
   cancelDialogInitialFocus,
   hasOpenNestedDialog,
   scheduleDialogInitialFocus,
@@ -61,7 +60,6 @@ export function NaosDialog({
     if (alert && expanded()) scheduleDialogInitialFocus(host().root)
   })
   onDisconnected(() => cancelDialogInitialFocus(host().root))
-  effect(() => bindNestedOutsidePress(host().element, host().root, alert))
   effect(() => {
     const content = host().root.querySelector("[part~=content]")
     if (!content) return

@@ -35,23 +35,6 @@ export function hasOpenNestedDialog(element: HTMLElement) {
   )
 }
 
-export function bindNestedOutsidePress(element: HTMLElement, root: ParentNode, alert: boolean) {
-  const control = root.querySelector<UiDialogElement>("ui-dialog")
-  const sync = () => {
-    if (control)
-      control.setAttribute(
-        "close-on-outside-press",
-        String(!alert && !hasOpenNestedDialog(element)),
-      )
-  }
-  const onChange = (event: Event) => {
-    if (event.target !== element) queueMicrotask(sync)
-  }
-  element.addEventListener("naos-open-change", onChange)
-  sync()
-  return () => element.removeEventListener("naos-open-change", onChange)
-}
-
 // Closing a native popover can asynchronously return focus to the body. Retry
 // only while focus is still lost, so an explicit new focus is never displaced.
 export function scheduleDialogReturnFocus(root: ParentNode) {
