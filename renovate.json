@@ -2,5 +2,79 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "local>sebastian-software/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "description": "The starter template tracks the Naos release set. Its first-party packages are verified by the fresh-project job.",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchFileNames": [
+        "packages/create-naos/template/package.json"
+      ],
+      "matchPackageNames": [
+        "@naos-ui/core",
+        "@naos-ui/primitives",
+        "@naos-ui/vite"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Update the SDK core and Web Components together.",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchPackageNames": [
+        "@ui-sdk/core",
+        "@ui-sdk/web"
+      ],
+      "groupName": "Naos UI SDK"
+    },
+    {
+      "description": "Keep compiler crates from one OXC release together.",
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchPackageNames": [
+        "oxc_allocator",
+        "oxc_ast",
+        "oxc_ast_visit",
+        "oxc_parser",
+        "oxc_span",
+        "oxc_syntax"
+      ],
+      "groupName": "OXC compiler crates"
+    },
+    {
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchPackageNames": [
+        "napi",
+        "napi-build",
+        "napi-derive"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "N-API crates"
+    },
+    {
+      "matchManagers": [
+        "cargo"
+      ],
+      "matchPackageNames": [
+        "serde",
+        "serde_json",
+        "regex",
+        "thiserror"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "groupName": "Rust support crates"
+    }
   ]
 }

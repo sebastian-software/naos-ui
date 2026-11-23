@@ -1,12 +1,5 @@
 export type NaosOverlayKind =
-  | "combobox"
-  | "context-menu"
-  | "dialog"
-  | "hover-card"
-  | "menu"
-  | "popover"
-  | "select"
-  | "tooltip"
+  "combobox" | "context-menu" | "dialog" | "hover-card" | "menu" | "popover" | "select" | "tooltip"
 
 export type NaosOverlaySide = "bottom" | "left" | "none" | "right" | "top"
 export type NaosOverlayAlign = "center" | "end" | "start"

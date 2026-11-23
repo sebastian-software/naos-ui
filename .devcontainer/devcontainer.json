@@ -1,10 +1,10 @@
 {
   "name": "naos-ui",
-  "image": "mcr.microsoft.com/devcontainers/typescript-node:22",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:22@sha256:db4c7b555fb582affb8c4ff31cd849a60076851a73cc1d22412b7a3f7961840b",
   "features": {
     "ghcr.io/devcontainers/features/rust:1": {}
   },
-  "postCreateCommand": "corepack enable && corepack prepare pnpm@11.6.0 --activate && pnpm install --frozen-lockfile && pnpm build:native",
+  "postCreateCommand": "corepack enable && pnpm install --frozen-lockfile && pnpm build:native",
   "customizations": {
     "vscode": {
       "extensions": [

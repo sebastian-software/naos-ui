@@ -62,12 +62,16 @@ export function createCheckboxBinding({ element, selected, mixed, flush, onChang
       checked: {
         configurable: true,
         get: () => selected(),
-        set: (value: unknown) => setChecked(Boolean(value), true),
+        set: (value: unknown) => {
+          setChecked(Boolean(value), true)
+        },
       },
       indeterminate: {
         configurable: true,
         get: () => mixed(),
-        set: (value: unknown) => setMixed(Boolean(value)),
+        set: (value: unknown) => {
+          setMixed(Boolean(value))
+        },
       },
     })
     installed = true
