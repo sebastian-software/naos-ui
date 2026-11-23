@@ -158,7 +158,7 @@ synchronously. A user activation emits one `naos-change` with
 `{ checked: boolean }` on the switch or `{ pressed: boolean }` on the toggle.
 Property writes and form resets are silent.
 
-### Menu choices
+## Menu choices
 
 Menu items default to actions: activating one emits `naos-select` on the menu
 with `{ value }` and closes it. Set `type="checkbox"` or `type="radio"` on a
