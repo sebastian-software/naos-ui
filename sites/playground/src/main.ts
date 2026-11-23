@@ -1,12 +1,7 @@
 import { createEditor } from "./editor"
 import { examples } from "./examples"
 import { highlightGeneratedModule } from "./highlight"
-import {
-  PlaygroundCompiler,
-  type PlaygroundDiagnostic,
-  mountPlaygroundModule,
-  rewriteRuntimeImports,
-} from "./compiler"
+import { PlaygroundCompiler, type PlaygroundDiagnostic, mountPlaygroundModule } from "./compiler"
 
 function assetUrl(path: string): string {
   return new URL(`${import.meta.env.BASE_URL}${path}`, window.location.origin).href
@@ -45,15 +40,23 @@ let nextInstanceId = 1
 let debounceTimer: number | undefined
 let runToken = 0
 
+const authoringGroup = document.createElement("optgroup")
+authoringGroup.label = "Authoring"
+const componentGroup = document.createElement("optgroup")
+componentGroup.label = "Components"
+exampleSelect.append(authoringGroup, componentGroup)
 for (const example of examples) {
   const option = document.createElement("option")
   option.value = example.id
   option.textContent = example.label
-  exampleSelect.append(option)
+  const group = example.kind === "component" ? componentGroup : authoringGroup
+  group.append(option)
 }
 
-const initialExample = examples[0]
+const initialId = new URL(location.href).searchParams.get("example")
+const initialExample = examples.find(({ id }) => id === initialId) ?? examples[0]
 if (initialExample) {
+  exampleSelect.value = initialExample.id
   exampleDescription.textContent = initialExample.description
 }
 
@@ -68,6 +71,9 @@ exampleSelect.addEventListener("change", () => {
   const example = examples.find(({ id }) => id === exampleSelect.value)
   if (!example) return
   exampleDescription.textContent = example.description
+  const url = new URL(location.href)
+  url.searchParams.set("example", example.id)
+  history.replaceState(history.state, "", url)
   editor.setValue(example.source)
   run()
 })
@@ -125,14 +131,9 @@ async function run() {
   tagChip.hidden = false
   coreChip.textContent = result.coreVersion ? `naos-core ${result.coreVersion}` : ""
 
-  const runtimeCode = rewriteRuntimeImports(result.code, {
-    runtime: assetUrl("naos-runtime/runtime.mjs"),
-    runtimeInternal: assetUrl("naos-runtime/internal.mjs"),
-    motion: assetUrl("naos-motion.js"),
-  })
   let mountError: unknown = null
   try {
-    await mountPlaygroundModule(runtimeCode, result.tagName, preview, () => token === runToken)
+    await mountPlaygroundModule(result.code, result.tagName, preview, () => token === runToken)
   } catch (error) {
     mountError = error
   }

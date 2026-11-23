@@ -1,0 +1,31 @@
+---
+title: Components
+description: Browse Naos Web Components and open their editable playground examples.
+order: 2
+---
+
+import { componentExamples } from "../../../../shared/component-examples"
+
+# Components
+
+The `@naos-ui/primitives` package ships {new Set(componentExamples.flatMap((example) => example.tags)).size} custom elements, including the parts of compound controls. Choose an example to edit its source and try the controls. Tags listed together can be used in the same composition.
+
+{componentExamples.map(({ id, label, description, tags }) => (
+  <section key={id}>
+    <h2><a href={import.meta.env.BASE_URL + "playground/?example=" + id}>{label}</a></h2>
+    <p>{description}</p>
+    <p>{tags.map((tag, index) => <span key={tag}>{index > 0 && " · "}<code>{tag}</code></span>)}</p>
+  </section>
+))}
+
+## Use a component in your app
+
+Import a component to register its tag. For compound components, import the parent and the child elements you use.
+
+```ts
+import "@naos-ui/primitives/switch"
+```
+
+```html
+<naos-switch name="updates" label="Email updates" checked></naos-switch>
+```

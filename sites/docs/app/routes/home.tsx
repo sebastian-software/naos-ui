@@ -336,6 +336,13 @@ export default function HomePage() {
               <a className="naos-btn" data-variant="secondary" href={withBase("playground/")}>
                 Open the playground
               </a>
+              <a
+                className="naos-btn"
+                data-variant="secondary"
+                href={withBase("reference/components/")}
+              >
+                Components
+              </a>
             </div>
             <InstallCommand />
             <dl className="naos-hero-stats">

@@ -14,7 +14,7 @@
     "build:docs": "pnpm --filter @naos-ui/docs build",
     "build:examples": "pnpm -r --filter './examples/**' --if-present build",
     "build:native": "cargo build -p naos-node && node scripts/copy-native-binding.mjs",
-    "build:playground": "node scripts/build-playground-assets.mjs && pnpm --filter @naos-ui/playground-site build",
+    "build:playground": "pnpm build:native && pnpm --filter @naos-ui/primitives... --if-present build && node scripts/build-playground-assets.mjs && pnpm --filter @naos-ui/playground-site build",
     "check-api-conventions": "node scripts/check-api-conventions.mjs",
     "check-dependency-boundaries": "oxlint -A correctness . && node scripts/check-dependency-boundaries.mjs",
     "check-release-set": "node scripts/check-release-set.mjs",
