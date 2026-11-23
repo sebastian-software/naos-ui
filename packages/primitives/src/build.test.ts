@@ -152,9 +152,15 @@ describe("@naos-ui/primitives build output", () => {
     }
   })
 
+  it("uses the SDK checkbox behavior in its private binding", () => {
+    const binding = readFileSync(join(distRoot, "internal/ui-sdk/checkbox.js"), "utf8")
+    expect(binding).toContain("@ui-sdk/core/checkbox")
+    expect(binding).not.toContain("@zag-js/")
+  })
+
   it("builds migrated controls through their SDK entry points without Zag adapters", () => {
     const components = {
-      checkbox: "@ui-sdk/core/checkbox",
+      checkbox: "./internal/ui-sdk/checkbox.js",
       "radio-group": "@ui-sdk/core/radio",
       "segmented-control": "@ui-sdk/core/segmented-control",
       select: "./internal/ui-sdk/options.js",

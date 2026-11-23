@@ -97,3 +97,34 @@ TypeScript consumer, `document.createElement("naos-toggle")` and
 `querySelector("naos-toggle")` return `NaosToggleElement`, assigning a
 mistyped prop is a compile error, and `naos-change` listeners receive
 `CustomEvent<{ pressed: boolean }>`.
+
+## Checkbox value ownership
+
+Once connected, `checkbox.checked` is the current value. The `checked`
+attribute supplies the reset default. For an enabled
+`<naos-checkbox name="updates" checked>`, this sequence gives:
+
+| Operation | `.checked` | Visible state | `FormData.get("updates")` | New `naos-change` events |
+| --- | --- | --- | --- | --- |
+| Insert the markup | true | checked | `"on"` | 0 |
+| Set `.checked = false` | false | unchecked | `null` | 0 |
+| Activate the checkbox | true | checked | `"on"` | 1 |
+| Remove the `checked` attribute | true | checked | `"on"` | 0 |
+| Call `form.reset()` | false | unchecked | `null` | 0 |
+| Remove and reinsert the same checkbox | false | unchecked | `null` | 0 |
+
+A property write or activation marks checkedness dirty. Until then, changing
+the attribute also updates the live state. Reset clears this dirty flag.
+Attribute-driven updates run asynchronously. Setting the live property updates
+the form value synchronously. Disabling the control or its fieldset excludes
+it from submission. Set `value` to supply a submitted string other than `on`.
+
+The independent `indeterminate` property gives the checkbox a mixed appearance.
+`checked` still determines submission. Activation clears the mixed state,
+flips checkedness and emits the two booleans in one event. Reset preserves the
+live mixed state.
+
+A property written before the custom element is defined is adopted on first
+connection. An already upgraded element uses its generated, reflecting setter
+until its first connection, so a write during that interval sets the reset
+default as well. Subsequent disconnects preserve the live property.

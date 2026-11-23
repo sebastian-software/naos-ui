@@ -1,14 +1,13 @@
 import {
-  computed,
   event,
   formControl,
+  host,
   onConnected,
   onDisconnected,
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import { checkbox } from "@ui-sdk/core/checkbox"
-import { primitiveId } from "./internal/ui-sdk/id.js"
+import { createCheckboxBinding } from "./internal/ui-sdk/checkbox.js"
 import css from "./checkbox.wc.css?inline"
 
 export type NaosCheckboxProps = {
@@ -34,15 +33,12 @@ export function NaosCheckbox({
 }: NaosCheckboxProps = {}) {
   const selected = state(checked)
   const mixed = state(indeterminate)
-  const checkboxService = state<ReturnType<typeof checkbox> | null>(null)
-  const checkboxApi = computed(() => checkboxService()?.api)
+  const binding = state<ReturnType<typeof createCheckboxBinding> | null>(null)
   const changed = event<{ checked: boolean; indeterminate: boolean }>("naos-change")
   const form = formControl({
     value: () => (selected() ? value : null),
     reset: () => {
-      selected.set(checked)
-      mixed.set(indeterminate)
-      checkboxApi()?.setChecked(indeterminate ? "indeterminate" : checked)
+      binding()?.reset()
     },
     disabled,
   })
@@ -50,21 +46,25 @@ export function NaosCheckbox({
   void name
 
   onConnected(() => {
-    checkboxService.set(
-      checkbox({
-        id: primitiveId("checkbox"),
-        defaultChecked: mixed() ? "indeterminate" : selected(),
-        onCheckedChange(next) {
-          selected.set(next === true)
-          mixed.set(next === "indeterminate")
-          changed.emit({ checked: next === true, indeterminate: next === "indeterminate" })
-        },
-      }),
-    )
+    if (!binding()) {
+      binding.set(
+        createCheckboxBinding({
+          element: host().element,
+          selected,
+          mixed,
+          flush() {
+            host().flushSync()
+          },
+          onChange(nextChecked, nextMixed) {
+            changed.emit({ checked: nextChecked, indeterminate: nextMixed })
+          },
+        }),
+      )
+    }
+    binding()?.connect()
   })
   onDisconnected(() => {
-    checkboxService()?.destroy()
-    checkboxService.set(null)
+    binding()?.disconnect()
   })
 
   return (
@@ -79,7 +79,7 @@ export function NaosCheckbox({
         disabled={disabled}
         onClick={() => {
           if (disabled) return
-          checkboxApi()?.toggle()
+          binding()?.toggle()
         }}
       >
         <span
