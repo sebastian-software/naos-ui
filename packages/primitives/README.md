@@ -128,3 +128,13 @@ A property written before the custom element is defined is adopted on first
 connection. An already upgraded element uses its generated, reflecting setter
 until its first connection, so a write during that interval sets the reset
 default as well. Subsequent disconnects preserve the live property.
+
+## Switch and toggle value ownership
+
+Switch and toggle follow the checkbox lifecycle above. Once connected,
+`switchElement.checked` and `toggleElement.pressed` expose the live boolean.
+Their respective `checked` and `pressed` attributes supply the reset default.
+Setting the property updates the control, its ARIA state and its form value
+synchronously. A user activation emits one `naos-change` with
+`{ checked: boolean }` on the switch or `{ pressed: boolean }` on the toggle.
+Property writes and form resets are silent.

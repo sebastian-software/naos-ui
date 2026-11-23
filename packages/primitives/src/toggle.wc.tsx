@@ -1,12 +1,14 @@
 import {
   event,
   formControl,
+  host,
   onConnected,
   onDisconnected,
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
 import { toggle } from "@ui-sdk/core/toggle"
+import { createBinaryControlBinding } from "./internal/ui-sdk/binary-control.js"
 import css from "./toggle.wc.css?inline"
 
 export type NaosToggleProps = {
@@ -29,12 +31,12 @@ export function NaosToggle({
   value = "on",
 }: NaosToggleProps = {}) {
   const active = state(pressed)
-  const controller = state<ReturnType<typeof toggle> | null>(null)
+  const binding = state<ReturnType<typeof createBinaryControlBinding> | null>(null)
   const changed = event<{ pressed: boolean }>("naos-change")
   const form = formControl({
     value: () => (active() ? value : null),
     reset: () => {
-      controller()?.api.setPressed(pressed)
+      binding()?.reset()
     },
     disabled,
   })
@@ -42,20 +44,39 @@ export function NaosToggle({
   void name
 
   onConnected(() => {
-    controller.set(
-      toggle({
-        id: "naos-toggle",
-        defaultPressed: active(),
-        onPressedChange(nextPressed) {
-          active.set(nextPressed)
-          changed.emit({ pressed: nextPressed })
-        },
-      }),
-    )
+    if (!binding()) {
+      binding.set(
+        createBinaryControlBinding({
+          element: host().element,
+          property: "pressed",
+          active,
+          flush() {
+            host().flushSync()
+          },
+          onChange(next) {
+            changed.emit({ pressed: next })
+          },
+          create(initial) {
+            const service = toggle({
+              id: "naos-toggle",
+              defaultPressed: initial,
+            })
+            return {
+              set(next, event) {
+                return service.api.setPressed(next, event ? { reason: "press", event } : undefined)
+              },
+              destroy() {
+                service.destroy()
+              },
+            }
+          },
+        }),
+      )
+    }
+    binding()?.connect()
   })
   onDisconnected(() => {
-    controller()?.destroy()
-    controller.set(null)
+    binding()?.disconnect()
   })
 
   return (
@@ -71,7 +92,7 @@ export function NaosToggle({
       disabled={disabled}
       onClick={(event) => {
         if (disabled || event.defaultPrevented) return
-        controller()?.api.toggle({ reason: "press", event })
+        binding()?.activate(event)
       }}
     >
       <span part="label">

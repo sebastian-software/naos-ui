@@ -68,8 +68,8 @@ The package uses native elements and Vercel UI SDK behaviors behind the Naos cus
 | Element | Key attributes | Events | Form behavior |
 | --- | --- | --- | --- |
 | `<naos-checkbox>` | `name`, `value`, `checked`, `indeterminate`, `disabled`, `label` | `naos-change` | Form-associated; supports submit, reset, `FormData`, and disabled fieldset propagation. |
-| `<naos-toggle>` | `name`, `value`, `pressed`, `disabled`, `label` | `naos-change` | Form-associated pressed/on-off control. |
-| `<naos-switch>` | `name`, `value`, `checked`, `disabled`, `label` | `naos-change` | Switch with native form integration. |
+| `<naos-toggle>` | `name`, `value`, `pressed`, `disabled`, `label` | `naos-change` | The live `pressed` property updates the form value. The attribute supplies the reset default. |
+| `<naos-switch>` | `name`, `value`, `checked`, `disabled`, `label` | `naos-change` | The live `checked` property updates the form value. The attribute supplies the reset default. |
 | `<naos-number-input>` | `name`, `value`, `min`, `max`, `step`, `disabled`, `label` | `naos-change` | Spinbutton behavior with form integration. |
 | `<naos-slider>` | `name`, `value`, `min`, `max`, `step`, `disabled`, `label` | `naos-change` | Single-value slider with pointer and keyboard behavior. |
 | `<naos-pin-input>` | `name`, `value`, `count`, `otp`, `disabled`, `label` | `naos-change`, `naos-complete`, `naos-invalid` | Multi-field code input with paste and keyboard behavior. |
