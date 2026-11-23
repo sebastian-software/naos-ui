@@ -156,3 +156,37 @@ for (const tag of ["naos-menu", "naos-context-menu"]) {
     )
   })
 }
+
+test("radio groups reconcile authored and programmatic checked state", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const menu = Object.assign(document.createElement("naos-menu"), { changes: 0 })
+    menu.id = "radio-reconcile"
+    menu.innerHTML = `<naos-menu-item type="radio" name="a" value="one" checked>One</naos-menu-item>
+      <naos-menu-item type="radio" name="a" value="two" checked>Two</naos-menu-item>
+      <naos-menu-item type="radio" name="b" value="three" checked>Three</naos-menu-item>`
+    menu.addEventListener("naos-checked-change", () => menu.changes++)
+    document.body.append(menu)
+  })
+  const menu = page.locator("#radio-reconcile")
+  const item = (value: string) => menu.locator(`naos-menu-item[value="${value}"]`)
+  await expect(item("one")).toHaveAttribute("aria-checked", "true")
+  await expect(item("two")).toHaveAttribute("aria-checked", "false")
+  await item("two").evaluate((el) => ((el as HTMLElement & { checked: boolean }).checked = true))
+  await expect(item("one")).toHaveAttribute("aria-checked", "false")
+  await expect(item("two")).toHaveAttribute("aria-checked", "true")
+  await item("three").evaluate((el) => el.setAttribute("name", "a"))
+  await expect(item("two")).toHaveAttribute("aria-checked", "false")
+  await expect(item("three")).toHaveAttribute("aria-checked", "true")
+  await menu.evaluate((el) =>
+    el.insertAdjacentHTML(
+      "beforeend",
+      '<naos-menu-item type="radio" name="a" value="four" checked>Four</naos-menu-item>',
+    ),
+  )
+  await expect(item("three")).toHaveAttribute("aria-checked", "false")
+  await expect(item("four")).toHaveAttribute("aria-checked", "true")
+  await menu.locator("[part~='trigger']").click()
+  await item("four").click()
+  expect(await menu.evaluate((el) => (el as HTMLElement & { changes: number }).changes)).toBe(0)
+})

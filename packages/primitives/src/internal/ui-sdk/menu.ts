@@ -60,9 +60,37 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
       item.setAttribute("data-state", highlighted === key(item) ? "highlighted" : "idle")
     }
   }
-  const refresh = () => {
+  const refresh = (changes: MutationRecord[] = []) => {
     releases.forEach((release) => release())
     items = Array.from(element.querySelectorAll<HTMLElement>(":scope > naos-menu-item[value]"))
+    // A newly checked or regrouped radio wins its group; initial markup uses
+    // the first checked item in document order.
+    const preferred = new Map<string, HTMLElement>()
+    for (const change of changes) {
+      const candidates =
+        change.type === "childList"
+          ? Array.from(change.addedNodes).filter(
+              (node): node is HTMLElement => node instanceof HTMLElement,
+            )
+          : change.target instanceof HTMLElement
+            ? [change.target]
+            : []
+      for (const candidate of candidates) {
+        if (
+          items.includes(candidate) &&
+          type(candidate) === "radio" &&
+          candidate.hasAttribute("checked")
+        )
+          preferred.set(candidate.getAttribute("name") ?? "", candidate)
+      }
+    }
+    const chosen = new Map(preferred)
+    for (const item of items) {
+      if (type(item) !== "radio" || !item.hasAttribute("checked")) continue
+      const name = item.getAttribute("name") ?? ""
+      if (!chosen.has(name)) chosen.set(name, item)
+      else if (chosen.get(name) !== item) item.removeAttribute("checked")
+    }
     releases = items.map((item) => {
       item.slot = "item"
       const itemType = type(item)
@@ -125,6 +153,7 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
     const value = key(item)
     const itemType = type(item)
     if (itemType === "checkbox" || itemType === "radio") {
+      if (itemType === "radio" && item.hasAttribute("checked")) return
       const checked = itemType === "radio" || !item.hasAttribute("checked")
       if (itemType === "radio") {
         const name = item.getAttribute("name") ?? ""
@@ -273,7 +302,7 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
   )
   const unsubscribe = navigation.subscribe(render)
   refresh()
-  const observer = new MutationObserver(refresh)
+  const observer = new MutationObserver((changes) => refresh(changes))
   observer.observe(element, {
     attributes: true,
     attributeFilter: ["value", "disabled", "label", "type", "name", "checked"],

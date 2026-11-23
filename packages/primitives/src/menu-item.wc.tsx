@@ -1,4 +1,4 @@
-import { type ComponentOptions } from "@naos-ui/core"
+import { event, type ComponentOptions } from "@naos-ui/core"
 import css from "./menu-item.wc.css?inline"
 
 export type NaosMenuItemProps = {
@@ -22,6 +22,8 @@ export function NaosMenuItem({
   type = "action",
   value = "",
 }: NaosMenuItemProps = {}) {
+  const checkedChange = event<{ value: string; checked: boolean }>("naos-checked-change")
+  void checkedChange
   void checked
   void name
   void type

@@ -158,13 +158,17 @@ synchronously. A user activation emits one `naos-change` with
 `{ checked: boolean }` on the switch or `{ pressed: boolean }` on the toggle.
 Property writes and form resets are silent.
 
+### Menu choices
+
 Menu items default to actions: activating one emits `naos-select` on the menu
 with `{ value }` and closes it. Set `type="checkbox"` or `type="radio"` on a
 `naos-menu-item` for a persistent choice. The item owns its reflected `checked`
 attribute; applications can also set or remove it. Activating a choice keeps the
 menu open and emits a bubbling, composed `naos-checked-change` from the item
 with `{ value, checked }`. Radio items with the same `name` within one menu are
-exclusive (unnamed radios form one group); activating a radio clears its peers.
+exclusive (unnamed radios form one group). Initially, the first checked radio in a
+group wins; a newly checked, inserted, or regrouped radio wins over its peers.
+Reactivating the selected radio has no effect or event.
 Disabled items cannot be activated. For example:
 
 ```html
