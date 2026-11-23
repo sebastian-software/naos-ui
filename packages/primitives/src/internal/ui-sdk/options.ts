@@ -331,12 +331,12 @@ export function bindOptions({
       "input",
       () => {
         if (disabled()) return
-        onInput?.(input.value)
         if (freeText) {
           selected = []
           onDraft?.(input.value)
           render()
         }
+        onInput?.(input.value)
         setOpen(true)
         const match = available().find((item) =>
           label(item).toLocaleLowerCase().startsWith(input.value.toLocaleLowerCase()),

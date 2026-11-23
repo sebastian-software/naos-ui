@@ -63,6 +63,7 @@ export function NaosCombobox({
         onValue(values) {
           const next = values[0] ?? ""
           selected.set(next)
+          host().flushSync()
           if (next !== committed()) {
             committed.set(next)
             changed.emit({ value: next })
@@ -74,9 +75,11 @@ export function NaosCombobox({
         },
         onDraft(next) {
           selected.set(next)
+          host().flushSync()
         },
         onCommit(next) {
           selected.set(next)
+          host().flushSync()
           if (next !== committed()) {
             committed.set(next)
             changed.emit({ value: next })

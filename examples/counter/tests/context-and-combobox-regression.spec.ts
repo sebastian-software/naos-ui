@@ -207,6 +207,10 @@ test("free-text combobox submits drafts, commits on dismissal, and resets", asyn
     const events: unknown[] = []
     for (const name of ["naos-input", "naos-change"]) {
       combo.addEventListener(name, (event) => {
+        if (name === "naos-input") {
+          const form = document.querySelector<HTMLFormElement>("#free-form")!
+          combo.setAttribute("data-input-form-value", String(new FormData(form).get("query")))
+        }
         events.push([name, (event as CustomEvent).detail])
         combo.setAttribute("data-events", JSON.stringify(events))
       })
@@ -219,6 +223,7 @@ test("free-text combobox submits drafts, commits on dismissal, and resets", asyn
   await expect(input).toHaveValue("Docs team")
   await input.fill("unmatched")
   await expect.poll(formValue).toBe("unmatched")
+  await expect(combo).toHaveAttribute("data-input-form-value", "unmatched")
   await expect(combo).toHaveAttribute("data-events", '[["naos-input",{"inputValue":"unmatched"}]]')
   await input.press("Escape")
   await expect(input).toHaveValue("unmatched")
