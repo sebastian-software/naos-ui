@@ -127,6 +127,7 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
       content.focus()
       return
     }
+    if (context && !open) return
     if (event.key === "Escape" && open) {
       event.preventDefault()
       setOpen(false, true)
@@ -187,12 +188,18 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
       (event) => {
         if (!disabled()) {
           event.preventDefault()
-          setOpen(
-            true,
-            false,
-            true,
-            event.detail === 0 ? undefined : { x: event.clientX, y: event.clientY },
-          )
+          // Native right-clicks commonly have detail=0. The button and coordinates
+          // identify the pointer independently of a click count.
+          const point =
+            event.button === 2 || event.clientX !== 0 || event.clientY !== 0
+              ? { x: event.clientX, y: event.clientY }
+              : undefined
+          if (open && point) {
+            stopPosition?.()
+            stopPosition = position(point, positioner, { side: "bottom", align: "start" })
+          } else {
+            setOpen(true, false, true, point)
+          }
           content.focus()
         }
       },

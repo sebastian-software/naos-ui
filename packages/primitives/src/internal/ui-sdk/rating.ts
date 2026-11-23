@@ -10,9 +10,9 @@ export function ratingKeyboardValue(
   item: number,
 ): number | null {
   const step = half ? 0.5 : 1
-  if (key === "ArrowLeft" || key === "ArrowDown") return Math.max(1, current - step)
+  if (key === "ArrowLeft" || key === "ArrowDown") return Math.max(step, current - step)
   if (key === "ArrowRight" || key === "ArrowUp") return Math.min(count, current + step)
-  if (key === "Home") return 1
+  if (key === "Home") return step
   if (key === "End") return count
   if (key === " " || key === "Spacebar" || key === "Space") return item
   return null

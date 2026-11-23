@@ -194,7 +194,8 @@ export function bindTagsInput(options: TagsInputOptions) {
   control.addEventListener(
     "keydown",
     (event) => {
-      if (event.defaultPrevented || event.isComposing || event.target !== editInput()) return
+      if (disabled() || event.defaultPrevented || event.isComposing || event.target !== editInput())
+        return
       if (event.key !== "Enter" && event.key !== "Escape") return
       event.preventDefault()
       endEdit(event.key === "Enter", true)
@@ -204,7 +205,7 @@ export function bindTagsInput(options: TagsInputOptions) {
   control.addEventListener(
     "focusout",
     (event) => {
-      if (event.target === editInput()) endEdit(true, false)
+      if (event.target === editInput()) endEdit(!disabled(), false)
       if (event.relatedTarget instanceof Node && control.contains(event.relatedTarget)) return
       setHighlight(null)
       clearDraft()

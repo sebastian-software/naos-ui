@@ -60,7 +60,10 @@ export function NaosTagsInput({
       bindTagsInput({
         root: component.root,
         signal: component.signal,
-        settings: () => host<NaosTagsInputProps>().props,
+        settings: () => ({
+          ...host<NaosTagsInputProps>().props,
+          disabled: host<NaosTagsInputProps>().element.matches(":disabled"),
+        }),
         values: current,
         write(next) {
           current.set(next)

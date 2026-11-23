@@ -61,7 +61,8 @@ export function NaosEditable({
         signal: component.signal,
         disabled: () =>
           Boolean(
-            host<NaosEditableProps>().props.disabled || host<NaosEditableProps>().props.readOnly,
+            host<NaosEditableProps>().element.matches(":disabled") ||
+            host<NaosEditableProps>().props.readOnly,
           ),
         value: current,
         editing,

@@ -157,9 +157,16 @@ export function bindOptions({
   list.setAttribute("aria-labelledby", labelNode.id)
   if (input) {
     labelNode.setAttribute("for", input.id || (input.id = navigation.id + "-input"))
+    trigger.tabIndex = -1
     trigger.setAttribute("aria-controls", list.id)
     trigger.setAttribute("aria-haspopup", "listbox")
     trigger.setAttribute("aria-expanded", "false")
+  }
+
+  function writeInput(next: string) {
+    if (!input || input.value === next) return
+    input.value = next
+    onInput?.(next)
   }
 
   function setOpen(next: boolean, restore = false) {
@@ -190,6 +197,7 @@ export function bindOptions({
     } else {
       navigation.api.highlight(null)
       search.reset()
+      writeInput(selectedLabel())
       if (restore) focusTarget.focus()
     }
     onOpen?.(next)
@@ -205,10 +213,7 @@ export function bindOptions({
       selected = [next]
       onValue(selected)
     }
-    if (input && input.value !== label(item)) {
-      input.value = label(item)
-      onInput?.(input.value)
-    }
+    writeInput(label(item))
     onLabel?.(selectedLabel())
     if (kind === "listbox") navigation.api.highlight(next)
     setOpen(false, true)
@@ -252,6 +257,16 @@ export function bindOptions({
         navigation.api.move(step, event)
       } else if (event.key === "PageUp" || event.key === "PageDown") {
         navigation.api.keydown(event)
+      }
+    } else if (
+      kind === "select" &&
+      !open &&
+      (event.key === "ArrowDown" || event.key === "ArrowUp")
+    ) {
+      event.preventDefault()
+      setOpen(true)
+      if (!event.altKey && navigation.get().highlighted === null) {
+        navigation.api.move(event.key === "ArrowDown" ? "first" : "last", event)
       }
     } else if (["ArrowDown", "ArrowUp", "PageUp", "PageDown"].includes(event.key)) {
       setOpen(true)
@@ -319,13 +334,12 @@ export function bindOptions({
       const changed =
         values.length !== selected.length ||
         values.some((value, index) => selected[index] !== value)
-      const previousInput = input?.value
       selected = values
+      if (changed) onValue(values)
+      writeInput(selectedLabel())
       setOpen(false)
       navigation.api.highlight(null)
       refresh()
-      if (changed) onValue(values)
-      if (input && previousInput !== input.value) onInput?.(input.value)
     },
     syncDisabled(blocked: boolean) {
       groupDisabled = blocked

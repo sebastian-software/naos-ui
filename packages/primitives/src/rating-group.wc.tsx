@@ -35,6 +35,7 @@ export function NaosRatingGroup({
   value = 0,
 }: NaosRatingGroupProps = {}) {
   const current = state(value)
+  const hovered = state(-1)
   const items = computed(() => ratingItems(count))
   const controller = state<ReturnType<typeof rating> | null>(null)
   const changed = event<{ value: number }>("naos-change")
@@ -66,6 +67,7 @@ export function NaosRatingGroup({
   onDisconnected(() => {
     controller()?.destroy()
     controller.set(null)
+    hovered.set(-1)
   })
   return (
     <section
@@ -73,6 +75,7 @@ export function NaosRatingGroup({
       aria-disabled={disabled || undefined}
       data-disabled={disabled || undefined}
       data-readonly={readOnly || undefined}
+      data-hovering={hovered() >= 0 ? "" : undefined}
       data-state={current() > 0 ? "filled" : "empty"}
       data-value={current() > 0 ? String(current()) : ""}
     >
@@ -82,13 +85,19 @@ export function NaosRatingGroup({
         role="radiogroup"
         aria-label={label}
         aria-required={required || undefined}
+        onPointerLeave={() => {
+          if (hovered() !== -1) {
+            hovered.set(-1)
+            hoverChanged.emit({ hoveredValue: -1 })
+          }
+        }}
       >
         {items().map((itemIndex) => (
           <span
             key={String(itemIndex)}
             part="item"
             role="radio"
-            aria-label={`${itemIndex} of ${count}`}
+            aria-label={`${Math.ceil(current()) === itemIndex && current() % 1 !== 0 ? current() : itemIndex} of ${count}`}
             aria-posinset={itemIndex}
             aria-setsize={count}
             aria-checked={Math.ceil(current()) === itemIndex ? "true" : "false"}
@@ -96,8 +105,12 @@ export function NaosRatingGroup({
             tabindex={
               Math.ceil(current()) === itemIndex || (current() <= 0 && itemIndex === 1) ? 0 : -1
             }
-            data-checked={Math.ceil(current()) === itemIndex ? "" : undefined}
-            data-state={current() >= itemIndex ? "checked" : "unchecked"}
+            data-checked={current() > itemIndex - 1 ? "" : undefined}
+            data-highlighted={hovered() > itemIndex - 1 ? "" : undefined}
+            data-half={
+              (hovered() >= 0 ? hovered() : current()) === itemIndex - 0.5 ? "" : undefined
+            }
+            data-state={current() > itemIndex - 1 ? "checked" : "unchecked"}
             onClick={(event) => {
               if (disabled || readOnly) return
               const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
@@ -108,14 +121,27 @@ export function NaosRatingGroup({
               controller()?.api.setValue(next, { reason: "item-press", event })
               ;(event.currentTarget as HTMLElement).focus()
             }}
-            onPointerMove={() => {
-              if (!disabled && !readOnly) hoverChanged.emit({ hoveredValue: itemIndex })
+            onPointerMove={(event) => {
+              if (disabled || readOnly) return
+              const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+              const next =
+                allowHalf && event.clientX < rect.left + rect.width / 2
+                  ? itemIndex - 0.5
+                  : itemIndex
+              if (next !== hovered()) {
+                hovered.set(next)
+                hoverChanged.emit({ hoveredValue: next })
+              }
             }}
             onKeyDown={(event) => {
               if (disabled || readOnly) return
               const next = ratingKeyboardValue(event.key, current(), count, allowHalf, itemIndex)
               if (next == null) return
               event.preventDefault()
+              if (hovered() !== -1) {
+                hovered.set(-1)
+                hoverChanged.emit({ hoveredValue: -1 })
+              }
               controller()?.api.setValue(next, { reason: "list-navigation", event })
               queueMicrotask(() => {
                 const item = host().root.querySelector(`[aria-posinset="${Math.ceil(next)}"]`)
