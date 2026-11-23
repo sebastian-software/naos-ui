@@ -66,6 +66,7 @@ export function bindOptions({
   let selected = value
   let open = false
   let choosing = false
+  let textDraft = false
   let stopLayer: VoidFunction | undefined
   let stopPosition: VoidFunction | undefined
   let items: HTMLElement[] = []
@@ -213,7 +214,8 @@ export function bindOptions({
       navigation.api.highlight(null)
       search.reset()
       if (freeText && input) {
-        if (!choosing) onCommit?.(input.value)
+        if (!choosing && textDraft) onCommit?.(input.value)
+        textDraft = false
       } else writeInput(selectedLabel())
       if (restore) focusTarget.focus()
     }
@@ -223,6 +225,7 @@ export function bindOptions({
     if (disabled() || item.hasAttribute("disabled")) return
     const next = key(item)
     choosing = true
+    textDraft = false
     if (kind === "select") setOpen(false, true)
     if (kind === "listbox" && element.hasAttribute("multiple")) {
       selected = selected.includes(next) ? selected.filter((v) => v !== next) : [...selected, next]
@@ -333,6 +336,7 @@ export function bindOptions({
         if (disabled()) return
         if (freeText) {
           selected = []
+          textDraft = true
           onDraft?.(input.value)
           render()
         }
@@ -362,6 +366,7 @@ export function bindOptions({
         values.length !== selected.length ||
         values.some((value, index) => selected[index] !== value)
       selected = values
+      textDraft = false
       if (changed) onValue(values)
       writeInput(selectedLabel() || (freeText ? selected[0] || "" : ""))
       choosing = true
