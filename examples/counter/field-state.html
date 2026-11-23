@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Profile form field state</title>
+  </head>
+  <body>
+    <form id="profile">
+      <naos-field id="name-field">
+        <label slot="label" for="display-name">Display name</label>
+        <input id="display-name" name="name" value="Ada" required aria-describedby="name-hint" />
+        <span slot="hint" id="name-hint">Choose a public name.</span>
+        <span slot="error" id="name-error"></span>
+      </naos-field>
+      <naos-checkbox id="updates" name="updates" label="Receive updates" checked></naos-checkbox>
+      <button type="submit">Save profile</button>
+      <button type="reset">Reset profile</button>
+      <output id="save-status" aria-live="polite"></output>
+    </form>
+    <script type="module" src="/src/profile-form.ts"></script>
+  </body>
+</html>

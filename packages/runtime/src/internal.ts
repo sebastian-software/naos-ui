@@ -107,6 +107,7 @@ export type KernelSpec = {
   initState?(kernel: Kernel): void
   mount?(kernel: Kernel): void
   hydrate?(kernel: Kernel): void
+  initFormActions?(kernel: Kernel): void
   update?(kernel: Kernel, dirty: DirtySources): void
   effects?(kernel: Kernel, dirty: DirtySources): void
   syncFormValue?(kernel: Kernel, dirty: DirtySources): void
@@ -137,6 +138,7 @@ export type Kernel = {
   eventAbortControllers: Set<AbortController>
   effectsConnected: boolean
   effectCleanups: Cleanup[]
+  formEnhancements?: Array<() => () => void>
   stylesAdopted: boolean
   /** Runtime-owned keyed row bindings, indexed by selector/key tokens. */
   keyedBindings: KeyedRegistry
@@ -256,14 +258,29 @@ export function connect(kernel: Kernel): void {
     } else {
       kernel.spec.mount?.(kernel)
     }
+    // Hydration can remount before returning. Initialize against the final nodes.
+    kernel.spec.initFormActions?.(kernel)
     kernel.mounted = true
   } else {
     markAllDirty(kernel)
   }
 
   kernel.effectsConnected = true
+  const signal = kernel.lifecycleAbort.signal
+  for (const enhance of kernel.formEnhancements ?? []) {
+    if (signal.aborted) break
+    const cleanup = enhance()
+    if (signal.aborted) cleanup()
+    else signal.addEventListener("abort", cleanup, { once: true })
+  }
   kernel.spec.connected?.(kernel)
   flushSync(kernel)
+}
+
+/** Records an enhancement after the generated DOM has mounted or hydrated. */
+export function registerFormEnhancement(kernel: Kernel, enhance: () => () => void): void {
+  const enhancements = (kernel.formEnhancements ??= [])
+  enhancements.push(enhance)
 }
 
 /** Releases lifecycle-scoped work while preserving DOM for a later reconnect. */

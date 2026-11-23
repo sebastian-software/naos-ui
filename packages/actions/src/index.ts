@@ -1,3 +1,7 @@
+import { registerFormStatus } from "./form-status.js"
+
+export { bindFormStatus, getFormStatus, type NaosFormStatus } from "./form-status.js"
+
 export type NaosActionContext = {
   readonly signal: AbortSignal
 }
@@ -201,13 +205,17 @@ export function formAction<State>(
 ): NaosFormAction<State> {
   const base = action<State, FormData>(reducer, initialState, options)
   const cleanups = new Set<() => void>()
+  let disposed = false
   const enhanced: NaosFormAction<State> = {
     ...base,
     dispose: () => {
+      if (disposed) return
+      disposed = true
       for (const cleanup of cleanups) cleanup()
       base.dispose()
     },
     enhance: (form) => {
+      if (disposed) return () => {}
       const onSubmit = (event: Event) => {
         if (event.defaultPrevented) return
         const submitter =
@@ -235,11 +243,14 @@ export function formAction<State>(
         void enhanced.submit(formData).catch(() => {})
       }
       form.addEventListener("submit", onSubmit)
+      const unregisterStatus = registerFormStatus(form, base)
       const cleanup = () => {
         form.removeEventListener("submit", onSubmit)
         cleanups.delete(cleanup)
+        unregisterStatus()
       }
-      cleanups.add(cleanup)
+      if (disposed) cleanup()
+      else cleanups.add(cleanup)
       return cleanup
     },
   }
