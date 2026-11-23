@@ -905,6 +905,8 @@ test("compiled design-system primitives expose native contracts", async ({ page 
 })
 
 test("packaged primitives render and dispatch package events", async ({ page }) => {
+  // This cross-component smoke test drives the full gallery in a single browser session.
+  test.slow()
   await page.goto("/")
   await page.evaluate(() => {
     window.__naosPrimitiveEvents = []

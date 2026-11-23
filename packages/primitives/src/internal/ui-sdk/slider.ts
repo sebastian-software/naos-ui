@@ -1,9 +1,7 @@
 // The SDK hides the native range input inline. Naos exposes that input as its
 // public thumb part, so keep it visible and styleable while the SDK positions
 // its surrounding thumb element.
-export function exposeSliderThumb(root: ParentNode): () => void {
-  const input = root.querySelector<HTMLInputElement>("[part~='thumb']")
-  if (!input) return () => {}
+export function exposeSliderThumb(input: HTMLInputElement): () => void {
   const sync = () => {
     for (const property of [
       "opacity",

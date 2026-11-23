@@ -86,7 +86,11 @@ for (const tag of ["naos-tooltip", "naos-hover-card"]) {
 
 for (const tag of ["naos-tooltip", "naos-hover-card"]) {
   test(`${tag} delays and cancels pointer and focus transitions`, async ({ page }) => {
+    const start = new Date("2025-01-01T00:00:00Z")
+    await page.clock.install({ time: start })
     await page.goto("/")
+    await page.mouse.move(0, 0)
+    await page.clock.pauseAt(start.getTime() + 60_000)
     await page.emulateMedia({ reducedMotion: "reduce" })
     await page.evaluate((name) => {
       const element = document.createElement(name) as HTMLElement & { changes: boolean[] }
@@ -105,24 +109,28 @@ for (const tag of ["naos-tooltip", "naos-hover-card"]) {
     const changes = () =>
       overlay.evaluate((el) => (el as HTMLElement & { changes: boolean[] }).changes)
     await trigger.dispatchEvent("pointerenter", { pointerType: "mouse" })
-    await page.waitForTimeout(50)
+    await page.clock.runFor(50)
     await trigger.dispatchEvent("pointerleave", { pointerType: "mouse" })
-    await page.waitForTimeout(250)
+    await page.clock.runFor(250)
     await expect(content).toBeHidden()
     expect(await changes()).toEqual([])
     await trigger.focus()
-    await page.waitForTimeout(50)
+    await page.clock.runFor(50)
     await expect(content).toBeHidden()
+    await page.clock.runFor(150)
     await expect(content).toBeVisible()
     expect(await changes()).toEqual([true])
     await trigger.evaluate((el: HTMLElement) => el.blur())
-    await page.waitForTimeout(50)
+    await page.clock.runFor(50)
     await expect(content).toBeVisible()
     await trigger.focus()
-    await page.waitForTimeout(250)
+    await page.clock.runFor(250)
     await expect(content).toBeVisible()
     expect(await changes()).toEqual([true])
     await trigger.evaluate((el: HTMLElement) => el.blur())
+    await page.clock.runFor(200)
+    // Allow the presence exit frame scheduled by the close update to run.
+    await page.clock.runFor(100)
     await expect(content).toBeHidden()
     expect(await changes()).toEqual([true, false])
     await trigger.dispatchEvent("pointerenter", { pointerType: "mouse" })
@@ -130,7 +138,7 @@ for (const tag of ["naos-tooltip", "naos-hover-card"]) {
       ;(window as unknown as { removedHover: Element }).removedHover = el
       el.remove()
     })
-    await page.waitForTimeout(250)
+    await page.clock.runFor(250)
     expect(
       await page.evaluate(
         () =>
