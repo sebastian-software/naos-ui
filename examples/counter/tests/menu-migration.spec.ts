@@ -45,10 +45,9 @@ for (const tag of ["naos-menu", "naos-context-menu"]) {
 test("menu reacts to dynamic items and disabled changes", async ({ page }) => {
   await page.goto("/")
   await page.evaluate(() => {
-    const menu = document.createElement("naos-menu") as HTMLElement & { selections: string[] }
+    const menu = Object.assign(document.createElement("naos-menu"), { selections: Array<string>() })
     menu.id = "dynamic-menu"
     menu.innerHTML = `<naos-menu-item value="first">First</naos-menu-item>`
-    menu.selections = []
     menu.addEventListener("naos-select", (event) =>
       menu.selections.push((event as CustomEvent<{ value: string }>).detail.value),
     )
