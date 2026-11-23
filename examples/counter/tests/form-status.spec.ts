@@ -73,7 +73,7 @@ test("a prerendered note form keeps its DOM and enhances on hydration", async ({
   await input.fill("A prerendered note")
 
   await page.evaluate(() =>
-    (window as Window & { __naosUpgrade(): Promise<unknown> }).__naosUpgrade(),
+    (window as unknown as Window & { __naosUpgrade(): Promise<unknown> }).__naosUpgrade(),
   )
   await expect(status).toHaveAttribute("data-status", "idle")
   expect(await prerendered.evaluate((element) => element.isConnected)).toBe(true)
