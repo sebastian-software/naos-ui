@@ -38,3 +38,56 @@ test("dialog preserves modal dismissal, focus and reconnect", async ({ page }) =
   await page.keyboard.press("Escape")
   await expect(content).toBeHidden()
 })
+
+test("alert dialog names and describes its prompt, focuses cancel and restores nested focus", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.evaluate(() => {
+    const outer = document.createElement("naos-dialog")
+    outer.id = "outer-dialog"
+    outer.innerHTML = `<naos-dialog id="alert-dialog" alert title="Delete project?" description="This cannot be undone."><span slot="trigger">Delete</span><span slot="close">Cancel</span><button slot="actions" id="confirm">Delete project</button></naos-dialog>`
+    document.body.append(outer)
+  })
+  const outer = page.locator("#outer-dialog")
+  const alert = page.locator("#alert-dialog")
+  const outerTrigger = outer.locator("[part~='trigger']").first()
+  await outerTrigger.click()
+  const trigger = alert.locator("[part~='trigger']")
+  await trigger.click()
+  const content = alert.locator("[part~='content']")
+  const cancel = alert.locator("[part~='close']")
+  await expect(content).toHaveRole("alertdialog")
+  await expect(content).toHaveAccessibleName("Delete project?")
+  await expect(content).toHaveAccessibleDescription("This cannot be undone.")
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press("Tab")
+  await expect(alert.locator("#confirm")).toBeFocused()
+  await page.keyboard.press("Shift+Tab")
+  await expect(cancel).toBeFocused()
+  await page.keyboard.press("Escape")
+  await expect(content).toBeHidden()
+  await expect(trigger).toBeFocused()
+  await page.keyboard.press("Escape")
+  await expect(outerTrigger).toBeFocused()
+})
+
+test("alert dialog ignores outside presses", async ({ page }) => {
+  await page.goto("/")
+  await page.emulateMedia({ reducedMotion: "reduce" })
+  await page.evaluate(() => {
+    const dialog = document.createElement("naos-dialog")
+    dialog.id = "outside-alert"
+    dialog.setAttribute("alert", "")
+    document.body.append(dialog)
+  })
+  const dialog = page.locator("#outside-alert")
+  await dialog.locator("[part~='trigger']").click()
+  const content = dialog.locator("[part~='content']")
+  await expect(content).toBeVisible()
+  await page.mouse.click(2, 2)
+  await expect(content).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(content).toBeHidden()
+})

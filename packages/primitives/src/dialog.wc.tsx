@@ -1,4 +1,12 @@
-import { effect, event, host, onConnected, state, type ComponentOptions } from "@naos-ui/core"
+import {
+  effect,
+  event,
+  host,
+  onConnected,
+  onDisconnected,
+  state,
+  type ComponentOptions,
+} from "@naos-ui/core"
 import "@ui-sdk/web/dialog"
 import type { DialogEvents, UiDialogElement } from "@ui-sdk/web/dialog"
 import { getNaosOverlayStateAttributes } from "./internal/behavior/overlay.js"
@@ -16,6 +24,7 @@ import {
 import css from "./dialog.wc.css?inline"
 
 export type NaosDialogProps = {
+  alert?: boolean
   description?: string
   label?: string
   modal?: boolean
@@ -28,6 +37,7 @@ export const options = {
 } satisfies ComponentOptions
 
 export function NaosDialog({
+  alert = false,
   description = "Dialog content",
   label = "Open dialog",
   modal = true,
@@ -41,6 +51,28 @@ export function NaosDialog({
   onConnected(() => {
     const control = host().root.querySelector<UiDialogElement>("ui-dialog")
     if (control) control.open = expanded()
+    if (alert && expanded()) {
+      setTimeout(
+        (root: ShadowRoot) => {
+          if (root.querySelector<UiDialogElement>("ui-dialog")?.open)
+            root.querySelector<HTMLElement>("[part~=close]")?.focus()
+        },
+        0,
+        host().root,
+      )
+    }
+  })
+  effect(() => {
+    const content = host().root.querySelector("[part~=content]")
+    if (!content) return
+    const role = alert ? "alertdialog" : "dialog"
+    const applyRole = () => {
+      if (content.getAttribute("role") !== role) content.setAttribute("role", role)
+    }
+    const observer = new MutationObserver(applyRole)
+    observer.observe(content, { attributes: true, attributeFilter: ["role"] })
+    applyRole()
+    return () => observer.disconnect()
   })
   effect(() => {
     const next = nextNaosPresenceSnapshot(presence(), expanded())
@@ -67,8 +99,8 @@ export function NaosDialog({
   return (
     <ui-dialog
       default-open={open}
-      {...{ modal: modal ? "true" : "false" }}
-      close-on-outside-press
+      {...{ modal: alert || modal ? "true" : "false" }}
+      {...{ "close-on-outside-press": alert ? "false" : "true" }}
       onOpenchange={(event) => {
         if (event.target !== event.currentTarget) return
         const detail = (event as DialogEvents["openchange"]).detail
@@ -76,6 +108,17 @@ export function NaosDialog({
         if (nextOpen === expanded()) return
         expanded.set(nextOpen)
         changed.emit({ open: nextOpen })
+        if (alert && nextOpen) {
+          setTimeout(
+            (root: ShadowRoot) => {
+              const control = root.querySelector<UiDialogElement>("ui-dialog")
+              const cancel = root.querySelector<HTMLElement>("[part~=close]")
+              if (control?.open) cancel?.focus()
+            },
+            0,
+            host().root,
+          )
+        }
         if (!nextOpen && (detail.reason === "outside-press" || detail.reason === "escape-key")) {
           setTimeout(
             (trigger: Element | null, control: UiDialogElement | null) => {
@@ -97,7 +140,7 @@ export function NaosDialog({
       part="root"
       {...getNaosOverlayStateAttributes({
         kind: "dialog",
-        modal,
+        modal: alert || modal,
         open: isNaosPresenceOpen(presence()),
       })}
       {...getNaosPresenceAttributes(presence())}
@@ -116,7 +159,7 @@ export function NaosDialog({
         part="backdrop"
         {...getNaosOverlayStateAttributes({
           kind: "dialog",
-          modal,
+          modal: alert || modal,
           open: isNaosPresenceOpen(presence()),
         })}
         {...getNaosPresenceAttributes(presence())}
@@ -126,7 +169,7 @@ export function NaosDialog({
         part="positioner"
         {...getNaosOverlayStateAttributes({
           kind: "dialog",
-          modal,
+          modal: alert || modal,
           open: isNaosPresenceOpen(presence()),
         })}
         {...getNaosPresenceAttributes(presence())}
@@ -134,11 +177,12 @@ export function NaosDialog({
       >
         <ui-dialog-content
           keep-mounted
+          initial-focus={alert ? "[part~=close]" : undefined}
           part="content"
-          aria-modal={modal ? "true" : undefined}
+          aria-modal={alert || modal ? "true" : undefined}
           {...getNaosOverlayStateAttributes({
             kind: "dialog",
-            modal,
+            modal: alert || modal,
             open: isNaosPresenceOpen(presence()),
           })}
           {...getNaosPresenceAttributes(presence())}
@@ -159,6 +203,7 @@ export function NaosDialog({
           <ui-dialog-description part="description">
             <slot>{description}</slot>
           </ui-dialog-description>
+          <slot name="actions" />
         </ui-dialog-content>
       </div>
     </ui-dialog>
