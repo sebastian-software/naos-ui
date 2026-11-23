@@ -442,8 +442,8 @@ importers:
   sites/docs:
     dependencies:
       ardo:
-        specifier: ~3.6.1
-        version: 3.6.1(@types/node@25.9.9)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(esbuild@0.27.7)(jiti@2.7.0)(lucide-react@1.77.0(@types/react@19.3.0)(react@19.3.1))(rollup@4.68.8)(typescript@6.0.3)(vite@8.3.8(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
+        specifier: ~3.5.0
+        version: 3.5.0(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(lightningcss@1.33.0)(lucide-react@1.77.0(@types/react@19.3.0)(react@19.3.1))(rollup@4.68.8)(typescript@6.0.3)(vite@8.3.8(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
       isbot:
         specifier: ^5.1.36
         version: 5.2.3
@@ -1412,30 +1412,6 @@ packages:
       wrangler:
         optional: true
 
-  '@react-router/dev@8.5.2':
-    resolution: {integrity: sha512-G1Xg/oh9haQCFQIeVMSuE6jUltSbV0XInSpyj4ckfRN68tkRYI9HH3cVu8tOh5qhsIgNBQTFHzMw/nvWdz5WRQ==}
-    engines: {node: '>=22.22.0'}
-    hasBin: true
-    peerDependencies:
-      '@react-router/serve': ^8.5.2
-      '@vitejs/plugin-rsc': ~0.5.38
-      react-router: ^8.5.2
-      react-server-dom-webpack: ^19.2.7
-      typescript: ^5.1.0 || ^6.0.0 || ^7.0.0
-      vite: ^7.0.0 || ^8.0.0
-      wrangler: ^4.0.0
-    peerDependenciesMeta:
-      '@react-router/serve':
-        optional: true
-      '@vitejs/plugin-rsc':
-        optional: true
-      react-server-dom-webpack:
-        optional: true
-      typescript:
-        optional: true
-      wrangler:
-        optional: true
-
   '@react-router/node@7.18.6':
     resolution: {integrity: sha512-jU8fWFjw/oZHLd+J1fStO0NzNJaXkv7j02TYPGGKn968pKEeZUAk0oK1DgH1Y/3oCODitdv3UVtWL5yRrHPIOA==}
     engines: {node: '>=20.0.0'}
@@ -1446,24 +1422,8 @@ packages:
       typescript:
         optional: true
 
-  '@react-router/node@8.5.2':
-    resolution: {integrity: sha512-cCL++xjTaVV82WYXT1j3tYqDmiKXL3fFA7tS7iXyGTJmcvHMvAxmK9v7CMUZbHIdO686V9HB0ULCr2PCu/S9CA==}
-    engines: {node: '>=22.22.0'}
-    peerDependencies:
-      react-router: 8.5.2
-      typescript: ^5.1.0 || ^6.0.0 || ^7.0.0
-    peerDependenciesMeta:
-      typescript:
-        optional: true
-
   '@remix-run/node-fetch-server@0.13.3':
     resolution: {integrity: sha512-UfjOXed/DQteaM5VyTfqTeGpHwyL2J5aoRGY6cydip4tt1ehNNeSwuXCC7AEGE0RWBs/7bgKxYkL/B/+UDe4AA==}
-
-  '@remix-run/node-fetch-server@0.14.2':
-    resolution: {integrity: sha512-1cpM/f5i1ka/9CUMBwZXZp7Bn92x8VQjzg+F4eEe88DlVdNHkAKrf/vvbZoYgdkfy2bWHtGC6LQGLmojEqOF4Q==}
-
-  '@remix-run/route-pattern@0.22.1':
-    resolution: {integrity: sha512-czdGJWh09Lapvcqt7Vb09KlrU2PhRJ8xQaI+AItTuD9aDJ5MAgxnS38lnys6Ll+6RJEqPiaUqTwIQhVLwFvv+w==}
 
   '@resvg/resvg-js-android-arm-eabi@2.6.2':
     resolution: {integrity: sha512-FrJibrAk6v29eabIPgcTUMPXiEz8ssrAk7TXxsiZzww9UTQ1Z5KAbFJs+Z0Ez+VZTYgnE5IQJqBcoSiMebtPHA==}
@@ -2241,11 +2201,11 @@ packages:
     resolution: {integrity: sha512-BJ8/l4R5LRE7hW9WdSuGYrLSHi2ynxeFpDFbH0K/CgNeY/tyhk+vO6TYxXC5r5CpUhNVX310xzPsN/H9lCdfOA==}
     engines: {node: '>=14'}
 
-  ardo@3.6.1:
-    resolution: {integrity: sha512-8Lxkg9ohs68OQmnj2xe3uokSHpE4cw1B2MA1bdipz5j0r8yB6b2bW5sk9tO9T8wp59nGU80ScK/lXsaMEc8h5g==}
+  ardo@3.5.0:
+    resolution: {integrity: sha512-hGV2xZ3Z+rssh1spIGFxB0qCoEPx0PUJisCp4ulYVsaPOLc+B4G0bV3AmE5OHNSHNmCxc/el0DO3EG4Kei3P6g==}
     peerDependencies:
       lucide-react: '>=0.400.0 <2.0.0'
-      vite: ^7.0.0 || ^8.0.0
+      vite: ^6.0.0 || ^7.0.0 || ^8.0.0-beta.0
     peerDependenciesMeta:
       lucide-react:
         optional: true
@@ -2336,10 +2296,6 @@ packages:
     resolution: {integrity: sha512-Qgzu8kfBvo+cA4962jnP1KkS6Dop5NS6g7R5LFYJr4b8Ub94PPQXUksCw9PvXoeXPRRddRNC5C1JQUR2SMGtnA==}
     engines: {node: '>= 14.16.0'}
 
-  chokidar@5.0.0:
-    resolution: {integrity: sha512-TQMmc3w+5AxjpL8iIiwebF73dRDF4fBIieAqGn9RGCWaEVwQ6Fb2cGe31Yns0RRIzii5goJ1Y7xbMwo1TxMplw==}
-    engines: {node: '>= 20.19.0'}
-
   collapse-white-space@2.1.0:
     resolution: {integrity: sha512-loKTxY1zCOuG4j9f6EPnuyyYkf58RnhhWTvRoZEokgB+WbdXehfjFviyOVYkqzEWz1Q5kRiZdBYS5SwxbQYwzw==}
 
@@ -2373,9 +2329,6 @@ packages:
         optional: true
       react:
         optional: true
-
-  cookie-es@3.1.1:
-    resolution: {integrity: sha512-UaXxwISYJPTr9hwQxMFYZ7kNhSXboMXP+Z3TRX6f1/NyaGPfuNUZOWP1pUEb75B2HjfklIYLVRfWiFZJyC6Npg==}
 
   cookie@1.1.1:
     resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
@@ -2539,10 +2492,6 @@ packages:
     resolution: {integrity: sha512-eNTPlAD67BmP31LDINZ3U7HSF8l57TxOY2PmBJ1shpCvpnxBF93mWCE8YHBnXs8qiUZJc9WDcWIeC3a2HIAMfw==}
     engines: {node: '>=6'}
 
-  exit-hook@5.1.0:
-    resolution: {integrity: sha512-INjr2xyxHo7bhAqf5ong++GZPPnpcuBcaXUKt03yf7Fie9yWD7FapL4teOU0+awQazGs5ucBh7xWs/AD+6nhog==}
-    engines: {node: '>=20'}
-
   expect-type@1.3.0:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
     engines: {node: '>=12.0.0'}
@@ -2696,11 +2645,6 @@ packages:
 
   jsesc@3.0.2:
     resolution: {integrity: sha512-xKqzzWXDttJuOcawBt4KnKHHIf5oQ/Cxax+0PWFG+DFDgHNAdi+TXECADI+RYiFUMmx8792xsMbbgXj4CwnP4g==}
-    engines: {node: '>=6'}
-    hasBin: true
-
-  jsesc@3.1.0:
-    resolution: {integrity: sha512-/sM3dO2FOzXjKQhJuo0Q173wf2KOo8t4I8vHy6lF9poUp7bKT0/NHE8fPX23PwfhnykfqnC2xRxOnVw5XuGIaA==}
     engines: {node: '>=6'}
     hasBin: true
 
@@ -3152,10 +3096,6 @@ packages:
     resolution: {integrity: sha512-jCvmsr+1IUSMUyzOkRcvnVbX3ZYC6g9TDrDbFuFmRDq7PD4yaGbLKNQL6k2jnArV8hjYxh7hVhAZB6s9HDGpZA==}
     engines: {node: '>=0.10.0'}
 
-  react-refresh@0.18.0:
-    resolution: {integrity: sha512-QgT5//D3jfjJb6Gsjxv0Slpj23ip+HtOpnNgnb2S5zU3CB26G/IDPGoy4RJB42wzFE46DRsstbW6tKHoKbhAxw==}
-    engines: {node: '>=0.10.0'}
-
   react-router@7.18.6:
     resolution: {integrity: sha512-SP8KqKfRLlJzqzPseC+r6yYFsqPEavtQCC4BKV810tBGijjESLtwVPam+gPOO+wYeXrYN/TNy2CAykQVcNg4iQ==}
     engines: {node: '>=20.0.0'}
@@ -3163,22 +3103,6 @@ packages:
       react: '>=18'
       react-dom: '>=18'
     peerDependenciesMeta:
-      react-dom:
-        optional: true
-
-  react-router@8.5.2:
-    resolution: {integrity: sha512-luPXqNUAIZAmCHbeBysc2KO7VJjckIMZk4ByEetS7Jotit8R6lLSVVeC76UE//AYK6QD6tAnVAPGkvmqMd+b1w==}
-    engines: {node: '>=22.22.0'}
-    peerDependencies:
-      '@types/react': '>=19.2.0'
-      '@types/react-dom': '>=19.2.0'
-      react: '>=19.2.7'
-      react-dom: '>=19.2.7'
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-      '@types/react-dom':
-        optional: true
       react-dom:
         optional: true
 
@@ -3197,10 +3121,6 @@ packages:
   readdirp@4.1.2:
     resolution: {integrity: sha512-GDhwkLfywWL2s6vEjyhri+eXmfH6j1L7JE27WhqLeYzoh/A3DBaYGEj2H/HFZCn/kMfim73FXxEJTw06WtxQwg==}
     engines: {node: '>= 14.18.0'}
-
-  readdirp@5.1.1:
-    resolution: {integrity: sha512-Kko+Y5XQ6fM+Ce3dq3m9YGxnacYZYl9cA1wZjaF3Vbry2L3i1qVg8+CAgNPsXRArPMUMCaOR7oa9Nqntc43JKA==}
-    engines: {node: '>= 20.19.0'}
 
   recma-build-jsx@1.0.0:
     resolution: {integrity: sha512-8GtdyqaBcDfva+GUKDr3nev3VpKAhup1+RvkMvUxURHpW7QyIvk9F5wz7Vzo06CEMSilw6uArgRqhpiUcWp8ew==}
@@ -3324,10 +3244,6 @@ packages:
 
   siginfo@2.0.0:
     resolution: {integrity: sha512-ybx0WO1/8bSBLEWXZvEd7gMW3Sn3JFlW3TvX1nREbDLRNQNaeNN8WK0meBwPdAaOI7TtRRRJn/Es1zhrrCHu7g==}
-
-  signal-exit@4.1.0:
-    resolution: {integrity: sha512-bzyZ1e88w9O1iNJbKnOlvYTrWPDl46O1bG0D3XInv+9tkPrxrN8jUUTiFlDkkmKWgn1M6CfIA13SuGqOa9Korw==}
-    engines: {node: '>=14'}
 
   source-map-js@1.2.1:
     resolution: {integrity: sha512-UXWMKhLOwVKb728IUtQPXxfYU+usdybtUrK/8uGE8CQMvrhOpwvzDBwj0QhSL7MQc7vIsISBG8VQ8+IDQxpfQA==}
@@ -4487,40 +4403,6 @@ snapshots:
       - tsx
       - yaml
 
-  '@react-router/dev@8.5.2(react-router@8.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@6.0.3)(vite@8.3.8(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))':
-    dependencies:
-      '@babel/core': 7.29.7
-      '@babel/generator': 7.29.7
-      '@babel/parser': 7.29.7
-      '@babel/traverse': 7.29.7
-      '@babel/types': 7.29.7
-      '@react-router/node': 8.5.2(react-router@8.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@6.0.3)
-      '@remix-run/node-fetch-server': 0.14.2
-      babel-dead-code-elimination: 1.0.12
-      chokidar: 5.0.0
-      dedent: 1.7.2
-      es-module-lexer: 2.1.0
-      exit-hook: 5.1.0
-      isbot: 5.2.3
-      jsesc: 3.1.0
-      lodash: 4.18.1
-      p-map: 7.0.4
-      pathe: 2.0.3
-      picocolors: 1.1.1
-      pkg-types: 2.3.1
-      react-refresh: 0.18.0
-      react-router: 8.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      semver: 7.8.4
-      signal-exit: 4.1.0
-      tinyglobby: 0.2.17
-      valibot: 1.4.1(typescript@6.0.3)
-      vite: 8.3.8(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0)
-    optionalDependencies:
-      typescript: 6.0.3
-    transitivePeerDependencies:
-      - babel-plugin-macros
-      - supports-color
-
   '@react-router/node@7.18.6(react-router@7.18.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@6.0.3)':
     dependencies:
       '@mjackson/node-fetch-server': 0.2.0
@@ -4528,18 +4410,7 @@ snapshots:
     optionalDependencies:
       typescript: 6.0.3
 
-  '@react-router/node@8.5.2(react-router@8.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@6.0.3)':
-    dependencies:
-      '@remix-run/node-fetch-server': 0.14.2
-      react-router: 8.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-    optionalDependencies:
-      typescript: 6.0.3
-
   '@remix-run/node-fetch-server@0.13.3': {}
-
-  '@remix-run/node-fetch-server@0.14.2': {}
-
-  '@remix-run/route-pattern@0.22.1': {}
 
   '@resvg/resvg-js-android-arm-eabi@2.6.2':
     optional: true
@@ -5199,10 +5070,10 @@ snapshots:
 
   ansis@4.3.1: {}
 
-  ardo@3.6.1(@types/node@25.9.9)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(esbuild@0.27.7)(jiti@2.7.0)(lucide-react@1.77.0(@types/react@19.3.0)(react@19.3.1))(rollup@4.68.8)(typescript@6.0.3)(vite@8.3.8(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0):
+  ardo@3.5.0(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(lightningcss@1.33.0)(lucide-react@1.77.0(@types/react@19.3.0)(react@19.3.1))(rollup@4.68.8)(typescript@6.0.3)(vite@8.3.8(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0):
     dependencies:
       '@mdx-js/rollup': 3.1.1(rollup@4.68.8)
-      '@react-router/dev': 8.5.2(react-router@8.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@6.0.3)(vite@8.3.8(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))
+      '@react-router/dev': 7.18.6(@types/node@25.9.9)(jiti@2.7.0)(lightningcss@1.33.0)(react-router@7.18.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(typescript@6.0.3)(vite@8.3.8(@types/node@25.9.9)(esbuild@0.27.7)(jiti@2.7.0)(yaml@2.9.0))(yaml@2.9.0)
       '@resvg/resvg-js': 2.6.2
       '@shikijs/rehype': 4.2.0
       '@vanilla-extract/css': 1.20.1
@@ -5215,7 +5086,7 @@ snapshots:
       minisearch: 7.2.0
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
-      react-router: 8.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      react-router: 7.18.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       read-package-up: 12.0.0
       rehype-parse: 9.0.1
       rehype-stringify: 10.0.1
@@ -5236,8 +5107,6 @@ snapshots:
       - '@react-router/serve'
       - '@rolldown/plugin-babel'
       - '@types/node'
-      - '@types/react'
-      - '@types/react-dom'
       - '@vitejs/devtools'
       - '@vitejs/plugin-rsc'
       - babel-plugin-macros
@@ -5245,6 +5114,7 @@ snapshots:
       - esbuild
       - jiti
       - less
+      - lightningcss
       - react-server-dom-webpack
       - rollup
       - sass
@@ -5331,10 +5201,6 @@ snapshots:
     dependencies:
       readdirp: 4.1.2
 
-  chokidar@5.0.0:
-    dependencies:
-      readdirp: 5.1.1
-
   collapse-white-space@2.1.0: {}
 
   comma-separated-tokens@2.0.3: {}
@@ -5355,8 +5221,6 @@ snapshots:
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
-
-  cookie-es@3.1.1: {}
 
   cookie@1.1.1: {}
 
@@ -5563,8 +5427,6 @@ snapshots:
       require-like: 0.1.2
 
   exit-hook@2.2.1: {}
-
-  exit-hook@5.1.0: {}
 
   expect-type@1.3.0: {}
 
@@ -5776,8 +5638,6 @@ snapshots:
       esprima: 4.0.1
 
   jsesc@3.0.2: {}
-
-  jsesc@3.1.0: {}
 
   json5@2.2.3: {}
 
@@ -6480,24 +6340,12 @@ snapshots:
 
   react-refresh@0.14.2: {}
 
-  react-refresh@0.18.0: {}
-
   react-router@7.18.6(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
     dependencies:
       cookie: 1.1.1
       react: 19.3.1
       set-cookie-parser: 2.7.2
     optionalDependencies:
-      react-dom: 19.3.1(react@19.3.1)
-
-  react-router@8.5.2(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
-    dependencies:
-      '@remix-run/route-pattern': 0.22.1
-      cookie-es: 3.1.1
-      react: 19.3.1
-    optionalDependencies:
-      '@types/react': 19.3.0
-      '@types/react-dom': 19.3.0(@types/react@19.3.0)
       react-dom: 19.3.1(react@19.3.1)
 
   react@19.3.1: {}
@@ -6517,8 +6365,6 @@ snapshots:
       unicorn-magic: 0.4.0
 
   readdirp@4.1.2: {}
-
-  readdirp@5.1.1: {}
 
   recma-build-jsx@1.0.0:
     dependencies:
@@ -6769,8 +6615,6 @@ snapshots:
       '@types/hast': 3.0.5
 
   siginfo@2.0.0: {}
-
-  signal-exit@4.1.0: {}
 
   source-map-js@1.2.1: {}
 
