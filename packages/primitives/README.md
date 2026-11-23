@@ -117,6 +117,15 @@ TypeScript consumer, `document.createElement("naos-toggle")` and
 mistyped prop is a compile error, and `naos-change` listeners receive
 `CustomEvent<{ pressed: boolean }>`.
 
+## Alert dialogs
+
+Set `alert` on `naos-dialog` for a modal confirmation. Supply a `title` and
+`description` (or their existing slots), and use the `close` slot to label the
+safe action, such as “Cancel”. This action receives initial focus. Put other
+actions in the `actions` slot so they are not included in the description.
+Escape and the close action dismiss the alert; an outside press does not.
+The ordinary dialog retains its existing behavior.
+
 ## Checkbox value ownership
 
 Once connected, `checkbox.checked` is the current value. The `checked`
