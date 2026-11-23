@@ -22,9 +22,11 @@ import {
   waitForNaosPresenceExit,
 } from "./internal/behavior/presence.js"
 import {
+  bindNestedOutsidePress,
   cancelDialogInitialFocus,
   hasOpenNestedDialog,
   scheduleDialogInitialFocus,
+  scheduleDialogReturnFocus,
 } from "./internal/ui-sdk/dialog-focus.js"
 import css from "./dialog.wc.css?inline"
 
@@ -59,6 +61,7 @@ export function NaosDialog({
     if (alert && expanded()) scheduleDialogInitialFocus(host().root)
   })
   onDisconnected(() => cancelDialogInitialFocus(host().root))
+  effect(() => bindNestedOutsidePress(host().element, host().root, alert))
   effect(() => {
     const content = host().root.querySelector("[part~=content]")
     if (!content) return
@@ -116,21 +119,7 @@ export function NaosDialog({
         if (alert && nextOpen) scheduleDialogInitialFocus(host().root)
         if (!nextOpen) cancelDialogInitialFocus(host().root)
         if (!nextOpen && (detail.reason === "outside-press" || detail.reason === "escape-key")) {
-          setTimeout(
-            (trigger: Element | null, control: UiDialogElement | null) => {
-              if (
-                trigger instanceof HTMLElement &&
-                trigger.isConnected &&
-                control &&
-                !control.open
-              ) {
-                trigger.focus()
-              }
-            },
-            0,
-            host().root.querySelector("[part~=trigger]"),
-            host().root.querySelector<UiDialogElement>("ui-dialog"),
-          )
+          scheduleDialogReturnFocus(host().root)
         }
       }}
       part="root"

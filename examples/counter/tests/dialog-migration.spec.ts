@@ -67,6 +67,7 @@ test("alert dialog names and describes its prompt, focuses cancel and restores n
   await page.keyboard.press("Shift+Tab")
   await expect(cancel).toBeFocused()
   await page.mouse.click(2, 2)
+  await page.waitForTimeout(100)
   await expect(content).toBeVisible()
   await expect(outer.locator("[part~=content]").first()).toBeVisible()
   await page.keyboard.press("Escape")
