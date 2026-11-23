@@ -88,6 +88,25 @@ use the package-private `presence` helper for entering/open/closing/closed
 phase attributes and animation-aware close teardown. They are intentionally not
 public exports.
 
+## Combobox free text
+
+Comboboxes submit selected option values by default. Add `free-text` (or set
+`freeText` in TSX) to allow arbitrary input:
+
+```html
+<naos-combobox name="search" label="Search" free-text>
+  <naos-combobox-item value="docs" label="Documentation"></naos-combobox-item>
+</naos-combobox>
+```
+
+Typing updates the form value and emits `naos-input` with `{ inputValue }`.
+Closing suggestions with Tab, Escape, an outside click, or Enter with no
+highlight commits the text and emits `naos-change` with `{ value }` when it
+changed. Escape does not select the highlighted suggestion. Choosing a
+suggestion displays its label and commits its option value. Clearing submits an
+empty string. Form reset restores the initial value and its option label, if
+available. IME composition does not trigger keyboard selection.
+
 ## Typed Elements
 
 Every primitive ships a generated declaration file next to its module: the
@@ -147,3 +166,25 @@ Setting the property updates the control, its ARIA state and its form value
 synchronously. A user activation emits one `naos-change` with
 `{ checked: boolean }` on the switch or `{ pressed: boolean }` on the toggle.
 Property writes and form resets are silent.
+
+## Menu choices
+
+Menu items default to actions: activating one emits `naos-select` on the menu
+with `{ value }` and closes it. Set `type="checkbox"` or `type="radio"` on a
+`naos-menu-item` for a persistent choice. The item owns its reflected `checked`
+attribute; applications can also set or remove it. Activating a choice keeps the
+menu open and emits a bubbling, composed `naos-checked-change` from the item
+with `{ value, checked }`. Radio items with the same `name` within one menu are
+exclusive (unnamed radios form one group). Initially, the first checked radio in a
+group wins; a newly checked, inserted, or regrouped radio wins over its peers.
+Reactivating the selected radio has no effect or event.
+Disabled items cannot be activated. For example:
+
+```html
+<naos-menu label="Preferences">
+  <naos-menu-item type="checkbox" value="grid" checked>Show grid</naos-menu-item>
+  <naos-menu-item type="radio" name="size" value="small" checked>Small</naos-menu-item>
+  <naos-menu-item type="radio" name="size" value="large">Large</naos-menu-item>
+  <naos-menu-item value="reset">Reset</naos-menu-item>
+</naos-menu>
+```
