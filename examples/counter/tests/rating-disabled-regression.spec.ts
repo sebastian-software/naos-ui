@@ -20,6 +20,11 @@ test("rating previews and selects cumulative half steps", async ({ page }) => {
   await expect(items.nth(0)).toHaveAttribute("data-checked", "")
   await expect(items.nth(1)).toHaveAttribute("data-checked", "")
   await expect(items.nth(2)).toHaveAttribute("data-half", "")
+  await expect(items.nth(2)).toHaveCSS("color", "rgba(0, 0, 0, 0)")
+  await expect(items.nth(2)).toHaveCSS("background-clip", "text")
+  expect(
+    await items.nth(2).evaluate((element) => getComputedStyle(element).backgroundImage),
+  ).toContain("linear-gradient")
   const third = items.nth(2)
   const box = await third.boundingBox()
   if (!box) throw new Error("Rating item is not laid out")

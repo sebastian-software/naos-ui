@@ -258,11 +258,7 @@ export function bindOptions({
       } else if (event.key === "PageUp" || event.key === "PageDown") {
         navigation.api.keydown(event)
       }
-    } else if (
-      kind === "select" &&
-      !open &&
-      (event.key === "ArrowDown" || event.key === "ArrowUp")
-    ) {
+    } else if (!open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
       event.preventDefault()
       setOpen(true)
       if (!event.altKey && navigation.get().highlighted === null) {

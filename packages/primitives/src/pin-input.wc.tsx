@@ -124,7 +124,15 @@ export function NaosPinInput({
               if (next instanceof HTMLElement) next.focus()
             }}
             onKeyDown={(event) => {
-              if (disabled || event.defaultPrevented || event.isComposing) return
+              if (
+                disabled ||
+                event.defaultPrevented ||
+                event.isComposing ||
+                event.altKey ||
+                event.ctrlKey ||
+                event.metaKey
+              )
+                return
               const action = pinKeyAction(event.key, slot, current(), count)
               if (!action) return
               event.preventDefault()

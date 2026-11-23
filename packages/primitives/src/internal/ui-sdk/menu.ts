@@ -184,6 +184,13 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
   content.addEventListener("keydown", keydown, { signal })
   if (context) {
     trigger.addEventListener(
+      "pointerdown",
+      (event) => {
+        if (event.button === 0 && !event.defaultPrevented) setOpen(false)
+      },
+      { signal },
+    )
+    trigger.addEventListener(
       "contextmenu",
       (event) => {
         if (!disabled()) {

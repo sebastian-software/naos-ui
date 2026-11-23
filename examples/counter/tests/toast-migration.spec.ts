@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { expectBaselineParts } from "./baseline-parts.js"
 
 test("toast creation, status, close, timeout, pause and reconnect", async ({ page }) => {
   await page.goto("/")
@@ -27,6 +28,7 @@ test("toast creation, status, close, timeout, pause and reconnect", async ({ pag
   const toasts = root.locator('[part~="toast"]')
   await area.locator("naos-toast").nth(0).locator("button").click()
   await expect(region).toHaveAttribute("data-count", "1")
+  await expectBaselineParts(root, "naos-toast-root")
   await expect(toasts).toHaveCount(1)
   await expect(toasts.first()).toHaveAttribute("data-type", "success")
   await expect(toasts.first().locator('[part~="title"]')).toHaveText("First")

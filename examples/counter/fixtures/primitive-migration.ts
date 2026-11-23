@@ -1,3 +1,5 @@
+import "@naos-ui/primitives/combobox"
+import "@naos-ui/primitives/combobox-item"
 import "@naos-ui/primitives/popover"
 import "@naos-ui/primitives/select"
 import "@naos-ui/primitives/select-item"

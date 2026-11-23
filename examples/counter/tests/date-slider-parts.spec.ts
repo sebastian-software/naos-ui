@@ -1,12 +1,5 @@
-import { readFileSync } from "node:fs"
 import { expect, test } from "@playwright/test"
-
-const baseline = JSON.parse(
-  readFileSync(
-    new URL("../../../packages/primitives/fixtures/public-contract-baseline.json", import.meta.url),
-    "utf8",
-  ),
-) as { contracts: Array<{ tag: string; parts: string[] }> }
+import { expectBaselineParts } from "./baseline-parts.js"
 
 test("date picker exposes calendar parts and preserves its seven-column grid", async ({ page }) => {
   await page.goto("/")
@@ -29,14 +22,7 @@ test("date picker exposes calendar parts and preserves its seven-column grid", a
   await picker.locator("[part~='trigger']").click()
   const content = picker.locator("[part~='content']")
   await expect(content).toBeVisible()
-  const contract = baseline.contracts.find((entry) => entry.tag === "naos-date-picker")
-  if (!contract) throw new Error("Missing date picker contract baseline")
-  for (const part of contract.parts) {
-    expect(
-      await picker.locator(`[part~='${part}']`).count(),
-      `missing part: ${part}`,
-    ).toBeGreaterThan(0)
-  }
+  await expectBaselineParts(picker, "naos-date-picker")
   await expect(picker.locator("[part~='table-header']")).toHaveCount(7)
   await expect(picker.locator("[part~='table-cell']")).toHaveCount(42)
   await expect(picker.locator("[part~='cell-trigger']")).toHaveCount(42)
@@ -90,6 +76,36 @@ test("date picker exposes calendar parts and preserves its seven-column grid", a
     "background-color",
     "rgb(10, 20, 30)",
   )
+})
+
+test("calendar uses localized day labels and one tab stop across all six weeks", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const calendar = document.createElement("naos-date-picker")
+    calendar.id = "localized-calendar"
+    calendar.setAttribute("locale", "ja-JP")
+    calendar.setAttribute("value", "2026-06-18")
+    document.body.prepend(calendar)
+  })
+  const picker = page.locator("#localized-calendar")
+  await picker.locator("[part~=trigger]").click()
+  const days = picker.locator("[part~=cell-trigger]")
+  const selected = picker.locator("[part~=cell-trigger][data-selected]")
+  await expect(selected).toHaveText("18日")
+  expect(
+    await days.evaluateAll(
+      (nodes) => nodes.filter((node) => (node as HTMLElement).tabIndex >= 0).length,
+    ),
+  ).toBe(1)
+  for (const key of ["Shift+Tab", "Tab"]) {
+    if (!(await selected.isVisible())) await picker.locator("[part~=trigger]").click()
+    await selected.focus()
+    await expect(selected).toBeFocused()
+    await page.keyboard.press(key)
+    await expect(picker.locator("[part~=cell-trigger]:focus")).toHaveCount(0)
+  }
 })
 
 test("slider shows its thumb and number controls have action names", async ({ page }) => {

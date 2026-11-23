@@ -164,7 +164,7 @@
   border-color: var(--naos-date-picker-today-border, #0f766e);
 }
 
-[part~="cell-trigger"][data-outside-range],
+[part~="cell-trigger"][data-outside],
 [part~="cell-trigger"][data-disabled] {
   color: var(--naos-date-picker-disabled-fg, #94a3b8);
 }

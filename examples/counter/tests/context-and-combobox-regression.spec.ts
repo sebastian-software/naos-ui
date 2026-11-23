@@ -107,3 +107,87 @@ test("closed Select ArrowDown starts on its selected option", async ({ page }) =
   await expect(europe).toHaveAttribute("data-highlighted", "")
   await expect(northAmerica).not.toHaveAttribute("data-highlighted")
 })
+
+test("primary click returns from an open context menu to the editable trigger", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<naos-context-menu id="return-context">
+        <input slot="trigger" aria-label="Editable region" value="notes">
+        <naos-menu-item value="copy">Copy</naos-menu-item>
+      </naos-context-menu>`,
+    )
+  })
+  const context = page.locator("#return-context")
+  const input = context.getByRole("textbox", { name: "Editable region" })
+  const menu = context.getByRole("menu")
+  await input.press("Shift+F10")
+  await expect(menu).toBeVisible()
+  await menu.press("ArrowDown")
+  await expect(context.getByRole("menuitem", { name: "Copy" })).toHaveAttribute(
+    "data-highlighted",
+    "",
+  )
+  await input.click()
+  await expect(menu).toBeHidden()
+  await expect(input).toBeFocused()
+  await input.evaluate((node: HTMLInputElement) => node.setSelectionRange(5, 5))
+  await input.press("Space")
+  await expect(input).toHaveValue("notes ")
+})
+
+test("closed Combobox ArrowDown and Enter keep its selected option", async ({ page }) => {
+  await page.goto("/primitive-migration.html")
+  const combo = page.locator("#team-combobox")
+  const input = combo.getByRole("combobox", { name: "Team" })
+  await input.press("ArrowDown")
+  await expect(input).toHaveAttribute("aria-expanded", "true")
+  await input.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  )
+  await input.press("Enter")
+  await expect(input).toHaveAttribute("aria-expanded", "false")
+  await expect(input).toHaveValue("Docs team")
+  await expect(combo.locator('naos-combobox-item[value="docs"]')).toHaveAttribute(
+    "aria-selected",
+    "true",
+  )
+})
+
+test("PIN leaves modified arrow shortcuts native and handles plain arrows", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      '<naos-pin-input id="pin-modifiers" count="4" value="123"></naos-pin-input>',
+    )
+  })
+  const pin = page.locator("#pin-modifiers")
+  const first = pin.locator("input").nth(0)
+  const second = pin.locator("input").nth(1)
+  await second.focus()
+  for (const modifier of ["altKey", "ctrlKey", "metaKey"] as const) {
+    expect(
+      await second.evaluate((input, key) => {
+        const event = new KeyboardEvent("keydown", {
+          key: "ArrowLeft",
+          [key]: true,
+          bubbles: true,
+          cancelable: true,
+        })
+        input.dispatchEvent(event)
+        return event.defaultPrevented
+      }, modifier),
+    ).toBe(false)
+    await expect(second).toBeFocused()
+  }
+  await second.press("ArrowLeft")
+  await expect(first).toBeFocused()
+  await expect(pin.locator("[part~='root']")).toHaveAttribute("data-value", "123")
+})
