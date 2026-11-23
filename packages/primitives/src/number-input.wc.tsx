@@ -66,7 +66,7 @@ export function NaosNumberInput({
       </label>
       <div part="control">
         <ui-number-input-decrement>
-          <button part="decrement" type="button">
+          <button part="decrement" type="button" aria-label={`Decrease ${label}`}>
             -
           </button>
         </ui-number-input-decrement>
@@ -82,7 +82,7 @@ export function NaosNumberInput({
           />
         </ui-number-input-control>
         <ui-number-input-increment>
-          <button part="increment" type="button">
+          <button part="increment" type="button" aria-label={`Increase ${label}`}>
             +
           </button>
         </ui-number-input-increment>

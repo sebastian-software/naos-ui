@@ -109,32 +109,37 @@ export function NaosDatePicker({
           </button>
         </ui-date-picker-clear>
       </div>
-      <ui-date-picker-content part="content" data-state={opened() ? "open" : "closed"}>
-        <div part="header">
-          <ui-calendar-previous>
-            <button type="button" part="prev">
-              Prev
-            </button>
-          </ui-calendar-previous>
-          <ui-calendar-heading part="range" />
-          <ui-calendar-next>
-            <button type="button" part="next">
-              Next
-            </button>
-          </ui-calendar-next>
+      <ui-date-picker-content part="positioner" data-state={opened() ? "open" : "closed"}>
+        <div part="content" data-state={opened() ? "open" : "closed"}>
+          <div part="header">
+            <ui-calendar-previous>
+              <button type="button" part="prev">
+                Prev
+              </button>
+            </ui-calendar-previous>
+            <ui-calendar-heading part="range" />
+            <ui-calendar-next>
+              <button type="button" part="next">
+                Next
+              </button>
+            </ui-calendar-next>
+          </div>
+          <ui-calendar-grid
+            id="naos-date-picker-grid"
+            part="table"
+            onFocusin={(event) => {
+              const target = event.target as HTMLElement
+              const date = target.getAttribute("data-value") ?? target.getAttribute("value")
+              if (date) {
+                focused.set(date)
+                focusChanged.emit({ focusedValue: date })
+              }
+            }}
+          >
+            <ui-calendar-weekdays />
+            <ui-calendar-weeks />
+          </ui-calendar-grid>
         </div>
-        <ui-calendar-grid
-          id="naos-date-picker-grid"
-          part="table"
-          onFocusin={(event) => {
-            const target = event.target as HTMLElement
-            const date = target.getAttribute("value")
-            if (date) {
-              focused.set(date)
-              focusChanged.emit({ focusedValue: date })
-            }
-          }}
-        />
       </ui-date-picker-content>
     </ui-date-picker>
   )

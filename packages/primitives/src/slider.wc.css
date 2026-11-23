@@ -51,11 +51,14 @@
   background: var(--naos-slider-range-bg, #0f766e);
 }
 
-[part~="thumb"] {
-  position: absolute;
-  display: block;
+ui-slider-thumb {
   width: var(--naos-slider-thumb-size, 1.1rem);
   height: var(--naos-slider-thumb-size, 1.1rem);
+}
+
+[part~="thumb"] {
+  appearance: none;
+  display: block;
   border: 2px solid var(--naos-slider-thumb-border, #0f766e);
   border-radius: 999px;
   background: var(--naos-slider-thumb-bg, #ffffff);
@@ -74,4 +77,18 @@
 
 [part~="root"][data-disabled] [part~="thumb"] {
   cursor: not-allowed;
+}
+
+[part~="thumb"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+}
+
+[part~="thumb"]::-moz-range-thumb {
+  border: 0;
+  width: 100%;
+  height: 100%;
+  background: transparent;
 }

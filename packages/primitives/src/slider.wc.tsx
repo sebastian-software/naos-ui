@@ -1,5 +1,14 @@
 import "@ui-sdk/web/slider"
-import { event, formControl, host, onConnected, state, type ComponentOptions } from "@naos-ui/core"
+import {
+  event,
+  formControl,
+  host,
+  onConnected,
+  onDisconnected,
+  state,
+  type ComponentOptions,
+} from "@naos-ui/core"
+import { exposeSliderThumb } from "./internal/ui-sdk/slider.js"
 import css from "./slider.wc.css?inline"
 
 export type NaosSliderProps = {
@@ -24,6 +33,7 @@ export function NaosSlider({
 }: NaosSliderProps = {}) {
   const current = state(value)
   const changed = event<{ value: number }>("naos-change")
+  const cleanup = state<(() => void) | null>(null)
   const form = formControl({
     value: () => String(current()),
     reset: () => {
@@ -38,6 +48,11 @@ export function NaosSlider({
   onConnected(() => {
     const control = host().root.querySelector("ui-slider")
     if (control) control.value = current()
+    cleanup.set(exposeSliderThumb(host().root))
+  })
+  onDisconnected(() => {
+    cleanup()?.()
+    cleanup.set(null)
   })
   return (
     <ui-slider
