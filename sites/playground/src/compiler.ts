@@ -112,26 +112,6 @@ export class PlaygroundCompiler {
 }
 
 /**
- * Rewrites the bare runtime package imports of a generated module to the
- * bundled playground assets so the module loads from a blob URL without an
- * import map.
- */
-export function rewriteRuntimeImports(
-  code: string,
-  assetUrls: { runtime: string; runtimeInternal: string; motion: string },
-): string {
-  // Codegen emits double-quoted specifiers today; match both quote styles
-  // anyway so a future emitter change fails loudly here instead of at import.
-  return code
-    .replace(
-      /from\s+["']@naos-ui\/runtime\/internal["']/g,
-      `from ${JSON.stringify(assetUrls.runtimeInternal)}`,
-    )
-    .replace(/from\s+["']@naos-ui\/runtime["']/g, `from ${JSON.stringify(assetUrls.runtime)}`)
-    .replace(/from\s+["']@naos-ui\/motion["']/g, `from ${JSON.stringify(assetUrls.motion)}`)
-}
-
-/**
  * Loads a generated module from a blob URL and mounts its custom element.
  * When `isCurrent` reports false after the module import resolved, the mount
  * is skipped so a superseded run cannot overwrite a newer preview.

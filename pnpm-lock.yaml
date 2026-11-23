@@ -512,6 +512,9 @@ importers:
         specifier: ^4.1.0
         version: 4.6.0
     devDependencies:
+      '@playwright/test':
+        specifier: ^1.60.0
+        version: 1.65.1
       typescript:
         specifier: ^6.0.3
         version: 6.0.3

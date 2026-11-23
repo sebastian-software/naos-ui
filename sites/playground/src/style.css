@@ -215,9 +215,14 @@ body {
   font-weight: 600;
 }
 
+.pane-output {
+  overflow: auto;
+}
+
 .stage {
   display: grid;
-  place-items: center;
+  place-items: safe center;
+  min-width: 0;
   min-height: 10rem;
   flex: 0 0 auto;
   padding: 1.5rem;
@@ -291,6 +296,11 @@ body {
 }
 
 @media (max-width: 960px) {
+  body {
+    height: auto;
+    min-height: 100%;
+  }
+
   .topbar {
     flex-wrap: wrap;
   }
@@ -300,10 +310,16 @@ body {
   }
 
   .workbench {
-    grid-template-columns: 1fr;
+    flex: none;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .pane-editor {
-    min-height: 24rem;
+    height: 24rem;
+  }
+
+  .generated {
+    flex: none;
+    height: 20rem;
   }
 }

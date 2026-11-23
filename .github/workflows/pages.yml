@@ -66,6 +66,9 @@ jobs:
       - name: Build playground assets
         run: pnpm build:playground
 
+      - name: Test the production playground
+        run: pnpm --filter @naos-ui/playground-site test:browser
+
       - name: Build docs site
         run: pnpm build:docs
         env:

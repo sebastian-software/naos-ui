@@ -1,8 +1,11 @@
+import { componentExamples } from "../../shared/component-examples"
+
 export type PlaygroundExample = {
   id: string
   label: string
   description: string
   source: string
+  kind?: "component"
 }
 
 const counterExample = `import { clx, computed, state } from "@naos-ui/core"
@@ -279,4 +282,28 @@ export const examples: readonly PlaygroundExample[] = [
     description: "Dev-only reactive console tracing on the dependency-gated update path.",
     source: tracingExample,
   },
+  ...componentExamples.map(({ id, label, description, markup, tags, setup }) => ({
+    id,
+    label,
+    description,
+    kind: "component" as const,
+    source: [
+      ...(setup ? ['import { state } from "@naos-ui/core"'] : []),
+      ...tags.map((tag) => `import "@naos-ui/primitives/${tag.slice(5)}"`),
+      "",
+      "export const options = {",
+      '  styles: [":host { font: 1rem/1.5 system-ui; } section, form { display: grid; gap: 1rem; }"],',
+      "}",
+      "",
+      "export function Example() {",
+      ...(setup ? [`  ${setup}`, ""] : []),
+      "  return (",
+      "    <section>",
+      "      " + markup,
+      "    </section>",
+      "  )",
+      "}",
+      "",
+    ].join("\n"),
+  })),
 ]
