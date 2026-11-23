@@ -1820,6 +1820,13 @@ test("pin input completes and resets its submitted value", async ({ page }) => {
   ).toBe("1234")
   await form.evaluate((element: HTMLFormElement) => element.reset())
   await expect(inputs.nth(3)).toHaveValue("")
+  await inputs.nth(3).press("Backspace")
+  await expect(inputs.nth(2)).toBeFocused()
+  await expect(inputs.nth(2)).toHaveValue("")
+  await inputs.nth(2).press("Home")
+  await expect(inputs.first()).toBeFocused()
+  await inputs.first().press("End")
+  await expect(inputs.nth(1)).toBeFocused()
 })
 
 test("rating selects and resets its submitted value", async ({ page }) => {

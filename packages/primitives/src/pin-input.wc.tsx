@@ -9,7 +9,12 @@ import {
   type ComponentOptions,
 } from "@naos-ui/core"
 import { otpInput } from "@ui-sdk/core/otp-input"
-import { pinPattern, pinSlots, type NaosPinInputType } from "./internal/ui-sdk/pin-input.js"
+import {
+  pinKeyAction,
+  pinPattern,
+  pinSlots,
+  type NaosPinInputType,
+} from "./internal/ui-sdk/pin-input.js"
 import css from "./pin-input.wc.css?inline"
 
 export type NaosPinInputProps = {
@@ -119,10 +124,14 @@ export function NaosPinInput({
               if (next instanceof HTMLElement) next.focus()
             }}
             onKeyDown={(event) => {
-              if (event.key === "Backspace" && !current()[slot] && slot > 0) {
-                const previous = host().root.querySelectorAll('[part~="input"]')[slot - 1]
-                if (previous instanceof HTMLElement) previous.focus()
-              }
+              if (disabled || event.defaultPrevented || event.isComposing) return
+              const action = pinKeyAction(event.key, slot, current(), count)
+              if (!action) return
+              event.preventDefault()
+              if (action.value !== current())
+                controller()?.api.setValue(action.value, { reason: "input-change", event })
+              const next = host().root.querySelectorAll('[part~="input"]')[action.focus]
+              if (next instanceof HTMLElement) next.focus()
             }}
           />
         ))}
