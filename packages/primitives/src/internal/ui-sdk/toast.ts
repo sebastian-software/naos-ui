@@ -49,5 +49,20 @@ export function bindToastRegion(
     update(next.size)
   }
   sync()
-  return notifications.subscribe(sync)
+  const unsubscribe = notifications.subscribe(sync)
+  // WebKit can omit focusout when a focused toast is removed from a shadow root.
+  // Clear the SDK's focus hold when focus moves outside this region.
+  const releaseFocus = (event: FocusEvent) => {
+    if (!event.composedPath().includes(region)) region.api.resume("focus-in")
+  }
+  const releaseStaleFocus = () => {
+    if (!region.matches(":focus-within")) region.api.resume("focus-in")
+  }
+  region.ownerDocument.addEventListener("focusin", releaseFocus, true)
+  region.addEventListener("pointerleave", releaseStaleFocus)
+  return () => {
+    unsubscribe()
+    region.ownerDocument.removeEventListener("focusin", releaseFocus, true)
+    region.removeEventListener("pointerleave", releaseStaleFocus)
+  }
 }

@@ -8,14 +8,14 @@ The existing counter Playwright configuration discovers the companion fixture an
 
 Run `pnpm --filter @naos-ui/example-counter exec node scripts/measure-primitive-migration.mjs` after building primitives. Pass a pinned checkout's `packages/primitives/dist` directory as an optional argument to measure it with the same target, production minifier, and gzip settings. The Select entry includes Select Item. The combined entry imports all three modules and counts shared code once. The all-components entry imports the package root.
 
-| Entry | Raw bytes | Gzip bytes |
-| --- | ---: | ---: |
-| Popover | 96,341 | 31,475 |
-| Select and Select Item | 107,319 | 33,296 |
-| Combined | 146,723 | 44,630 |
-| All components | 796,721 | 198,187 |
+| Production import | Baseline gzip | Migrated gzip | Change |
+| --- | ---: | ---: | ---: |
+| Popover | 31,475 B | 57,235 B | +81.8% |
+| Select and Select Item | 33,296 B | 21,940 B | −34.1% |
+| Popover, Select and Select Item | 44,630 B | 66,228 B | +48.4% |
+| All components | 198,187 B | 182,144 B | −8.1% |
 
-The post-cutover build measured 57,235 gzip bytes for Popover, 21,613 for Select and Select Item, 65,862 for the combined entry, and 183,875 for all components. Popover plus Select grew by 21,232 bytes (+47.6%). The package root shrank by 14,312 bytes (−7.2%). The selective Popover size reflects the SDK Web registration and overlay behavior, and the root bundles dependencies shared across components once.
+Popover imports the SDK Web registration and overlay behavior. Select uses SDK Core behind the existing slotted options. A consumer that imports both pays an additional 21,598 gzip bytes. At the package root, shared dependencies are bundled once and the total drops by 16,043 gzip bytes.
 
 ## Baseline exceptions
 

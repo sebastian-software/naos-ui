@@ -41,9 +41,10 @@ A single production entry importing both the packaged Naos/Zag popover and selec
 
 ## Reproduce
 
-Start from a Naos checkout with the workspace dependencies and compiled packages available. A fresh checkout can use `pnpm install --frozen-lockfile`, `pnpm build:native` and `pnpm build` at the repository root. Then run the following in this directory.
+Use a second checkout at `1596ab0` with its workspace dependencies, native compiler and packages built. Run the following in this experiment directory, substituting the absolute path to that checkout.
 
 ```sh
+export NAOS_BUILD_ROOT=/absolute/path/to/naos-at-1596ab0
 npm ci
 npx playwright install chromium-headless-shell webkit
 npm test
@@ -51,4 +52,4 @@ npm test
 
 The default suite runs 30 behavioral checks per engine. Six per engine are marked TODO and still execute, so the known capability gaps appear in the output. Run `npm run test:capabilities` to require every capability and reproduce the failures as failing assertions. Use `LAB_BROWSERS=firefox npm test` to run Firefox on a machine where Playwright can launch it. From the repository root, run `pnpm exec tsc -p experiments/ui-sdk/tsconfig.json` for strict authoring type checks.
 
-`npm run build` writes the HTML demos, scripts and exact sizes to `dist/`. The baseline and hybrid stage the same source from this checkout under `build/`. The checked-in patch applies only to the staged hybrid, and the pointer probe applies only while bundling its diagnostic entry. An already-built checkout of the same Naos revision can supply compiler and dependency artifacts via `NAOS_BUILD_ROOT`.
+`npm run build` writes the HTML demos, scripts and exact sizes to `dist/`. The baseline and hybrid stage the pinned checkout’s sources under `build/`. The checked-in patch applies only to the staged hybrid, and the pointer probe applies only while bundling its diagnostic entry. An already-built checkout of the same Naos revision can supply compiler and dependency artifacts via `NAOS_BUILD_ROOT`.

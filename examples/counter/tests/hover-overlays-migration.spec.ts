@@ -83,3 +83,60 @@ for (const tag of ["naos-tooltip", "naos-hover-card"]) {
     await expect(content).toBeHidden()
   })
 }
+
+for (const tag of ["naos-tooltip", "naos-hover-card"]) {
+  test(`${tag} delays and cancels pointer and focus transitions`, async ({ page }) => {
+    await page.goto("/")
+    await page.emulateMedia({ reducedMotion: "reduce" })
+    await page.evaluate((name) => {
+      const element = document.createElement(name) as HTMLElement & { changes: boolean[] }
+      element.id = "delayed-hover"
+      element.setAttribute("open-delay", "200")
+      element.setAttribute("close-delay", "200")
+      element.changes = []
+      element.addEventListener("naos-open-change", (event) => {
+        element.changes.push((event as CustomEvent<{ open: boolean }>).detail.open)
+      })
+      document.body.append(element)
+    }, tag)
+    const overlay = page.locator("#delayed-hover")
+    const trigger = overlay.locator("[part~='trigger']")
+    const content = overlay.locator("[part~='content']")
+    const changes = () =>
+      overlay.evaluate((el) => (el as HTMLElement & { changes: boolean[] }).changes)
+    await trigger.dispatchEvent("pointerenter", { pointerType: "mouse" })
+    await page.waitForTimeout(50)
+    await trigger.dispatchEvent("pointerleave", { pointerType: "mouse" })
+    await page.waitForTimeout(250)
+    await expect(content).toBeHidden()
+    expect(await changes()).toEqual([])
+    await trigger.focus()
+    await page.waitForTimeout(50)
+    await expect(content).toBeHidden()
+    await expect(content).toBeVisible()
+    expect(await changes()).toEqual([true])
+    await trigger.evaluate((el: HTMLElement) => el.blur())
+    await page.waitForTimeout(50)
+    await expect(content).toBeVisible()
+    await trigger.focus()
+    await page.waitForTimeout(250)
+    await expect(content).toBeVisible()
+    expect(await changes()).toEqual([true])
+    await trigger.evaluate((el: HTMLElement) => el.blur())
+    await expect(content).toBeHidden()
+    expect(await changes()).toEqual([true, false])
+    await trigger.dispatchEvent("pointerenter", { pointerType: "mouse" })
+    await overlay.evaluate((el) => {
+      ;(window as unknown as { removedHover: Element }).removedHover = el
+      el.remove()
+    })
+    await page.waitForTimeout(250)
+    expect(
+      await page.evaluate(
+        () =>
+          (window as unknown as { removedHover: HTMLElement & { changes: boolean[] } }).removedHover
+            .changes,
+      ),
+    ).toEqual([true, false])
+  })
+}

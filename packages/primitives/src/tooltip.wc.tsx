@@ -55,6 +55,8 @@ export function NaosTooltip({
         root: host().root,
         kind: "tooltip",
         initialOpen: expanded(),
+        openDelay,
+        closeDelay,
         onOpen(next) {
           expanded.set(next)
           changed.emit({ open: next })
@@ -68,6 +70,7 @@ export function NaosTooltip({
   })
   effect(() => {
     binding()?.syncDisabled(disabled)
+    binding()?.syncDelays(openDelay, closeDelay)
   })
   effect(() => {
     const next = nextNaosPresenceSnapshot(presence(), expanded())

@@ -57,6 +57,8 @@ export function NaosHoverCard({
         root: host().root,
         kind: "hover-card",
         initialOpen: expanded(),
+        openDelay,
+        closeDelay,
         onOpen(next) {
           expanded.set(next)
           changed.emit({ open: next })
@@ -70,6 +72,7 @@ export function NaosHoverCard({
   })
   effect(() => {
     binding()?.syncDisabled(disabled)
+    binding()?.syncDelays(openDelay, closeDelay)
   })
   effect(() => {
     const next = nextNaosPresenceSnapshot(presence(), expanded())
