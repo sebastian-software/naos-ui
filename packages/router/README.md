@@ -59,7 +59,10 @@ like `params.slug` is a compile error. Optional (`:name?`) and wildcard
 
 Route elements receive `element.naosRoute`, including `params`, `search`,
 `data`, `actionData`, the current `URL`, and the navigation `AbortSignal`.
-Native forms opt into action handling with `data-naos-action`.
+Native forms opt into action handling with `data-naos-action`. A submit
+button can override the destination, method and browsing context with
+`formaction`, `formmethod` and `formtarget`. Submissions to other browsing
+contexts or origins stay with the browser.
 
 The router defaults to browser-native app navigation behavior: new route commits
 scroll to the top or hash target, back/forward restores the previous scroll

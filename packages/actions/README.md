@@ -18,10 +18,10 @@ export const saveNote = formAction(async (notes: string[], formData, { signal })
 }, [])
 ```
 
-Inside a component, `<form action={saveNote}>` enhances the native form —
-invalid submissions stay with the browser's constraint validation, valid
-ones run the reducer with `new FormData(form, submitter)` — and
-`effect(() => bindAction(saveNote, onChange))` binds the pending/state
+Inside a component, `<form action={saveNote}>` respects native constraint
+validation, including a draft button’s `formnovalidate` override. The reducer
+receives `new FormData(form, submitter)`. Use
+`effect(() => bindAction(saveNote, onChange))` to bind pending/state
 snapshots to the element lifecycle. String `action` values keep native
 browser submission.
 

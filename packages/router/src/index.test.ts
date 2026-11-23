@@ -1,6 +1,13 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { createRouter, defineRoutes, redirect, type NaosRouteMatch } from "./index.js"
+import {
+  createRouter,
+  defineRoutes,
+  redirect,
+  type NaosActionArgs,
+  type NaosLoaderArgs,
+  type NaosRouteMatch,
+} from "./index.js"
 
 type TestPlatform = {
   readonly history: History
@@ -385,6 +392,98 @@ describe("NaosRouter", () => {
       actionData: { id: "42", note: "from form" },
     })
     expect(outlet.firstElementChild?.tagName.toLowerCase()).toBe("app-form")
+  })
+
+  it("routes each submitter to its effective action and method", async () => {
+    document.body.innerHTML = `
+      <form data-naos-action method="post" action="/fallback" target="_blank">
+        <input name="note" value="Saved text">
+        <button name="intent" value="save" formaction="/save" formtarget="_SELF">Save</button>
+        <input type="submit" name="intent" value="preview" formaction="/preview" formmethod="get" formtarget="">
+      </form>
+      <main data-outlet></main>
+    `
+    const form = document.querySelector("form")!
+    const save = form.querySelector("button")!
+    const preview = form.querySelector<HTMLInputElement>('input[type="submit"]')!
+    const outlet = document.querySelector("[data-outlet]")!
+    customElements.define("app-submit-override", class extends HTMLElement {})
+    const saveAction = vi.fn(({ request, formData }: NaosActionArgs) => ({
+      method: request.method,
+      note: String(formData.get("note")),
+      intent: String(formData.get("intent")),
+    }))
+    const previewLoader = vi.fn(({ request, search }: NaosLoaderArgs) => ({
+      method: request.method,
+      note: search.get("note"),
+      intent: search.get("intent"),
+    }))
+    const router = createRouter({
+      outlet,
+      routes: defineRoutes([
+        { path: "/save", tag: "app-submit-override", action: saveAction },
+        { path: "/preview", tag: "app-submit-override", loader: previewLoader },
+      ] as const),
+    })
+
+    router.start()
+    try {
+      const dispatcher = (submitter: HTMLElement) =>
+        form.dispatchEvent(
+          new SubmitEvent("submit", { submitter, bubbles: true, cancelable: true }),
+        )
+      expect(dispatcher(save)).toBe(false)
+      await vi.waitFor(() =>
+        expect(saveAction).toHaveReturnedWith({
+          method: "POST",
+          note: "Saved text",
+          intent: "save",
+        }),
+      )
+      expect(dispatcher(preview)).toBe(false)
+      await vi.waitFor(() =>
+        expect(previewLoader).toHaveReturnedWith({
+          method: "GET",
+          note: "Saved text",
+          intent: "preview",
+        }),
+      )
+      expect(saveAction).toHaveBeenCalledTimes(1)
+      expect(previewLoader).toHaveBeenCalledTimes(1)
+    } finally {
+      router.stop()
+    }
+  })
+
+  it("leaves submitter overrides that need native submission alone", () => {
+    document.body.innerHTML = `
+      <form data-naos-action method="post" action="/save">
+        <button formtarget="_blank">New tab</button>
+        <button formmethod="dialog">Close dialog</button>
+        <button formaction="https://example.org/elsewhere">External action</button>
+        <button formaction="http://[">Invalid action</button>
+      </form>
+      <main data-outlet></main>
+    `
+    const form = document.querySelector("form")!
+    const action = vi.fn()
+    customElements.define("app-submit-native", class extends HTMLElement {})
+    const router = createRouter({
+      outlet: document.querySelector("[data-outlet]")!,
+      routes: defineRoutes([{ path: "/save", tag: "app-submit-native", action }] as const),
+    })
+
+    router.start()
+    try {
+      for (const submitter of form.querySelectorAll("button")) {
+        const event = new SubmitEvent("submit", { submitter, bubbles: true, cancelable: true })
+        form.dispatchEvent(event)
+        expect(event.defaultPrevented, submitter.textContent ?? "").toBe(false)
+      }
+      expect(action).not.toHaveBeenCalled()
+    } finally {
+      router.stop()
+    }
   })
 
   it("lets same-page hash links use native fragment navigation", () => {

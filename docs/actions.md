@@ -49,11 +49,12 @@ connect/disconnect lifecycle, so host disconnect ends the subscription and
 
 ## `formAction(reducer, initialState, options?)`
 
-A form action is an action whose payload is `FormData`, plus
-`enhance(form)`: it listens for `submit`, lets **native constraint
-validation** run first (invalid forms never reach the reducer and keep the
-browser's reporting), prevents default only for valid submissions, and calls
-`submit(new FormData(form, submitter))`.
+A form action receives `FormData`. Its `enhance(form)` listener respects native
+constraint validation, including `novalidate` on the form and `formnovalidate`
+on a submit button. A “Save draft” button can submit an incomplete form to the
+reducer while “Publish” still requires valid fields. The listener prevents
+navigation and calls `submit(new FormData(form, submitter))` for each accepted
+submission.
 
 ## `<form action={save}>` in TSX
 

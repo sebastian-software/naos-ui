@@ -209,23 +209,27 @@ export function formAction<State>(
     },
     enhance: (form) => {
       const onSubmit = (event: Event) => {
-        // Native constraint validation stays authoritative: invalid forms
-        // fall through to the browser's reporting without reaching the
-        // reducer.
-        if (event.defaultPrevented || !form.checkValidity()) return
-        event.preventDefault()
+        if (event.defaultPrevented) return
         const submitter =
           typeof SubmitEvent !== "undefined" &&
           event instanceof SubmitEvent &&
           event.submitter instanceof HTMLElement
             ? event.submitter
             : undefined
+        if (
+          !form.noValidate &&
+          !submitter?.hasAttribute("formnovalidate") &&
+          !form.checkValidity()
+        ) {
+          return
+        }
         let formData: FormData
         try {
           formData = submitter ? new FormData(form, submitter) : new FormData(form)
         } catch {
           formData = new FormData(form)
         }
+        event.preventDefault()
         // Submission failures are reported through error(); the listener
         // must not produce unhandled rejections.
         void enhanced.submit(formData).catch(() => {})

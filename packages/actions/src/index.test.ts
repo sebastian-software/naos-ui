@@ -219,6 +219,40 @@ describe("formAction", () => {
     expect(reducer).not.toHaveBeenCalled()
   })
 
+  it.each(["form", "submitter"] as const)(
+    "keeps invalid draft submissions enhanced when the %s bypasses validation",
+    async (bypass) => {
+      const form = setupForm(`
+        <input name="note" required>
+        <button name="intent" value="draft">Save draft</button>
+        <button name="intent" value="publish">Publish</button>
+      `)
+      const [draft, publish] = form.querySelectorAll("button")
+      if (!draft || !publish) throw new Error("Missing test submitters.")
+      if (bypass === "form") form.noValidate = true
+      else draft.formNoValidate = true
+      const reducer = vi.fn((previous: number, formData: FormData) => {
+        expect(formData.get("note")).toBe("")
+        expect(formData.get("intent")).toBe("draft")
+        return previous + 1
+      })
+      const save = formAction(reducer, 0)
+      const cleanup = save.enhance(form)
+
+      const dispatchWith = (submitter: HTMLButtonElement) =>
+        form.dispatchEvent(
+          new SubmitEvent("submit", { submitter, bubbles: true, cancelable: true }),
+        )
+      expect(dispatchWith(draft)).toBe(false)
+      await vi.waitFor(() => expect(save.state()).toBe(1))
+
+      form.noValidate = false
+      expect(dispatchWith(publish)).toBe(true)
+      expect(reducer).toHaveBeenCalledTimes(1)
+      cleanup()
+    },
+  )
+
   it("is brand-detectable without importing the package", () => {
     const save = formAction((previous: number) => previous, 0)
     expect(isNaosFormAction(save)).toBe(true)
