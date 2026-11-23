@@ -23,3 +23,18 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+:host([type="checkbox"]) [part~="root"]::before,
+:host([type="radio"]) [part~="root"]::before {
+  content: "";
+  width: 1.25em;
+  flex: none;
+}
+
+:host([type="checkbox"][checked]) [part~="root"]::before {
+  content: "✓";
+}
+
+:host([type="radio"][checked]) [part~="root"]::before {
+  content: "●";
+}

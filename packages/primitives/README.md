@@ -157,3 +157,21 @@ Setting the property updates the control, its ARIA state and its form value
 synchronously. A user activation emits one `naos-change` with
 `{ checked: boolean }` on the switch or `{ pressed: boolean }` on the toggle.
 Property writes and form resets are silent.
+
+Menu items default to actions: activating one emits `naos-select` on the menu
+with `{ value }` and closes it. Set `type="checkbox"` or `type="radio"` on a
+`naos-menu-item` for a persistent choice. The item owns its reflected `checked`
+attribute; applications can also set or remove it. Activating a choice keeps the
+menu open and emits a bubbling, composed `naos-checked-change` from the item
+with `{ value, checked }`. Radio items with the same `name` within one menu are
+exclusive (unnamed radios form one group); activating a radio clears its peers.
+Disabled items cannot be activated. For example:
+
+```html
+<naos-menu label="Preferences">
+  <naos-menu-item type="checkbox" value="grid" checked>Show grid</naos-menu-item>
+  <naos-menu-item type="radio" name="size" value="small" checked>Small</naos-menu-item>
+  <naos-menu-item type="radio" name="size" value="large">Large</naos-menu-item>
+  <naos-menu-item value="reset">Reset</naos-menu-item>
+</naos-menu>
+```

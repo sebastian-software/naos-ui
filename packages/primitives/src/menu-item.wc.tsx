@@ -2,7 +2,10 @@ import { type ComponentOptions } from "@naos-ui/core"
 import css from "./menu-item.wc.css?inline"
 
 export type NaosMenuItemProps = {
+  checked?: boolean
   disabled?: boolean
+  name?: string
+  type?: "action" | "checkbox" | "radio"
   label?: string
   value?: string
 }
@@ -11,7 +14,17 @@ export const options = {
   styles: [css],
 } satisfies ComponentOptions
 
-export function NaosMenuItem({ disabled = false, label = "", value = "" }: NaosMenuItemProps = {}) {
+export function NaosMenuItem({
+  checked = false,
+  disabled = false,
+  label = "",
+  name = "",
+  type = "action",
+  value = "",
+}: NaosMenuItemProps = {}) {
+  void checked
+  void name
+  void type
   void disabled
   void value
 

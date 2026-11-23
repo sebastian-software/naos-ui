@@ -42,6 +42,7 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
   const key = (item: HTMLElement) => item.getAttribute("value") ?? ""
   const label = (item: HTMLElement) =>
     item.getAttribute("label") || item.textContent?.trim() || key(item)
+  const type = (item: HTMLElement) => item.getAttribute("type")
   const enabled = () => items.filter((item) => !item.hasAttribute("disabled"))
   const render = () => {
     const highlighted = navigation.get().highlighted
@@ -64,7 +65,14 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
     items = Array.from(element.querySelectorAll<HTMLElement>(":scope > naos-menu-item[value]"))
     releases = items.map((item) => {
       item.slot = "item"
-      item.setAttribute("role", "menuitem")
+      const itemType = type(item)
+      item.setAttribute(
+        "role",
+        itemType === "checkbox" || itemType === "radio" ? `menuitem${itemType}` : "menuitem",
+      )
+      if (itemType === "checkbox" || itemType === "radio")
+        item.setAttribute("aria-checked", String(item.hasAttribute("checked")))
+      else item.removeAttribute("aria-checked")
       item.tabIndex = -1
       const option = {
         key: key(item),
@@ -115,6 +123,31 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
   function choose(item: HTMLElement) {
     if (disabled() || item.hasAttribute("disabled")) return
     const value = key(item)
+    const itemType = type(item)
+    if (itemType === "checkbox" || itemType === "radio") {
+      const checked = itemType === "radio" || !item.hasAttribute("checked")
+      if (itemType === "radio") {
+        const name = item.getAttribute("name") ?? ""
+        for (const peer of items) {
+          if (peer !== item && type(peer) === "radio" && (peer.getAttribute("name") ?? "") === name)
+            peer.removeAttribute("checked")
+        }
+      }
+      item.toggleAttribute("checked", checked)
+      // Update ARIA synchronously, before listeners inspect the new state.
+      for (const peer of items) {
+        if (type(peer) === "checkbox" || type(peer) === "radio")
+          peer.setAttribute("aria-checked", String(peer.hasAttribute("checked")))
+      }
+      item.dispatchEvent(
+        new CustomEvent("naos-checked-change", {
+          bubbles: true,
+          composed: true,
+          detail: { value, checked },
+        }),
+      )
+      return
+    }
     setOpen(false, true)
     onSelect(value)
   }
@@ -243,7 +276,7 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
   const observer = new MutationObserver(refresh)
   observer.observe(element, {
     attributes: true,
-    attributeFilter: ["value", "disabled", "label"],
+    attributeFilter: ["value", "disabled", "label", "type", "name", "checked"],
     childList: true,
     characterData: true,
     subtree: true,

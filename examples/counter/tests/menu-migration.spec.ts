@@ -98,3 +98,61 @@ test("context menu opens from the keyboard", async ({ page }) => {
   await expect(content).toBeHidden()
   await expect(trigger).toBeFocused()
 })
+
+for (const tag of ["naos-menu", "naos-context-menu"]) {
+  test(`${tag} supports checked items with pointer and keyboard`, async ({ page }) => {
+    await page.goto("/")
+    await page.evaluate((name) => {
+      const menu = Object.assign(document.createElement(name), { events: [] as unknown[] })
+      menu.id = "checked-menu"
+      menu.innerHTML = `<naos-menu-item type="checkbox" value="grid">Grid</naos-menu-item>
+        <naos-menu-item type="checkbox" value="disabled" disabled>Disabled</naos-menu-item>
+        <naos-menu-item type="radio" name="size" value="small" checked>Small</naos-menu-item>
+        <naos-menu-item type="radio" name="size" value="large">Large</naos-menu-item>
+        <naos-menu-item type="radio" name="other" value="other" checked>Other</naos-menu-item>
+        <naos-menu-item value="action">Action</naos-menu-item>`
+      for (const event of ["naos-select", "naos-checked-change"]) {
+        menu.addEventListener(event, (e) =>
+          menu.events.push({ type: e.type, detail: (e as CustomEvent).detail }),
+        )
+      }
+      document.body.append(menu)
+    }, tag)
+    const menu = page.locator("#checked-menu")
+    const trigger = menu.locator("[part~='trigger']")
+    const content = menu.locator("[part~='content']")
+    const item = (value: string) => menu.locator(`naos-menu-item[value="${value}"]`)
+    if (tag === "naos-menu") await trigger.click()
+    else await trigger.click({ button: "right" })
+    await expect(item("grid")).toHaveAttribute("role", "menuitemcheckbox")
+    await expect(item("small")).toHaveAttribute("role", "menuitemradio")
+    await expect(item("grid")).toHaveAttribute("aria-checked", "false")
+    await item("grid").click()
+    await expect(item("grid")).toHaveAttribute("aria-checked", "true")
+    await expect(content).toBeVisible()
+    await item("disabled").click({ force: true })
+    await expect(item("disabled")).toHaveAttribute("aria-checked", "false")
+    await item("large").click()
+    await expect(item("small")).toHaveAttribute("aria-checked", "false")
+    await expect(item("large")).toHaveAttribute("aria-checked", "true")
+    await expect(item("other")).toHaveAttribute("aria-checked", "true")
+    await content.press("Home")
+    await content.press("Space")
+    await expect(item("grid")).toHaveAttribute("aria-checked", "false")
+    await content.press("ArrowDown")
+    await content.press("Enter")
+    await expect(item("small")).toHaveAttribute("aria-checked", "true")
+    await expect(item("large")).toHaveAttribute("aria-checked", "false")
+    await item("action").click()
+    await expect(content).toBeHidden()
+    expect(await menu.evaluate((el) => (el as HTMLElement & { events: unknown[] }).events)).toEqual(
+      [
+        { type: "naos-checked-change", detail: { value: "grid", checked: true } },
+        { type: "naos-checked-change", detail: { value: "large", checked: true } },
+        { type: "naos-checked-change", detail: { value: "grid", checked: false } },
+        { type: "naos-checked-change", detail: { value: "small", checked: true } },
+        { type: "naos-select", detail: { value: "action" } },
+      ],
+    )
+  })
+}
