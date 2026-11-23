@@ -121,6 +121,12 @@ export function bindMenu({ element, root, context, initialOpen, onOpen, onSelect
   function keydown(event: KeyboardEvent) {
     if (disabled() || event.defaultPrevented || event.isComposing) return
     const active = items.find((item) => key(item) === navigation.get().highlighted)
+    if (context && (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))) {
+      event.preventDefault()
+      setOpen(true)
+      content.focus()
+      return
+    }
     if (event.key === "Escape" && open) {
       event.preventDefault()
       setOpen(false, true)

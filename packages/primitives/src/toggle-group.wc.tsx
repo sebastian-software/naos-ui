@@ -48,6 +48,24 @@ export function NaosToggleGroup({
     value: () =>
       toggleGroupFormValue({
         multiple,
+        name,
+        value: selected(),
+      }),
+    reset: () => {
+      const nextValue = parseNaosToggleGroupValue(value).slice(0, multiple ? undefined : 1)
+      selected.set(nextValue)
+      toggleGroupApi()?.setValue(nextValue)
+    },
+    disabled,
+  })
+  void form
+  void name
+
+  onConnected(() => {
+    toggleGroupService.set(
+      toggleGroup({
+        id: primitiveId("toggle-group"),
+        multiple,
         orientation,
         defaultValue: selected(),
       }),

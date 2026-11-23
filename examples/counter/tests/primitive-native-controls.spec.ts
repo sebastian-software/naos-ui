@@ -198,3 +198,101 @@ test("accordion arrows skip disabled authored items and selection preserves thei
   await expect(first).toHaveAttribute("aria-expanded", "false")
   await expect(accordion.getByText("Last contents")).toBeVisible()
 })
+
+test("horizontal groups navigate RTL and preserve one enabled tab stop", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `
+      <form id="rtl-groups" dir="rtl">
+        <naos-radio-group orientation="horizontal" value="stale">
+          <naos-radio value="a">Radio Alpha</naos-radio>
+          <naos-radio value="b">Radio Beta</naos-radio>
+        </naos-radio-group>
+        <naos-segmented-control value="stale">
+          <naos-segmented-item value="a">Segment Alpha</naos-segmented-item>
+          <naos-segmented-item value="b">Segment Beta</naos-segmented-item>
+        </naos-segmented-control>
+        <naos-toggle-group multiple name="choice" value="a b">
+          <naos-toggle-item value="a">Toggle Alpha</naos-toggle-item>
+          <naos-toggle-item value="b">Toggle Beta</naos-toggle-item>
+          <naos-toggle-item value="c">Toggle Gamma</naos-toggle-item>
+        </naos-toggle-group>
+      </form>
+    `,
+    )
+  })
+  const form = page.locator("#rtl-groups")
+  const radio = form.getByRole("radio", { name: "Radio Alpha" })
+  await expect(radio).toHaveAttribute("tabindex", "0")
+  await radio.press("ArrowLeft")
+  await expect(form.getByRole("radio", { name: "Radio Beta" })).toBeFocused()
+  const segment = form.getByRole("radio", { name: "Segment Alpha" })
+  await expect(segment).toHaveAttribute("tabindex", "0")
+  await segment.press("ArrowLeft")
+  await expect(form.getByRole("radio", { name: "Segment Beta" })).toBeFocused()
+
+  const toggles = form.locator("naos-toggle-group")
+  await expect(toggles.locator("[tabindex='0']")).toHaveCount(1)
+  await toggles.getByRole("button", { name: "Toggle Alpha" }).press("ArrowRight")
+  await expect(toggles.getByRole("button", { name: "Toggle Gamma" })).toBeFocused()
+  await expect(toggles.getByRole("button", { name: "Toggle Gamma" })).toHaveAttribute(
+    "tabindex",
+    "0",
+  )
+  await toggles.evaluate((group) => group.removeAttribute("multiple"))
+  await toggles.getByRole("radio", { name: "Toggle Gamma" }).click()
+  await expect(toggles.getByRole("radio", { name: "Toggle Gamma" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  )
+  await expect(toggles.getByRole("radio", { name: "Toggle Alpha" })).toHaveAttribute(
+    "aria-checked",
+    "false",
+  )
+  await expect
+    .poll(() => form.evaluate((element: HTMLFormElement) => new FormData(element).getAll("choice")))
+    .toEqual(["c"])
+})
+
+test("dynamic options keep an accurate active descendant and emit a value reset", async ({
+  page,
+}) => {
+  await page.goto("/primitive-migration.html")
+  const select = page.getByRole("combobox", { name: "Region" })
+  await select.press("Space")
+  await select.press("End")
+  expect(
+    await select.evaluate(
+      (trigger) =>
+        trigger.ariaActiveDescendantElement?.getAttribute("value") ??
+        trigger.getAttribute("aria-activedescendant")?.split("-").at(-1),
+    ),
+  ).toBe("na")
+  await page
+    .locator('naos-select-item[value="na"]')
+    .evaluate((item) => item.setAttribute("disabled", ""))
+  await expect
+    .poll(() =>
+      select.evaluate(
+        (trigger) =>
+          trigger.ariaActiveDescendantElement ?? trigger.getAttribute("aria-activedescendant"),
+      ),
+    )
+    .toBeNull()
+  await page.locator("naos-select").evaluate((element) => {
+    const group = document.createElement("div")
+    group.innerHTML =
+      '<naos-select-item value="latam" label="Latin America">Latin America</naos-select-item>'
+    element.append(group)
+  })
+  await select.press("End")
+  await select.press("Enter")
+  await expect(select).toContainText("Latin America")
+  await page.getByRole("button", { name: "Restore defaults" }).click()
+  const log = await page.locator("#primitive-events").textContent()
+  expect(
+    JSON.parse(log ?? "[]").filter(({ type }: { type: string }) => type === "naos-change"),
+  ).toMatchObject([{ detail: { value: "latam" } }, { detail: { value: "eu" } }])
+})

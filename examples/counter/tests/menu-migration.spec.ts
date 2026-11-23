@@ -81,3 +81,21 @@ test("menu reacts to dynamic items and disabled changes", async ({ page }) => {
   await page.keyboard.press("Escape")
   await expect(content).toBeHidden()
 })
+
+test("context menu opens from the keyboard", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const menu = document.createElement("naos-context-menu")
+    menu.id = "keyboard-context"
+    menu.innerHTML = '<naos-menu-item value="copy">Copy</naos-menu-item>'
+    document.body.append(menu)
+  })
+  const trigger = page.locator("#keyboard-context [part~='trigger']")
+  const content = page.locator("#keyboard-context [part~='content']")
+  await trigger.focus()
+  await page.keyboard.press("Shift+F10")
+  await expect(content).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(content).toBeHidden()
+  await expect(trigger).toBeFocused()
+})
