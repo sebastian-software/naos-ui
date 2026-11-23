@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   event,
   host,
@@ -8,17 +7,8 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagMenuService,
-  getNaosZagMenuApi,
-  stopNaosZagMenuService,
-  syncNaosMenuItems,
-} from "./internal/zag/menu.js"
-import type { NaosZagMenuService } from "./internal/zag/menu.js"
-import {
-  getNaosOverlayStateAttributes,
-  listenForNaosOverlayEscape,
-} from "./internal/behavior/overlay.js"
+import { bindMenu } from "./internal/ui-sdk/menu.js"
+import { getNaosOverlayStateAttributes } from "./internal/behavior/overlay.js"
 import css from "./context-menu.wc.css?inline"
 
 export type NaosContextMenuProps = {
@@ -37,60 +27,33 @@ export function NaosContextMenu({
   open = false,
 }: NaosContextMenuProps = {}) {
   const expanded = state(open)
-  const highlighted = state<string | null>(null)
-  const menuService = state<NaosZagMenuService | null>(null)
-  const contextMenuApi = computed(() => getNaosZagMenuApi(menuService()))
+  const binding = state<ReturnType<typeof bindMenu> | null>(null)
   const opened = event<{ open: boolean }>("naos-open-change")
   const selected = event<{ value: string }>("naos-select")
 
   onConnected(() => {
-    const hostElement = host().element
-    menuService.set(
-      createNaosZagMenuService({
-        disabled,
-        host: hostElement,
-        id: "naos-context-menu",
-        label,
-        onHighlightChange(nextValue) {
-          highlighted.set(nextValue)
-        },
-        onOpenChange(nextOpen) {
-          expanded.set(nextOpen)
-          opened.emit({ open: nextOpen })
-        },
-        positioning: { placement: "bottom-start" },
+    binding.set(
+      bindMenu({
+        element: host().element,
         root: host().root,
+        context: true,
+        initialOpen: expanded(),
+        onOpen(next) {
+          expanded.set(next)
+          opened.emit({ open: next })
+        },
+        onSelect(value) {
+          selected.emit({ value })
+        },
       }),
     )
-    if (open) contextMenuApi()?.setOpen(true)
   })
   onDisconnected(() => {
-    stopNaosZagMenuService(menuService())
-    menuService.set(null)
+    binding()?.destroy()
+    binding.set(null)
   })
   effect(() => {
-    const api = contextMenuApi()
-    void expanded()
-    void highlighted()
-    if (api == null) return
-    return syncNaosMenuItems({
-      api,
-      disabled,
-      host: host().element,
-      onRequestUpdate: () => host().update(),
-      onSelect(value) {
-        selected.emit({ value })
-      },
-    })
-  })
-  effect(() => {
-    const api = contextMenuApi()
-    void expanded()
-    if (api == null || !expanded()) return
-    return listenForNaosOverlayEscape({
-      onClose: () => api.setOpen(false),
-      target: document,
-    })
+    binding()?.syncDisabled(disabled)
   })
 
   return (
@@ -103,7 +66,6 @@ export function NaosContextMenu({
       })}
     >
       <div
-        {...(disabled ? {} : (contextMenuApi()?.getContextTriggerProps() ?? {}))}
         part="trigger"
         tabindex={disabled ? undefined : 0}
         data-state={expanded() ? "open" : "closed"}
@@ -111,7 +73,6 @@ export function NaosContextMenu({
         <slot name="trigger">{label}</slot>
       </div>
       <div
-        {...(contextMenuApi()?.getPositionerProps() ?? {})}
         part="positioner"
         {...getNaosOverlayStateAttributes({
           kind: "context-menu",
@@ -119,7 +80,6 @@ export function NaosContextMenu({
         })}
       >
         <div
-          {...(contextMenuApi()?.getContentProps() ?? {})}
           part="content"
           {...getNaosOverlayStateAttributes({
             kind: "context-menu",

@@ -16,3 +16,4 @@ sets, and phased execution plans.
 * [RFC 0007: Overlay Portal Kernel](0007-overlay-portal-kernel.md)
 * [RFC 0008: Presence Transition Lifecycle](0008-presence-transition-lifecycle.md)
 * [RFC 0009: Shared Runtime Kernel for Generated Components](0009-shared-runtime-kernel.md)
+* [RFC 0010: Migrate Naos Primitives to Vercel UI SDK](0010-ui-sdk-primitives-migration.md)

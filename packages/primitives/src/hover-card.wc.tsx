@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   event,
   host,
@@ -8,16 +7,8 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagHoverCardService,
-  getNaosZagHoverCardApi,
-  stopNaosZagHoverCardService,
-} from "./internal/zag/hover-card.js"
-import type { NaosZagHoverCardService } from "./internal/zag/hover-card.js"
-import {
-  getNaosOverlayStateAttributes,
-  listenForNaosOverlayEscape,
-} from "./internal/behavior/overlay.js"
+import { bindHover } from "./internal/ui-sdk/hover.js"
+import { getNaosOverlayStateAttributes } from "./internal/behavior/overlay.js"
 import {
   createNaosPresenceSnapshot,
   getNaosPresenceAttributes,
@@ -56,30 +47,29 @@ export function NaosHoverCard({
 }: NaosHoverCardProps = {}) {
   const expanded = state(open)
   const presence = state(createNaosPresenceSnapshot(open))
-  const hoverCardService = state<NaosZagHoverCardService | null>(null)
-  const hoverCardApi = computed(() => getNaosZagHoverCardApi(hoverCardService()))
   const changed = event<{ open: boolean }>("naos-open-change")
+  const binding = state<ReturnType<typeof bindHover> | null>(null)
 
   onConnected(() => {
-    hoverCardService.set(
-      createNaosZagHoverCardService({
-        closeDelay,
-        disabled,
-        host: host().element,
-        id: "naos-hover-card",
-        onOpenChange(nextOpen) {
-          expanded.set(nextOpen)
-          changed.emit({ open: nextOpen })
-        },
-        open: expanded(),
-        openDelay,
+    binding.set(
+      bindHover({
+        element: host().element,
         root: host().root,
+        kind: "hover-card",
+        initialOpen: expanded(),
+        onOpen(next) {
+          expanded.set(next)
+          changed.emit({ open: next })
+        },
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagHoverCardService(hoverCardService())
-    hoverCardService.set(null)
+    binding()?.destroy()
+    binding.set(null)
+  })
+  effect(() => {
+    binding()?.syncDisabled(disabled)
   })
   effect(() => {
     const next = nextNaosPresenceSnapshot(presence(), expanded())
@@ -102,56 +92,6 @@ export function NaosHoverCard({
       }
     })
   })
-  effect(() => {
-    const api = hoverCardApi()
-    void expanded()
-    if (api == null || !expanded()) return
-    return listenForNaosOverlayEscape({
-      onClose: () => api.setOpen(false),
-      target: document,
-    })
-  })
-  effect(() => {
-    const api = hoverCardApi()
-    if (api == null) return
-    const trigger = host().root.querySelector("[part~='trigger']")
-    const content = host().root.querySelector("[part~='content']")
-    if (!(trigger instanceof HTMLElement) || !(content instanceof HTMLElement)) return
-    const abort = new AbortController()
-    const openCard = () => {
-      if (!disabled) api.setOpen(true)
-    }
-    const closeCard = () => api.setOpen(false)
-    trigger.addEventListener(
-      "pointerenter",
-      (event) => {
-        if (disabled || event.pointerType === "touch") return
-        api.setOpen(true)
-      },
-      { signal: abort.signal },
-    )
-    trigger.addEventListener(
-      "pointermove",
-      (event) => {
-        if (disabled || event.pointerType === "touch") return
-        api.setOpen(true)
-      },
-      { signal: abort.signal },
-    )
-    trigger.addEventListener("pointerleave", closeCard, { signal: abort.signal })
-    trigger.addEventListener("focus", openCard, { signal: abort.signal })
-    trigger.addEventListener("blur", closeCard, { signal: abort.signal })
-    content.addEventListener(
-      "pointerenter",
-      (event) => {
-        if (disabled || event.pointerType === "touch") return
-        api.setOpen(true)
-      },
-      { signal: abort.signal },
-    )
-    content.addEventListener("pointerleave", closeCard, { signal: abort.signal })
-    return () => abort.abort()
-  })
 
   return (
     <span
@@ -164,7 +104,6 @@ export function NaosHoverCard({
       {...getNaosPresenceMotionAttributes()}
     >
       <button
-        {...(hoverCardApi()?.getTriggerProps() ?? {})}
         part="trigger"
         type="button"
         disabled={disabled}
@@ -174,7 +113,6 @@ export function NaosHoverCard({
         <slot name="trigger">{label}</slot>
       </button>
       <span
-        {...(hoverCardApi()?.getPositionerProps() ?? {})}
         part="positioner"
         {...getNaosOverlayStateAttributes({
           kind: "hover-card",
@@ -184,7 +122,7 @@ export function NaosHoverCard({
         hidden={isNaosPresenceHidden(presence())}
       >
         <section
-          {...(hoverCardApi()?.getContentProps() ?? {})}
+          data-scope="hover-card"
           part="content"
           {...getNaosOverlayStateAttributes({
             kind: "hover-card",

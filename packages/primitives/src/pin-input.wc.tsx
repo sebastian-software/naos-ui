@@ -8,13 +8,8 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagPinInputService,
-  getNaosZagPinInputApi,
-  pinInputValueArray,
-  stopNaosZagPinInputService,
-} from "./internal/zag/pin-input.js"
-import type { NaosZagPinInputService, NaosZagPinInputType } from "./internal/zag/pin-input.js"
+import { otpInput } from "@ui-sdk/core/otp-input"
+import { pinPattern, pinSlots, type NaosPinInputType } from "./internal/ui-sdk/pin-input.js"
 import css from "./pin-input.wc.css?inline"
 
 export type NaosPinInputProps = {
@@ -25,14 +20,10 @@ export type NaosPinInputProps = {
   name?: string
   otp?: boolean
   placeholder?: string
-  type?: NaosZagPinInputType
+  type?: NaosPinInputType
   value?: string
 }
-
-export const options = {
-  styles: [css],
-} satisfies ComponentOptions
-
+export const options = { styles: [css] } satisfies ComponentOptions
 export function NaosPinInput({
   count = 4,
   disabled = false,
@@ -45,9 +36,8 @@ export function NaosPinInput({
   value = "",
 }: NaosPinInputProps = {}) {
   const current = state(value)
-  const complete = state(value.length >= count)
-  const pinInputService = state<NaosZagPinInputService | null>(null)
-  const pinInputApi = computed(() => getNaosZagPinInputApi(pinInputService()))
+  const slots = computed(() => pinSlots(count))
+  const controller = state<ReturnType<typeof otpInput> | null>(null)
   const changed = event<{ complete: boolean; value: string }>("naos-change")
   const completed = event<{ value: string }>("naos-complete")
   const invalid = event<{ index: number; value: string }>("naos-invalid")
@@ -55,75 +45,80 @@ export function NaosPinInput({
     value: () => current(),
     reset: () => {
       current.set(value)
-      complete.set(value.length >= count)
-      pinInputApi()?.setValue(pinInputValueArray(value, count))
+      controller()?.api.setValue(value)
     },
     disabled,
   })
   void form
   void name
-
   onConnected(() => {
-    pinInputService.set(
-      createNaosZagPinInputService({
-        count,
-        disabled,
-        host: host().element,
+    controller.set(
+      otpInput({
         id: "naos-pin-input",
-        label,
-        mask,
-        onValueChange(details) {
-          const nextComplete = details.valueAsString.length >= count
-
-          changed.emit({ complete: nextComplete, value: details.valueAsString })
-          queueMicrotask(() => {
-            current.set(details.valueAsString)
-            complete.set(nextComplete)
-          })
+        defaultValue: current(),
+        maxLength: count,
+        pattern: pinPattern(type),
+        onValueChange(next) {
+          current.set(next)
+          changed.emit({ complete: next.length >= count, value: next })
         },
-        onValueComplete(details) {
-          completed.emit({ value: details.valueAsString })
-          queueMicrotask(() => {
-            complete.set(true)
-          })
+        onValueCommit(next) {
+          completed.emit({ value: next })
         },
-        onValueInvalid(details) {
-          invalid.emit(details)
-        },
-        otp,
-        placeholder,
-        root: host().root,
-        type,
-        value,
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagPinInputService(pinInputService())
-    pinInputService.set(null)
+    controller()?.destroy()
+    controller.set(null)
   })
-
   return (
     <section
-      {...(pinInputApi()?.getRootProps() ?? {})}
       part="root"
-      data-state={complete() ? "complete" : "incomplete"}
+      data-state={current().length >= count ? "complete" : "incomplete"}
       data-disabled={disabled || undefined}
       data-value={current()}
     >
-      <label {...(pinInputApi()?.getLabelProps() ?? {})} part="label">
-        {label}
-      </label>
-      <input {...(pinInputApi()?.getHiddenInputProps() ?? {})} name={undefined} value={current()} />
-      <div {...(pinInputApi()?.getControlProps() ?? {})} part="control">
-        {(pinInputApi()?.items ?? []).map((itemIndex) => (
+      <label part="label">{label}</label>
+      <div part="control" role="group" aria-label={label}>
+        {slots().map((slot) => (
           <input
-            key={String(itemIndex)}
-            {...(pinInputApi()?.getInputProps({ index: itemIndex }) ?? {})}
+            key={String(slot)}
             part="input"
-            name={undefined}
-            value={pinInputApi()?.value[itemIndex] ?? ""}
+            type={mask ? "password" : "text"}
+            inputmode={type === "numeric" ? "numeric" : "text"}
+            autocomplete={otp && slot === 0 ? "one-time-code" : "off"}
+            aria-label={`${label} ${slot + 1} of ${count}`}
+            maxlength={count}
+            placeholder={placeholder}
+            value={current()[slot] ?? ""}
             disabled={disabled}
+            data-complete={current().length >= count || undefined}
+            onInput={(event) => {
+              if (disabled) return
+              const input = event.currentTarget as HTMLInputElement
+              const incoming = input.value
+              const candidate = current().slice(0, slot) + incoming + current().slice(slot + 1)
+              const before = current()
+              controller()?.api.setValue(candidate, { reason: "input-change", event })
+              const after = controller()?.api.getValue() ?? before
+              if (incoming && after === before) {
+                invalid.emit({ index: slot, value: incoming })
+                input.value = before[slot] ?? ""
+                return
+              }
+              const next =
+                host().root.querySelectorAll('[part~="input"]')[
+                  Math.min(slot + incoming.length, count - 1)
+                ]
+              if (next instanceof HTMLElement) next.focus()
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Backspace" && !current()[slot] && slot > 0) {
+                const previous = host().root.querySelectorAll('[part~="input"]')[slot - 1]
+                if (previous instanceof HTMLElement) previous.focus()
+              }
+            }}
           />
         ))}
       </div>

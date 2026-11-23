@@ -1,6 +1,6 @@
 # RFC 0002: Zag-Backed Primitives Roadmap
 
-Status: Draft
+Status: Historical implementation roadmap. [RFC 0010](0010-ui-sdk-primitives-migration.md) supersedes the choice of behavior library.
 Date: 2026-06-18
 
 ## Summary

@@ -847,9 +847,12 @@ export function defineComponent(
     value: Object.freeze(metadata),
   })
 
-  const registered = customElements.get(tagName)
+  const registry = globalThis.customElements
+  if (!registry) return
+
+  const registered = registry.get(tagName)
   if (!registered) {
-    customElements.define(tagName, elementConstructor)
+    registry.define(tagName, elementConstructor)
     return
   }
   if (registered === elementConstructor) return

@@ -43,7 +43,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         filename: "reactive-counter.wc.tsx",
         source: include_str!("fixtures/conformance/accepted/reactive-counter.wc.tsx"),
         snippets: &[
-            "class ReactiveCounterElement extends HTMLElement",
+            "class ReactiveCounterElement extends (globalThis.HTMLElement ?? class {})",
             "__naosDefineComponent(\"x-reactive-counter\", ReactiveCounterElement, __naosComponentMetadata)",
             "static get observedAttributes()",
             "__naosComputedAccessor(this[__naosKernel], \"doubled\", () => (count() * 2))",
@@ -59,7 +59,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         filename: "composition-toggle-list.wc.tsx",
         source: include_str!("fixtures/conformance/accepted/composition-toggle-list.wc.tsx"),
         snippets: &[
-            "class CompositionToggleListElement extends HTMLElement",
+            "class CompositionToggleListElement extends (globalThis.HTMLElement ?? class {})",
             "__naosDefineComponent(\"x-composition-toggle-list\", CompositionToggleListElement, __naosComponentMetadata)",
             "const host = __naosHostApi(this[__naosKernel]);",
             "listen as __naosListen",
@@ -75,7 +75,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         source: include_str!("fixtures/conformance/accepted/styled-slots.wc.tsx"),
         snippets: &[
             "import css from \"./styled-slots.css?inline\";",
-            "class StyledSlotsElement extends HTMLElement",
+            "class StyledSlotsElement extends (globalThis.HTMLElement ?? class {})",
             "__naosDefineComponent(\"x-styled-slots\", StyledSlotsElement, __naosComponentMetadata)",
             "const __naosComponentStyles = __naosLazySheet([css]);",
             "styles: __naosComponentStyles,",
@@ -89,7 +89,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         filename: "typed-props.wc.tsx",
         source: include_str!("fixtures/conformance/accepted/typed-props.wc.tsx"),
         snippets: &[
-            "class TypedPropsElement extends HTMLElement",
+            "class TypedPropsElement extends (globalThis.HTMLElement ?? class {})",
             "__naosDefineComponent(\"x-typed-props\", TypedPropsElement, __naosComponentMetadata)",
             // Annotation-derived kinds: boolean without a default is
             // presence-based; rich props never observe or reflect attributes.
@@ -103,7 +103,7 @@ const ACCEPTED_FIXTURES: &[AcceptedFixture] = &[
         filename: "dependency-ast-edge-cases.wc.tsx",
         source: include_str!("fixtures/conformance/accepted/dependency-ast-edge-cases.wc.tsx"),
         snippets: &[
-            "class DependencyAstEdgeCasesElement extends HTMLElement",
+            "class DependencyAstEdgeCasesElement extends (globalThis.HTMLElement ?? class {})",
             "__naosDefineComponent(\"x-dependency-ast-edge-cases\", DependencyAstEdgeCasesElement, __naosComponentMetadata)",
             "data-naos-control\", \"for",
             "/a{2}/.test(\"aa\")",

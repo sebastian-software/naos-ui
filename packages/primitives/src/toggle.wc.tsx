@@ -1,20 +1,12 @@
 import {
-  computed,
   event,
   formControl,
-  host,
   onConnected,
   onDisconnected,
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagToggleService,
-  getNaosZagToggleApi,
-  stopNaosZagToggleService,
-  withoutNaosZagToggleClick,
-} from "./internal/zag/toggle.js"
-import type { NaosZagToggleService } from "./internal/zag/toggle.js"
+import { toggle } from "@ui-sdk/core/toggle"
 import css from "./toggle.wc.css?inline"
 
 export type NaosToggleProps = {
@@ -37,15 +29,12 @@ export function NaosToggle({
   value = "on",
 }: NaosToggleProps = {}) {
   const active = state(pressed)
-  const toggleService = state<NaosZagToggleService | null>(null)
-  const toggleApi = computed(() => getNaosZagToggleApi(toggleService()))
-  const rootProps = computed(() => withoutNaosZagToggleClick(toggleApi()?.getRootProps() ?? {}))
+  const controller = state<ReturnType<typeof toggle> | null>(null)
   const changed = event<{ pressed: boolean }>("naos-change")
   const form = formControl({
     value: () => (active() ? value : null),
     reset: () => {
-      active.set(pressed)
-      toggleApi()?.setPressed(pressed)
+      controller()?.api.setPressed(pressed)
     },
     disabled,
   })
@@ -53,43 +42,49 @@ export function NaosToggle({
   void name
 
   onConnected(() => {
-    toggleService.set(
-      createNaosZagToggleService({
-        disabled,
-        host: host().element,
+    controller.set(
+      toggle({
         id: "naos-toggle",
+        defaultPressed: active(),
         onPressedChange(nextPressed) {
           active.set(nextPressed)
           changed.emit({ pressed: nextPressed })
         },
-        pressed: active(),
-        root: host().root,
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagToggleService(toggleService())
-    toggleService.set(null)
+    controller()?.destroy()
+    controller.set(null)
   })
 
   return (
     <button
-      {...rootProps()}
+      data-scope="toggle"
+      data-part="root"
+      data-pressed={active() || undefined}
       part="root control"
       type="button"
       data-state={active() ? "on" : "off"}
       data-disabled={disabled || undefined}
       aria-pressed={active()}
       disabled={disabled}
-      onClick={() => {
-        if (disabled) return
-        toggleApi()?.setPressed(!active())
+      onClick={(event) => {
+        if (disabled || event.defaultPrevented) return
+        controller()?.api.toggle({ reason: "press", event })
       }}
     >
       <span part="label">
         <slot>{label}</slot>
       </span>
-      <span {...(toggleApi()?.getIndicatorProps() ?? {})} part="indicator">
+      <span
+        part="indicator"
+        data-scope="toggle"
+        data-part="indicator"
+        data-disabled={disabled || undefined}
+        data-pressed={active() || undefined}
+        data-state={active() ? "on" : "off"}
+      >
         {active() ? "On" : "Off"}
       </span>
     </button>

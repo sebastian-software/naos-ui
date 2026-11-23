@@ -1,5 +1,5 @@
+import "@ui-sdk/web/date-picker"
 import {
-  computed,
   event,
   formControl,
   host,
@@ -8,16 +8,7 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagDatePickerService,
-  datePickerDays,
-  datePickerFormValue,
-  datePickerValueArray,
-  datePickerValueString,
-  getNaosZagDatePickerApi,
-  stopNaosZagDatePickerService,
-} from "./internal/zag/date-picker.js"
-import type { NaosZagDatePickerService } from "./internal/zag/date-picker.js"
+import { decorateCalendar } from "./internal/ui-sdk/date-picker.js"
 import css from "./date-picker.wc.css?inline"
 
 export type NaosDatePickerProps = {
@@ -30,11 +21,7 @@ export type NaosDatePickerProps = {
   required?: boolean
   value?: string
 }
-
-export const options = {
-  styles: [css],
-} satisfies ComponentOptions
-
+export const options = { styles: [css] } satisfies ComponentOptions
 export function NaosDatePicker({
   disabled = false,
   label = "Date",
@@ -45,141 +32,110 @@ export function NaosDatePicker({
   required = false,
   value = "",
 }: NaosDatePickerProps = {}) {
-  const current = state(datePickerValueString(datePickerValueArray(value)))
-  const focused = state("")
+  const current = state(value)
   const opened = state(false)
-  const datePickerService = state<NaosZagDatePickerService | null>(null)
-  const datePickerApi = computed(() => getNaosZagDatePickerApi(datePickerService()))
+  const focused = state("")
+  const cleanup = state<(() => void) | null>(null)
   const changed = event<{ value: string }>("naos-change")
   const focusChanged = event<{ focusedValue: string }>("naos-focus-change")
   const openChanged = event<{ open: boolean }>("naos-open-change")
   const form = formControl({
-    value: () => datePickerFormValue(current()),
+    value: () => current() || null,
     reset: () => {
-      const resetValue = datePickerValueArray(value)
-      current.set(datePickerValueString(resetValue))
-      datePickerApi()?.setValue(resetValue)
+      current.set(value)
+      const picker = host().root.querySelector("ui-date-picker")
+      if (picker) picker.value = value || null
     },
     disabled,
   })
   void form
   void name
-
   onConnected(() => {
-    datePickerService.set(
-      createNaosZagDatePickerService({
-        disabled,
-        host: host().element,
-        id: "naos-date-picker",
-        label,
-        locale,
-        name,
-        onFocusChange(details) {
-          const nextFocusedValue = details.focusedValue.toString()
-          focused.set(nextFocusedValue)
-          focusChanged.emit({ focusedValue: nextFocusedValue })
-        },
-        onOpenChange(details) {
-          opened.set(details.open)
-          openChanged.emit({ open: details.open })
-        },
-        onValueChange(details) {
-          const nextValue = datePickerValueString(details.value)
-          current.set(nextValue)
-          changed.emit({ value: nextValue })
-        },
-        placeholder,
-        readOnly,
-        required,
-        root: host().root,
-        value: current(),
-      }),
-    )
+    const picker = host().root.querySelector("ui-date-picker")
+    if (picker) {
+      picker.value = current() || null
+      if (current()) picker.month = current().slice(0, 7)
+    }
+    cleanup.set(decorateCalendar(host().root))
   })
   onDisconnected(() => {
-    stopNaosZagDatePickerService(datePickerService())
-    datePickerService.set(null)
+    cleanup()?.()
+    cleanup.set(null)
   })
-
   return (
-    <section
-      {...(datePickerApi()?.getRootProps() ?? {})}
+    <ui-date-picker
       part="root"
-      aria-disabled={disabled || undefined}
+      locale={locale}
+      fixed-weeks
+      disabled={disabled}
+      readonly={readOnly}
+      required={required}
+      data-state={opened() ? "open" : "closed"}
       data-disabled={disabled || undefined}
       data-readonly={readOnly || undefined}
-      data-state={opened() ? "open" : "closed"}
       data-value={current()}
       data-focused-value={focused()}
+      onValuechange={(event) => {
+        const next = (event as CustomEvent<{ value: string | null }>).detail.value ?? ""
+        current.set(next)
+        changed.emit({ value: next })
+      }}
+      onOpenchange={(event) => {
+        const next = (event as CustomEvent<{ value: boolean }>).detail.value
+        opened.set(next)
+        openChanged.emit({ open: next })
+      }}
     >
-      <label {...(datePickerApi()?.getLabelProps() ?? {})} part="label">
+      <label part="label" for="date-picker-input">
         {label}
       </label>
-      <div {...(datePickerApi()?.getControlProps() ?? {})} part="control">
-        <input
-          {...(datePickerApi()?.getInputProps() ?? {})}
-          part="input"
-          name={undefined}
-          value={datePickerApi()?.valueAsString[0] ?? current()}
-          disabled={disabled}
-        />
-        <button {...(datePickerApi()?.getTriggerProps() ?? {})} part="trigger">
-          Pick
-        </button>
-        <button {...(datePickerApi()?.getClearTriggerProps() ?? {})} part="clear">
-          Clear
-        </button>
+      <div part="control">
+        <ui-date-picker-input>
+          <input
+            id="date-picker-input"
+            part="input"
+            placeholder={placeholder}
+            disabled={disabled}
+          />
+        </ui-date-picker-input>
+        <ui-date-picker-trigger>
+          <button type="button" part="trigger" aria-haspopup="grid" disabled={disabled}>
+            Pick
+          </button>
+        </ui-date-picker-trigger>
+        <ui-date-picker-clear>
+          <button type="button" part="clear" disabled={disabled}>
+            Clear
+          </button>
+        </ui-date-picker-clear>
       </div>
-      <div {...(datePickerApi()?.getPositionerProps() ?? {})} part="positioner">
-        <div
-          {...(datePickerApi()?.getContentProps() ?? {})}
-          part="content"
-          data-state={opened() ? "open" : "closed"}
-        >
-          <div part="header">
-            <button {...(datePickerApi()?.getPrevTriggerProps() ?? {})} part="prev">
+      <ui-date-picker-content part="content" data-state={opened() ? "open" : "closed"}>
+        <div part="header">
+          <ui-calendar-previous>
+            <button type="button" part="prev">
               Prev
             </button>
-            <div {...(datePickerApi()?.getRangeTextProps() ?? {})} part="range">
-              {datePickerApi()?.visibleRangeText.formatted ?? ""}
-            </div>
-            <button {...(datePickerApi()?.getNextTriggerProps() ?? {})} part="next">
+          </ui-calendar-previous>
+          <ui-calendar-heading part="range" />
+          <ui-calendar-next>
+            <button type="button" part="next">
               Next
             </button>
-          </div>
-          <div {...(datePickerApi()?.getTableProps() ?? {})} part="table">
-            <div {...(datePickerApi()?.getTableHeadProps() ?? {})} part="table-head">
-              {(datePickerApi()?.weekDays ?? []).map((weekDay) => (
-                <div
-                  key={weekDay.value.toString()}
-                  {...(datePickerApi()?.getTableHeaderProps() ?? {})}
-                  part="table-header"
-                >
-                  {weekDay.short}
-                </div>
-              ))}
-            </div>
-            <div {...(datePickerApi()?.getTableBodyProps() ?? {})} part="table-body">
-              {datePickerDays(datePickerApi()?.weeks ?? []).map((day) => (
-                <div
-                  key={day.toString()}
-                  {...(datePickerApi()?.getDayTableCellProps({ value: day }) ?? {})}
-                  part="table-cell"
-                >
-                  <button
-                    {...(datePickerApi()?.getDayTableCellTriggerProps({
-                      value: day,
-                    }) ?? {})}
-                    part="cell-trigger"
-                  >
-                    {String(day.day)}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          </ui-calendar-next>
         </div>
-      </div>
-    </section>
+        <ui-calendar-grid
+          id="naos-date-picker-grid"
+          part="table"
+          onFocusin={(event) => {
+            const target = event.target as HTMLElement
+            const date = target.getAttribute("value")
+            if (date) {
+              focused.set(date)
+              focusChanged.emit({ focusedValue: date })
+            }
+          }}
+        />
+      </ui-date-picker-content>
+    </ui-date-picker>
   )
 }

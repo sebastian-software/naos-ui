@@ -22,39 +22,39 @@ import "@naos-ui/primitives/toggle"
 
 | Element | Purpose | Status |
 | --- | --- | --- |
-| `<naos-accordion>` / `<naos-accordion-item>` | Zag-backed accordion collection with roving trigger focus, disabled items, and open state events. | Experimental disclosure MVP |
-| `<naos-avatar>` | Zag-backed avatar with image loading state, fallback content, status events, parts, and CSS custom properties. | Experimental feedback MVP |
+| `<naos-accordion>` / `<naos-accordion-item>` | Accordion collection with roving trigger focus, disabled items, and open state events. | Experimental disclosure MVP |
+| `<naos-avatar>` | Avatar with image loading state, fallback content, status events, parts, and CSS custom properties. | Experimental feedback MVP |
 | `<naos-button>` | Shadow-DOM action button with slots, variants, parts, and `naos-press`. | Experimental |
 | `<naos-button-group>` | Oriented grouping for action controls. | Experimental |
 | `<naos-checkbox>` | ARIA checkbox primitive with checked, indeterminate, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-collapsible>` | Zag-backed disclosure primitive with trigger/content ARIA, disabled state, and open events. | Experimental disclosure MVP |
-| `<naos-combobox>` / `<naos-combobox-item>` | Zag-backed autocomplete combobox with input, popup items, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-context-menu>` | Zag-backed context menu region with anchored menu positioning and item selection. | Experimental overlay MVP |
-| `<naos-date-picker>` | Zag-backed single-date picker with input, popup day grid, keyboard movement, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-dialog>` | Zag-backed modal dialog with backdrop, focus trap, scroll lock, dismiss behavior, and focus return. | Experimental overlay MVP |
+| `<naos-collapsible>` | Disclosure primitive with trigger/content ARIA, disabled state, and open events. | Experimental disclosure MVP |
+| `<naos-combobox>` / `<naos-combobox-item>` | Autocomplete combobox with input, popup items, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-context-menu>` | Context menu region with anchored menu positioning and item selection. | Experimental overlay MVP |
+| `<naos-date-picker>` | Single-date picker with input, popup day grid, keyboard movement, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-dialog>` | Modal dialog with backdrop, focus trap, scroll lock, dismiss behavior, and focus return. | Experimental overlay MVP |
 | `<naos-dropdown>` | Button-triggered dropdown/disclosure primitive. | Experimental |
-| `<naos-editable>` | Zag-backed inline editable text control with preview/edit modes, commit/cancel behavior, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-editable>` | Inline editable text control with preview/edit modes, commit/cancel behavior, and native `FormData` behavior. | Experimental form-associated MVP |
 | `<naos-field>` | Field composition shell for labels, controls, hints, and errors. | Experimental |
-| `<naos-file-upload>` | Zag-backed file input with dropzone, picker trigger, file list, delete controls, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-hover-card>` | Zag-backed hover/focus preview card with positioned content and open events. | Experimental overlay MVP |
-| `<naos-listbox>` / `<naos-listbox-item>` | Zag-backed listbox with selection, typeahead, disabled items, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-menu>` / `<naos-menu-item>` | Zag-backed flat action menu with dismiss behavior, focus return, and item selection. | Experimental overlay MVP |
-| `<naos-number-input>` | Zag-backed numeric input with steppers, keyboard behavior, min/max clamping, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-pin-input>` | Zag-backed multi-field code input with keyboard, paste, complete, invalid, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-popover>` | Zag-backed positioned popover with Escape/outside dismiss, close trigger, and focus return. | Experimental overlay MVP |
-| `<naos-progress>` | Zag-backed linear progress indicator with ARIA progressbar state and indeterminate mode. | Experimental feedback MVP |
-| `<naos-radio-group>` / `<naos-radio>` | Zag-backed radio collection with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-rating-group>` | Zag-backed rating control with pointer/keyboard selection, hover events, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-segmented-control>` / `<naos-segmented-item>` | Zag-backed single-selection segmented control with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-select>` / `<naos-select-item>` | Zag-backed single-selection listbox popup with typeahead, open state, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-slider>` | Zag-backed single-value slider with pointer/keyboard behavior and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-switch>` | Zag-backed on/off switch with native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-tabs>` / `<naos-tab>` / `<naos-tab-panel>` | Zag-backed tab collection with subcomponent tabs, panels, roving focus, and a legacy three-panel fallback. | Experimental |
-| `<naos-tags-input>` | Zag-backed token input with delimiter entry, paste handling, delete controls, and native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-tooltip>` | Zag-backed hover/focus tooltip with positioned content, Escape close, and open events. | Experimental overlay MVP |
-| `<naos-toast>` / `<naos-toast-root>` | Zag-backed toast trigger and notification root with store lifecycle, dismiss behavior, parts, and CSS custom properties. | Experimental feedback MVP |
+| `<naos-file-upload>` | File input with dropzone, picker trigger, file list, delete controls, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-hover-card>` | Hover/focus preview card with positioned content and open events. | Experimental overlay MVP |
+| `<naos-listbox>` / `<naos-listbox-item>` | Listbox with selection, typeahead, disabled items, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-menu>` / `<naos-menu-item>` | Flat action menu with dismiss behavior, focus return, and item selection. | Experimental overlay MVP |
+| `<naos-number-input>` | Numeric input with steppers, keyboard behavior, min/max clamping, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-pin-input>` | Multi-field code input with keyboard, paste, complete, invalid, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-popover>` | Positioned popover with Escape/outside dismiss, close trigger, and focus return. | Experimental overlay MVP |
+| `<naos-progress>` | Linear progress indicator with ARIA progressbar state and indeterminate mode. | Experimental feedback MVP |
+| `<naos-radio-group>` / `<naos-radio>` | Radio collection with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-rating-group>` | Rating control with pointer/keyboard selection, hover events, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-segmented-control>` / `<naos-segmented-item>` | Single-selection segmented control with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-select>` / `<naos-select-item>` | Single-selection listbox popup with typeahead, open state, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-slider>` | Single-value slider with pointer/keyboard behavior and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-switch>` | On/off switch with native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-tabs>` / `<naos-tab>` / `<naos-tab-panel>` | Tab collection with subcomponent tabs, panels, roving focus, and a legacy three-panel fallback. | Experimental |
+| `<naos-tags-input>` | Token input with delimiter entry, paste handling, delete controls, and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-tooltip>` | Hover/focus tooltip with positioned content, Escape close, and open events. | Experimental overlay MVP |
+| `<naos-toast>` / `<naos-toast-root>` | Toast trigger and notification root with store lifecycle, dismiss behavior, parts, and CSS custom properties. | Experimental feedback MVP |
 | `<naos-toggle>` | Pressed/on-off button primitive with native `FormData` behavior. | Experimental form-associated MVP |
-| `<naos-toggle-group>` / `<naos-toggle-item>` | Zag-backed single or multiple toggle collection with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
+| `<naos-toggle-group>` / `<naos-toggle-item>` | Single or multiple toggle collection with roving focus and native `FormData` behavior. | Experimental form-associated MVP |
 
 ## Contracts
 
@@ -79,8 +79,7 @@ remain experimental until label association, validation, and broader
 cross-browser coverage are complete.
 
 Shared behavior lives in private package modules under `src/internal`. Simple
-kernels remain under `src/internal/behavior`; Zag-backed adapters live under
-`src/internal/zag`. Compound primitives can use the package-private
+controls use native elements and the public Vercel UI SDK APIs. Adapters for slotted options and form controls live under `src/internal/ui-sdk`. Compound primitives can use the package-private
 `context-request` helper for DOM-native child registration without a framework
 runtime or public context API. Overlay primitives share a package-private
 `overlay` helper for state attributes, geometry variable names, Escape routing,

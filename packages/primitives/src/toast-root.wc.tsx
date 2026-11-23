@@ -1,5 +1,5 @@
+import "@ui-sdk/web/toast"
 import {
-  computed,
   event,
   host,
   onConnected,
@@ -7,17 +7,7 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  getNaosZagToastApi,
-  getNaosZagToastGroupApi,
-  removeNaosToast,
-  createNaosZagToastGroupService,
-  stopNaosToastServices,
-  stopNaosZagToastGroupService,
-  subscribeNaosToasts,
-  syncNaosToastServices,
-} from "./internal/zag/toast.js"
-import type { NaosToastView, NaosZagToastGroupService } from "./internal/zag/toast.js"
+import { bindToastRegion } from "./internal/ui-sdk/toast.js"
 import css from "./toast-root.wc.css?inline"
 
 export type NaosToastRootProps = {
@@ -33,98 +23,36 @@ export function NaosToastRoot({
   label = "Notifications",
   placement = "bottom-end",
 }: NaosToastRootProps = {}) {
-  const groupService = state<NaosZagToastGroupService | null>(null)
-  const groupApi = computed(() => getNaosZagToastGroupApi(groupService()))
-  const toasts = state<NaosToastView[]>([])
+  const count = state(0)
   const unsubscribe = state<VoidFunction | null>(null)
   const statusChanged = event<{ id: string; status: string }>("naos-status-change")
-
   onConnected(() => {
-    const service = createNaosZagToastGroupService({
-      host: host().element,
-      id: "naos-toast-root",
-      placement,
-      root: host().root,
-    })
-    groupService.set(service)
-    toasts.set(
-      syncNaosToastServices({
-        current: toasts(),
-        host: host().element,
-        onStatusChange(id, details) {
-          statusChanged.emit({ id, status: details.status })
-          if (details.status === "unmounted") {
-            removeNaosToast(id)
-          }
-          host().update()
-        },
-        parent: service,
-        root: host().root,
-      }),
-    )
-    unsubscribe.set(
-      subscribeNaosToasts(() => {
-        queueMicrotask(() => {
-          toasts.set(
-            syncNaosToastServices({
-              current: toasts(),
-              host: host().element,
-              onStatusChange(id, details) {
-                statusChanged.emit({ id, status: details.status })
-                if (details.status === "unmounted") {
-                  removeNaosToast(id)
-                }
-                host().update()
-              },
-              parent: service,
-              root: host().root,
-            }),
-          )
-        })
-      }),
-    )
+    const region = host().root.querySelector("ui-toast-region")
+    if (region)
+      unsubscribe.set(
+        bindToastRegion(
+          region,
+          (next) => count.set(next),
+          (id, status) => statusChanged.emit({ id, status }),
+        ),
+      )
   })
   onDisconnected(() => {
     unsubscribe()?.()
     unsubscribe.set(null)
-    stopNaosToastServices(toasts())
-    toasts.set([])
-    stopNaosZagToastGroupService(groupService())
-    groupService.set(null)
   })
-
   return (
-    <section
-      {...(groupApi()?.getGroupProps({ label }) ?? {})}
+    <ui-toast-region
       part="root"
-      data-count={String(toasts().length)}
+      role="region"
+      aria-label={label}
+      max-visible="4"
+      {...{
+        side: placement.startsWith("top") ? "top" : "bottom",
+        align: placement.endsWith("start") ? "start" : placement.endsWith("end") ? "end" : "center",
+      }}
+      data-count={String(count())}
       data-placement={placement}
-    >
-      {toasts().map((toast) => (
-        <article
-          key={toast.id}
-          {...(getNaosZagToastApi(toast.service)?.getRootProps() ?? {})}
-          part="toast"
-          data-type={toast.type}
-          data-state={toast.status}
-        >
-          <div {...(getNaosZagToastApi(toast.service)?.getTitleProps() ?? {})} part="title">
-            {toast.title}
-          </div>
-          <div
-            {...(getNaosZagToastApi(toast.service)?.getDescriptionProps() ?? {})}
-            part="description"
-          >
-            {toast.description}
-          </div>
-          <button
-            {...(getNaosZagToastApi(toast.service)?.getCloseTriggerProps() ?? {})}
-            part="close"
-          >
-            Dismiss
-          </button>
-        </article>
-      ))}
-    </section>
+    />
   )
 }

@@ -53,7 +53,7 @@ Experimental primitive Custom Elements authored in Naos `.wc.tsx` and compiled
 for package distribution.
 
 All primitives remain experimental. The package exposes Naos elements only;
-Zag machines and adapter helpers stay private under the package internals.
+The package uses native elements and Vercel UI SDK behaviors behind the Naos custom elements.
 
 ### Actions And Structure
 
@@ -69,9 +69,9 @@ Zag machines and adapter helpers stay private under the package internals.
 | --- | --- | --- | --- |
 | `<naos-checkbox>` | `name`, `value`, `checked`, `indeterminate`, `disabled`, `label` | `naos-change` | Form-associated; supports submit, reset, `FormData`, and disabled fieldset propagation. |
 | `<naos-toggle>` | `name`, `value`, `pressed`, `disabled`, `label` | `naos-change` | Form-associated pressed/on-off control. |
-| `<naos-switch>` | `name`, `value`, `checked`, `disabled`, `label` | `naos-change` | Zag-backed switch with native form integration. |
-| `<naos-number-input>` | `name`, `value`, `min`, `max`, `step`, `disabled`, `label` | `naos-change` | Zag-backed spinbutton behavior with form integration. |
-| `<naos-slider>` | `name`, `value`, `min`, `max`, `step`, `disabled`, `label` | `naos-change` | Zag-backed single-value slider with pointer and keyboard behavior. |
+| `<naos-switch>` | `name`, `value`, `checked`, `disabled`, `label` | `naos-change` | Switch with native form integration. |
+| `<naos-number-input>` | `name`, `value`, `min`, `max`, `step`, `disabled`, `label` | `naos-change` | Spinbutton behavior with form integration. |
+| `<naos-slider>` | `name`, `value`, `min`, `max`, `step`, `disabled`, `label` | `naos-change` | Single-value slider with pointer and keyboard behavior. |
 | `<naos-pin-input>` | `name`, `value`, `count`, `otp`, `disabled`, `label` | `naos-change`, `naos-complete`, `naos-invalid` | Multi-field code input with paste and keyboard behavior. |
 | `<naos-tags-input>` | `name`, `value`, `delimiter`, `max`, `allow-duplicates`, `disabled`, `label` | `naos-change`, `naos-input`, `naos-highlight-change`, `naos-invalid` | Token input with delimiter entry, paste handling, and delete controls. |
 | `<naos-file-upload>` | `name`, `accept`, `multiple`, `max-files`, `disabled`, `label` | `naos-change`, `naos-invalid` | File input with dropzone, picker trigger, list, delete, clear, and `FormData` support. |
@@ -83,7 +83,7 @@ Zag machines and adapter helpers stay private under the package internals.
 
 | Element | Subcomponents | Events | Notes |
 | --- | --- | --- | --- |
-| `<naos-tabs>` | `<naos-tab>`, `<naos-tab-panel>` | `naos-change` | Zag-backed tab collection with roving focus and selected panel mapping. |
+| `<naos-tabs>` | `<naos-tab>`, `<naos-tab-panel>` | `naos-change` | Tab collection with roving focus and selected panel mapping. |
 | `<naos-radio-group>` | `<naos-radio>` | `naos-change` | Form-associated radio collection with roving focus. |
 | `<naos-segmented-control>` | `<naos-segmented-item>` | `naos-change` | Single-selection segmented control. |
 | `<naos-toggle-group>` | `<naos-toggle-item>` | `naos-change` | Single or multiple toggle collection. |

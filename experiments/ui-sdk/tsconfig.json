@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "@naos-ui/core",
+    "paths": {
+      "@naos-ui/core": ["../../packages/core/dist/index.d.mts"],
+      "@naos-ui/core/jsx-runtime": ["../../packages/core/dist/jsx-runtime.d.mts"]
+    }
+  },
+  "include": ["*.ts", "*.tsx"]
+}

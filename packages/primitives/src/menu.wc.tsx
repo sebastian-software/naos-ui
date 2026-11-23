@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   event,
   host,
@@ -8,17 +7,8 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagMenuService,
-  getNaosZagMenuApi,
-  stopNaosZagMenuService,
-  syncNaosMenuItems,
-} from "./internal/zag/menu.js"
-import type { NaosZagMenuService } from "./internal/zag/menu.js"
-import {
-  getNaosOverlayStateAttributes,
-  listenForNaosOverlayEscape,
-} from "./internal/behavior/overlay.js"
+import { bindMenu } from "./internal/ui-sdk/menu.js"
+import { getNaosOverlayStateAttributes } from "./internal/behavior/overlay.js"
 import css from "./menu.wc.css?inline"
 
 export type NaosMenuProps = {
@@ -37,59 +27,33 @@ export function NaosMenu({
   open = false,
 }: NaosMenuProps = {}) {
   const expanded = state(open)
-  const highlighted = state<string | null>(null)
-  const menuService = state<NaosZagMenuService | null>(null)
-  const menuApi = computed(() => getNaosZagMenuApi(menuService()))
+  const binding = state<ReturnType<typeof bindMenu> | null>(null)
   const opened = event<{ open: boolean }>("naos-open-change")
   const selected = event<{ value: string }>("naos-select")
 
   onConnected(() => {
-    const hostElement = host().element
-    menuService.set(
-      createNaosZagMenuService({
-        disabled,
-        host: hostElement,
-        id: "naos-menu",
-        label,
-        onHighlightChange(nextValue) {
-          highlighted.set(nextValue)
-        },
-        onOpenChange(nextOpen) {
-          expanded.set(nextOpen)
-          opened.emit({ open: nextOpen })
-        },
+    binding.set(
+      bindMenu({
+        element: host().element,
         root: host().root,
+        context: false,
+        initialOpen: expanded(),
+        onOpen(next) {
+          expanded.set(next)
+          opened.emit({ open: next })
+        },
+        onSelect(value) {
+          selected.emit({ value })
+        },
       }),
     )
-    if (open) menuApi()?.setOpen(true)
   })
   onDisconnected(() => {
-    stopNaosZagMenuService(menuService())
-    menuService.set(null)
+    binding()?.destroy()
+    binding.set(null)
   })
   effect(() => {
-    const api = menuApi()
-    void expanded()
-    void highlighted()
-    if (api == null) return
-    return syncNaosMenuItems({
-      api,
-      disabled,
-      host: host().element,
-      onRequestUpdate: () => host().update(),
-      onSelect(value) {
-        selected.emit({ value })
-      },
-    })
-  })
-  effect(() => {
-    const api = menuApi()
-    void expanded()
-    if (api == null || !expanded()) return
-    return listenForNaosOverlayEscape({
-      onClose: () => api.setOpen(false),
-      target: document,
-    })
+    binding()?.syncDisabled(disabled)
   })
 
   return (
@@ -102,15 +66,14 @@ export function NaosMenu({
       })}
     >
       <button
-        {...(menuApi()?.getTriggerProps() ?? {})}
         part="trigger"
+        type="button"
         data-state={expanded() ? "open" : "closed"}
         disabled={disabled}
       >
         <slot name="trigger">{label}</slot>
       </button>
       <div
-        {...(menuApi()?.getPositionerProps() ?? {})}
         part="positioner"
         {...getNaosOverlayStateAttributes({
           kind: "menu",
@@ -118,7 +81,6 @@ export function NaosMenu({
         })}
       >
         <div
-          {...(menuApi()?.getContentProps() ?? {})}
           part="content"
           {...getNaosOverlayStateAttributes({
             kind: "menu",

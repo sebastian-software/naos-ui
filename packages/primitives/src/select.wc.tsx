@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   event,
   formControl,
@@ -9,15 +8,7 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  collectNaosSelectItems,
-  createNaosZagSelectService,
-  getNaosZagSelectApi,
-  labelForNaosSelectValue,
-  stopNaosZagSelectService,
-  syncNaosSelectItems,
-} from "./internal/zag/select.js"
-import type { NaosZagSelectService } from "./internal/zag/select.js"
+import { bindOptions } from "./internal/ui-sdk/options.js"
 import { getNaosOverlayStateAttributes } from "./internal/behavior/overlay.js"
 import css from "./select.wc.css?inline"
 
@@ -42,18 +33,15 @@ export function NaosSelect({
 }: NaosSelectProps = {}) {
   const selected = state(value)
   const open = state(false)
-  const selectService = state<NaosZagSelectService | null>(null)
-  const selectApi = computed(() => getNaosZagSelectApi(selectService()))
-  const selectedLabel = computed(() =>
-    selected() ? labelForNaosSelectValue(host().element, selected()) : "",
-  )
+  const selectedLabel = state("")
+  const binding = state<ReturnType<typeof bindOptions> | null>(null)
   const changed = event<{ value: string }>("naos-change")
   const opened = event<{ open: boolean }>("naos-open-change")
   const form = formControl({
     value: () => selected() || null,
     reset: () => {
       selected.set(value)
-      selectApi()?.setValue(value ? [value] : [])
+      binding()?.reset(value ? [value] : [])
     },
     disabled,
   })
@@ -61,47 +49,38 @@ export function NaosSelect({
   void name
 
   onConnected(() => {
-    const hostElement = host().element
-    selectService.set(
-      createNaosZagSelectService({
-        disabled,
-        host: hostElement,
-        id: "naos-select",
-        items: collectNaosSelectItems(hostElement),
-        name,
-        onOpenChange(nextOpen) {
-          open.set(nextOpen)
-          opened.emit({ open: nextOpen })
-        },
-        onValueChange(nextValue) {
-          selected.set(nextValue)
-          changed.emit({ value: nextValue })
-        },
+    binding.set(
+      bindOptions({
+        kind: "select",
+        element: host().element,
         root: host().root,
-        value: selected(),
+        value: selected() ? [selected()] : [],
+        onValue(values) {
+          const next = values[0] ?? ""
+          selected.set(next)
+          changed.emit({ value: next })
+        },
+        onOpen(next) {
+          open.set(next)
+          opened.emit({ open: next })
+        },
+        onLabel(next) {
+          selectedLabel.set(next)
+        },
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagSelectService(selectService())
-    selectService.set(null)
+    binding()?.destroy()
+    binding.set(null)
+    open.set(false)
   })
   effect(() => {
-    const api = selectApi()
-    void selected()
-    void open()
-    if (api == null) return
-    return syncNaosSelectItems({
-      api,
-      disabled,
-      host: host().element,
-      onRequestUpdate: () => host().update(),
-    })
+    binding()?.syncDisabled(disabled)
   })
 
   return (
     <section
-      {...(selectApi()?.getRootProps() ?? {})}
       part="root"
       data-disabled={disabled || undefined}
       {...getNaosOverlayStateAttributes({
@@ -109,23 +88,21 @@ export function NaosSelect({
         open: open(),
       })}
     >
-      <span {...(selectApi()?.getLabelProps() ?? {})} part="label">
-        {label}
-      </span>
-      <div {...(selectApi()?.getControlProps() ?? {})} part="control">
+      <span part="label">{label}</span>
+      <div part="control">
         <button
-          {...(selectApi()?.getTriggerProps() ?? {})}
           part="trigger"
+          type="button"
+          role="combobox"
+          aria-haspopup="listbox"
+          disabled={disabled}
           data-state={open() ? "open" : "closed"}
         >
           <span part="value">{selectedLabel() || placeholder}</span>
-          <span {...(selectApi()?.getIndicatorProps() ?? {})} part="indicator">
-            v
-          </span>
+          <span part="indicator">v</span>
         </button>
       </div>
       <div
-        {...(selectApi()?.getPositionerProps() ?? {})}
         part="positioner"
         {...getNaosOverlayStateAttributes({
           kind: "select",
@@ -133,14 +110,13 @@ export function NaosSelect({
         })}
       >
         <div
-          {...(selectApi()?.getContentProps() ?? {})}
           part="content"
           {...getNaosOverlayStateAttributes({
             kind: "select",
             open: open(),
           })}
         >
-          <div {...(selectApi()?.getListProps() ?? {})} part="list">
+          <div part="list" role="listbox">
             <slot name="item" />
           </div>
         </div>

@@ -1,18 +1,5 @@
-import {
-  computed,
-  event,
-  host,
-  onConnected,
-  onDisconnected,
-  state,
-  type ComponentOptions,
-} from "@naos-ui/core"
-import {
-  createNaosZagCollapsibleService,
-  getNaosZagCollapsibleApi,
-  stopNaosZagCollapsibleService,
-} from "./internal/zag/collapsible.js"
-import type { NaosZagCollapsibleService } from "./internal/zag/collapsible.js"
+import { event, onConnected, onDisconnected, state, type ComponentOptions } from "@naos-ui/core"
+import { collapsible } from "@ui-sdk/core/collapsible"
 import css from "./collapsible.wc.css?inline"
 
 export type NaosCollapsibleProps = {
@@ -31,46 +18,55 @@ export function NaosCollapsible({
   open = false,
 }: NaosCollapsibleProps = {}) {
   const expanded = state(open)
-  const collapsibleService = state<NaosZagCollapsibleService | null>(null)
-  const collapsibleApi = computed(() => getNaosZagCollapsibleApi(collapsibleService()))
+  const controller = state<ReturnType<typeof collapsible> | null>(null)
   const changed = event<{ open: boolean }>("naos-open-change")
 
   onConnected(() => {
-    collapsibleService.set(
-      createNaosZagCollapsibleService({
-        disabled,
-        host: host().element,
+    controller.set(
+      collapsible({
         id: "naos-collapsible",
+        defaultOpen: expanded(),
         onOpenChange(nextOpen) {
           expanded.set(nextOpen)
           changed.emit({ open: nextOpen })
         },
-        open: expanded(),
-        root: host().root,
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagCollapsibleService(collapsibleService())
-    collapsibleService.set(null)
+    controller()?.destroy()
+    controller.set(null)
   })
 
   return (
     <div
-      {...(collapsibleApi()?.getRootProps() ?? {})}
+      id="collapsible:naos-collapsible"
+      data-scope="collapsible"
+      data-part="root"
       part="root"
       data-state={expanded() ? "open" : "closed"}
       data-disabled={disabled || undefined}
     >
       <button
-        {...(collapsibleApi()?.getTriggerProps() ?? {})}
+        id="collapsible:naos-collapsible:trigger"
+        type="button"
+        aria-controls="collapsible:naos-collapsible:content"
+        data-scope="collapsible"
+        data-part="trigger"
+        data-disabled={disabled || undefined}
+        onClick={(event) => {
+          if (event.defaultPrevented || disabled) return
+          controller()?.api.toggle({ reason: "trigger-press", event })
+        }}
         part="trigger"
         aria-expanded={expanded() ? "true" : "false"}
         disabled={disabled}
         data-state={expanded() ? "open" : "closed"}
       >
         <span
-          {...(collapsibleApi()?.getIndicatorProps() ?? {})}
+          data-scope="collapsible"
+          data-part="indicator"
+          data-disabled={disabled || undefined}
           part="indicator"
           aria-hidden="true"
           data-state={expanded() ? "open" : "closed"}
@@ -82,7 +78,12 @@ export function NaosCollapsible({
         </span>
       </button>
       <div
-        {...(collapsibleApi()?.getContentProps() ?? {})}
+        id="collapsible:naos-collapsible:content"
+        hidden={!expanded()}
+        data-collapsible=""
+        data-scope="collapsible"
+        data-part="content"
+        data-disabled={disabled || undefined}
         part="content"
         data-state={expanded() ? "open" : "closed"}
       >

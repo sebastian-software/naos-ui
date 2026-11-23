@@ -1,0 +1,38 @@
+--- a/popover.wc.tsx
++++ b/popover.wc.tsx
+@@ -14,10 +14,8 @@
+   stopNaosZagPopoverService,
+ } from "./internal/zag/popover.js"
+ import type { NaosZagPopoverService } from "./internal/zag/popover.js"
+-import {
+-  getNaosOverlayStateAttributes,
+-  listenForNaosOverlayEscape,
+-} from "./internal/behavior/overlay.js"
++import { getNaosOverlayStateAttributes } from "./internal/behavior/overlay.js"
++import { bindDismissLayer } from "./dismiss-layer.js"
+ import {
+   createNaosPresenceSnapshot,
+   getNaosPresenceAttributes,
+@@ -98,8 +96,5 @@
+     const api = popoverApi()
+     void expanded()
+     if (api == null || !expanded()) return
+-    return listenForNaosOverlayEscape({
+-      onClose: () => api.setOpen(false),
+-      target: document,
+-    })
++    return bindDismissLayer(host().element, modal, () => api.setOpen(false))
+   })
+--- a/internal/zag/popover.ts
++++ b/internal/zag/popover.ts
+@@ -27,8 +27,8 @@
+     machine: popoverMachine as never,
+     props: {
+       autoFocus: false,
+-      closeOnEscape: true,
+-      closeOnInteractOutside: true,
++      closeOnEscape: false,
++      closeOnInteractOutside: false,
+       defaultOpen: open,
+       finalFocusEl: () => host.shadowRoot?.querySelector<HTMLElement>("[part~='trigger']") ?? host,
+       id,

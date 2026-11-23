@@ -1755,10 +1755,178 @@ test("packaged primitives render and dispatch package events", async ({ page }) 
   await expect(toastItems.nth(0)).toHaveAttribute("data-type", "success")
   await expect(toastItems.nth(0).locator("[part~='title']")).toHaveText("Release queued")
   await expect(toastItems.nth(0).locator("[part~='description']")).toContainText(
-    "managed by the Zag toast store",
+    "managed by the notification queue",
   )
   await toastItems.nth(0).locator("[part~='close']").click()
   await expect(toastRegion).toHaveAttribute("data-count", "0")
+})
+
+test("date picker opens, selects and resets its submitted value", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const form = document.createElement("form")
+    form.id = "date-regression"
+    form.style.cssText = "position: fixed; top: 0; left: 0; z-index: 99999"
+    form.innerHTML =
+      '<naos-date-picker name="date" value="2026-06-18" label="Date"></naos-date-picker>'
+    document.body.append(form)
+  })
+  const form = page.locator("#date-regression")
+  const picker = form.locator("naos-date-picker")
+  await expect(picker.locator('[part~="input"]')).toHaveValue("06/18/2026")
+  await picker.locator('[part~="trigger"]').click()
+  await expect(picker.locator('[part~="content"]')).toBeVisible()
+  await expect(picker.locator('[part~="cell-trigger"]')).toHaveCount(42)
+  const grid = picker.locator('[part~="table"]')
+  await grid.focus()
+  await grid.press("ArrowRight")
+  await grid.press("Enter")
+  await expect(picker.locator('[part~="root"]')).toHaveAttribute("data-value", "2026-06-19")
+  await picker.locator('[part~="trigger"]').click()
+  await picker.locator('[part~="cell-trigger"][data-value="2026-06-20"]').click()
+  expect(
+    await form.evaluate((element) => new FormData(element as HTMLFormElement).get("date")),
+  ).toBe("2026-06-20")
+  await form.evaluate((element: HTMLFormElement) => element.reset())
+  await expect(picker.locator('[part~="input"]')).toHaveValue("06/18/2026")
+})
+
+test("pin input completes and resets its submitted value", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const form = document.createElement("form")
+    form.id = "pin-regression"
+    form.style.cssText = "position: fixed; top: 0; left: 0; z-index: 99999"
+    form.innerHTML = '<naos-pin-input name="pin" value="123" otp label="Code"></naos-pin-input>'
+    document.body.append(form)
+  })
+  const form = page.locator("#pin-regression")
+  const inputs = form.locator('[part~="input"]')
+  await expect(inputs).toHaveCount(4)
+  await expect(inputs.nth(2)).toHaveValue("3")
+  await inputs.nth(3).fill("x")
+  await expect(inputs.nth(3)).toHaveValue("")
+  await inputs.nth(3).fill("4")
+  await expect(form.locator('[part~="root"]')).toHaveAttribute("data-state", "complete")
+  expect(
+    await form.evaluate((element) => new FormData(element as HTMLFormElement).get("pin")),
+  ).toBe("1234")
+  await form.evaluate((element: HTMLFormElement) => element.reset())
+  await expect(inputs.nth(3)).toHaveValue("")
+})
+
+test("rating selects and resets its submitted value", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const form = document.createElement("form")
+    form.id = "rating-regression"
+    form.style.cssText = "position: fixed; top: 0; left: 0; z-index: 99999"
+    form.innerHTML =
+      '<naos-rating-group name="rating" value="3" label="Rating"></naos-rating-group>'
+    document.body.append(form)
+  })
+  const form = page.locator("#rating-regression")
+  const items = form.locator('[part~="item"]')
+  await expect(items).toHaveCount(5)
+  await items.nth(3).click()
+  await expect(items.nth(3)).toHaveAttribute("aria-checked", "true")
+  await expect(items.nth(3)).toBeFocused()
+  expect(
+    await form.evaluate((element) => new FormData(element as HTMLFormElement).get("rating")),
+  ).toBe("4")
+  await items.nth(3).press("ArrowLeft")
+  await expect(items.nth(2)).toBeFocused()
+  await expect(items.nth(2)).toHaveAttribute("aria-checked", "true")
+  await form.evaluate((element: HTMLFormElement) => element.reset())
+  await expect(items.nth(2)).toHaveAttribute("aria-checked", "true")
+})
+
+test("slider changes and resets its submitted value", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const form = document.createElement("form")
+    form.id = "slider-regression"
+    form.style.cssText = "position: fixed; top: 0; left: 0; z-index: 99999"
+    form.innerHTML = '<naos-slider name="level" value="40" step="10" label="Level"></naos-slider>'
+    document.body.append(form)
+  })
+  const form = page.locator("#slider-regression")
+  const thumb = form.locator('[part~="thumb"]')
+  await expect(thumb).toHaveAttribute("aria-valuenow", "40")
+  await thumb.focus()
+  await thumb.press("ArrowRight")
+  await expect(thumb).toHaveAttribute("aria-valuenow", "50")
+  expect(
+    await form.evaluate((element) => new FormData(element as HTMLFormElement).get("level")),
+  ).toBe("50")
+  const control = form.locator('[part~="control"]')
+  const box = await control.boundingBox()
+  if (!box) throw new Error("Slider control box missing")
+  await control.click({ position: { x: box.width * 0.8, y: box.height / 2 } })
+  await expect(thumb).toHaveAttribute("aria-valuenow", "80")
+  await form.evaluate((element: HTMLFormElement) => element.reset())
+  await expect(thumb).toHaveAttribute("aria-valuenow", "40")
+})
+
+test("number input steps and resets its submitted value", async ({ page }) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const form = document.createElement("form")
+    form.id = "number-regression"
+    form.style.cssText = "position: fixed; top: 0; left: 0; z-index: 99999"
+    form.innerHTML =
+      '<naos-number-input name="count" value="2" min="1" max="5" label="Count"></naos-number-input>'
+    document.body.append(form)
+  })
+  const form = page.locator("#number-regression")
+  const field = form.locator('[part~="input"]')
+  await expect(field).toHaveValue("2")
+  await form.locator('[part~="increment"]').click()
+  await expect(field).toHaveValue("3")
+  expect(
+    await form.evaluate((element) => new FormData(element as HTMLFormElement).get("count")),
+  ).toBe("3")
+  await form.evaluate((element: HTMLFormElement) => element.reset())
+  await expect(field).toHaveValue("2")
+  expect(
+    await form.evaluate((element) => new FormData(element as HTMLFormElement).get("count")),
+  ).toBe("2")
+})
+
+test("fieldset disabled state does not overwrite a control's own disabled state", async ({
+  page,
+}) => {
+  await page.goto("/")
+  await page.evaluate(() => {
+    const form = document.createElement("form")
+    form.id = "fieldset-regression"
+    form.innerHTML = `<fieldset><naos-number-input name="count" value="2" label="Count"></naos-number-input><naos-number-input name="own" value="3" disabled label="Own"></naos-number-input></fieldset>`
+    document.body.append(form)
+  })
+  const fieldset = page.locator("#fieldset-regression fieldset")
+  const inherited = fieldset.locator('naos-number-input[name="count"]')
+  const own = fieldset.locator('naos-number-input[name="own"]')
+  const values = () =>
+    page
+      .locator("#fieldset-regression")
+      .evaluate((form) => Object.fromEntries(new FormData(form as HTMLFormElement)))
+  await expect(inherited.locator("input")).toBeEnabled()
+  expect(await values()).toEqual({ count: "2" })
+  await fieldset.evaluate((element: HTMLFieldSetElement) => {
+    element.disabled = true
+  })
+  await expect(inherited.locator("input")).toBeDisabled()
+  await expect(inherited).not.toHaveAttribute("disabled")
+  expect(await values()).toEqual({})
+  await fieldset.evaluate((element: HTMLFieldSetElement) => {
+    element.disabled = false
+  })
+  await expect(inherited.locator("input")).toBeEnabled()
+  await expect(own.locator("input")).toBeDisabled()
+  expect(await values()).toEqual({ count: "2" })
+  await own.evaluate((element) => element.removeAttribute("disabled"))
+  await expect(own.locator("input")).toBeEnabled()
+  expect(await values()).toEqual({ count: "2", own: "3" })
 })
 
 test("form-associated primitive controls receive disabled fieldset state", async ({ page }) => {

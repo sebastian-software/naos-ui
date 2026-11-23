@@ -1297,7 +1297,7 @@ mod tests {
         assert!(
             result
                 .code
-                .contains("class CounterElement extends HTMLElement")
+                .contains("class CounterElement extends (globalThis.HTMLElement ?? class {})")
         );
         assert!(result.code.contains(
             "__naosDefineComponent(\"x-counter\", CounterElement, __naosComponentMetadata)"
@@ -1379,7 +1379,7 @@ mod tests {
         assert!(
             result
                 .code
-                .contains("class CounterElement extends HTMLElement")
+                .contains("class CounterElement extends (globalThis.HTMLElement ?? class {})")
         );
         assert!(result.code.contains(
             "__naosDefineComponent(\"x-counter\", CounterElement, __naosComponentMetadata)"
@@ -1871,6 +1871,40 @@ mod tests {
     }
 
     #[test]
+    fn component_local_factory_requires_an_explicit_lifetime() {
+        let source = r#"
+            import { createTypeahead } from "@ui-sdk/core";
+            export function Search() {
+              const search = createTypeahead();
+              return (<button onClick={() => search.reset()}>Search</button>);
+            }
+        "#;
+        let error = transform_component_module(source, "search.wc.tsx")
+            .expect_err("unsupported local factory should report a diagnostic");
+        assert!(
+            error
+                .to_string()
+                .contains("Component-local factory result `search`")
+        );
+        assert!(error.to_string().contains("state()"));
+    }
+
+    #[test]
+    fn keyed_list_item_named_index_does_not_collide_with_implicit_index() {
+        let source = r#"
+            import { state } from "@naos-ui/core";
+            export function List() {
+              const items = state([1, 2]);
+              return (<div>{items().map((index) => <span key={String(index)}>{index}</span>)}</div>);
+            }
+        "#;
+        let result = transform_component_module(source, "list.wc.tsx")
+            .expect("list with an item named index should compile");
+        assert!(result.code.contains("const __naosUnusedIndex = "));
+        assert!(!result.code.contains("const index = node1Index;"));
+    }
+
+    #[test]
     fn transform_component_module_should_generate_form_associated_control_helpers() {
         let source = r#"
             import { formControl, state } from "@naos-ui/core";
@@ -1922,7 +1956,13 @@ mod tests {
         assert!(result.code.contains("formResetCallback()"));
         assert!(result.code.contains("selected.set(checked);"));
         assert!(result.code.contains("formDisabledCallback(disabled)"));
-        assert!(result.code.contains("this.disabled = disabled;"));
+        assert!(result.code.contains("this.#formDisabled = disabled;"));
+        assert!(
+            result
+                .code
+                .contains("const disabled = this.#props.disabled || this.#formDisabled;")
+        );
+        assert!(!result.code.contains("this.disabled = disabled;"));
     }
 
     #[test]
@@ -3235,7 +3275,10 @@ mod tests {
             Err(error) => panic!("transform failed: {error}"),
         };
 
-        assert_contains(&result.code, "class ToggleElement extends HTMLElement");
+        assert_contains(
+            &result.code,
+            "class ToggleElement extends (globalThis.HTMLElement ?? class {})",
+        );
         assert_contains(
             &result.code,
             "__naosDefineComponent(\"x-toggle\", ToggleElement, __naosComponentMetadata)",

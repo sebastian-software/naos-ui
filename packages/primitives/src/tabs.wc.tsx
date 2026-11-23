@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   event,
   host,
@@ -9,12 +8,13 @@ import {
   type ComponentOptions,
 } from "@naos-ui/core"
 import {
-  createNaosZagTabsService,
-  getNaosZagTabsApi,
-  stopNaosZagTabsService,
+  createNaosTabsController,
+  firstCustomTabValue,
+  getLegacyTabProps,
+  hasCustomTabs,
   syncNaosTabsItems,
-} from "./internal/zag/tabs.js"
-import type { NaosZagTabsService } from "./internal/zag/tabs.js"
+  type NaosTabsController,
+} from "./internal/behavior/tabs-sdk.js"
 import css from "./tabs.wc.css?inline"
 
 export type NaosTabsProps = {
@@ -37,16 +37,15 @@ export function NaosTabs({
   value = "",
 }: NaosTabsProps = {}) {
   const selected = state(value || "first")
-  const hasCustomTabs = state(false)
+  const customTabs = state(false)
   const childObserver = state<MutationObserver | null>(null)
-  const tabsService = state<NaosZagTabsService | null>(null)
-  const tabsApi = computed(() => getNaosZagTabsApi(tabsService()))
+  const controller = state<NaosTabsController | null>(null)
   const changed = event<{ value: string }>("naos-change")
 
   onConnected(() => {
     const hostElement = host().element
     const updateHasCustomTabs = () => {
-      hasCustomTabs.set(Boolean(hostElement.querySelector("naos-tab")))
+      customTabs.set(hasCustomTabs(hostElement))
     }
     const initialValue = value || firstCustomTabValue(hostElement) || "first"
     selected.set(initialValue)
@@ -54,9 +53,8 @@ export function NaosTabs({
     const observer = new MutationObserver(updateHasCustomTabs)
     observer.observe(hostElement, { childList: true, subtree: true })
     childObserver.set(observer)
-    tabsService.set(
-      createNaosZagTabsService({
-        host: hostElement,
+    controller.set(
+      createNaosTabsController({
         id: "naos-tabs",
         onValueChange(value) {
           if (value == null) return
@@ -64,21 +62,20 @@ export function NaosTabs({
           changed.emit({ value })
         },
         orientation,
-        root: host().root,
-        value: initialValue,
+        defaultValue: initialValue,
       }),
     )
   })
   onDisconnected(() => {
     childObserver()?.disconnect()
     childObserver.set(null)
-    stopNaosZagTabsService(tabsService())
-    tabsService.set(null)
+    controller()?.destroy()
+    controller.set(null)
   })
   effect(() => {
-    const api = tabsApi()
+    const api = controller()?.api
     void selected()
-    if (api == null || !hasCustomTabs()) return
+    if (api == null || !customTabs()) return
     return syncNaosTabsItems({
       api,
       host: host().element,
@@ -89,33 +86,52 @@ export function NaosTabs({
 
   return (
     <section
-      {...(tabsApi()?.getRootProps() ?? {})}
+      id="tabs:naos-tabs"
+      data-scope="tabs"
+      data-part="root"
       part="root"
       data-state={selected()}
       data-orientation={orientation}
-      data-mode={hasCustomTabs() ? "custom" : "legacy"}
+      data-mode={customTabs() ? "custom" : "legacy"}
     >
       <div
-        {...(tabsApi()?.getListProps() ?? {})}
+        role="tablist"
+        data-scope="tabs"
+        data-part="list"
         part="tablist legacy"
         aria-orientation={orientation}
       >
         <button
-          {...(tabsApi()?.getTriggerProps({ value: "first" }) ?? {})}
+          {...getLegacyTabProps({
+            api: controller()?.api,
+            orientation,
+            selected: selected(),
+            value: "first",
+          })}
           part="tab"
           data-state={selected() === "first" ? "selected" : "unselected"}
         >
           {firstLabel}
         </button>
         <button
-          {...(tabsApi()?.getTriggerProps({ value: "second" }) ?? {})}
+          {...getLegacyTabProps({
+            api: controller()?.api,
+            orientation,
+            selected: selected(),
+            value: "second",
+          })}
           part="tab"
           data-state={selected() === "second" ? "selected" : "unselected"}
         >
           {secondLabel}
         </button>
         <button
-          {...(tabsApi()?.getTriggerProps({ value: "third" }) ?? {})}
+          {...getLegacyTabProps({
+            api: controller()?.api,
+            orientation,
+            selected: selected(),
+            value: "third",
+          })}
           part="tab"
           data-state={selected() === "third" ? "selected" : "unselected"}
         >
@@ -123,28 +139,54 @@ export function NaosTabs({
         </button>
       </div>
       <div
-        {...(tabsApi()?.getListProps() ?? {})}
+        role="tablist"
+        data-scope="tabs"
+        data-part="list"
         part="tablist custom"
         aria-orientation={orientation}
       >
         <slot name="tab" />
       </div>
       <div
-        {...(tabsApi()?.getContentProps({ value: "first" }) ?? {})}
+        id="tabs:naos-tabs:content-first"
+        role="tabpanel"
+        aria-labelledby="tabs:naos-tabs:trigger-first"
+        tabindex={0}
+        data-selected={selected() === "first" || undefined}
+        hidden={selected() !== "first"}
+        data-scope="tabs"
+        data-part="content"
+        data-orientation={orientation}
         part="panel legacy"
         data-value="first"
       >
         <slot name="first" />
       </div>
       <div
-        {...(tabsApi()?.getContentProps({ value: "second" }) ?? {})}
+        id="tabs:naos-tabs:content-second"
+        role="tabpanel"
+        aria-labelledby="tabs:naos-tabs:trigger-second"
+        tabindex={0}
+        data-selected={selected() === "second" || undefined}
+        hidden={selected() !== "second"}
+        data-scope="tabs"
+        data-part="content"
+        data-orientation={orientation}
         part="panel legacy"
         data-value="second"
       >
         <slot name="second" />
       </div>
       <div
-        {...(tabsApi()?.getContentProps({ value: "third" }) ?? {})}
+        id="tabs:naos-tabs:content-third"
+        role="tabpanel"
+        aria-labelledby="tabs:naos-tabs:trigger-third"
+        tabindex={0}
+        data-selected={selected() === "third" || undefined}
+        hidden={selected() !== "third"}
+        data-scope="tabs"
+        data-part="content"
+        data-orientation={orientation}
         part="panel legacy"
         data-value="third"
       >
@@ -155,9 +197,4 @@ export function NaosTabs({
       </div>
     </section>
   )
-}
-
-function firstCustomTabValue(hostElement: HTMLElement) {
-  const tab = hostElement.querySelector<HTMLElement>("naos-tab")
-  return tab?.getAttribute("value") ?? ""
 }

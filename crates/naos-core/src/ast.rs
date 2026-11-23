@@ -14,10 +14,11 @@ use crate::error::{
     CompilerError, CompilerResult, DIAGNOSTIC_CODE_UNSUPPORTED_COMPONENT_OPTIONS,
     DIAGNOSTIC_CODE_UNSUPPORTED_COMPUTED_CALLBACK, DIAGNOSTIC_CODE_UNSUPPORTED_EFFECT_CALLBACK,
     DIAGNOSTIC_CODE_UNSUPPORTED_EVENT_HANDLER, DIAGNOSTIC_CODE_UNSUPPORTED_FACTORY_RENDER,
-    DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
-    DIAGNOSTIC_HINT_COMPONENT_OPTIONS, DIAGNOSTIC_HINT_EVENT_HANDLER,
-    DIAGNOSTIC_HINT_INSTANCE_SETUP, DIAGNOSTIC_HINT_LISTS, removed_authoring_api_with_span,
-    unsupported, unsupported_with_code, unsupported_with_code_and_span,
+    DIAGNOSTIC_CODE_UNSUPPORTED_LIST_RENDERER, DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
+    DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS, DIAGNOSTIC_HINT_COMPONENT_OPTIONS,
+    DIAGNOSTIC_HINT_EVENT_HANDLER, DIAGNOSTIC_HINT_INSTANCE_SETUP, DIAGNOSTIC_HINT_LISTS,
+    removed_authoring_api_with_span, unsupported, unsupported_with_code,
+    unsupported_with_code_and_span,
 };
 use crate::model::{
     AttributeValue, ComponentImport, ComponentOptions, ComputedDefinition, DiagnosticSpan,
@@ -870,6 +871,7 @@ fn lower_list_callback(
                 callback_span,
             )
         })?,
+        None if item_name == "index" => "__naosUnusedIndex",
         None => "index",
     };
     let Some(Statement::ExpressionStatement(statement)) = callback.body.statements.first() else {
@@ -1097,7 +1099,16 @@ fn capture_authoring_const(
                     source, local_name, options,
                 )?);
         }
-        _ => {}
+        _ => {
+            return Err(unsupported_with_code_and_span(
+                DIAGNOSTIC_CODE_UNSUPPORTED_SYNTAX,
+                format!(
+                    "Component-local factory result `{local_name}` is not preserved by the compiler. Store the result in state() to give it an instance lifetime."
+                ),
+                DIAGNOSTIC_HINT_AUTHORING_LIMITATIONS,
+                SourceSpan::from_oxc(call.span).to_diagnostic(),
+            ));
+        }
     }
     Ok(())
 }

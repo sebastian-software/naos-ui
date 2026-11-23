@@ -8,15 +8,8 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagRatingGroupService,
-  getNaosZagRatingGroupApi,
-  normalizeRatingGroupValue,
-  ratingGroupFormValue,
-  ratingGroupKeyboardValue,
-  stopNaosZagRatingGroupService,
-} from "./internal/zag/rating-group.js"
-import type { NaosZagRatingGroupService } from "./internal/zag/rating-group.js"
+import { rating } from "@ui-sdk/core/rating"
+import { ratingItems, ratingKeyboardValue } from "./internal/ui-sdk/rating.js"
 import css from "./rating-group.wc.css?inline"
 
 export type NaosRatingGroupProps = {
@@ -29,10 +22,7 @@ export type NaosRatingGroupProps = {
   required?: boolean
   value?: number
 }
-
-export const options = {
-  styles: [css],
-} satisfies ComponentOptions
+export const options = { styles: [css] } satisfies ComponentOptions
 
 export function NaosRatingGroup({
   allowHalf = false,
@@ -44,57 +34,41 @@ export function NaosRatingGroup({
   required = false,
   value = 0,
 }: NaosRatingGroupProps = {}) {
-  const current = state(normalizeRatingGroupValue(value))
-  const ratingGroupService = state<NaosZagRatingGroupService | null>(null)
-  const ratingGroupApi = computed(() => getNaosZagRatingGroupApi(ratingGroupService()))
+  const current = state(value)
+  const items = computed(() => ratingItems(count))
+  const controller = state<ReturnType<typeof rating> | null>(null)
   const changed = event<{ value: number }>("naos-change")
   const hoverChanged = event<{ hoveredValue: number }>("naos-hover-change")
   const form = formControl({
-    value: () => ratingGroupFormValue(current()),
+    value: () => (current() > 0 ? String(current()) : null),
     reset: () => {
-      current.set(normalizeRatingGroupValue(value))
-      if (normalizeRatingGroupValue(value) > 0) {
-        ratingGroupApi()?.setValue(normalizeRatingGroupValue(value))
-      } else {
-        ratingGroupApi()?.clearValue()
-      }
+      current.set(value)
+      controller()?.api.setValue(value > 0 ? value : null)
     },
     disabled,
   })
   void form
   void name
-
   onConnected(() => {
-    ratingGroupService.set(
-      createNaosZagRatingGroupService({
-        allowHalf,
-        count,
-        disabled,
-        host: host().element,
+    controller.set(
+      rating({
         id: "naos-rating-group",
-        name,
-        onHoverChange(details) {
-          hoverChanged.emit({ hoveredValue: details.hoveredValue })
+        defaultValue: current() > 0 ? current() : null,
+        max: count,
+        step: allowHalf ? 0.5 : 1,
+        onValueChange(next) {
+          current.set(next ?? 0)
+          changed.emit({ value: next ?? 0 })
         },
-        onValueChange(nextValue) {
-          current.set(normalizeRatingGroupValue(nextValue))
-          changed.emit({ value: nextValue })
-        },
-        readOnly,
-        required,
-        root: host().root,
-        value,
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagRatingGroupService(ratingGroupService())
-    ratingGroupService.set(null)
+    controller()?.destroy()
+    controller.set(null)
   })
-
   return (
     <section
-      {...(ratingGroupApi()?.getRootProps() ?? {})}
       part="root"
       aria-disabled={disabled || undefined}
       data-disabled={disabled || undefined}
@@ -102,36 +76,50 @@ export function NaosRatingGroup({
       data-state={current() > 0 ? "filled" : "empty"}
       data-value={current() > 0 ? String(current()) : ""}
     >
-      <label {...(ratingGroupApi()?.getLabelProps() ?? {})} part="label">
-        {label}
-      </label>
-      <div {...(ratingGroupApi()?.getControlProps() ?? {})} part="control">
-        {(ratingGroupApi()?.items ?? []).map((ratingIndex) => (
+      <label part="label">{label}</label>
+      <div
+        part="control"
+        role="radiogroup"
+        aria-label={label}
+        aria-required={required || undefined}
+      >
+        {items().map((itemIndex) => (
           <span
-            key={String(ratingIndex)}
-            {...(ratingGroupApi()?.getItemProps({ index: ratingIndex }) ?? {})}
+            key={String(itemIndex)}
             part="item"
-            data-state={current() >= ratingIndex ? "checked" : "unchecked"}
+            role="radio"
+            aria-label={`${itemIndex} of ${count}`}
+            aria-posinset={itemIndex}
+            aria-setsize={count}
+            aria-checked={Math.ceil(current()) === itemIndex ? "true" : "false"}
+            aria-disabled={disabled ? "true" : undefined}
+            tabindex={
+              Math.ceil(current()) === itemIndex || (current() <= 0 && itemIndex === 1) ? 0 : -1
+            }
+            data-checked={Math.ceil(current()) === itemIndex ? "" : undefined}
+            data-state={current() >= itemIndex ? "checked" : "unchecked"}
+            onClick={(event) => {
+              if (disabled || readOnly) return
+              const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+              const next =
+                allowHalf && event.clientX < rect.left + rect.width / 2
+                  ? itemIndex - 0.5
+                  : itemIndex
+              controller()?.api.setValue(next, { reason: "item-press", event })
+              ;(event.currentTarget as HTMLElement).focus()
+            }}
+            onPointerMove={() => {
+              if (!disabled && !readOnly) hoverChanged.emit({ hoveredValue: itemIndex })
+            }}
             onKeyDown={(event) => {
-              const api = ratingGroupApi()
-              if (disabled || readOnly || api == null) return
-
-              const nextValue = ratingGroupKeyboardValue({
-                allowHalf,
-                count,
-                current: current(),
-                index: ratingIndex,
-                key: event.key,
-              })
-              if (nextValue == null) return
-
+              if (disabled || readOnly) return
+              const next = ratingKeyboardValue(event.key, current(), count, allowHalf, itemIndex)
+              if (next == null) return
               event.preventDefault()
-              api.setValue(nextValue)
+              controller()?.api.setValue(next, { reason: "list-navigation", event })
               queueMicrotask(() => {
-                const nextItem = host().root.querySelector(
-                  `[aria-posinset="${Math.ceil(nextValue)}"]`,
-                )
-                if (nextItem instanceof HTMLElement) nextItem.focus()
+                const item = host().root.querySelector(`[aria-posinset="${Math.ceil(next)}"]`)
+                if (item instanceof HTMLElement) item.focus()
               })
             }}
           >
@@ -139,12 +127,7 @@ export function NaosRatingGroup({
           </span>
         ))}
       </div>
-      <input
-        {...(ratingGroupApi()?.getHiddenInputProps() ?? {})}
-        part="input"
-        name={undefined}
-        value={current() > 0 ? String(current()) : ""}
-      />
+      <input part="input" type="text" hidden value={current() > 0 ? String(current()) : ""} />
     </section>
   )
 }

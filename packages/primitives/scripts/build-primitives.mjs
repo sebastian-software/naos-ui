@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises"
 import { dirname, join, resolve } from "node:path"
 
 import {
@@ -60,56 +60,23 @@ const components = [
   "toggle-group",
   "toggle-item",
 ]
-const behaviorFiles = ["checkbox", "context", "disclosure", "overlay", "presence", "tabs", "toggle"]
-const zagFiles = [
-  "accordion",
-  "avatar",
-  "checkbox",
-  "collapsible",
-  "combobox",
-  "date-picker",
-  "dialog",
-  "editable",
-  "file-upload",
-  "hover-card",
-  "listbox",
-  "menu",
-  "number-input",
-  "pin-input",
-  "popover",
-  "progress",
-  "props",
-  "radio-group",
-  "rating-group",
-  "segmented-control",
-  "select",
-  "slider",
-  "scope",
-  "service",
-  "switch",
-  "tabs",
-  "tags-input",
-  "tooltip",
-  "toast",
-  "toggle",
-  "toggle-group",
-]
-
-await rm(distRoot, { force: true, recursive: true })
+const outputs = new Set()
 await mkdir(distRoot, { recursive: true })
 
 const exports = []
 const manifestEntries = []
 
+await buildHelpers(join(sourceRoot, "internal"), join(distRoot, "internal"))
+
 for (const component of components) {
   const filename = join(sourceRoot, `${component}.wc.tsx`)
   const source = await readFile(filename, "utf8")
   const transformed = transformComponent({ filename, source })
-  const code = await inlineCssImports(transformed.code, filename, {
+  const code = await inlineCssImports(transpile(transformed.code, filename + ".ts"), filename, {
     motionCss: motionCssForComponentSource(source),
   })
-  await writeFile(join(distRoot, `${component}.mjs`), `${code}\n`)
-  await writeFile(
+  await emit(join(distRoot, `${component}.mjs`), `${code}\n`)
+  await emit(
     join(distRoot, `${component}.d.mts`),
     renderNaosElementDeclaration({
       className: transformed.className,
@@ -131,21 +98,35 @@ for (const component of components) {
   exports.push(component)
 }
 
-await writeFile(
+await emit(
   join(distRoot, "index.mjs"),
   `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`,
 )
-await writeFile(
+await emit(
   join(distRoot, "naos-manifest.json"),
   serializeNaosManifest(createNaosManifest(manifestEntries)),
 )
-await writeFile(
+await emit(
   join(distRoot, "index.d.mts"),
   `${exports.map((name) => `export * from "./${name}.mjs"`).join("\n")}\n`,
 )
 
-await buildBehaviorHelpers()
-await buildZagHelpers()
+await prune(distRoot)
+
+async function emit(path, data) {
+  const temporary = path + "." + process.pid + ".tmp"
+  await writeFile(temporary, data)
+  await rename(temporary, path)
+  outputs.add(path)
+}
+
+async function prune(directory) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name)
+    if (entry.isDirectory()) await prune(path)
+    else if (!outputs.has(path) && !entry.name.endsWith(".tmp")) await rm(path, { force: true })
+  }
+}
 
 async function inlineCssImports(code, filename, { motionCss = "" } = {}) {
   const cssImport = /import\s+([A-Za-z_$][A-Za-z0-9_$]*)\s+from\s+["']([^"']+\.css\?inline)["'];?/g
@@ -171,42 +152,30 @@ function appendGeneratedCss(css, generatedCss) {
   return `${css.trimEnd()}\n\n${generatedCss}\n`
 }
 
-async function buildBehaviorHelpers() {
-  const behaviorSourceRoot = join(sourceRoot, "internal", "behavior")
-  const behaviorDistRoot = join(distRoot, "internal", "behavior")
-  await mkdir(behaviorDistRoot, { recursive: true })
-
-  for (const behavior of behaviorFiles) {
-    await buildTypeScriptFile({
-      distRoot: behaviorDistRoot,
-      filename: `${behavior}.ts`,
-      sourceRoot: behaviorSourceRoot,
-    })
+async function buildHelpers(sourceDir, outputDir) {
+  await mkdir(outputDir, { recursive: true })
+  for (const entry of await readdir(sourceDir, { withFileTypes: true })) {
+    const source = join(sourceDir, entry.name)
+    if (entry.isDirectory()) {
+      await buildHelpers(source, join(outputDir, entry.name))
+    } else if (
+      entry.name.endsWith(".ts") &&
+      !entry.name.endsWith(".test.ts") &&
+      !entry.name.endsWith("-probe.ts")
+    ) {
+      const code = transpile(await readFile(source, "utf8"), source)
+      await emit(join(outputDir, entry.name.replace(/\.ts$/, ".js")), code)
+    }
   }
 }
 
-async function buildZagHelpers() {
-  const zagSourceRoot = join(sourceRoot, "internal", "zag")
-  const zagDistRoot = join(distRoot, "internal", "zag")
-  await mkdir(zagDistRoot, { recursive: true })
-
-  for (const helper of zagFiles) {
-    await buildTypeScriptFile({
-      distRoot: zagDistRoot,
-      filename: `${helper}.ts`,
-      sourceRoot: zagSourceRoot,
-    })
-  }
-}
-
-async function buildTypeScriptFile({ distRoot, filename, sourceRoot }) {
-  const source = await readFile(join(sourceRoot, filename), "utf8")
-  const output = ts.transpileModule(source, {
+function transpile(source, filename) {
+  return ts.transpileModule(source, {
+    fileName: filename,
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
       target: ts.ScriptTarget.ES2023,
+      verbatimModuleSyntax: true,
     },
-    fileName: filename,
-  })
-  await writeFile(join(distRoot, filename.replace(/\.ts$/, ".js")), `${output.outputText}\n`)
+  }).outputText
 }

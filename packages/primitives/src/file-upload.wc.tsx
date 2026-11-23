@@ -1,5 +1,5 @@
 import {
-  computed,
+  effect,
   event,
   formControl,
   host,
@@ -9,13 +9,11 @@ import {
   type ComponentOptions,
 } from "@naos-ui/core"
 import {
-  createNaosZagFileUploadService,
+  bindFileUpload,
   fileUploadFileNames,
   fileUploadFormValue,
-  getNaosZagFileUploadApi,
-  stopNaosZagFileUploadService,
-} from "./internal/zag/file-upload.js"
-import type { NaosZagFileUploadService } from "./internal/zag/file-upload.js"
+  formatFileSize,
+} from "./internal/ui-sdk/file-upload.js"
 import css from "./file-upload.wc.css?inline"
 
 export type NaosFileUploadProps = {
@@ -41,8 +39,7 @@ export function NaosFileUpload({
 }: NaosFileUploadProps = {}) {
   const files = state<File[]>([])
   const rejected = state<string[]>([])
-  const fileUploadService = state<NaosZagFileUploadService | null>(null)
-  const fileUploadApi = computed(() => getNaosZagFileUploadApi(fileUploadService()))
+  const fileUploadService = state<ReturnType<typeof bindFileUpload> | null>(null)
   const changed = event<{ files: string[]; rejectedFiles: string[] }>("naos-change")
   const rejectedEvent = event<{ files: string[] }>("naos-invalid")
   const form = formControl({
@@ -50,8 +47,7 @@ export function NaosFileUpload({
     reset: () => {
       files.set([])
       rejected.set([])
-      fileUploadApi()?.clearFiles()
-      fileUploadApi()?.clearRejectedFiles()
+      fileUploadService()?.api.clear({ reason: "reset" })
     },
     disabled,
   })
@@ -59,85 +55,74 @@ export function NaosFileUpload({
   void name
 
   onConnected(() => {
+    const input = host().root.querySelector("input")
+    if (!input) return
     fileUploadService.set(
-      createNaosZagFileUploadService({
+      bindFileUpload(input, {
         accept,
         disabled,
-        host: host().element,
-        id: "naos-file-upload",
         maxFiles,
         multiple,
-        name,
-        onFileChange(details) {
-          const rejectedNames = details.rejectedFiles.map((item) => item.file.name)
-
-          changed.emit({
-            files: fileUploadFileNames(details.acceptedFiles),
-            rejectedFiles: rejectedNames,
-          })
-          queueMicrotask(() => {
-            files.set(details.acceptedFiles)
-            rejected.set(rejectedNames)
-          })
+        defaultValue: files(),
+        onValueChange(next, details) {
+          const rejectedNames = details.rejected.map((item) => item.file.name)
+          files.set(next)
+          rejected.set(rejectedNames)
+          if (details.reason !== "reset")
+            changed.emit({ files: fileUploadFileNames(next), rejectedFiles: rejectedNames })
         },
-        onFileReject(details) {
-          const rejectedNames = details.files.map((item) => item.file.name)
-
-          rejectedEvent.emit({ files: rejectedNames })
-          queueMicrotask(() => {
-            rejected.set(rejectedNames)
-          })
+        onReject(items) {
+          const names = items.map((item) => item.file.name)
+          rejected.set(names)
+          rejectedEvent.emit({ files: names })
         },
-        root: host().root,
       }),
     )
   })
+  effect(() => {
+    fileUploadService()?.configure({ accept, disabled, maxFiles, multiple })
+  })
   onDisconnected(() => {
-    stopNaosZagFileUploadService(fileUploadService())
+    fileUploadService()?.destroy()
     fileUploadService.set(null)
   })
 
   return (
     <section
-      {...(fileUploadApi()?.getRootProps() ?? {})}
       part="root"
       data-state={files().length === 0 ? "empty" : "filled"}
       data-disabled={disabled || undefined}
       data-value={fileUploadFileNames(files()).join(",")}
     >
-      <label {...(fileUploadApi()?.getLabelProps() ?? {})} part="label">
-        {label}
-      </label>
-      <div {...(fileUploadApi()?.getDropzoneProps() ?? {})} part="dropzone">
+      <label part="label">{label}</label>
+      <div part="dropzone" role="button" aria-label={label} tabindex={disabled ? -1 : 0}>
         <input
-          {...(fileUploadApi()?.getHiddenInputProps() ?? {})}
           part="input"
+          type="file"
+          hidden
+          {...{ accept, multiple }}
+          aria-label={label}
           name={undefined}
           disabled={disabled}
         />
         <span part="message">
           {multiple ? "Choose files or drop them here" : "Choose a file or drop it here"}
         </span>
-        <button {...(fileUploadApi()?.getTriggerProps() ?? {})} part="trigger">
+        <button part="trigger" type="button" disabled={disabled}>
           Browse
         </button>
       </div>
-      <div {...(fileUploadApi()?.getItemGroupProps() ?? {})} part="items">
+      <div part="items">
         {files().map((file, fileIndex) => (
-          <div
-            key={`${file.name}-${file.size}-${fileIndex}`}
-            {...(fileUploadApi()?.getItemProps({ file }) ?? {})}
-            part="item"
-          >
-            <span {...(fileUploadApi()?.getItemNameProps({ file }) ?? {})} part="item-name">
-              {file.name}
-            </span>
-            <span {...(fileUploadApi()?.getItemSizeTextProps({ file }) ?? {})} part="item-size">
-              {fileUploadApi()?.getFileSize(file) ?? `${file.size} B`}
-            </span>
+          <div key={`${file.name}-${file.size}-${fileIndex}`} part="item">
+            <span part="item-name">{file.name}</span>
+            <span part="item-size">{formatFileSize(file.size)}</span>
             <button
-              {...(fileUploadApi()?.getItemDeleteTriggerProps({ file }) ?? {})}
               part="item-delete"
+              type="button"
+              disabled={disabled}
+              aria-label={`Remove ${file.name}`}
+              onClick={() => fileUploadService()?.api.removeFile(file)}
             >
               Remove
             </button>
@@ -147,7 +132,13 @@ export function NaosFileUpload({
       <div part="rejected" data-state={rejected().length === 0 ? "empty" : "filled"}>
         {rejected().join(",")}
       </div>
-      <button {...(fileUploadApi()?.getClearTriggerProps() ?? {})} part="clear">
+      <button
+        part="clear"
+        type="button"
+        disabled={disabled}
+        hidden={!files().length}
+        onClick={() => fileUploadService()?.api.clear()}
+      >
         Clear
       </button>
     </section>

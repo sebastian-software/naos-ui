@@ -2,19 +2,13 @@ import {
   computed,
   event,
   formControl,
-  host,
   onConnected,
   onDisconnected,
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  checkboxStateFor,
-  createNaosZagCheckboxService,
-  getNaosZagCheckboxApi,
-  stopNaosZagCheckboxService,
-} from "./internal/zag/checkbox.js"
-import type { NaosZagCheckboxService } from "./internal/zag/checkbox.js"
+import { checkbox } from "@ui-sdk/core/checkbox"
+import { primitiveId } from "./internal/ui-sdk/id.js"
 import css from "./checkbox.wc.css?inline"
 
 export type NaosCheckboxProps = {
@@ -40,15 +34,15 @@ export function NaosCheckbox({
 }: NaosCheckboxProps = {}) {
   const selected = state(checked)
   const mixed = state(indeterminate)
-  const checkboxService = state<NaosZagCheckboxService | null>(null)
-  const checkboxApi = computed(() => getNaosZagCheckboxApi(checkboxService()))
+  const checkboxService = state<ReturnType<typeof checkbox> | null>(null)
+  const checkboxApi = computed(() => checkboxService()?.api)
   const changed = event<{ checked: boolean; indeterminate: boolean }>("naos-change")
   const form = formControl({
     value: () => (selected() ? value : null),
     reset: () => {
       selected.set(checked)
       mixed.set(indeterminate)
-      checkboxApi()?.setChecked(checkboxStateFor({ checked, indeterminate }))
+      checkboxApi()?.setChecked(indeterminate ? "indeterminate" : checked)
     },
     disabled,
   })
@@ -57,35 +51,24 @@ export function NaosCheckbox({
 
   onConnected(() => {
     checkboxService.set(
-      createNaosZagCheckboxService({
-        checked: selected(),
-        disabled,
-        host: host().element,
-        id: "naos-checkbox",
-        indeterminate: mixed(),
-        onCheckedChange(details) {
-          selected.set(details.checked)
-          mixed.set(details.indeterminate)
-          changed.emit(details)
+      checkbox({
+        id: primitiveId("checkbox"),
+        defaultChecked: mixed() ? "indeterminate" : selected(),
+        onCheckedChange(next) {
+          selected.set(next === true)
+          mixed.set(next === "indeterminate")
+          changed.emit({ checked: next === true, indeterminate: next === "indeterminate" })
         },
-        root: host().root,
-        value,
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagCheckboxService(checkboxService())
+    checkboxService()?.destroy()
     checkboxService.set(null)
   })
 
   return (
     <span part="wrapper">
-      <input
-        {...(checkboxApi()?.getHiddenInputProps() ?? {})}
-        disabled={disabled}
-        name={undefined}
-        value={value}
-      />
       <button
         part="root control"
         type="button"
@@ -96,11 +79,10 @@ export function NaosCheckbox({
         disabled={disabled}
         onClick={() => {
           if (disabled) return
-          checkboxApi()?.toggleChecked()
+          checkboxApi()?.toggle()
         }}
       >
         <span
-          {...(checkboxApi()?.getControlProps() ?? {})}
           part="indicator"
           data-state={mixed() ? "indeterminate" : selected() ? "checked" : "unchecked"}
         >

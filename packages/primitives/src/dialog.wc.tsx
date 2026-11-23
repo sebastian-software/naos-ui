@@ -1,23 +1,7 @@
-import {
-  computed,
-  effect,
-  event,
-  host,
-  onConnected,
-  onDisconnected,
-  state,
-  type ComponentOptions,
-} from "@naos-ui/core"
-import {
-  createNaosZagDialogService,
-  getNaosZagDialogApi,
-  stopNaosZagDialogService,
-} from "./internal/zag/dialog.js"
-import type { NaosZagDialogService } from "./internal/zag/dialog.js"
-import {
-  getNaosOverlayStateAttributes,
-  listenForNaosOverlayEscape,
-} from "./internal/behavior/overlay.js"
+import { effect, event, host, onConnected, state, type ComponentOptions } from "@naos-ui/core"
+import "@ui-sdk/web/dialog"
+import type { DialogEvents, UiDialogElement } from "@ui-sdk/web/dialog"
+import { getNaosOverlayStateAttributes } from "./internal/behavior/overlay.js"
 import {
   createNaosPresenceSnapshot,
   getNaosPresenceAttributes,
@@ -52,29 +36,11 @@ export function NaosDialog({
 }: NaosDialogProps = {}) {
   const expanded = state(open)
   const presence = state(createNaosPresenceSnapshot(open))
-  const dialogService = state<NaosZagDialogService | null>(null)
-  const dialogApi = computed(() => getNaosZagDialogApi(dialogService()))
   const changed = event<{ open: boolean }>("naos-open-change")
 
   onConnected(() => {
-    dialogService.set(
-      createNaosZagDialogService({
-        host: host().element,
-        id: "naos-dialog",
-        label,
-        modal,
-        onOpenChange(nextOpen) {
-          expanded.set(nextOpen)
-          changed.emit({ open: nextOpen })
-        },
-        open: expanded(),
-        root: host().root,
-      }),
-    )
-  })
-  onDisconnected(() => {
-    stopNaosZagDialogService(dialogService())
-    dialogService.set(null)
+    const control = host().root.querySelector<UiDialogElement>("ui-dialog")
+    if (control) control.open = expanded()
   })
   effect(() => {
     const next = nextNaosPresenceSnapshot(presence(), expanded())
@@ -97,40 +63,37 @@ export function NaosDialog({
       }
     })
   })
-  effect(() => {
-    const api = dialogApi()
-    void expanded()
-    if (api == null || !expanded()) return
-    const trigger = host().root.querySelector("[part~='trigger']")
-    const content = host().root.querySelector("[part~='content']")
-    const closeDialog = () => {
-      api.setOpen(false)
-      if (!(trigger instanceof HTMLElement)) return
-      setTimeout(() => trigger.focus(), 0)
-    }
-    const abort = new AbortController()
-    const cleanupEscape = listenForNaosOverlayEscape({
-      onClose: closeDialog,
-      target: document,
-    })
-    document.addEventListener(
-      "pointerdown",
-      (event) => {
-        const path = event.composedPath()
-        if (content != null && path.includes(content)) return
-        if (trigger != null && path.includes(trigger)) return
-        closeDialog()
-      },
-      { capture: true, signal: abort.signal },
-    )
-    return () => {
-      cleanupEscape()
-      abort.abort()
-    }
-  })
 
   return (
-    <div
+    <ui-dialog
+      default-open={open}
+      {...{ modal: modal ? "true" : "false" }}
+      close-on-outside-press
+      onOpenchange={(event) => {
+        if (event.target !== event.currentTarget) return
+        const detail = (event as DialogEvents["openchange"]).detail
+        const nextOpen = detail.value
+        if (nextOpen === expanded()) return
+        expanded.set(nextOpen)
+        changed.emit({ open: nextOpen })
+        if (!nextOpen && (detail.reason === "outside-press" || detail.reason === "escape-key")) {
+          setTimeout(
+            (trigger: Element | null, control: UiDialogElement | null) => {
+              if (
+                trigger instanceof HTMLElement &&
+                trigger.isConnected &&
+                control &&
+                !control.open
+              ) {
+                trigger.focus()
+              }
+            },
+            0,
+            host().root.querySelector("[part~=trigger]"),
+            host().root.querySelector<UiDialogElement>("ui-dialog"),
+          )
+        }
+      }}
       part="root"
       {...getNaosOverlayStateAttributes({
         kind: "dialog",
@@ -140,16 +103,16 @@ export function NaosDialog({
       {...getNaosPresenceAttributes(presence())}
       {...getNaosPresenceMotionAttributes()}
     >
-      <button
-        {...(dialogApi()?.getTriggerProps() ?? {})}
-        part="trigger"
-        aria-expanded={expanded() ? "true" : "false"}
-        data-state={expanded() ? "open" : "closed"}
-      >
-        <slot name="trigger">{label}</slot>
-      </button>
-      <div
-        {...(dialogApi()?.getBackdropProps() ?? {})}
+      <ui-dialog-trigger>
+        <button
+          part="trigger"
+          aria-expanded={expanded() ? "true" : "false"}
+          data-state={expanded() ? "open" : "closed"}
+        >
+          <slot name="trigger">{label}</slot>
+        </button>
+      </ui-dialog-trigger>
+      <ui-dialog-backdrop
         part="backdrop"
         {...getNaosOverlayStateAttributes({
           kind: "dialog",
@@ -160,7 +123,6 @@ export function NaosDialog({
         hidden={isNaosPresenceHidden(presence())}
       />
       <div
-        {...(dialogApi()?.getPositionerProps() ?? {})}
         part="positioner"
         {...getNaosOverlayStateAttributes({
           kind: "dialog",
@@ -170,8 +132,8 @@ export function NaosDialog({
         {...getNaosPresenceAttributes(presence())}
         hidden={isNaosPresenceHidden(presence())}
       >
-        <section
-          {...(dialogApi()?.getContentProps() ?? {})}
+        <ui-dialog-content
+          keep-mounted
           part="content"
           aria-modal={modal ? "true" : undefined}
           {...getNaosOverlayStateAttributes({
@@ -183,18 +145,22 @@ export function NaosDialog({
           hidden={isNaosPresenceHidden(presence())}
         >
           <div part="header">
-            <h2 {...(dialogApi()?.getTitleProps() ?? {})} part="title">
-              <slot name="title">{title}</slot>
-            </h2>
-            <button {...(dialogApi()?.getCloseTriggerProps() ?? {})} part="close">
-              <slot name="close">Close</slot>
-            </button>
+            <ui-dialog-title as-child>
+              <h2 part="title">
+                <slot name="title">{title}</slot>
+              </h2>
+            </ui-dialog-title>
+            <ui-dialog-close>
+              <button part="close">
+                <slot name="close">Close</slot>
+              </button>
+            </ui-dialog-close>
           </div>
-          <div {...(dialogApi()?.getDescriptionProps() ?? {})} part="description">
+          <ui-dialog-description part="description">
             <slot>{description}</slot>
-          </div>
-        </section>
+          </ui-dialog-description>
+        </ui-dialog-content>
       </div>
-    </div>
+    </ui-dialog>
   )
 }

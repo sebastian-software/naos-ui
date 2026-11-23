@@ -1,19 +1,16 @@
 import {
   computed,
+  effect,
+  host,
   event,
   formControl,
-  host,
   onConnected,
   onDisconnected,
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagSwitchService,
-  getNaosZagSwitchApi,
-  stopNaosZagSwitchService,
-} from "./internal/zag/switch.js"
-import type { NaosZagSwitchService } from "./internal/zag/switch.js"
+import { switchPrimitive } from "@ui-sdk/core/switch"
+import { primitiveId } from "./internal/ui-sdk/id.js"
 import css from "./switch.wc.css?inline"
 
 export type NaosSwitchProps = {
@@ -36,8 +33,8 @@ export function NaosSwitch({
   value = "on",
 }: NaosSwitchProps = {}) {
   const active = state(checked)
-  const switchService = state<NaosZagSwitchService | null>(null)
-  const switchApi = computed(() => getNaosZagSwitchApi(switchService()))
+  const switchService = state<ReturnType<typeof switchPrimitive> | null>(null)
+  const switchApi = computed(() => switchService()?.api)
   const changed = event<{ checked: boolean }>("naos-change")
   const form = formControl({
     value: () => (active() ? value : null),
@@ -52,53 +49,60 @@ export function NaosSwitch({
 
   onConnected(() => {
     switchService.set(
-      createNaosZagSwitchService({
-        checked: active(),
-        disabled,
-        host: host().element,
-        id: "naos-switch",
-        label,
-        onCheckedChange(nextChecked) {
-          active.set(nextChecked)
-          changed.emit({ checked: nextChecked })
+      switchPrimitive({
+        id: primitiveId("switch"),
+        defaultChecked: active(),
+        onCheckedChange(next) {
+          active.set(next)
+          changed.emit({ checked: next })
         },
-        root: host().root,
-        value,
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagSwitchService(switchService())
+    switchService()?.destroy()
     switchService.set(null)
+  })
+
+  effect(() => {
+    const input = host().root.querySelector("input")
+    if (input) input.checked = active()
   })
 
   return (
     <label
-      {...(switchApi()?.getRootProps() ?? {})}
       part="root control"
       data-state={active() ? "checked" : "unchecked"}
       data-disabled={disabled || undefined}
     >
       <input
-        {...(switchApi()?.getHiddenInputProps() ?? {})}
+        type="checkbox"
+        tabindex={-1}
+        aria-hidden="true"
+        onChange={() => {
+          if (!disabled) switchApi()?.toggle()
+        }}
         disabled={disabled}
         name={undefined}
         value={value}
       />
       <span
-        {...(switchApi()?.getControlProps() ?? {})}
         part="track"
         role="switch"
+        tabindex={disabled ? -1 : 0}
+        aria-labelledby="switch-label"
+        aria-disabled={disabled || undefined}
+        onKeyDown={(event) => {
+          if (disabled || event.key !== " ") return
+          event.preventDefault()
+          switchApi()?.toggle()
+        }}
         aria-checked={active() ? "true" : "false"}
         data-state={active() ? "checked" : "unchecked"}
       >
-        <span
-          {...(switchApi()?.getThumbProps() ?? {})}
-          part="thumb"
-          data-state={active() ? "checked" : "unchecked"}
-        />
+        <span part="thumb" data-state={active() ? "checked" : "unchecked"} />
       </span>
-      <span {...(switchApi()?.getLabelProps() ?? {})} part="label">
+      <span part="label" id="switch-label">
         <slot>{label}</slot>
       </span>
     </label>

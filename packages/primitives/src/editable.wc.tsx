@@ -1,5 +1,4 @@
 import {
-  computed,
   event,
   formControl,
   host,
@@ -8,13 +7,7 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagEditableService,
-  editableFormValue,
-  getNaosZagEditableApi,
-  stopNaosZagEditableService,
-} from "./internal/zag/editable.js"
-import type { NaosZagEditableService } from "./internal/zag/editable.js"
+import { bindEditable } from "./internal/behavior/editable.js"
 import css from "./editable.wc.css?inline"
 
 export type NaosEditableProps = {
@@ -46,96 +39,134 @@ export function NaosEditable({
 }: NaosEditableProps = {}) {
   const current = state(value)
   const editing = state(false)
-  const editableService = state<NaosZagEditableService | null>(null)
-  const editableApi = computed(() => getNaosZagEditableApi(editableService()))
+  const controller = state<ReturnType<typeof bindEditable>>(null)
   const changed = event<{ value: string }>("naos-change")
   const editChanged = event<{ edit: boolean }>("naos-edit-change")
   const submitted = event<{ value: string }>("naos-submit")
   const canceled = event<{ value: string }>("naos-cancel")
   const form = formControl({
-    value: () => editableFormValue(current()),
-    reset: () => {
-      current.set(value)
-      editing.set(false)
-      editableApi()?.setValue(value)
-      editableApi()?.cancel()
-    },
+    value: () => current() || null,
+    reset: () => controller()?.reset(value),
     disabled,
   })
   void form
   void name
+  void submitMode
 
   onConnected(() => {
-    editableService.set(
-      createNaosZagEditableService({
-        disabled,
-        host: host().element,
-        id: "naos-editable",
-        label,
-        maxLength,
-        name,
-        onEditChange(details) {
-          editing.set(details.edit)
-          editChanged.emit(details)
+    const component = host<NaosEditableProps>()
+    controller.set(
+      bindEditable({
+        root: component.root,
+        signal: component.signal,
+        disabled: () =>
+          Boolean(
+            host<NaosEditableProps>().props.disabled || host<NaosEditableProps>().props.readOnly,
+          ),
+        value: current,
+        editing,
+        submitMode: () => host<NaosEditableProps>().props.submitMode ?? "both",
+        change(next) {
+          current.set(next)
+          changed.emit({ value: next })
         },
-        onValueChange(details) {
-          current.set(details.value)
-          changed.emit(details)
+        edit(next) {
+          editing.set(next)
+          editChanged.emit({ edit: next })
         },
-        onValueCommit(details) {
-          submitted.emit(details)
+        submit(next) {
+          submitted.emit({ value: next })
         },
-        onValueRevert(details) {
-          current.set(details.value)
-          canceled.emit(details)
+        cancel(next) {
+          canceled.emit({ value: next })
         },
-        placeholder,
-        readOnly,
-        required,
-        root: host().root,
-        submitMode,
-        value,
       }),
     )
   })
   onDisconnected(() => {
-    stopNaosZagEditableService(editableService())
-    editableService.set(null)
+    controller.set(null)
   })
 
   return (
     <section
-      {...(editableApi()?.getRootProps() ?? {})}
       part="root"
+      data-scope="editable"
+      data-part="root"
       data-state={editing() ? "edit" : "preview"}
       data-empty={current().trim() === "" || undefined}
       data-disabled={disabled || undefined}
       data-readonly={readOnly || undefined}
       data-value={current()}
     >
-      <label {...(editableApi()?.getLabelProps() ?? {})} part="label">
+      <label
+        id="editable-label"
+        data-scope="editable"
+        data-part="label"
+        part="label"
+        {...{ for: "editable-input" }}
+      >
         {label}
       </label>
-      <div {...(editableApi()?.getAreaProps() ?? {})} part="area">
-        <span {...(editableApi()?.getPreviewProps() ?? {})} part="preview">
-          {editableApi()?.valueText ?? placeholder}
+      <div data-scope="editable" data-part="area" data-focus={editing() || undefined} part="area">
+        <span
+          data-scope="editable"
+          data-part="preview"
+          aria-label={`Edit ${label}`}
+          aria-disabled={disabled || undefined}
+          aria-readonly={readOnly || undefined}
+          tabindex={disabled || readOnly ? undefined : 0}
+          data-placeholder-shown={current().trim() === "" || undefined}
+          hidden={editing()}
+          part="preview"
+        >
+          {current() || placeholder}
         </span>
         <input
-          {...(editableApi()?.getInputProps() ?? {})}
+          id="editable-input"
+          aria-label={label}
+          data-scope="editable"
+          data-part="input"
+          hidden={!editing()}
+          placeholder={placeholder}
+          required={required}
+          {...{ maxlength: maxLength, readonly: readOnly }}
           part="input"
-          name={undefined}
           value={current()}
           disabled={disabled}
         />
       </div>
-      <div {...(editableApi()?.getControlProps() ?? {})} part="control">
-        <button {...(editableApi()?.getEditTriggerProps() ?? {})} part="edit">
+      <div data-scope="editable" data-part="control" part="control">
+        <button
+          data-scope="editable"
+          data-part="edit-trigger"
+          type="button"
+          aria-label={`Edit ${label}`}
+          hidden={editing()}
+          disabled={disabled || readOnly}
+          part="edit"
+        >
           Edit
         </button>
-        <button {...(editableApi()?.getSubmitTriggerProps() ?? {})} part="submit">
+        <button
+          data-scope="editable"
+          data-part="submit-trigger"
+          type="button"
+          aria-label={`Save ${label}`}
+          hidden={!editing()}
+          disabled={disabled || readOnly}
+          part="submit"
+        >
           Save
         </button>
-        <button {...(editableApi()?.getCancelTriggerProps() ?? {})} part="cancel">
+        <button
+          data-scope="editable"
+          data-part="cancel-trigger"
+          type="button"
+          aria-label={`Cancel ${label}`}
+          hidden={!editing()}
+          disabled={disabled || readOnly}
+          part="cancel"
+        >
           Cancel
         </button>
       </div>

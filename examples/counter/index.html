@@ -455,8 +455,7 @@ dispatch native CustomEvents.</code></pre>
             </naos-context-menu>
 
             <naos-collapsible label="Release notes">
-              This section uses Zag-backed trigger and content props while
-              keeping the Naos Custom Element contract.
+              The trigger opens and closes the release notes.
             </naos-collapsible>
 
             <naos-accordion label="Release checklist details" value="quality">
@@ -479,7 +478,7 @@ dispatch native CustomEvents.</code></pre>
             <naos-dialog
               label="Open release dialog"
               title="Release approval"
-              description="Dialog behavior comes from Zag and keeps focus inside while open."
+              description="Focus stays inside the dialog until it closes."
             ></naos-dialog>
 
             <naos-tooltip
@@ -507,7 +506,7 @@ dispatch native CustomEvents.</code></pre>
             <naos-toast
               label="Show release toast"
               title="Release queued"
-              description="The release notification is managed by the Zag toast store."
+              description="The release notification is managed by the notification queue."
               type="success"
               duration="5000"
             ></naos-toast>

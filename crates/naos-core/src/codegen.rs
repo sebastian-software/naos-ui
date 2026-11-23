@@ -295,7 +295,7 @@ impl<'a> CodeGenerator<'a> {
         self.emit_kernel_spec(&mut code)?;
         writeln!(
             code,
-            "class {} extends HTMLElement {{",
+            "class {} extends (globalThis.HTMLElement ?? class {{}}) {{",
             self.module.class_name
         )
         .map_err(format_error)?;
@@ -969,6 +969,7 @@ impl<'a> CodeGenerator<'a> {
         }
         if !self.module.form_controls.is_empty() {
             writeln!(code, "  #internals;").map_err(format_error)?;
+            writeln!(code, "  #formDisabled = false;").map_err(format_error)?;
         }
         if !self.module.props.is_empty() {
             writeln!(code, "  #props = {{").map_err(format_error)?;
@@ -1254,12 +1255,13 @@ impl<'a> CodeGenerator<'a> {
     ) -> CompilerResult<()> {
         writeln!(code, "  formDisabledCallback(disabled) {{").map_err(format_error)?;
         if let Some(disabled_expression) = &form_control.disabled_expression
-            && let Some(prop) = self.module.props.iter().find(|prop| {
+            && self.module.props.iter().any(|prop| {
                 prop.local_name == disabled_expression.trim()
                     && matches!(prop.kind, PropKind::Boolean)
             })
         {
-            writeln!(code, "    this.{} = disabled;", prop.prop_name).map_err(format_error)?;
+            writeln!(code, "    this.#formDisabled = disabled;").map_err(format_error)?;
+            writeln!(code, "    __naosMarkAllDirty(this[__naosKernel]);").map_err(format_error)?;
         }
         writeln!(code, "    __naosFlushSync(this[__naosKernel]);").map_err(format_error)?;
         writeln!(code, "  }}").map_err(format_error)?;
@@ -1390,10 +1392,23 @@ impl<'a> CodeGenerator<'a> {
         }
         writeln!(code, "  #createBindings() {{").map_err(format_error)?;
         for prop in &self.module.props {
+            let is_form_disabled = self.module.form_controls.first().is_some_and(|form| {
+                form.disabled_expression
+                    .as_deref()
+                    .is_some_and(|expression| {
+                        expression.trim() == prop.local_name
+                            && matches!(prop.kind, PropKind::Boolean)
+                    })
+            });
+            let suffix = if is_form_disabled {
+                " || this.#formDisabled"
+            } else {
+                ""
+            };
             writeln!(
                 code,
-                "    const {} = this.#props.{};",
-                prop.local_name, prop.local_name
+                "    const {} = this.#props.{}{};",
+                prop.local_name, prop.local_name, suffix
             )
             .map_err(format_error)?;
         }

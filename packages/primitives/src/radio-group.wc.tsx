@@ -1,3 +1,4 @@
+import { radioGroup } from "@ui-sdk/core/radio"
 import {
   computed,
   effect,
@@ -9,16 +10,9 @@ import {
   state,
   type ComponentOptions,
 } from "@naos-ui/core"
-import {
-  createNaosZagRadioGroupService,
-  createNaosRadioGroupContextController,
-  getNaosZagRadioGroupApi,
-  stopNaosZagRadioGroupService,
-} from "./internal/zag/radio-group.js"
-import type {
-  NaosZagRadioGroupService,
-  NaosRadioGroupContextController,
-} from "./internal/zag/radio-group.js"
+import { createNaosRadioGroupContextController } from "./internal/ui-sdk/radio-group.js"
+import type { NaosRadioGroupContextController } from "./internal/ui-sdk/radio-group.js"
+import { primitiveId } from "./internal/ui-sdk/id.js"
 import css from "./radio-group.wc.css?inline"
 
 export type NaosRadioGroupProps = {
@@ -42,15 +36,15 @@ export function NaosRadioGroup({
 }: NaosRadioGroupProps = {}) {
   const selected = state(value)
   const radioContext = state<NaosRadioGroupContextController | null>(null)
-  const radioService = state<NaosZagRadioGroupService | null>(null)
-  const radioApi = computed(() => getNaosZagRadioGroupApi(radioService()))
+  const radioService = state<ReturnType<typeof radioGroup> | null>(null)
+  const radioApi = computed(() => radioService()?.api)
   const changed = event<{ value: string }>("naos-change")
   const form = formControl({
     value: () => selected() || null,
     reset: () => {
       selected.set(value)
       if (value) radioApi()?.setValue(value)
-      else radioApi()?.clearValue()
+      else radioApi()?.setValue(null)
     },
     disabled,
   })
@@ -59,18 +53,14 @@ export function NaosRadioGroup({
 
   onConnected(() => {
     radioService.set(
-      createNaosZagRadioGroupService({
-        disabled,
-        host: host().element,
-        id: "naos-radio-group",
+      radioGroup({
+        id: primitiveId("radio-group"),
         name,
         onValueChange(nextValue) {
-          selected.set(nextValue)
-          changed.emit({ value: nextValue })
+          selected.set(nextValue ?? "")
+          changed.emit({ value: nextValue ?? "" })
         },
-        orientation,
-        root: host().root,
-        value: selected(),
+        defaultValue: selected(),
       }),
     )
     radioContext.set(
@@ -83,7 +73,7 @@ export function NaosRadioGroup({
   onDisconnected(() => {
     radioContext()?.destroy()
     radioContext.set(null)
-    stopNaosZagRadioGroupService(radioService())
+    radioService()?.destroy()
     radioService.set(null)
   })
   effect(() => {
@@ -100,16 +90,15 @@ export function NaosRadioGroup({
 
   return (
     <section
-      {...(radioApi()?.getRootProps() ?? {})}
+      role="radiogroup"
+      aria-label={label}
       part="root"
       aria-disabled={disabled || undefined}
       data-state={selected() || "none"}
       data-disabled={disabled || undefined}
       data-orientation={orientation}
     >
-      <span {...(radioApi()?.getLabelProps() ?? {})} part="label">
-        {label}
-      </span>
+      <span part="label">{label}</span>
       <div part="items">
         <slot />
       </div>

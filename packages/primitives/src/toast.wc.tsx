@@ -1,5 +1,5 @@
 import { event, type ComponentOptions } from "@naos-ui/core"
-import { createNaosToast } from "./internal/zag/toast.js"
+import { createNaosToast } from "./internal/ui-sdk/toast.js"
 import css from "./toast.wc.css?inline"
 
 export type NaosToastProps = {
