@@ -148,9 +148,11 @@
 }
 
 [part~="cell-trigger"] {
+  box-sizing: border-box;
   width: 2rem;
   height: 2rem;
   border-color: transparent;
+  user-select: none;
 }
 
 [part~="cell-trigger"][data-selected] {
