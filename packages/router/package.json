@@ -27,7 +27,7 @@
   "scripts": {
     "build": "tsdown",
     "check-types": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --globals --environment happy-dom src/*.test.ts"
+    "test": "vitest run --globals --environment happy-dom --root ../.. packages/router/src tests/app-render.test.ts"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -148,7 +148,27 @@ export type NaosSubmitOptions = {
   readonly viewTransition?: boolean
 }
 
+export type NaosSnapshotCache = {
+  dehydrate(): ReadonlyArray<readonly [string, unknown]>
+  hydrate(entries: ReadonlyArray<readonly [string, unknown]>): void
+}
+
+export type NaosAppSnapshot = {
+  readonly version: 1
+  readonly url: string
+  readonly route: string
+  readonly expiresAt: number
+  readonly data: unknown
+  readonly actionData: unknown
+  readonly resources: ReadonlyArray<readonly [string, unknown]>
+}
+
+export type NaosSnapshotMismatchReason = "invalid" | "stale" | "url" | "route" | "shell" | "cache"
+
 export type NaosRouterOptions<Routes extends readonly NaosRoute[]> = {
+  readonly snapshot?: unknown
+  readonly snapshotCache?: NaosSnapshotCache
+  readonly onSnapshotMismatch?: (reason: NaosSnapshotMismatchReason) => void
   readonly basePath?: string
   readonly focusRestoration?: boolean | NaosFocusRestorationOptions
   readonly linkRoot?: ParentNode & EventTarget
@@ -372,9 +392,16 @@ export class NaosRouter<
   #scrollPositions = new Map<string, NaosScrollPosition>()
   #scrollRestoration: NaosScrollRestorationOptions | false
   #started = false
+  #initialSnapshot: unknown
+  #snapshotCache: NaosSnapshotCache | undefined
+  #onSnapshotMismatch: ((reason: NaosSnapshotMismatchReason) => void) | undefined
+  #hydrating = false
 
   constructor(options: InternalRouterOptions<Routes>) {
     super()
+    this.#initialSnapshot = options.snapshot
+    this.#snapshotCache = options.snapshotCache
+    this.#onSnapshotMismatch = options.onSnapshotMismatch
     this.basePath = normalizeBasePath(options.basePath ?? "/")
     this.outlet = options.outlet
     this.routes = options.routes
@@ -595,6 +622,43 @@ export class NaosRouter<
     })
   }
 
+  #takeSnapshot(
+    url: URL,
+    matched: { route: NaosRoute; chain: readonly NaosRoute[] } | null,
+  ): NaosAppSnapshot | null {
+    let value = this.#initialSnapshot
+    this.#initialSnapshot = undefined
+    if (typeof value === "string") {
+      try {
+        value = JSON.parse(value)
+      } catch {
+        value = null
+      }
+    }
+    if (value === undefined) return null
+    const reason = !isAppSnapshot(value)
+      ? "invalid"
+      : value.expiresAt <= Date.now()
+        ? "stale"
+        : value.url !== url.href
+          ? "url"
+          : !matched || matched.chain.length !== 1 || matched.route.path !== value.route
+            ? "route"
+            : !matched.route.tag ||
+                this.outlet.children.length !== 1 ||
+                this.outlet.firstElementChild?.localName !== matched.route.tag
+              ? "shell"
+              : value.resources.length > 0 && !this.#snapshotCache
+                ? "cache"
+                : null
+    if (reason || !isAppSnapshot(value)) {
+      this.#onSnapshotMismatch?.(reason ?? "invalid")
+      return null
+    }
+    this.#snapshotCache?.hydrate(value.resources)
+    return value
+  }
+
   #onClick = (event: Event): void => {
     if (event.defaultPrevented || !isPlainLeftClick(event)) return
     const anchor = findAnchor(event.target)
@@ -805,10 +869,10 @@ export class NaosRouter<
         })
       }
 
+      const snapshot = options.type === "load" ? this.#takeSnapshot(url, matched) : null
       await this.#loadRoute(route, navigation)
       if (!this.#isCurrent(navigation)) return null
-
-      const prefetched = matched ? this.#consumePrefetchedData(url) : null
+      const prefetched = matched && !snapshot ? this.#consumePrefetchedData(url) : null
       if (prefetched && !prefetched.settled) {
         // A consumed prefetch keeps running on its own controller; forward the
         // consuming navigation's abort so superseding navigations cancel it.
@@ -816,12 +880,19 @@ export class NaosRouter<
           once: true,
         })
       }
-      const data = prefetched
-        ? await prefetched.promise
-        : await this.#runLoader(route, matchWithoutData)
+      const data = snapshot
+        ? snapshot.data
+        : prefetched
+          ? await prefetched.promise
+          : await this.#runLoader(route, matchWithoutData)
       if (!this.#isCurrent(navigation)) return null
 
-      const match = { ...matchWithoutData, data } satisfies NaosRouteMatch<Routes[number]>
+      const match = {
+        ...matchWithoutData,
+        data,
+        ...(snapshot ? { actionData: snapshot.actionData } : {}),
+      } satisfies NaosRouteMatch<Routes[number]>
+      this.#hydrating = Boolean(snapshot)
 
       if (options.history === "push") {
         this.#platform.history.pushState(this.#historyStateFor(url, navigation, "push"), "", url)
@@ -843,8 +914,10 @@ export class NaosRouter<
         },
         matched?.chain,
       )
+      this.#hydrating = false
       return match
     } catch (error) {
+      this.#hydrating = false
       if (!this.#isCurrent(navigation)) return null
       this.#dispatchRouterEvent("naos:navigationerror", { error, navigation })
       // A navigationerror listener may start a new navigation synchronously;
@@ -1121,6 +1194,14 @@ export class NaosRouter<
 
       // Parent layout levels are reused when the route and its own params are
       // unchanged; the leaf always remounts fresh, matching flat behavior.
+      const serverElement =
+        this.#hydrating &&
+        "tag" in level &&
+        level.tag &&
+        container.children.length === 1 &&
+        container.firstElementChild?.localName === level.tag
+          ? (container.firstElementChild as RouteElement)
+          : null
       const reuse =
         !isLeaf &&
         reusePossible &&
@@ -1130,14 +1211,16 @@ export class NaosRouter<
         previous.element.parentNode !== null
 
       let element: RouteElement
-      if (reuse) {
+      if (serverElement) {
+        element = serverElement
+      } else if (reuse) {
         element = previous.element
       } else {
         reusePossible = false
         element = createRouteElement(this.#platform.document, level, match)
       }
       this.#applyRouteElement(element, level, match)
-      if (!reuse) {
+      if (!reuse && !serverElement) {
         container.replaceChildren(element)
       }
       nextLevels.push({ element, paramsKey, route: level })
@@ -1943,4 +2026,94 @@ function interpolatePath(path: string, params: Record<string, string | number | 
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")
+}
+
+/** Render a single matched route with a fresh resource cache for this request. */
+export async function renderApp<Cache extends NaosSnapshotCache>(options: {
+  request: Request
+  Cache: new () => Cache
+  routes(cache: Cache): readonly NaosRoute[]
+  render(match: NaosRouteMatch, cache: Cache): string | Promise<string>
+  expiresAt: number
+  actionData?: unknown
+}): Promise<{ html: string; snapshot: NaosAppSnapshot; serializedSnapshot: string }> {
+  const cache = new options.Cache()
+  const url = new URL(options.request.url)
+  const matched = compileRouteMatchers(options.routes(cache))
+    .map((matcher) => ({ matcher, params: matcher.exec(url.pathname) }))
+    .find((item) => item.params !== null)
+  if (!matched || matched.matcher.chain.length !== 1)
+    throw new Error("App rendering requires one matching flat route.")
+  const route = matched.matcher.route
+  if (!route.tag) throw new Error("App rendering requires a tagged route.")
+  if (options.request.method !== "GET") throw new Error("App rendering requires a GET request.")
+  const navigation: NaosNavigation = {
+    id: 0,
+    url,
+    from: null,
+    type: "load",
+    signal: options.request.signal,
+  }
+  const match: NaosRouteMatch = {
+    route,
+    url,
+    params: matched.params!,
+    search: url.searchParams,
+    navigation,
+  }
+  const guard = await route.canEnter?.(match)
+  if (guard !== undefined && guard !== true)
+    throw new Error("App rendering route guard did not allow the request.")
+  await route.load?.(navigation)
+  const data = await route.loader?.({ ...match, request: options.request })
+  const result = { ...match, data: data ?? null, actionData: options.actionData ?? null }
+  const html = await options.render(result, cache)
+  const snapshot: NaosAppSnapshot = {
+    version: 1,
+    url: url.href,
+    route: route.path,
+    expiresAt: options.expiresAt,
+    data: data ?? null,
+    actionData: options.actionData ?? null,
+    resources: cache.dehydrate(),
+  }
+  if (!isAppSnapshot(snapshot))
+    throw new Error("App snapshot contains non-JSON data or an invalid expiry.")
+  const serializedSnapshot = JSON.stringify(snapshot).replace(/</gu, "\\u003c")
+  return { html, snapshot, serializedSnapshot }
+}
+
+function isJson(value: unknown, seen = new Set<object>()): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true
+  if (typeof value === "number") return Number.isFinite(value)
+  if (typeof value !== "object" || seen.has(value)) return false
+  const prototype = Object.getPrototypeOf(value)
+  if (!Array.isArray(value) && prototype !== Object.prototype && prototype !== null) return false
+  seen.add(value)
+  const keys = Object.keys(value)
+  const valid =
+    Object.getOwnPropertySymbols(value).length === 0 &&
+    (!Array.isArray(value) || keys.length === value.length) &&
+    Object.values(value).every((entry) => isJson(entry, seen))
+  seen.delete(value)
+  return valid
+}
+
+function isAppSnapshot(value: unknown): value is NaosAppSnapshot {
+  return (
+    isRecord(value) &&
+    value.version === 1 &&
+    typeof value.url === "string" &&
+    typeof value.route === "string" &&
+    typeof value.expiresAt === "number" &&
+    Number.isFinite(value.expiresAt) &&
+    "data" in value &&
+    "actionData" in value &&
+    Array.isArray(value.resources) &&
+    value.resources.every(
+      (entry: unknown) =>
+        Array.isArray(entry) && entry.length === 2 && typeof entry[0] === "string",
+    ) &&
+    isJson(value)
+  )
 }
