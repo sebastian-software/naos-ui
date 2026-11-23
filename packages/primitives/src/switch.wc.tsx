@@ -1,5 +1,4 @@
 import {
-  computed,
   effect,
   host,
   event,
@@ -11,6 +10,7 @@ import {
 } from "@naos-ui/core"
 import { switchPrimitive } from "@ui-sdk/core/switch"
 import { primitiveId } from "./internal/ui-sdk/id.js"
+import { createBinaryControlBinding } from "./internal/ui-sdk/binary-control.js"
 import css from "./switch.wc.css?inline"
 
 export type NaosSwitchProps = {
@@ -33,14 +33,12 @@ export function NaosSwitch({
   value = "on",
 }: NaosSwitchProps = {}) {
   const active = state(checked)
-  const switchService = state<ReturnType<typeof switchPrimitive> | null>(null)
-  const switchApi = computed(() => switchService()?.api)
+  const binding = state<ReturnType<typeof createBinaryControlBinding> | null>(null)
   const changed = event<{ checked: boolean }>("naos-change")
   const form = formControl({
     value: () => (active() ? value : null),
     reset: () => {
-      active.set(checked)
-      switchApi()?.setChecked(checked)
+      binding()?.reset()
     },
     disabled,
   })
@@ -48,20 +46,39 @@ export function NaosSwitch({
   void name
 
   onConnected(() => {
-    switchService.set(
-      switchPrimitive({
-        id: primitiveId("switch"),
-        defaultChecked: active(),
-        onCheckedChange(next) {
-          active.set(next)
-          changed.emit({ checked: next })
-        },
-      }),
-    )
+    if (!binding()) {
+      binding.set(
+        createBinaryControlBinding({
+          element: host().element,
+          property: "checked",
+          active,
+          flush() {
+            host().flushSync()
+          },
+          onChange(next) {
+            changed.emit({ checked: next })
+          },
+          create(initial) {
+            const service = switchPrimitive({
+              id: primitiveId("switch"),
+              defaultChecked: initial,
+            })
+            return {
+              set(next, event) {
+                return service.api.setChecked(next, event ? { reason: "press", event } : undefined)
+              },
+              destroy() {
+                service.destroy()
+              },
+            }
+          },
+        }),
+      )
+    }
+    binding()?.connect()
   })
   onDisconnected(() => {
-    switchService()?.destroy()
-    switchService.set(null)
+    binding()?.disconnect()
   })
 
   effect(() => {
@@ -79,8 +96,8 @@ export function NaosSwitch({
         type="checkbox"
         tabindex={-1}
         aria-hidden="true"
-        onChange={() => {
-          if (!disabled) switchApi()?.toggle()
+        onChange={(event) => {
+          if (!disabled) binding()?.activate(event)
         }}
         disabled={disabled}
         name={undefined}
@@ -95,7 +112,7 @@ export function NaosSwitch({
         onKeyDown={(event) => {
           if (disabled || event.key !== " ") return
           event.preventDefault()
-          switchApi()?.toggle()
+          binding()?.activate(event)
         }}
         aria-checked={active() ? "true" : "false"}
         data-state={active() ? "checked" : "unchecked"}
